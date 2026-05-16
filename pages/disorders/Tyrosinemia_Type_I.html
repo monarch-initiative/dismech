@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2822,6 +3013,8 @@
                 
                 <div class="evidence-explanation">Directly supports FAH deficiency as the initiating molecular defect.</div>
                 
+                
+                
             </div>
             
             
@@ -2988,6 +3181,8 @@
                 
                 <div class="evidence-explanation">Directly supports toxic-metabolite accumulation downstream of FAH deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3126,6 +3321,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that FAA directly induces mitochondrial cytochrome c release in tyrosinemia model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3145,6 +3342,8 @@
                 
                 
                 <div class="evidence-explanation">Proves caspase-mediated apoptosis is the mechanism of hepatocyte injury in tyrosinemia.</div>
+                
+                
                 
             </div>
             
@@ -3276,6 +3475,8 @@
                 
                 
                 <div class="evidence-explanation">Directly links toxic metabolite accumulation to kidney injury in HT-1.</div>
+                
+                
                 
             </div>
             
@@ -3429,6 +3630,8 @@
                 
                 <div class="evidence-explanation">Directly links untreated HT-1 to fibrosis, cirrhosis, and HCC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3448,6 +3651,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse transcriptomics supports persistent hepatic injury, regeneration, and HCC-related programs under NTBC.</div>
+                
+                
                 
             </div>
             
@@ -3569,6 +3774,8 @@
                 
                 <div class="evidence-explanation">Biochemical evidence directly supports succinylacetone inhibition of ALA dehydratase.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3588,6 +3795,8 @@
                 
                 
                 <div class="evidence-explanation">Patient observations connect HT-1 to ALA accumulation and porphyria-like neurovisceral crises.</div>
+                
+                
                 
             </div>
             
@@ -3716,6 +3925,8 @@
                 
                 <div class="evidence-explanation">Demonstrates persistent HCC-related gene expression under NTBC therapy in mouse model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3735,6 +3946,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms NTBC does not cure the underlying enzymatic deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3770,7 +3983,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute liver failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute hepatic decompensation is a hallmark of untreated or severe HT-1, driven by FAA-mediated oxidative damage and caspase-dependent apoptosis of hepatocytes. In untreated acute-form HT-1, liver failure typically presents in the first months of life.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006554\"}}, {\"id\": \"Alpha-fetoprotein (AFP)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic hepatic injury and regeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Untreated or late-treated HT-1 produces chronic hepatic injury with regeneration, fibrosis, cirrhosis, and malignant transformation risk. Continuous NTBC reduces acute toxicity but does not restore FAH activity, so residual liver-disease and HCC-associated programs can persist.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"liver regeneration\"], \"locations\": [\"liver\"]}}, {\"id\": \"Coagulopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic synthetic dysfunction leads to coagulopathy, which is one of the earliest signs of liver failure in acute-form HT-1.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001928\"}}, {\"id\": \"Delta-aminolevulinic acid (ALA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dietary tyrosine and phenylalanine restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-tyrosine, low-phenylalanine diet is essential in combination with NTBC therapy, since NTBC causes upstream accumulation of tyrosine. Specialized medical formulas provide essential amino acids while restricting tyrosine and phenylalanine intake.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral edema and ascites may occur due to hepatic synthetic failure with hypoalbuminemia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000969\"}}, {\"id\": \"Elevated alpha-fetoprotein\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Alpha-fetoprotein (AFP) is markedly elevated in HT-1 and serves as both a diagnostic and monitoring biomarker. AFP should decrease after NTBC initiation; rising or persistently elevated AFP raises suspicion for hepatocellular carcinoma or treatment non-adherence.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006254\"}}, {\"id\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fumarylacetoacetate directly triggers mitochondrial outer membrane permeabilization with release of cytochrome c, activating the caspase cascade and inducing hepatocyte apoptosis. Caspase inhibitors were shown to prevent liver failure in FAH-deficient mouse models, confirming the causal role of the intrinsic apoptotic pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"intrinsic apoptotic signaling pathway\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"FAH deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FAH\"], \"variant_count\": 1}}, {\"id\": \"FAH pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Over 100 pathogenic variants in FAH have been reported worldwide. The IVS12+5G\u003eA splice site mutation is the most common variant in the French-Canadian population of Quebec. Various missense, nonsense, splice-site, and frameshift mutations have been identified across diverse ethnic groups.\\n\"}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth and failure to thrive occur in untreated or poorly controlled HT-1 due to chronic liver disease, renal dysfunction, and metabolic instability.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fumarylacetoacetate (FAA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fumarylacetoacetate hydrolase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of FAH activity blocks the terminal enzymatic step of tyrosine catabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"tyrosine catabolic process\"], \"molecular_functions\": [\"fumarylacetoacetase activity\"], \"genes\": [\"FAH\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cirrhosis develops progressively in untreated HT-1 as a consequence of chronic hepatocyte injury and regeneration. A case of false-negative NBS presented at age 9 with HCC in a cirrhotic liver.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001394\"}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive liver fibrosis and cirrhosis develop in untreated or late-treated HT-1. Even false-negative NBS cases have presented with cirrhosis years later.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatocellular carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"HCC is the most feared long-term complication of HT-1. Risk persists even under NTBC therapy, necessitating lifelong surveillance with alpha-fetoprotein monitoring and liver imaging.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001402\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is common in HT-1 due to hepatocellular injury, regeneration nodules, and progressive liver disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002240\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is curative for the hepatic manifestations of HT-1 but does not correct renal FAH deficiency, and residual SA production by the kidneys may persist. Indications include acute liver failure, HCC or dysplastic nodules, or failure of medical management.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neurocognitive assessment and therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term neurocognitive assessment is recommended for HT-1 patients, as they are at risk for neurocognitive impairment even under NTBC therapy. Early intervention and educational support may improve outcomes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neurocognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-term neurocognitive impairment is a recognized risk in HT-1 patients, even those treated early with NTBC. Neurocognitive assessment and therapy are recommended in clinical follow-up.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"NBS for HT-1 using dried blood spot succinylacetone measurement is recommended, as it is superior to tyrosine-based screening. Early identification enables pre-symptomatic NTBC initiation for optimal long-term outcomes.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Nitisinone (NTBC) therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nitisinone (2-[2-nitro-4-trifluoromethylbenzoyl]-1,3-cyclohexanedione) is a potent inhibitor of 4-hydroxyphenylpyruvate dioxygenase (HPD), the second enzyme in tyrosine degradation. By blocking HPD, NTBC prevents formation of the toxic downstream metabolites FAA, MAA, and SA. Early initiation of NTBC, ideally before symptom onset via NBS identification, provides greater than 90% survival and dramatically reduces the need for liver transplantation.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nitisinone\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Porphyria-like neurovisceral crises with peripheral neuropathy result from succinylacetone-mediated inhibition of ALAD and accumulation of delta-aminolevulinic acid. Episodes mimic acute intermittent porphyria.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although nitisinone prevents acute toxicity by blocking upstream toxic metabolite formation, it does not restore FAH activity. Transcriptomic analysis in FAH-deficient mice under continuous NTBC revealed persistent enrichment of genes related to liver disease, liver regeneration, and hepatocellular carcinoma. This supports the ongoing HCC risk even in treated patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"liver regeneration\"]}}, {\"id\": \"Renal proximal tubule toxic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated tyrosine-pathway metabolites injure kidney tissue, especially the proximal tubule, causing a Fanconi-like renal phenotype with phosphate wasting. This renal tubular mechanism explains renal tubular dysfunction and secondary hypophosphatemic rickets in HT-1.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"cellular response to toxic substance\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal tubular dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal renal tubular dysfunction with a Fanconi-like syndrome is a core manifestation, resulting from toxic metabolite damage to renal tubular epithelial cells. May manifest as aminoaciduria, phosphaturia, glycosuria, and renal tubular acidosis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001994\"}}, {\"id\": \"Rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypophosphatemic rickets develops secondary to renal tubular phosphate wasting in the context of Fanconi-like tubulopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002748\"}}, {\"id\": \"Succinylacetone (SA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Succinylacetone inhibition of heme biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Succinylacetone (SA) is a competitive inhibitor of delta-aminolevulinic acid dehydratase (ALAD), blocking the heme biosynthetic pathway and causing accumulation of delta-aminolevulinic acid (ALA). This produces porphyria-like neurovisceral crises with neuropathy, similar to acute intermittent porphyria or lead poisoning.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"]}}, {\"id\": \"Supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute and chronic supportive management includes correction of coagulopathy, electrolyte management for renal tubular dysfunction, vitamin D and phosphate supplementation for rickets, and monitoring of liver and renal function.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAH deficiency causes accumulation of fumarylacetoacetate (FAA) and maleylacetoacetate (MAA), with secondary formation of succinylacetone (SA). FAA is highly reactive and mutagenic, reacting with glutathione and protein sulfhydryl groups to cause oxidative cellular damage in hepatocytes and renal tubular epithelial cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"liver\"]}}, {\"id\": \"Tyrosine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Fumarylacetoacetate hydrolase deficiency\", \"target\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fumarylacetoacetate hydrolase deficiency\", \"target\": \"Tyrosine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Fumarylacetoacetate (FAA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Succinylacetone (SA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Succinylacetone inhibition of heme biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Renal proximal tubule toxic injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Neurocognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"target\": \"Acute liver failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"target\": \"Coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal proximal tubule toxic injury\", \"target\": \"Renal tubular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal proximal tubule toxic injury\", \"target\": \"Rickets\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Hepatic cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Succinylacetone inhibition of heme biosynthesis\", \"target\": \"Delta-aminolevulinic acid (ALA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Succinylacetone inhibition of heme biosynthesis\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"target\": \"Alpha-fetoprotein (AFP)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"target\": \"Elevated alpha-fetoprotein\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitisinone (NTBC) therapy\", \"target\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitisinone (NTBC) therapy\", \"target\": \"Acute liver failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nitisinone (NTBC) therapy\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dietary tyrosine and phenylalanine restriction\", \"target\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Fumarylacetoacetate hydrolase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Acute liver failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Acute liver failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Renal tubular dysfunction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Coagulopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurocognitive assessment and therapy\", \"target\": \"Neurocognitive impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FAH deficiency\", \"target\": \"Fumarylacetoacetate hydrolase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FAH pathogenic variants\", \"target\": \"FAH deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute liver failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute hepatic decompensation is a hallmark of untreated or severe HT-1, driven by FAA-mediated oxidative damage and caspase-dependent apoptosis of hepatocytes. In untreated acute-form HT-1, liver failure typically presents in the first months of life.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006554\"}}, {\"id\": \"Alpha-fetoprotein (AFP)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Chronic hepatic injury and regeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Untreated or late-treated HT-1 produces chronic hepatic injury with regeneration, fibrosis, cirrhosis, and malignant transformation risk. Continuous NTBC reduces acute toxicity but does not restore FAH activity, so residual liver-disease and HCC-associated programs can persist.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"liver regeneration\"], \"locations\": [\"liver\"]}}, {\"id\": \"Coagulopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic synthetic dysfunction leads to coagulopathy, which is one of the earliest signs of liver failure in acute-form HT-1.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001928\"}}, {\"id\": \"Delta-aminolevulinic acid (ALA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Dietary tyrosine and phenylalanine restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-tyrosine, low-phenylalanine diet is essential in combination with NTBC therapy, since NTBC causes upstream accumulation of tyrosine. Specialized medical formulas provide essential amino acids while restricting tyrosine and phenylalanine intake.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral edema and ascites may occur due to hepatic synthetic failure with hypoalbuminemia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000969\"}}, {\"id\": \"Elevated alpha-fetoprotein\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Alpha-fetoprotein (AFP) is markedly elevated in HT-1 and serves as both a diagnostic and monitoring biomarker. AFP should decrease after NTBC initiation; rising or persistently elevated AFP raises suspicion for hepatocellular carcinoma or treatment non-adherence.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006254\"}}, {\"id\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fumarylacetoacetate directly triggers mitochondrial outer membrane permeabilization with release of cytochrome c, activating the caspase cascade and inducing hepatocyte apoptosis. Caspase inhibitors were shown to prevent liver failure in FAH-deficient mouse models, confirming the causal role of the intrinsic apoptotic pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"intrinsic apoptotic signaling pathway\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"FAH deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FAH\"], \"variant_count\": 1}}, {\"id\": \"FAH pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Over 100 pathogenic variants in FAH have been reported worldwide. The IVS12+5G\u003eA splice site mutation is the most common variant in the French-Canadian population of Quebec. Various missense, nonsense, splice-site, and frameshift mutations have been identified across diverse ethnic groups.\\n\"}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth and failure to thrive occur in untreated or poorly controlled HT-1 due to chronic liver disease, renal dysfunction, and metabolic instability.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fumarylacetoacetate (FAA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Fumarylacetoacetate hydrolase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of FAH activity blocks the terminal enzymatic step of tyrosine catabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"tyrosine catabolic process\"], \"molecular_functions\": [\"fumarylacetoacetase activity\"], \"genes\": [\"FAH\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cirrhosis develops progressively in untreated HT-1 as a consequence of chronic hepatocyte injury and regeneration. A case of false-negative NBS presented at age 9 with HCC in a cirrhotic liver.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001394\"}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive liver fibrosis and cirrhosis develop in untreated or late-treated HT-1. Even false-negative NBS cases have presented with cirrhosis years later.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatocellular carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"HCC is the most feared long-term complication of HT-1. Risk persists even under NTBC therapy, necessitating lifelong surveillance with alpha-fetoprotein monitoring and liver imaging.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001402\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is common in HT-1 due to hepatocellular injury, regeneration nodules, and progressive liver disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002240\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is curative for the hepatic manifestations of HT-1 but does not correct renal FAH deficiency, and residual SA production by the kidneys may persist. Indications include acute liver failure, HCC or dysplastic nodules, or failure of medical management.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neurocognitive assessment and therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term neurocognitive assessment is recommended for HT-1 patients, as they are at risk for neurocognitive impairment even under NTBC therapy. Early intervention and educational support may improve outcomes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neurocognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-term neurocognitive impairment is a recognized risk in HT-1 patients, even those treated early with NTBC. Neurocognitive assessment and therapy are recommended in clinical follow-up.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"NBS for HT-1 using dried blood spot succinylacetone measurement is recommended, as it is superior to tyrosine-based screening. Early identification enables pre-symptomatic NTBC initiation for optimal long-term outcomes.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Nitisinone (NTBC) therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nitisinone (2-[2-nitro-4-trifluoromethylbenzoyl]-1,3-cyclohexanedione) is a potent inhibitor of 4-hydroxyphenylpyruvate dioxygenase (HPD), the second enzyme in tyrosine degradation. By blocking HPD, NTBC prevents formation of the toxic downstream metabolites FAA, MAA, and SA. Early initiation of NTBC, ideally before symptom onset via NBS identification, provides greater than 90% survival and dramatically reduces the need for liver transplantation.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nitisinone\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Porphyria-like neurovisceral crises with peripheral neuropathy result from succinylacetone-mediated inhibition of ALAD and accumulation of delta-aminolevulinic acid. Episodes mimic acute intermittent porphyria.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although nitisinone prevents acute toxicity by blocking upstream toxic metabolite formation, it does not restore FAH activity. Transcriptomic analysis in FAH-deficient mice under continuous NTBC revealed persistent enrichment of genes related to liver disease, liver regeneration, and hepatocellular carcinoma. This supports the ongoing HCC risk even in treated patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"liver regeneration\"]}}, {\"id\": \"Renal proximal tubule toxic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated tyrosine-pathway metabolites injure kidney tissue, especially the proximal tubule, causing a Fanconi-like renal phenotype with phosphate wasting. This renal tubular mechanism explains renal tubular dysfunction and secondary hypophosphatemic rickets in HT-1.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"proximal tubule epithelial cell\"], \"biological_processes\": [\"cellular response to toxic substance\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal tubular dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal renal tubular dysfunction with a Fanconi-like syndrome is a core manifestation, resulting from toxic metabolite damage to renal tubular epithelial cells. May manifest as aminoaciduria, phosphaturia, glycosuria, and renal tubular acidosis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001994\"}}, {\"id\": \"Rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypophosphatemic rickets develops secondary to renal tubular phosphate wasting in the context of Fanconi-like tubulopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002748\"}}, {\"id\": \"Succinylacetone (SA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Succinylacetone inhibition of heme biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Succinylacetone (SA) is a competitive inhibitor of delta-aminolevulinic acid dehydratase (ALAD), blocking the heme biosynthetic pathway and causing accumulation of delta-aminolevulinic acid (ALA). This produces porphyria-like neurovisceral crises with neuropathy, similar to acute intermittent porphyria or lead poisoning.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"]}}, {\"id\": \"Supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute and chronic supportive management includes correction of coagulopathy, electrolyte management for renal tubular dysfunction, vitamin D and phosphate supplementation for rickets, and monitoring of liver and renal function.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAH deficiency causes accumulation of fumarylacetoacetate (FAA) and maleylacetoacetate (MAA), with secondary formation of succinylacetone (SA). FAA is highly reactive and mutagenic, reacting with glutathione and protein sulfhydryl groups to cause oxidative cellular damage in hepatocytes and renal tubular epithelial cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"liver\"]}}, {\"id\": \"Tyrosine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}], \"edges\": [{\"source\": \"Fumarylacetoacetate hydrolase deficiency\", \"target\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fumarylacetoacetate hydrolase deficiency\", \"target\": \"Tyrosine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Fumarylacetoacetate (FAA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Succinylacetone (SA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Succinylacetone inhibition of heme biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Renal proximal tubule toxic injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Neurocognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"target\": \"Acute liver failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"target\": \"Coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal proximal tubule toxic injury\", \"target\": \"Renal tubular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal proximal tubule toxic injury\", \"target\": \"Rickets\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Hepatic cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hepatic injury and regeneration\", \"target\": \"Edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Succinylacetone inhibition of heme biosynthesis\", \"target\": \"Delta-aminolevulinic acid (ALA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Succinylacetone inhibition of heme biosynthesis\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"target\": \"Alpha-fetoprotein (AFP)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"target\": \"Elevated alpha-fetoprotein\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitisinone (NTBC) therapy\", \"target\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitisinone (NTBC) therapy\", \"target\": \"Acute liver failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nitisinone (NTBC) therapy\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dietary tyrosine and phenylalanine restriction\", \"target\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Fumarylacetoacetate hydrolase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Acute liver failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Acute liver failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Renal tubular dysfunction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Coagulopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurocognitive assessment and therapy\", \"target\": \"Neurocognitive impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FAH deficiency\", \"target\": \"Fumarylacetoacetate hydrolase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FAH pathogenic variants\", \"target\": \"FAH deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3856,6 +4069,8 @@
                 
                 <div class="evidence-explanation">Coagulopathy is a direct consequence of hepatic failure in HT-1.</div>
                 
+                
+                
             </div>
             
             
@@ -3919,6 +4134,8 @@
                 
                 <div class="evidence-explanation">Directly supports hepatic failure as a primary manifestation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3938,6 +4155,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms acute liver failure as an indication for liver transplantation in HT-1.</div>
+                
+                
                 
             </div>
             
@@ -3993,6 +4212,8 @@
                 
                 <div class="evidence-explanation">Directly lists liver fibrosis as a significant risk in untreated HT-1.</div>
                 
+                
+                
             </div>
             
             
@@ -4047,6 +4268,8 @@
                 
                 <div class="evidence-explanation">Documents cirrhosis in a missed NBS case of HT-1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4066,6 +4289,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms cirrhosis in a late-presenting HT-1 patient.</div>
+                
+                
                 
             </div>
             
@@ -4121,6 +4346,8 @@
                 
                 <div class="evidence-explanation">Confirms HCC as a recognized risk requiring monitoring.</div>
                 
+                
+                
             </div>
             
             
@@ -4174,6 +4401,8 @@
                 
                 
                 <div class="evidence-explanation">Documents hepatomegaly in a late-presenting HT-1 patient.</div>
+                
+                
                 
             </div>
             
@@ -4238,6 +4467,8 @@
                 
                 <div class="evidence-explanation">Confirms kidney damage from toxic metabolite accumulation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4257,6 +4488,8 @@
                 
                 
                 <div class="evidence-explanation">Renal involvement is a defining feature of hepatorenal tyrosinemia.</div>
+                
+                
                 
             </div>
             
@@ -4321,6 +4554,8 @@
                 
                 <div class="evidence-explanation">Directly supports AFP elevation as a clinically important HT-1 surveillance finding.</div>
                 
+                
+                
             </div>
             
             
@@ -4374,6 +4609,8 @@
                 
                 
                 <div class="evidence-explanation">Directly documents edema in an HT-1 patient with liver disease.</div>
+                
+                
                 
             </div>
             
@@ -4438,6 +4675,8 @@
                 
                 <div class="evidence-explanation">GeneReviews directly lists rickets in association with renal tubular dysfunction in untreated HT-1.</div>
                 
+                
+                
             </div>
             
             
@@ -4501,6 +4740,8 @@
                 
                 <div class="evidence-explanation">GeneReviews directly lists peripheral neuropathy during HT-1 neurologic crises.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4520,6 +4761,8 @@
                 
                 
                 <div class="evidence-explanation">Neurologic system involvement includes neuropathic crises.</div>
+                
+                
                 
             </div>
             
@@ -4574,6 +4817,8 @@
                 
                 
                 <div class="evidence-explanation">Directly states neurocognitive impairment as a long-term risk in HT-1.</div>
+                
+                
                 
             </div>
             
@@ -4638,6 +4883,8 @@
                 
                 <div class="evidence-explanation">GeneReviews directly supports growth failure in untreated HT-1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4657,6 +4904,8 @@
                 
                 
                 <div class="evidence-explanation">Case demonstrates growth and nutritional compromise in untreated HT-1.</div>
+                
+                
                 
             </div>
             
@@ -4747,6 +4996,8 @@
                 
                 <div class="evidence-explanation">Directly describes FAH deficiency as the genetic cause of HT-1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4766,6 +5017,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the FAH-tyrosinemia type I gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -4878,6 +5131,8 @@
                 
                 <div class="evidence-explanation">Directly supports upstream HPD inhibition as the therapeutic mechanism that prevents severe HT-1 illness.</div>
                 
+                
+                
             </div>
             
             
@@ -4936,6 +5191,8 @@
                 
                 <div class="evidence-explanation">Supports NTBC as the transformative therapy for HT-1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4955,6 +5212,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms NTBC efficacy but notes residual HCC risk.</div>
+                
+                
                 
             </div>
             
@@ -5043,6 +5302,8 @@
                 
                 <div class="evidence-explanation">Consensus guidance supports diet as part of early HT-1 treatment after diagnosis.</div>
                 
+                
+                
             </div>
             
             
@@ -5082,6 +5343,8 @@
                 
                 <div class="evidence-explanation">Consensus recommendation for combined NTBC and dietary therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5101,6 +5364,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms dietary therapy as part of the standard treatment combination.</div>
+                
+                
                 
             </div>
             
@@ -5189,6 +5454,8 @@
                 
                 <div class="evidence-explanation">HT-1 liver transplantation is reserved for hepatic failure, HCC, dysplastic nodules, or failed medical management.</div>
                 
+                
+                
             </div>
             
             
@@ -5247,6 +5514,8 @@
                 
                 <div class="evidence-explanation">Lists specific indications for liver transplantation in HT-1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5266,6 +5535,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms liver transplantation as a treatment option for severe cases.</div>
+                
+                
                 
             </div>
             
@@ -5364,6 +5635,8 @@
                 
                 <div class="evidence-explanation">Strong consensus supporting SA-based NBS for HT-1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5384,6 +5657,8 @@
                 
                 <div class="evidence-explanation">Provides worldwide performance data for NBS strategies.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5403,6 +5678,8 @@
                 
                 
                 <div class="evidence-explanation">Highlights that NBS can have rare false negatives requiring protocol optimization.</div>
+                
+                
                 
             </div>
             
@@ -5515,6 +5792,8 @@
                 
                 <div class="evidence-explanation">Supports ongoing monitoring and supportive care in HT-1 management.</div>
                 
+                
+                
             </div>
             
             
@@ -5592,6 +5871,8 @@
                 
                 
                 <div class="evidence-explanation">Autosomal recessive inheritance pattern supports the role of genetic counseling.</div>
+                
+                
                 
             </div>
             
@@ -5683,6 +5964,8 @@
                 
                 <div class="evidence-explanation">Directly recommends neurocognitive assessment and therapy for HT-1 patients.</div>
                 
+                
+                
             </div>
             
             
@@ -5719,6 +6002,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5744,6 +6028,8 @@
                 
                 <div class="evidence-explanation">Directly states SA is pathognomonic and the key NBS marker.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5764,6 +6050,8 @@
                 
                 <div class="evidence-explanation">Provides worldwide NBS data on SA cut-off values and usage.</div>
                 
+                
+                
             </div>
             
             
@@ -5783,6 +6071,7 @@
                 
                 <div class="item-desc">Context: Plasma tyrosine is elevated, particularly after NTBC treatment which blocks upstream catabolism. Dietary tyrosine and phenylalanine restriction is required to control tyrosine levels during NTBC therapy.
 </div>
+                
                 
                 
     
@@ -5810,6 +6099,8 @@
                 
                 <div class="evidence-explanation">Confirms elevated tyrosine as a recognized but less specific marker in HT-1.</div>
                 
+                
+                
             </div>
             
             
@@ -5829,6 +6120,7 @@
                 
                 <div class="item-desc">Context: AFP is markedly elevated in untreated HT-1 and serves as a biomarker for disease activity and HCC surveillance. AFP should decline after NTBC therapy; failure to decline or subsequent rise raises suspicion for HCC or non-adherence.
 </div>
+                
                 
                 
     
@@ -5856,6 +6148,8 @@
                 
                 <div class="evidence-explanation">Establishes AFP trajectory as a biomarker for liver cancer risk in NTBC-treated HT-1.</div>
                 
+                
+                
             </div>
             
             
@@ -5875,6 +6169,7 @@
                 
                 <div class="item-desc">Context: ALA accumulates due to succinylacetone-mediated inhibition of ALAD in the heme biosynthetic pathway. Elevated urinary ALA is associated with porphyria-like neurovisceral crises.
 </div>
+                
                 
                 
     
@@ -5902,6 +6197,8 @@
                 
                 <div class="evidence-explanation">Directly supports increased ALA excretion in hereditary tyrosinemia.</div>
                 
+                
+                
             </div>
             
             
@@ -5921,6 +6218,7 @@
                 
                 <div class="item-desc">Context: FAA is the direct toxic substrate accumulating due to FAH deficiency. It is highly reactive and mutagenic, causing oxidative damage by reacting with glutathione and protein sulfhydryl groups, and directly inducing mitochondrial cytochrome c release and caspase activation.
 </div>
+                
                 
                 
     
@@ -5947,6 +6245,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates direct toxicity of FAA at the mitochondrial level.</div>
+                
+                
                 
             </div>
             

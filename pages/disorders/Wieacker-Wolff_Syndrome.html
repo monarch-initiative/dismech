@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2723,6 +2914,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the structured clinical definition.</div>
                 
+                
+                
             </div>
             
             
@@ -2788,6 +2981,8 @@
                 
                 
                 <div class="evidence-explanation">Human genetic evidence supports modeling Wieacker-Wolff syndrome as a ZC4H2-associated neurodevelopmental spectrum.</div>
+                
+                
                 
             </div>
             
@@ -2868,6 +3063,8 @@
                 
                 <div class="evidence-explanation">Orphanet records X-linked recessive inheritance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2887,6 +3084,8 @@
                 
                 
                 <div class="evidence-explanation">This review/case report summarizes the traditional X-linked recessive presentation.</div>
+                
+                
                 
             </div>
             
@@ -3016,6 +3215,8 @@
                 
                 <div class="evidence-explanation">Human genetic evidence places ZC4H2 variants at the proximal mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3036,6 +3237,8 @@
                 
                 <div class="evidence-explanation">Cell-expression experiments establish the normal subcellular localization pattern used to interpret mutant trafficking.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3055,6 +3258,8 @@
                 
                 
                 <div class="evidence-explanation">In vitro localization data support abnormal protein trafficking for a truncating WWS variant.</div>
+                
+                
                 
             </div>
             
@@ -3221,6 +3426,8 @@
                 
                 <div class="evidence-explanation">Mouse neuronal data support abnormal ZC4H2-dependent synaptic and dendritic-spine regulation.</div>
                 
+                
+                
             </div>
             
             
@@ -3375,6 +3582,8 @@
                 
                 <div class="evidence-explanation">Zebrafish model data support abnormal motor-neuron development downstream of ZC4H2 loss.</div>
                 
+                
+                
             </div>
             
             
@@ -3481,6 +3690,8 @@
                 
                 <div class="evidence-explanation">The discovery paper explains the fetal-akinesia mechanism for antenatal joint contractures.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3500,6 +3711,8 @@
                 
                 
                 <div class="evidence-explanation">Prenatal WWS cases support hypo/akinesia and contractures as part of the fetal presentation.</div>
+                
+                
                 
             </div>
             
@@ -3621,6 +3834,8 @@
                 
                 <div class="evidence-explanation">Orphanet records strabismus as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3640,6 +3855,8 @@
                 
                 
                 <div class="evidence-explanation">Ophthalmic review supports strabismus as a reported eye manifestation.</div>
+                
+                
                 
             </div>
             
@@ -3697,6 +3914,8 @@
                 
                 <div class="evidence-explanation">Orphanet records abnormality of eye movement as very frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -3753,6 +3972,8 @@
                 
                 <div class="evidence-explanation">Orphanet records ptosis as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3772,6 +3993,8 @@
                 
                 
                 <div class="evidence-explanation">Ophthalmic review supports ptosis as a reported eye manifestation.</div>
+                
+                
                 
             </div>
             
@@ -3829,6 +4052,8 @@
                 
                 <div class="evidence-explanation">Orphanet records oculomotor apraxia as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3848,6 +4073,8 @@
                 
                 
                 <div class="evidence-explanation">Ophthalmic review supports oculomotor apraxia as a reported eye manifestation.</div>
+                
+                
                 
             </div>
             
@@ -3912,6 +4139,8 @@
                 
                 <div class="evidence-explanation">A female WWS case report directly supports cleft palate as an additional manifestation.</div>
                 
+                
+                
             </div>
             
             
@@ -3975,6 +4204,8 @@
                 
                 <div class="evidence-explanation">Prenatal cases include clubfoot/feet.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3994,6 +4225,8 @@
                 
                 
                 <div class="evidence-explanation">The review identifies club feet among recurrent phenotypic features.</div>
+                
+                
                 
             </div>
             
@@ -4060,6 +4293,8 @@
                 
                 <div class="evidence-explanation">Orphanet records limitation of joint mobility as very frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -4116,6 +4351,8 @@
                 
                 <div class="evidence-explanation">Orphanet records scoliosis as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4135,6 +4372,8 @@
                 
                 
                 <div class="evidence-explanation">A molecularly confirmed WWS case had scoliosis on radiography.</div>
+                
+                
                 
             </div>
             
@@ -4192,6 +4431,8 @@
                 
                 <div class="evidence-explanation">Orphanet records kyphosis as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -4245,6 +4486,8 @@
                 
                 
                 <div class="evidence-explanation">A molecularly confirmed WWS case had truncal hypotonia.</div>
+                
+                
                 
             </div>
             
@@ -4311,6 +4554,8 @@
                 
                 <div class="evidence-explanation">Orphanet records mild intellectual disability as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4330,6 +4575,8 @@
                 
                 
                 <div class="evidence-explanation">The discovery study links the AMC phenotype to intellectual disability.</div>
+                
+                
                 
             </div>
             
@@ -4387,6 +4634,8 @@
                 
                 <div class="evidence-explanation">Orphanet records global developmental delay as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4406,6 +4655,8 @@
                 
                 
                 <div class="evidence-explanation">A molecularly confirmed WWS case had global developmental delay.</div>
+                
+                
                 
             </div>
             
@@ -4463,6 +4714,8 @@
                 
                 <div class="evidence-explanation">Orphanet records abnormality of speech or vocalization as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4482,6 +4735,8 @@
                 
                 
                 <div class="evidence-explanation">The case review supports frequent speech delay or absence of speech.</div>
+                
+                
                 
             </div>
             
@@ -4539,6 +4794,8 @@
                 
                 <div class="evidence-explanation">Orphanet records abnormality of movement as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4558,6 +4815,8 @@
                 
                 
                 <div class="evidence-explanation">The zebrafish model supports abnormal movement downstream of ZC4H2 disruption.</div>
+                
+                
                 
             </div>
             
@@ -4624,6 +4883,8 @@
                 
                 <div class="evidence-explanation">Orphanet records distal amyotrophy as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4643,6 +4904,8 @@
                 
                 
                 <div class="evidence-explanation">The case review supports distal limb muscle atrophy among recurrent features.</div>
+                
+                
                 
             </div>
             
@@ -4700,6 +4963,8 @@
                 
                 <div class="evidence-explanation">Orphanet records clinodactyly of the fifth finger as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4719,6 +4984,8 @@
                 
                 
                 <div class="evidence-explanation">Prenatal ultrasound described fifth-finger clinodactyly.</div>
+                
+                
                 
             </div>
             
@@ -4776,6 +5043,8 @@
                 
                 <div class="evidence-explanation">The case review describes camptodactyly among constantly present phenotypic features.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4795,6 +5064,8 @@
                 
                 
                 <div class="evidence-explanation">A molecularly confirmed WWS case had camptodactyly on radiography.</div>
+                
+                
                 
             </div>
             
@@ -4852,6 +5123,8 @@
                 
                 <div class="evidence-explanation">Orphanet records congenital foot contractures as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4871,6 +5144,8 @@
                 
                 
                 <div class="evidence-explanation">The review/case report supports congenital foot contractures.</div>
+                
+                
                 
             </div>
             
@@ -4926,6 +5201,8 @@
                 
                 <div class="evidence-explanation">Orphanet definition identifies arthrogryposis as a core feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4945,6 +5222,8 @@
                 
                 
                 <div class="evidence-explanation">Human families with ZC4H2 variants had X-linked AMC plus intellectual disability.</div>
+                
+                
                 
             </div>
             
@@ -5002,6 +5281,8 @@
                 
                 <div class="evidence-explanation">The case review describes hip dislocation among constantly present phenotypic features.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5021,6 +5302,8 @@
                 
                 
                 <div class="evidence-explanation">A molecularly confirmed WWS case had right hip dislocation on pelvic MRI.</div>
+                
+                
                 
             </div>
             
@@ -5107,6 +5390,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies ZC4H2 as the disease-causing germline gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5127,6 +5412,8 @@
                 
                 <div class="evidence-explanation">Human family and simplex sequencing directly support ZC4H2 as causal.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5146,6 +5433,8 @@
                 
                 
                 <div class="evidence-explanation">A de novo nonsense ZC4H2 variant supports the simplex female presentation.</div>
+                
+                
                 
             </div>
             
@@ -5262,6 +5551,8 @@
                 
                 <div class="evidence-explanation">A molecularly confirmed WWS case received rehabilitation training for the motor phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -5339,6 +5630,8 @@
                 
                 <div class="evidence-explanation">The discovery paper explicitly links WWS pathophysiology to genetic counseling.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5358,6 +5651,8 @@
                 
                 
                 <div class="evidence-explanation">Prenatal molecular diagnosis is explicitly tied to genetic counseling.</div>
+                
+                
                 
             </div>
             

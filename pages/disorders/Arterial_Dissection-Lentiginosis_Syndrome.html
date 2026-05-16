@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2627,10 +2818,17 @@
             
             
             
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-value">38</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+            
             
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -2657,32 +2855,14 @@
             
             <div class="item-box inheritance-box">
                 <div class="item-name">
-                    Autosomal dominant inheritance
-                    
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
-                            HP:0000006
-                        </a>
-                    </span>
+                    Unresolved inheritance pattern
                     
                 </div>
                 
-                <div class="item-desc">Familial lentiginosis syndromes, including arterial dissections with lentiginosis, have been reported with autosomal dominant inheritance in most kindreds.</div>
+                <div class="item-desc">The specific inheritance pattern for arterial dissection-lentiginosis remains unresolved in cache-backed sources. Falcon notes that autosomal recessive inheritance was suggested from the original families while autosomal dominant inheritance with variable penetrance was not excluded; OpenScientist reports autosomal recessive status from OMIM/Orphanet. Because the locally cached primary report is title-only and the review evidence is broader familial lentiginosis evidence, no specific mode is asserted here.</div>
                 
                 
     
-    
-    <div class="item-meta">
-        
-        <span class="tag tag-classification">
-            Autosomal dominant inheritance
-        </span>
-        
-        
-        
-        
-        
-    </div>
     
     
     
@@ -2710,7 +2890,9 @@
                 <div class="evidence-snippet">"In the majority of the reported kindreds with these syndromes, the lesions were inherited in an autosomal dominant manner."</div>
                 
                 
-                <div class="evidence-explanation">The review supports autosomal dominant inheritance across reported familial lentiginosis syndromes; ADL-specific genetic resolution remains limited.</div>
+                <div class="evidence-explanation">The review supports autosomal dominant inheritance across reported familial lentiginosis syndromes, but it is not specific enough to resolve ADL inheritance against the Falcon and OpenScientist reports.</div>
+                
+                
                 
             </div>
             
@@ -2846,6 +3028,8 @@
                 
                 <div class="evidence-explanation">The review supports a neural-crest and mesenchymal-cell developmental context for familial lentiginosis syndromes, while specific ADL medial pathology remains a Falcon-report note.</div>
                 
+                
+                
             </div>
             
             
@@ -2966,6 +3150,8 @@
                 
                 <div class="evidence-explanation">The cached title supports arterial dissection generally; aortic localization is retained as a partial, report-derived refinement.</div>
                 
+                
+                
             </div>
             
             
@@ -3029,6 +3215,8 @@
                 
                 <div class="evidence-explanation">The cached title directly supports arterial dissections with lentiginosis as the syndrome-defining association.</div>
                 
+                
+                
             </div>
             
             
@@ -3082,6 +3270,8 @@
                 
                 
                 <div class="evidence-explanation">The cached title directly supports lentiginosis as part of the syndrome name.</div>
+                
+                
                 
             </div>
             
@@ -3168,6 +3358,8 @@
                 
                 <div class="evidence-explanation">The review supports unresolved causal genes across familial lentiginosis syndromes; the ADL-specific gene status remains a conservative curator note.</div>
                 
+                
+                
             </div>
             
             
@@ -3217,7 +3409,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Arterial Dissection-Lentiginosis Syndrome
 creation_date: &#34;2026-05-05T15:37:54Z&#34;
-updated_date: &#34;2026-05-05T16:34:00Z&#34;
+updated_date: &#34;2026-05-06T22:30:37Z&#34;
 description: &gt;-
   Arterial dissection-lentiginosis syndrome is a very rare familial arteriopathy
   described in patients with early arterial dissections and multiple lentigines.
@@ -3238,24 +3430,24 @@ synonyms:
 - Arterial dissections with lentiginosis
 - Familial syndrome of arterial dissections with lentiginosis
 inheritance:
-- name: Autosomal dominant inheritance
-  inheritance_term:
-    preferred_term: Autosomal dominant inheritance
-    term:
-      id: HP:0000006
-      label: Autosomal dominant inheritance
+- name: Unresolved inheritance pattern
   description: &gt;-
-    Familial lentiginosis syndromes, including arterial dissections with
-    lentiginosis, have been reported with autosomal dominant inheritance in most
-    kindreds.
+    The specific inheritance pattern for arterial dissection-lentiginosis remains
+    unresolved in cache-backed sources. Falcon notes that autosomal recessive
+    inheritance was suggested from the original families while autosomal dominant
+    inheritance with variable penetrance was not excluded; OpenScientist reports
+    autosomal recessive status from OMIM/Orphanet. Because the locally cached
+    primary report is title-only and the review evidence is broader familial
+    lentiginosis evidence, no specific mode is asserted here.
   evidence:
   - reference: DOI:10.1046/j.1365-2796.1998.00341.x
     reference_title: &#34;Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      In the majority of the reported kindreds with these syndromes, the lesions were inherited in an autosomal dominant manner.
-    explanation: The review supports autosomal dominant inheritance across reported familial lentiginosis syndromes; ADL-specific genetic resolution remains limited.
+      In the majority of the reported kindreds with these syndromes, the lesions were
+      inherited in an autosomal dominant manner.
+    explanation: The review supports autosomal dominant inheritance across reported familial lentiginosis syndromes, but it is not specific enough to resolve ADL inheritance against the Falcon and OpenScientist reports.
 pathophysiology:
 - name: Suspected developmental arteriopathy with medial fragility
   description: &gt;-
@@ -3281,7 +3473,10 @@ pathophysiology:
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      We suggest that the genes responsible for the lentiginosis syndromes are important regulators of melanocyte function, they participate in the pleiotropy of human pigmentation, and are involved in the function, growth and proliferation of neural crest and mesenchymal cells.
+      We suggest that the genes responsible for the lentiginosis syndromes are important
+      regulators of melanocyte function, they participate in the pleiotropy of human
+      pigmentation, and are involved in the function, growth and proliferation of
+      neural crest and mesenchymal cells.
     explanation: The review supports a neural-crest and mesenchymal-cell developmental context for familial lentiginosis syndromes, while specific ADL medial pathology remains a Falcon-report note.
   downstream:
   - target: Early arterial dissection
@@ -3368,8 +3563,521 @@ review_notes: &gt;-
   Detailed claims about cystic medial degeneration or necrosis, intracranial
   aneurysm, and negative COL3A1/type III procollagen testing are retained only
   as conservative Falcon report notes rather than over-quoted as PubMed
-  evidence. Orphanet ORPHA:521 was not added because it was not independently
-  verified in a cache-backed source during this review pass.
+  evidence. OpenScientist reports ORPHA:1682 and autosomal recessive status, but
+  the local Orphadata XML snapshot was not available to generate a cache-backed
+  ORPHA reference in this branch.
+references:
+- reference: DOI:10.1046/j.1365-2796.1998.00341.x
+  title: &#34;Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci&#34;
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: &#34;Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci&#34;
+    supporting_text: &#34;Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci&#34;
+- reference: DOI:10.1056/nejm199503023320905
+  title: A Familial Syndrome of Arterial Dissections with Lentiginosis
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: A Familial Syndrome of Arterial Dissections with Lentiginosis
+    supporting_text: A Familial Syndrome of Arterial Dissections with Lentiginosis
+- reference: DOI:10.1159/000053283
+  title: Genetics of Peutz-Jeghers Syndrome, Carney Complex and Other Familial Lentiginoses
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: &#39;Peutz-Jeghers syndrome (PJS, #175200) and Carney complex (CNC, OMIM#160980) are the two most common multiple neoplasia syndromes associated with lentiginosis.&#39;
+    supporting_text: &#39;Peutz-Jeghers syndrome (PJS, #175200) and Carney complex (CNC, OMIM#160980) are the two most common multiple neoplasia syndromes associated with lentiginosis.&#39;
+    evidence:
+    - reference: DOI:10.1159/000053283
+      reference_title: Genetics of Peutz-Jeghers Syndrome, Carney Complex and Other Familial Lentiginoses
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;Peutz-Jeghers syndrome (PJS, #175200) and Carney complex (CNC, OMIM#160980) are the two most common multiple neoplasia syndromes associated with lentiginosis.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: DOI:10.1177/000992280003900201
+  title: Etiologic Factors of Acute Aortic Dissection in Children and Younrg Adults
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Current concepts in the pathophysiology and predisposing conditions of acute aortic dissection in children, adolescents, and young adults are presented.
+    supporting_text: Current concepts in the pathophysiology and predisposing conditions of acute aortic dissection in children, adolescents, and young adults are presented.
+    evidence:
+    - reference: DOI:10.1177/000992280003900201
+      reference_title: Etiologic Factors of Acute Aortic Dissection in Children and Younrg Adults
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Current concepts in the pathophysiology and predisposing conditions of acute aortic dissection in children, adolescents, and young adults are presented.
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:7838191
+  title: &#34;Brief report: a familial syndrome of arterial dissections with lentiginosis.&#34;
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#34;Brief report: a familial syndrome of arterial dissections with lentiginosis.&#34;
+    supporting_text: &#34;Brief report: a familial syndrome of arterial dissections with lentiginosis.&#34;
+- reference: PMID:10471441
+  title: Mutations in the COL5A1 coding sequence are not common in patients with spontaneous cervical artery dissections.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1999 Sep;30(9):1887-90. doi: 10.1161/01.str.30.9.1887.&#39;
+    supporting_text: &#39;1999 Sep;30(9):1887-90. doi: 10.1161/01.str.30.9.1887.&#39;
+    evidence:
+    - reference: PMID:10471441
+      reference_title: Mutations in the COL5A1 coding sequence are not common in patients with spontaneous cervical artery dissections.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;1999 Sep;30(9):1887-90. doi: 10.1161/01.str.30.9.1887.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:11128183
+  title: The treatment of spontaneous carotid and vertebral artery dissections.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2000 Sep;15(5):316-21. doi: 10.1097/00001573-200009000-00002.&#39;
+    supporting_text: &#39;2000 Sep;15(5):316-21. doi: 10.1097/00001573-200009000-00002.&#39;
+    evidence:
+    - reference: PMID:11128183
+      reference_title: The treatment of spontaneous carotid and vertebral artery dissections.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2000 Sep;15(5):316-21. doi: 10.1097/00001573-200009000-00002.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:11773966
+  title: A mouse model of Waardenburg syndrome type 4 with a new spontaneous mutation of the endothelin-B receptor gene.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2002 Jan;13(1):30-5. doi: 10.1007/s00335-001-3038-2.&#39;
+    supporting_text: &#39;2002 Jan;13(1):30-5. doi: 10.1007/s00335-001-3038-2.&#39;
+    evidence:
+    - reference: PMID:11773966
+      reference_title: A mouse model of Waardenburg syndrome type 4 with a new spontaneous mutation of the endothelin-B receptor gene.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#39;2002 Jan;13(1):30-5. doi: 10.1007/s00335-001-3038-2.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:11891690
+  title: ABCD syndrome is caused by a homozygous mutation in the EDNRB gene.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2002 Mar 15;108(3):223-5. doi: 10.1002/ajmg.10172.&#39;
+    supporting_text: &#39;2002 Mar 15;108(3):223-5. doi: 10.1002/ajmg.10172.&#39;
+    evidence:
+    - reference: PMID:11891690
+      reference_title: ABCD syndrome is caused by a homozygous mutation in the EDNRB gene.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2002 Mar 15;108(3):223-5. doi: 10.1002/ajmg.10172.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:12950083
+  title: Ece1 and Tbx1 define distinct pathways to aortic arch morphogenesis.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2003 Sep;228(1):95-104. doi: 10.1002/dvdy.10358.&#39;
+    supporting_text: &#39;2003 Sep;228(1):95-104. doi: 10.1002/dvdy.10358.&#39;
+    evidence:
+    - reference: PMID:12950083
+      reference_title: Ece1 and Tbx1 define distinct pathways to aortic arch morphogenesis.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#39;2003 Sep;228(1):95-104. doi: 10.1002/dvdy.10358.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:15016298
+  title: Autocrine and paracrine regulation of melanocytes in human skin and in pigmentary disorders.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2004 Apr;17(2):96-110. doi: 10.1111/j.1600-0749.2003.00126.x.&#39;
+    supporting_text: &#39;2004 Apr;17(2):96-110. doi: 10.1111/j.1600-0749.2003.00126.x.&#39;
+    evidence:
+    - reference: PMID:15016298
+      reference_title: Autocrine and paracrine regulation of melanocytes in human skin and in pigmentary disorders.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2004 Apr;17(2):96-110. doi: 10.1111/j.1600-0749.2003.00126.x.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:15070746
+  title: Self-renewal capacity is a widespread property of various types of neural crest precursor cells.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2004 Mar 30;101(13):4495-500. doi: 10.1073/pnas.0400629101.&#39;
+    supporting_text: &#39;2004 Mar 30;101(13):4495-500. doi: 10.1073/pnas.0400629101.&#39;
+    evidence:
+    - reference: PMID:15070746
+      reference_title: Self-renewal capacity is a widespread property of various types of neural crest precursor cells.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#39;2004 Mar 30;101(13):4495-500. doi: 10.1073/pnas.0400629101.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:17631447
+  title: Neural crest progenitors and stem cells.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2007 Jun-Jul;330(6-7):521-9. doi: 10.1016/j.crvi.2007.04.004.&#39;
+    supporting_text: &#39;2007 Jun-Jul;330(6-7):521-9. doi: 10.1016/j.crvi.2007.04.004.&#39;
+    evidence:
+    - reference: PMID:17631447
+      reference_title: Neural crest progenitors and stem cells.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#39;2007 Jun-Jul;330(6-7):521-9. doi: 10.1016/j.crvi.2007.04.004.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:20495147
+  title: NFATc3 contributes to intermittent hypoxia-induced arterial remodeling in mice.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2010 Aug;299(2):H356-63. doi: 10.1152/ajpheart.00341.2010.&#39;
+    supporting_text: &#39;2010 Aug;299(2):H356-63. doi: 10.1152/ajpheart.00341.2010.&#39;
+    evidence:
+    - reference: PMID:20495147
+      reference_title: NFATc3 contributes to intermittent hypoxia-induced arterial remodeling in mice.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#39;2010 Aug;299(2):H356-63. doi: 10.1152/ajpheart.00341.2010.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:21157040
+  title: Cardiac neural crest orchestrates remodeling and functional maturation of mouse semilunar valves.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2011 Jan;121(1):422-30. doi: 10.1172/JCI44244.&#39;
+    supporting_text: &#39;2011 Jan;121(1):422-30. doi: 10.1172/JCI44244.&#39;
+    evidence:
+    - reference: PMID:21157040
+      reference_title: Cardiac neural crest orchestrates remodeling and functional maturation of mouse semilunar valves.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#39;2011 Jan;121(1):422-30. doi: 10.1172/JCI44244.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:22507869
+  title: Familial occurrence of cervical artery dissection--coincidence or sign of familial predisposition?
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2012;33(5):466-70. doi: 10.1159/000337035.&#39;
+    supporting_text: &#39;2012;33(5):466-70. doi: 10.1159/000337035.&#39;
+    evidence:
+    - reference: PMID:22507869
+      reference_title: Familial occurrence of cervical artery dissection--coincidence or sign of familial predisposition?
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2012;33(5):466-70. doi: 10.1159/000337035.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:25355826
+  title: Connective tissue anomalies in patients with spontaneous cervical artery dissection.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2014 Nov 25;83(22):2032-7. doi: 10.1212/WNL.0000000000001030.&#39;
+    supporting_text: &#39;2014 Nov 25;83(22):2032-7. doi: 10.1212/WNL.0000000000001030.&#39;
+    evidence:
+    - reference: PMID:25355826
+      reference_title: Connective tissue anomalies in patients with spontaneous cervical artery dissection.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2014 Nov 25;83(22):2032-7. doi: 10.1212/WNL.0000000000001030.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:26679613
+  title: Endothelin-1 mediates intermittent hypoxia-induced inflammatory vascular remodeling through HIF-1 activation.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2016 Feb 15;120(4):437-43. doi: 10.1152/japplphysiol.00641.2015.&#39;
+    supporting_text: &#39;2016 Feb 15;120(4):437-43. doi: 10.1152/japplphysiol.00641.2015.&#39;
+    evidence:
+    - reference: PMID:26679613
+      reference_title: Endothelin-1 mediates intermittent hypoxia-induced inflammatory vascular remodeling through HIF-1 activation.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#39;2016 Feb 15;120(4):437-43. doi: 10.1152/japplphysiol.00641.2015.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:27527829
+  title: Friesian horses as a possible model for human acquired aortopulmonary fistulation.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: Acquired aortopulmonary fistulation is a rare condition in humans.
+    supporting_text: Acquired aortopulmonary fistulation is a rare condition in humans.
+    evidence:
+    - reference: PMID:27527829
+      reference_title: Friesian horses as a possible model for human acquired aortopulmonary fistulation.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Acquired aortopulmonary fistulation is a rare condition in humans.
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:28753427
+  title: A Genetic Variant Associated with Five Vascular Diseases Is a Distal Regulator of Endothelin-1 Gene Expression.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2017 Jul 27;170(3):522-533.e15. doi: 10.1016/j.cell.2017.06.049.&#39;
+    supporting_text: &#39;2017 Jul 27;170(3):522-533.e15. doi: 10.1016/j.cell.2017.06.049.&#39;
+    evidence:
+    - reference: PMID:28753427
+      reference_title: A Genetic Variant Associated with Five Vascular Diseases Is a Distal Regulator of Endothelin-1 Gene Expression.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2017 Jul 27;170(3):522-533.e15. doi: 10.1016/j.cell.2017.06.049.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:29510914
+  title: Testing patterns for genetically triggered aortic and arterial aneurysms and dissections at an academic center.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2018 Sep;68(3):701-711. doi: 10.1016/j.jvs.2017.12.023.&#39;
+    supporting_text: &#39;2018 Sep;68(3):701-711. doi: 10.1016/j.jvs.2017.12.023.&#39;
+    evidence:
+    - reference: PMID:29510914
+      reference_title: Testing patterns for genetically triggered aortic and arterial aneurysms and dissections at an academic center.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2018 Sep;68(3):701-711. doi: 10.1016/j.jvs.2017.12.023.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:29699546
+  title: Elevated urinary excretion of free pyridinoline in Friesian horses suggests a breed-specific increase in collagen degradation.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: Friesian horses are known for their high inbreeding rate resulting in several genetic diseases such as hydrocephaly and dwarfism.
+    supporting_text: Friesian horses are known for their high inbreeding rate resulting in several genetic diseases such as hydrocephaly and dwarfism.
+    evidence:
+    - reference: PMID:29699546
+      reference_title: Elevated urinary excretion of free pyridinoline in Friesian horses suggests a breed-specific increase in collagen degradation.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Friesian horses are known for their high inbreeding rate resulting in several genetic diseases such as hydrocephaly and dwarfism.
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:30002812
+  title: &#39;Spontaneous cervical artery dissection: a fluoroquinolone induced connective tissue disorder?&#39;
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: Spontaneous cervical artery dissections more often manifest in young people and have been associated with catastrophic consequences.
+    supporting_text: Spontaneous cervical artery dissections more often manifest in young people and have been associated with catastrophic consequences.
+    evidence:
+    - reference: PMID:30002812
+      reference_title: &#39;Spontaneous cervical artery dissection: a fluoroquinolone induced connective tissue disorder?&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Spontaneous cervical artery dissections more often manifest in young people and have been associated with catastrophic consequences.
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:31008308
+  title: Next generation sequencing analysis of patients with familial cervical artery dissection.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: The cause of cervical artery dissection is not well understood.
+    supporting_text: The cause of cervical artery dissection is not well understood.
+    evidence:
+    - reference: PMID:31008308
+      reference_title: Next generation sequencing analysis of patients with familial cervical artery dissection.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: The cause of cervical artery dissection is not well understood.
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:31357457
+  title: Melanocyte Activation Mechanisms and Rational Therapeutic Treatments of Solar Lentigos.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2019 Jul 26;20(15):3666. doi: 10.3390/ijms20153666.&#39;
+    supporting_text: &#39;2019 Jul 26;20(15):3666. doi: 10.3390/ijms20153666.&#39;
+    evidence:
+    - reference: PMID:31357457
+      reference_title: Melanocyte Activation Mechanisms and Rational Therapeutic Treatments of Solar Lentigos.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#39;2019 Jul 26;20(15):3666. doi: 10.3390/ijms20153666.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:31903434
+  title: Rare genetic variants in patients with cervical artery dissection.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2019 Dec;4(4):355-362. doi: 10.1177/2396987319861869.&#39;
+    supporting_text: &#39;2019 Dec;4(4):355-362. doi: 10.1177/2396987319861869.&#39;
+    evidence:
+    - reference: PMID:31903434
+      reference_title: Rare genetic variants in patients with cervical artery dissection.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2019 Dec;4(4):355-362. doi: 10.1177/2396987319861869.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:34687376
+  title: Stroke Prevention in Cervical Artery Dissection.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2021 Oct 23;23(12):182. doi: 10.1007/s11886-021-01603-2.&#39;
+    supporting_text: &#39;2021 Oct 23;23(12):182. doi: 10.1007/s11886-021-01603-2.&#39;
+    evidence:
+    - reference: PMID:34687376
+      reference_title: Stroke Prevention in Cervical Artery Dissection.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2021 Oct 23;23(12):182. doi: 10.1007/s11886-021-01603-2.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:35743335
+  title: Multiple Arterial Dissections and Connective Tissue Abnormalities.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: Although patients with multiple arterial dissections in distinct arterial regions rarely present with known connective tissue syndromes, we hypothesized that mild connective tissue abnormalities are common findings in these patients.
+    supporting_text: Although patients with multiple arterial dissections in distinct arterial regions rarely present with known connective tissue syndromes, we hypothesized that mild connective tissue abnormalities are common findings in these patients.
+    evidence:
+    - reference: PMID:35743335
+      reference_title: Multiple Arterial Dissections and Connective Tissue Abnormalities.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Although patients with multiple arterial dissections in distinct arterial regions rarely present with known connective tissue syndromes, we hypothesized that mild connective tissue abnormalities are common findings in these patients.
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:36918105
+  title: Long-term outcome of cervical artery dissection.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2023 Jul;78(1):158-165. doi: 10.1016/j.jvs.2023.03.020.&#39;
+    supporting_text: &#39;2023 Jul;78(1):158-165. doi: 10.1016/j.jvs.2023.03.020.&#39;
+    evidence:
+    - reference: PMID:36918105
+      reference_title: Long-term outcome of cervical artery dissection.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;2023 Jul;78(1):158-165. doi: 10.1016/j.jvs.2023.03.020.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:37885478
+  title: &#39;Spontaneous cervical artery dissection: is it really a connective tissue disease? A comprehensive review.&#39;
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: Spontaneous cervical artery dissection (sCeAD) is an important cause of stroke in young adults.
+    supporting_text: Spontaneous cervical artery dissection (sCeAD) is an important cause of stroke in young adults.
+    evidence:
+    - reference: PMID:37885478
+      reference_title: &#39;Spontaneous cervical artery dissection: is it really a connective tissue disease? A comprehensive review.&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Spontaneous cervical artery dissection (sCeAD) is an important cause of stroke in young adults.
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:38739383
+  title: &#39;Antithrombotic Treatment for Cervical Artery Dissection: A Systematic Review and Individual Patient Data Meta-Analysis.&#39;
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;2024 Jun 1;81(6):630-637. doi: 10.1001/jamaneurol.2024.1141.&#39;
+    supporting_text: &#39;2024 Jun 1;81(6):630-637. doi: 10.1001/jamaneurol.2024.1141.&#39;
+    evidence:
+    - reference: PMID:38739383
+      reference_title: &#39;Antithrombotic Treatment for Cervical Artery Dissection: A Systematic Review and Individual Patient Data Meta-Analysis.&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#39;2024 Jun 1;81(6):630-637. doi: 10.1001/jamaneurol.2024.1141.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:38847098
+  title: &#39;Anticoagulation Versus Antiplatelets in Spontaneous Cervical Artery Dissection: A Systematic Review and Meta-Analysis.&#39;
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: It is uncertain whether antiplatelets or anticoagulants are more effective in preventing early recurrent stroke in patients with cervical artery dissection.
+    supporting_text: It is uncertain whether antiplatelets or anticoagulants are more effective in preventing early recurrent stroke in patients with cervical artery dissection.
+    evidence:
+    - reference: PMID:38847098
+      reference_title: &#39;Anticoagulation Versus Antiplatelets in Spontaneous Cervical Artery Dissection: A Systematic Review and Meta-Analysis.&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: It is uncertain whether antiplatelets or anticoagulants are more effective in preventing early recurrent stroke in patients with cervical artery dissection.
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:7570751
+  title: Familial aorto-cervicocephalic arterial dissections and congenitally bicuspid aortic valve.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: A primary arteriopathy is often implicated in the etiology of spontaneous cervicocephalic arterial dissections, but its exact nature usually remains unknown.
+    supporting_text: A primary arteriopathy is often implicated in the etiology of spontaneous cervicocephalic arterial dissections, but its exact nature usually remains unknown.
+    evidence:
+    - reference: PMID:7570751
+      reference_title: Familial aorto-cervicocephalic arterial dissections and congenitally bicuspid aortic valve.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: A primary arteriopathy is often implicated in the etiology of spontaneous cervicocephalic arterial dissections, but its exact nature usually remains unknown.
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:7801427
+  title: Cardiovascular lesions in bovine Marfan syndrome.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1994 Sep;31(5):501-9. doi: 10.1177/030098589403100501.&#39;
+    supporting_text: &#39;1994 Sep;31(5):501-9. doi: 10.1177/030098589403100501.&#39;
+    evidence:
+    - reference: PMID:7801427
+      reference_title: Cardiovascular lesions in bovine Marfan syndrome.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#39;1994 Sep;31(5):501-9. doi: 10.1177/030098589403100501.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:7905956
+  title: Alpha 1-antitrypsin deficiency in intracranial aneurysms and cervical artery dissection.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1994 Feb 19;343(8895):452-53. doi: 10.1016/s0140-6736(94)92693-x.&#39;
+    supporting_text: &#39;1994 Feb 19;343(8895):452-53. doi: 10.1016/s0140-6736(94)92693-x.&#39;
+    evidence:
+    - reference: PMID:7905956
+      reference_title: Alpha 1-antitrypsin deficiency in intracranial aneurysms and cervical artery dissection.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;1994 Feb 19;343(8895):452-53. doi: 10.1016/s0140-6736(94)92693-x.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:8614918
+  title: &#39;Recurrent spontaneous arterial dissections: risk in familial versus nonfamilial disease.&#39;
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1996 Apr;27(4):622-4. doi: 10.1161/01.str.27.4.622.&#39;
+    supporting_text: &#39;1996 Apr;27(4):622-4. doi: 10.1161/01.str.27.4.622.&#39;
+    evidence:
+    - reference: PMID:8614918
+      reference_title: &#39;Recurrent spontaneous arterial dissections: risk in familial versus nonfamilial disease.&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;1996 Apr;27(4):622-4. doi: 10.1161/01.str.27.4.622.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:9645981
+  title: Alpha-1-antitrypsin deficiency in spontaneous intracranial arterial dissections.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1998 Jan-Feb;8(1):42-4. doi: 10.1159/000015814.&#39;
+    supporting_text: &#39;1998 Jan-Feb;8(1):42-4. doi: 10.1159/000015814.&#39;
+    evidence:
+    - reference: PMID:9645981
+      reference_title: Alpha-1-antitrypsin deficiency in spontaneous intracranial arterial dissections.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;1998 Jan-Feb;8(1):42-4. doi: 10.1159/000015814.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
+- reference: PMID:9647179
+  title: Seasonal pattern of spontaneous cervical artery dissection.
+  found_in:
+  - Arterial_Dissection_Lentiginosis_Syndrome-deep-research-openscientist.md
+  findings:
+  - statement: &#39;1998 Jul;89(1):101-3. doi: 10.3171/jns.1998.89.1.0101.&#39;
+    supporting_text: &#39;1998 Jul;89(1):101-3. doi: 10.3171/jns.1998.89.1.0101.&#39;
+    evidence:
+    - reference: PMID:9647179
+      reference_title: Seasonal pattern of spontaneous cervical artery dissection.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;1998 Jul;89(1):101-3. doi: 10.3171/jns.1998.89.1.0101.&#39;
+      explanation: Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.
 </pre>
             </div>
         </div>
@@ -3382,11 +4090,2545 @@ review_notes: &gt;-
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
             
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">38</span>
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1046/j.1365-2796.1998.00341.x" target="_blank">DOI:10.1046/j.1365-2796.1998.00341.x</a>
+                            </div>
+                            
+                            <div class="reference-title">Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci</div>
+            
+            
+            <div class="reference-finding-supporting">"Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1056/nejm199503023320905" target="_blank">DOI:10.1056/nejm199503023320905</a>
+                            </div>
+                            
+                            <div class="reference-title">A Familial Syndrome of Arterial Dissections with Lentiginosis</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A Familial Syndrome of Arterial Dissections with Lentiginosis</div>
+            
+            
+            <div class="reference-finding-supporting">"A Familial Syndrome of Arterial Dissections with Lentiginosis"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1159/000053283" target="_blank">DOI:10.1159/000053283</a>
+                            </div>
+                            
+                            <div class="reference-title">Genetics of Peutz-Jeghers Syndrome, Carney Complex and Other Familial Lentiginoses</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Peutz-Jeghers syndrome (PJS, #175200) and Carney complex (CNC, OMIM#160980) are the two most common multiple neoplasia syndromes associated with lentiginosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Peutz-Jeghers syndrome (PJS, #175200) and Carney complex (CNC, OMIM#160980) are the two most common multiple neoplasia syndromes associated with lentiginosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000053283" target="_blank">DOI:10.1159/000053283</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Peutz-Jeghers syndrome (PJS, #175200) and Carney complex (CNC, OMIM#160980) are the two most common multiple neoplasia syndromes associated with lentiginosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/DOI:10.1177/000992280003900201" target="_blank">DOI:10.1177/000992280003900201</a>
+                            </div>
+                            
+                            <div class="reference-title">Etiologic Factors of Acute Aortic Dissection in Children and Younrg Adults</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Current concepts in the pathophysiology and predisposing conditions of acute aortic dissection in children, adolescents, and young adults are presented.</div>
+            
+            
+            <div class="reference-finding-supporting">"Current concepts in the pathophysiology and predisposing conditions of acute aortic dissection in children, adolescents, and young adults are presented."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/000992280003900201" target="_blank">DOI:10.1177/000992280003900201</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Current concepts in the pathophysiology and predisposing conditions of acute aortic dissection in children, adolescents, and young adults are presented."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/7838191" target="_blank">PMID:7838191</a>
+                            </div>
+                            
+                            <div class="reference-title">Brief report: a familial syndrome of arterial dissections with lentiginosis.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Brief report: a familial syndrome of arterial dissections with lentiginosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Brief report: a familial syndrome of arterial dissections with lentiginosis."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/10471441" target="_blank">PMID:10471441</a>
+                            </div>
+                            
+                            <div class="reference-title">Mutations in the COL5A1 coding sequence are not common in patients with spontaneous cervical artery dissections.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1999 Sep;30(9):1887-90. doi: 10.1161/01.str.30.9.1887.</div>
+            
+            
+            <div class="reference-finding-supporting">"1999 Sep;30(9):1887-90. doi: 10.1161/01.str.30.9.1887."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10471441" target="_blank">PMID:10471441</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"1999 Sep;30(9):1887-90. doi: 10.1161/01.str.30.9.1887."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/11128183" target="_blank">PMID:11128183</a>
+                            </div>
+                            
+                            <div class="reference-title">The treatment of spontaneous carotid and vertebral artery dissections.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2000 Sep;15(5):316-21. doi: 10.1097/00001573-200009000-00002.</div>
+            
+            
+            <div class="reference-finding-supporting">"2000 Sep;15(5):316-21. doi: 10.1097/00001573-200009000-00002."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11128183" target="_blank">PMID:11128183</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2000 Sep;15(5):316-21. doi: 10.1097/00001573-200009000-00002."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/11773966" target="_blank">PMID:11773966</a>
+                            </div>
+                            
+                            <div class="reference-title">A mouse model of Waardenburg syndrome type 4 with a new spontaneous mutation of the endothelin-B receptor gene.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2002 Jan;13(1):30-5. doi: 10.1007/s00335-001-3038-2.</div>
+            
+            
+            <div class="reference-finding-supporting">"2002 Jan;13(1):30-5. doi: 10.1007/s00335-001-3038-2."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11773966" target="_blank">PMID:11773966</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2002 Jan;13(1):30-5. doi: 10.1007/s00335-001-3038-2."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/11891690" target="_blank">PMID:11891690</a>
+                            </div>
+                            
+                            <div class="reference-title">ABCD syndrome is caused by a homozygous mutation in the EDNRB gene.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2002 Mar 15;108(3):223-5. doi: 10.1002/ajmg.10172.</div>
+            
+            
+            <div class="reference-finding-supporting">"2002 Mar 15;108(3):223-5. doi: 10.1002/ajmg.10172."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11891690" target="_blank">PMID:11891690</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2002 Mar 15;108(3):223-5. doi: 10.1002/ajmg.10172."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/12950083" target="_blank">PMID:12950083</a>
+                            </div>
+                            
+                            <div class="reference-title">Ece1 and Tbx1 define distinct pathways to aortic arch morphogenesis.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2003 Sep;228(1):95-104. doi: 10.1002/dvdy.10358.</div>
+            
+            
+            <div class="reference-finding-supporting">"2003 Sep;228(1):95-104. doi: 10.1002/dvdy.10358."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12950083" target="_blank">PMID:12950083</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2003 Sep;228(1):95-104. doi: 10.1002/dvdy.10358."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/15016298" target="_blank">PMID:15016298</a>
+                            </div>
+                            
+                            <div class="reference-title">Autocrine and paracrine regulation of melanocytes in human skin and in pigmentary disorders.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2004 Apr;17(2):96-110. doi: 10.1111/j.1600-0749.2003.00126.x.</div>
+            
+            
+            <div class="reference-finding-supporting">"2004 Apr;17(2):96-110. doi: 10.1111/j.1600-0749.2003.00126.x."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15016298" target="_blank">PMID:15016298</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2004 Apr;17(2):96-110. doi: 10.1111/j.1600-0749.2003.00126.x."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/15070746" target="_blank">PMID:15070746</a>
+                            </div>
+                            
+                            <div class="reference-title">Self-renewal capacity is a widespread property of various types of neural crest precursor cells.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2004 Mar 30;101(13):4495-500. doi: 10.1073/pnas.0400629101.</div>
+            
+            
+            <div class="reference-finding-supporting">"2004 Mar 30;101(13):4495-500. doi: 10.1073/pnas.0400629101."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15070746" target="_blank">PMID:15070746</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2004 Mar 30;101(13):4495-500. doi: 10.1073/pnas.0400629101."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/17631447" target="_blank">PMID:17631447</a>
+                            </div>
+                            
+                            <div class="reference-title">Neural crest progenitors and stem cells.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2007 Jun-Jul;330(6-7):521-9. doi: 10.1016/j.crvi.2007.04.004.</div>
+            
+            
+            <div class="reference-finding-supporting">"2007 Jun-Jul;330(6-7):521-9. doi: 10.1016/j.crvi.2007.04.004."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17631447" target="_blank">PMID:17631447</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2007 Jun-Jul;330(6-7):521-9. doi: 10.1016/j.crvi.2007.04.004."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20495147" target="_blank">PMID:20495147</a>
+                            </div>
+                            
+                            <div class="reference-title">NFATc3 contributes to intermittent hypoxia-induced arterial remodeling in mice.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2010 Aug;299(2):H356-63. doi: 10.1152/ajpheart.00341.2010.</div>
+            
+            
+            <div class="reference-finding-supporting">"2010 Aug;299(2):H356-63. doi: 10.1152/ajpheart.00341.2010."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20495147" target="_blank">PMID:20495147</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2010 Aug;299(2):H356-63. doi: 10.1152/ajpheart.00341.2010."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/21157040" target="_blank">PMID:21157040</a>
+                            </div>
+                            
+                            <div class="reference-title">Cardiac neural crest orchestrates remodeling and functional maturation of mouse semilunar valves.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2011 Jan;121(1):422-30. doi: 10.1172/JCI44244.</div>
+            
+            
+            <div class="reference-finding-supporting">"2011 Jan;121(1):422-30. doi: 10.1172/JCI44244."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21157040" target="_blank">PMID:21157040</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2011 Jan;121(1):422-30. doi: 10.1172/JCI44244."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/22507869" target="_blank">PMID:22507869</a>
+                            </div>
+                            
+                            <div class="reference-title">Familial occurrence of cervical artery dissection--coincidence or sign of familial predisposition?</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2012;33(5):466-70. doi: 10.1159/000337035.</div>
+            
+            
+            <div class="reference-finding-supporting">"2012;33(5):466-70. doi: 10.1159/000337035."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22507869" target="_blank">PMID:22507869</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2012;33(5):466-70. doi: 10.1159/000337035."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/25355826" target="_blank">PMID:25355826</a>
+                            </div>
+                            
+                            <div class="reference-title">Connective tissue anomalies in patients with spontaneous cervical artery dissection.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2014 Nov 25;83(22):2032-7. doi: 10.1212/WNL.0000000000001030.</div>
+            
+            
+            <div class="reference-finding-supporting">"2014 Nov 25;83(22):2032-7. doi: 10.1212/WNL.0000000000001030."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25355826" target="_blank">PMID:25355826</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2014 Nov 25;83(22):2032-7. doi: 10.1212/WNL.0000000000001030."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/26679613" target="_blank">PMID:26679613</a>
+                            </div>
+                            
+                            <div class="reference-title">Endothelin-1 mediates intermittent hypoxia-induced inflammatory vascular remodeling through HIF-1 activation.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2016 Feb 15;120(4):437-43. doi: 10.1152/japplphysiol.00641.2015.</div>
+            
+            
+            <div class="reference-finding-supporting">"2016 Feb 15;120(4):437-43. doi: 10.1152/japplphysiol.00641.2015."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26679613" target="_blank">PMID:26679613</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2016 Feb 15;120(4):437-43. doi: 10.1152/japplphysiol.00641.2015."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/27527829" target="_blank">PMID:27527829</a>
+                            </div>
+                            
+                            <div class="reference-title">Friesian horses as a possible model for human acquired aortopulmonary fistulation.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Acquired aortopulmonary fistulation is a rare condition in humans.</div>
+            
+            
+            <div class="reference-finding-supporting">"Acquired aortopulmonary fistulation is a rare condition in humans."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27527829" target="_blank">PMID:27527829</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Acquired aortopulmonary fistulation is a rare condition in humans."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28753427" target="_blank">PMID:28753427</a>
+                            </div>
+                            
+                            <div class="reference-title">A Genetic Variant Associated with Five Vascular Diseases Is a Distal Regulator of Endothelin-1 Gene Expression.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2017 Jul 27;170(3):522-533.e15. doi: 10.1016/j.cell.2017.06.049.</div>
+            
+            
+            <div class="reference-finding-supporting">"2017 Jul 27;170(3):522-533.e15. doi: 10.1016/j.cell.2017.06.049."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28753427" target="_blank">PMID:28753427</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2017 Jul 27;170(3):522-533.e15. doi: 10.1016/j.cell.2017.06.049."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29510914" target="_blank">PMID:29510914</a>
+                            </div>
+                            
+                            <div class="reference-title">Testing patterns for genetically triggered aortic and arterial aneurysms and dissections at an academic center.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2018 Sep;68(3):701-711. doi: 10.1016/j.jvs.2017.12.023.</div>
+            
+            
+            <div class="reference-finding-supporting">"2018 Sep;68(3):701-711. doi: 10.1016/j.jvs.2017.12.023."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29510914" target="_blank">PMID:29510914</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2018 Sep;68(3):701-711. doi: 10.1016/j.jvs.2017.12.023."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29699546" target="_blank">PMID:29699546</a>
+                            </div>
+                            
+                            <div class="reference-title">Elevated urinary excretion of free pyridinoline in Friesian horses suggests a breed-specific increase in collagen degradation.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Friesian horses are known for their high inbreeding rate resulting in several genetic diseases such as hydrocephaly and dwarfism.</div>
+            
+            
+            <div class="reference-finding-supporting">"Friesian horses are known for their high inbreeding rate resulting in several genetic diseases such as hydrocephaly and dwarfism."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29699546" target="_blank">PMID:29699546</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Friesian horses are known for their high inbreeding rate resulting in several genetic diseases such as hydrocephaly and dwarfism."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/30002812" target="_blank">PMID:30002812</a>
+                            </div>
+                            
+                            <div class="reference-title">Spontaneous cervical artery dissection: a fluoroquinolone induced connective tissue disorder?</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Spontaneous cervical artery dissections more often manifest in young people and have been associated with catastrophic consequences.</div>
+            
+            
+            <div class="reference-finding-supporting">"Spontaneous cervical artery dissections more often manifest in young people and have been associated with catastrophic consequences."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30002812" target="_blank">PMID:30002812</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Spontaneous cervical artery dissections more often manifest in young people and have been associated with catastrophic consequences."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31008308" target="_blank">PMID:31008308</a>
+                            </div>
+                            
+                            <div class="reference-title">Next generation sequencing analysis of patients with familial cervical artery dissection.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The cause of cervical artery dissection is not well understood.</div>
+            
+            
+            <div class="reference-finding-supporting">"The cause of cervical artery dissection is not well understood."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31008308" target="_blank">PMID:31008308</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The cause of cervical artery dissection is not well understood."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31357457" target="_blank">PMID:31357457</a>
+                            </div>
+                            
+                            <div class="reference-title">Melanocyte Activation Mechanisms and Rational Therapeutic Treatments of Solar Lentigos.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2019 Jul 26;20(15):3666. doi: 10.3390/ijms20153666.</div>
+            
+            
+            <div class="reference-finding-supporting">"2019 Jul 26;20(15):3666. doi: 10.3390/ijms20153666."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31357457" target="_blank">PMID:31357457</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2019 Jul 26;20(15):3666. doi: 10.3390/ijms20153666."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31903434" target="_blank">PMID:31903434</a>
+                            </div>
+                            
+                            <div class="reference-title">Rare genetic variants in patients with cervical artery dissection.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2019 Dec;4(4):355-362. doi: 10.1177/2396987319861869.</div>
+            
+            
+            <div class="reference-finding-supporting">"2019 Dec;4(4):355-362. doi: 10.1177/2396987319861869."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31903434" target="_blank">PMID:31903434</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2019 Dec;4(4):355-362. doi: 10.1177/2396987319861869."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/34687376" target="_blank">PMID:34687376</a>
+                            </div>
+                            
+                            <div class="reference-title">Stroke Prevention in Cervical Artery Dissection.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2021 Oct 23;23(12):182. doi: 10.1007/s11886-021-01603-2.</div>
+            
+            
+            <div class="reference-finding-supporting">"2021 Oct 23;23(12):182. doi: 10.1007/s11886-021-01603-2."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34687376" target="_blank">PMID:34687376</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2021 Oct 23;23(12):182. doi: 10.1007/s11886-021-01603-2."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/35743335" target="_blank">PMID:35743335</a>
+                            </div>
+                            
+                            <div class="reference-title">Multiple Arterial Dissections and Connective Tissue Abnormalities.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Although patients with multiple arterial dissections in distinct arterial regions rarely present with known connective tissue syndromes, we hypothesized that mild connective tissue abnormalities are common findings in these patients.</div>
+            
+            
+            <div class="reference-finding-supporting">"Although patients with multiple arterial dissections in distinct arterial regions rarely present with known connective tissue syndromes, we hypothesized that mild connective tissue abnormalities are common findings in these patients."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35743335" target="_blank">PMID:35743335</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Although patients with multiple arterial dissections in distinct arterial regions rarely present with known connective tissue syndromes, we hypothesized that mild connective tissue abnormalities are common findings in these patients."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36918105" target="_blank">PMID:36918105</a>
+                            </div>
+                            
+                            <div class="reference-title">Long-term outcome of cervical artery dissection.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2023 Jul;78(1):158-165. doi: 10.1016/j.jvs.2023.03.020.</div>
+            
+            
+            <div class="reference-finding-supporting">"2023 Jul;78(1):158-165. doi: 10.1016/j.jvs.2023.03.020."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36918105" target="_blank">PMID:36918105</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2023 Jul;78(1):158-165. doi: 10.1016/j.jvs.2023.03.020."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37885478" target="_blank">PMID:37885478</a>
+                            </div>
+                            
+                            <div class="reference-title">Spontaneous cervical artery dissection: is it really a connective tissue disease? A comprehensive review.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Spontaneous cervical artery dissection (sCeAD) is an important cause of stroke in young adults.</div>
+            
+            
+            <div class="reference-finding-supporting">"Spontaneous cervical artery dissection (sCeAD) is an important cause of stroke in young adults."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37885478" target="_blank">PMID:37885478</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Spontaneous cervical artery dissection (sCeAD) is an important cause of stroke in young adults."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38739383" target="_blank">PMID:38739383</a>
+                            </div>
+                            
+                            <div class="reference-title">Antithrombotic Treatment for Cervical Artery Dissection: A Systematic Review and Individual Patient Data Meta-Analysis.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">2024 Jun 1;81(6):630-637. doi: 10.1001/jamaneurol.2024.1141.</div>
+            
+            
+            <div class="reference-finding-supporting">"2024 Jun 1;81(6):630-637. doi: 10.1001/jamaneurol.2024.1141."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38739383" target="_blank">PMID:38739383</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"2024 Jun 1;81(6):630-637. doi: 10.1001/jamaneurol.2024.1141."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38847098" target="_blank">PMID:38847098</a>
+                            </div>
+                            
+                            <div class="reference-title">Anticoagulation Versus Antiplatelets in Spontaneous Cervical Artery Dissection: A Systematic Review and Meta-Analysis.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">It is uncertain whether antiplatelets or anticoagulants are more effective in preventing early recurrent stroke in patients with cervical artery dissection.</div>
+            
+            
+            <div class="reference-finding-supporting">"It is uncertain whether antiplatelets or anticoagulants are more effective in preventing early recurrent stroke in patients with cervical artery dissection."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38847098" target="_blank">PMID:38847098</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"It is uncertain whether antiplatelets or anticoagulants are more effective in preventing early recurrent stroke in patients with cervical artery dissection."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/7570751" target="_blank">PMID:7570751</a>
+                            </div>
+                            
+                            <div class="reference-title">Familial aorto-cervicocephalic arterial dissections and congenitally bicuspid aortic valve.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A primary arteriopathy is often implicated in the etiology of spontaneous cervicocephalic arterial dissections, but its exact nature usually remains unknown.</div>
+            
+            
+            <div class="reference-finding-supporting">"A primary arteriopathy is often implicated in the etiology of spontaneous cervicocephalic arterial dissections, but its exact nature usually remains unknown."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7570751" target="_blank">PMID:7570751</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A primary arteriopathy is often implicated in the etiology of spontaneous cervicocephalic arterial dissections, but its exact nature usually remains unknown."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/7801427" target="_blank">PMID:7801427</a>
+                            </div>
+                            
+                            <div class="reference-title">Cardiovascular lesions in bovine Marfan syndrome.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1994 Sep;31(5):501-9. doi: 10.1177/030098589403100501.</div>
+            
+            
+            <div class="reference-finding-supporting">"1994 Sep;31(5):501-9. doi: 10.1177/030098589403100501."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7801427" target="_blank">PMID:7801427</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"1994 Sep;31(5):501-9. doi: 10.1177/030098589403100501."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/7905956" target="_blank">PMID:7905956</a>
+                            </div>
+                            
+                            <div class="reference-title">Alpha 1-antitrypsin deficiency in intracranial aneurysms and cervical artery dissection.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1994 Feb 19;343(8895):452-53. doi: 10.1016/s0140-6736(94)92693-x.</div>
+            
+            
+            <div class="reference-finding-supporting">"1994 Feb 19;343(8895):452-53. doi: 10.1016/s0140-6736(94)92693-x."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7905956" target="_blank">PMID:7905956</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"1994 Feb 19;343(8895):452-53. doi: 10.1016/s0140-6736(94)92693-x."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/8614918" target="_blank">PMID:8614918</a>
+                            </div>
+                            
+                            <div class="reference-title">Recurrent spontaneous arterial dissections: risk in familial versus nonfamilial disease.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1996 Apr;27(4):622-4. doi: 10.1161/01.str.27.4.622.</div>
+            
+            
+            <div class="reference-finding-supporting">"1996 Apr;27(4):622-4. doi: 10.1161/01.str.27.4.622."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8614918" target="_blank">PMID:8614918</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"1996 Apr;27(4):622-4. doi: 10.1161/01.str.27.4.622."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/9645981" target="_blank">PMID:9645981</a>
+                            </div>
+                            
+                            <div class="reference-title">Alpha-1-antitrypsin deficiency in spontaneous intracranial arterial dissections.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1998 Jan-Feb;8(1):42-4. doi: 10.1159/000015814.</div>
+            
+            
+            <div class="reference-finding-supporting">"1998 Jan-Feb;8(1):42-4. doi: 10.1159/000015814."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9645981" target="_blank">PMID:9645981</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"1998 Jan-Feb;8(1):42-4. doi: 10.1159/000015814."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/9647179" target="_blank">PMID:9647179</a>
+                            </div>
+                            
+                            <div class="reference-title">Seasonal pattern of spontaneous cervical artery dissection.</div>
+                            
+                        </div>
+                        
+                        <span class="reference-summary">1 finding</span>
+                        
+                    </div>
+                    
+                    
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">1998 Jul;89(1):101-3. doi: 10.3171/jns.1998.89.1.0101.</div>
+            
+            
+            <div class="reference-finding-supporting">"1998 Jul;89(1):101-3. doi: 10.3171/jns.1998.89.1.0101."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9647179" target="_blank">PMID:9647179</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"1998 Jul;89(1):101-3. doi: 10.3171/jns.1998.89.1.0101."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Arterial Dissection Lentiginosis Syndrome.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                    
+                </div>
+                
+            </div>
+            
             
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
                 </div>
                 
                 <div style="margin-bottom: 4px;">
@@ -4243,6 +7485,974 @@ For each section, provide:
                     </div>
                 </div>
                 
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>OpenScientist</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">openscientist-autonomous</span>
+                            
+                            
+                            <span class="report-badge">34 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-06T21:56:49.193061Z</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>Arterial dissection-lentiginosis syndrome is an ultra-rare autosomal recessive Mendelian disorder characterized by the co-occurrence of spontaneous arterial dissection with underlying cystic medial necrosis and multiple lentigines (pigmented skin macules). The syndrome was first described in 1995 by Schievink, Michels, Mokri, Piepgras, and Perry at the Mayo Clinic in a brief report documenting affected members of two families (<a href="https://pubmed.ncbi.nlm.nih.gov/7838191/">PMID: 7838191</a>).</p>
+<p>The Orphanet definition states: <em>"Arterial dissection-lentiginosis is a rare association syndrome, reported in several members of two families to date, characterized by arterial dissection, occurring at an early age and presenting with a range of manifestations depending on the vascular territory involved (ex. headache, dysphasia, hemiparesis), in association with cystic medial necrosis and multiple lentigines (brown and black in color and mainly affecting the skin of the trunk and extremities)."</em></p>
+<h3>Key Identifiers</h3>
+<table>
+<thead>
+<tr>
+<th>Database</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>OMIM</strong></td>
+<td><a href="https://omim.org/entry/600459">600459</a></td>
+</tr>
+<tr>
+<td><strong>Orphanet</strong></td>
+<td><a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=1682">ORPHA:1682</a></td>
+</tr>
+<tr>
+<td><strong>MONDO</strong></td>
+<td><a href="https://monarchinitiative.org/disease/MONDO:0010889">MONDO:0010889</a></td>
+</tr>
+<tr>
+<td><strong>MeSH</strong></td>
+<td>C563937</td>
+</tr>
+<tr>
+<td><strong>GARD</strong></td>
+<td>0016577</td>
+</tr>
+<tr>
+<td><strong>UMLS</strong></td>
+<td>C1838122</td>
+</tr>
+<tr>
+<td><strong>MedGen</strong></td>
+<td>325345</td>
+</tr>
+</tbody>
+</table>
+<p>No ICD-10 or ICD-11 specific code has been assigned; the condition would fall under unspecified codes for vascular disorders or genetic syndromes.</p>
+<h3>Synonyms and Alternative Names</h3>
+<ul>
+<li>Arterial dissection with lentiginosis (exact synonym)</li>
+<li>Familial arterial dissection with lentiginosis</li>
+<li>Aortic dissection-lentiginosis (historical, now obsolete per MONDO:0022470)</li>
+<li>Schievink-Michels syndrome (informal)</li>
+</ul>
+<h3>Data Source</h3>
+<p>Information is derived from aggregated disease-level resources (OMIM, Orphanet, Monarch Initiative) and the original published case series. Individual patient data is limited to the original two families described. No electronic health record-based aggregated data exists due to extreme rarity.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>The primary cause is <strong>genetic</strong> — the syndrome follows an autosomal recessive inheritance pattern (HP:0000007) as recorded in OMIM (600459). The specific causal gene has <strong>not been identified</strong>. The combination of arterial wall structural deficiency (cystic medial necrosis) and pigmentary anomaly (lentigines) strongly suggests a <strong>neurocristopathy</strong> — a disorder of neural crest-derived cell lineages.</p>
+<p>Schievink and Mokri (1995) proposed that a neural crest defect may be the underlying abnormality, noting that "<em>the aortic valvular cusps and the arterial media of the aortic arch and its branches are derived from neural crest cells, suggesting that a neural crest defect may be the underlying abnormality in these families</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/7570751/">PMID: 7570751</a>).</p>
+<h3>Genetic Risk Factors</h3>
+<ul>
+<li><strong>Autosomal recessive inheritance</strong>: Affected individuals carry two copies of the (as yet unidentified) pathogenic variant.</li>
+<li><strong>Family history of arterial dissection</strong>: Schievink et al. (1996) demonstrated that family history is the strongest risk factor for recurrent arterial dissection, with "<em>a recurrent arterial dissection was identified in 5 (50%) of the 10 patients with familial disease compared with 11 (5.8%) of the 190 patients with nonfamilial disease, with an estimated relative risk of 6.3 (95% confidence interval, 2.2 to 18.3; P=.0007)</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/8614918/">PMID: 8614918</a>).</li>
+<li><strong>Connective tissue abnormalities</strong>: Giossi et al. (2014, <a href="https://pubmed.ncbi.nlm.nih.gov/25355826/">PMID: 25355826</a>) found connective tissue abnormalities in 96.4% of spontaneous cervical artery dissection (sCeAD) patients vs. 66.7% of controls.</li>
+<li><strong>Alpha-1-antitrypsin deficiency</strong>: Heterozygous deficiency (PiMZ, PiMS phenotypes) may serve as a modifier (<a href="https://pubmed.ncbi.nlm.nih.gov/9645981/">PMID: 9645981</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/7905956/">PMID: 7905956</a>).</li>
+<li><strong>Candidate pathway</strong>: Endothelin signaling (EDN1, EDN3, EDNRB, EDNRA, ECE1) — supported by six convergent evidence lines (see Section 6).</li>
+<li><strong>GWAS evidence</strong>: The rs9349379 variant at the PHACTR1/EDN1 locus on chromosome 6p24 is associated with cervical artery dissection risk, where this variant regulates EDN1 expression in aorta. As stated by Gupta et al.: "<em>Genome-wide association studies (GWASs) implicate the PHACTR1 locus (6p24) in risk for five vascular diseases, including coronary artery disease, migraine headache, cervical artery dissection, fibromuscular dysplasia, and hypertension</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/28753427/">PMID: 28753427</a>).</li>
+<li><strong>WES findings</strong>: Only ~25% of familial CeAD pedigrees have causative variants identified in known connective tissue genes (<a href="https://pubmed.ncbi.nlm.nih.gov/31903434/">PMID: 31903434</a>: "<em>Among 43 CeAD-patients, 28 patients (17 pedigrees) had f-CeAD and 15 had r-CeAD. No CeAD-causing variants were identified in r-CeAD patients. Among f-CeAD-patients, 5/17 pedigrees carried CeAD-causing</em>" variants), leaving 75% genetically unexplained.</li>
+</ul>
+<h3>Environmental Risk Factors</h3>
+<ul>
+<li><strong>Seasonal variation</strong>: Cervical artery dissection shows a circannual periodicity peaking in October (~58% more cases in autumn; P&lt;0.02) (<a href="https://pubmed.ncbi.nlm.nih.gov/9647179/">PMID: 9647179</a>).</li>
+<li><strong>Minor cervical trauma</strong>: May trigger dissection in predisposed individuals.</li>
+<li><strong>Fluoroquinolone antibiotics</strong>: Proposed as potential risk factor through connective tissue degradation (<a href="https://pubmed.ncbi.nlm.nih.gov/30002812/">PMID: 30002812</a>).</li>
+</ul>
+<h3>Protective Factors</h3>
+<p>No specific protective genetic variants or environmental factors have been identified. General vascular protective measures (blood pressure control, avoidance of cervical trauma) may reduce dissection risk.</p>
+<h3>Gene-Environment Interactions</h3>
+<p>The interaction between an underlying genetic arteriopathy and environmental triggers (trauma, infection, seasonal factors) likely determines the timing and severity of dissection events. The baseline genetic defect determines susceptibility, while environmental factors modulate the threshold for dissection.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core Phenotypes</h3>
+<table>
+<thead>
+<tr>
+<th>HPO Term</th>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>Severity</th>
+<th>Progression</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>HP:0005294</strong></td>
+<td>Arterial dissection</td>
+<td>Clinical sign</td>
+<td>Very frequent (80–99%)</td>
+<td>Severe; life-threatening</td>
+<td>Episodic; recurrent</td>
+</tr>
+<tr>
+<td><strong>HP:0012180</strong></td>
+<td>Cystic medial necrosis</td>
+<td>Histopathology finding</td>
+<td>Very frequent</td>
+<td>Variable</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td><strong>HP:0001003</strong></td>
+<td>Multiple lentigines</td>
+<td>Physical manifestation</td>
+<td>Obligate (defining feature)</td>
+<td>Mild cosmetically</td>
+<td>Stable</td>
+</tr>
+<tr>
+<td><strong>HP:0100026</strong></td>
+<td>Arteriovenous malformation</td>
+<td>Clinical sign</td>
+<td>Very frequent (80–99%)</td>
+<td>Variable</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td><strong>HP:0000995</strong></td>
+<td>Melanocytic nevus</td>
+<td>Physical manifestation</td>
+<td>Very frequent (80–99%)</td>
+<td>Mild</td>
+<td>Stable</td>
+</tr>
+<tr>
+<td><strong>HP:0001269</strong></td>
+<td>Hemiparesis</td>
+<td>Neurological symptom</td>
+<td>Frequent (30–79%)</td>
+<td>Moderate-severe</td>
+<td>Episodic (stroke)</td>
+</tr>
+</tbody>
+</table>
+<h3>Detailed Phenotype Characteristics</h3>
+<p><strong>Arterial dissection</strong> (HP:0005294):
+- <strong>Age of onset</strong>: Young adulthood (typically 2nd–4th decade)
+- <strong>Severity</strong>: Severe; can cause stroke, subarachnoid hemorrhage, or death
+- <strong>Progression</strong>: Episodic; individual events are acute but recurrence risk is high (50% in familial cases vs. 5.8% in sporadic; <a href="https://pubmed.ncbi.nlm.nih.gov/8614918/">PMID: 8614918</a>)
+- <strong>Manifestations depend on vascular territory</strong>: headache, dysphasia, hemiparesis, Horner syndrome, neck pain
+- <strong>Quality of life impact</strong>: Major — can cause permanent neurological disability</p>
+<p><strong>Multiple lentigines</strong> (HP:0001003):
+- <strong>Type</strong>: Physical manifestation (dermatologic)
+- <strong>Description</strong>: Brown and black pigmented macules, non-elevated
+- <strong>Distribution</strong>: Mainly trunk and extremities
+- <strong>Age of onset</strong>: Likely congenital or early childhood (prior to vascular events)
+- <strong>Quality of life impact</strong>: Primarily cosmetic; serves as important diagnostic clue</p>
+<p><strong>Cystic medial necrosis</strong> (HP:0012180):
+- <strong>Type</strong>: Histopathological finding on arterial wall biopsy/autopsy
+- <strong>Characteristics</strong>: Loss of smooth muscle cells and elastic fibers in the tunica media, replaced by mucoid (cystic) material
+- <strong>Clinical significance</strong>: Weakens arterial wall, predisposing to dissection</p>
+<h3>Additional Phenotypes (inferred from mechanism)</h3>
+<ul>
+<li><strong>HP:0002315</strong>: Headache (common presenting symptom)</li>
+<li><strong>HP:0002357</strong>: Dysphasia (if carotid territory stroke)</li>
+<li><strong>HP:0002084</strong>: Horner syndrome (sympathetic fiber disruption)</li>
+<li><strong>HP:0002321</strong>: Neck pain (local symptom of cervical dissection)</li>
+<li><strong>HP:0001297</strong>: Stroke (consequence of dissection)</li>
+</ul>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<h3>Causal Genes</h3>
+<p><strong>No causal gene has been identified.</strong> The HPO annotations, OMIM entry (600459), Orphanet, ClinVar, and Monarch Initiative databases all show zero confirmed gene associations.</p>
+<h3>Candidate Genes (Endothelin Pathway)</h3>
+<p>Based on our systematic investigation, the following genes are the strongest candidates:</p>
+<table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>HGNC ID</th>
+<th>Chromosome</th>
+<th>OMIM</th>
+<th>Role in Hypothesis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>EDN1</strong></td>
+<td>HGNC:3176</td>
+<td>6p24.1</td>
+<td>131240</td>
+<td>Endothelin-1; GWAS-linked to CeAD; key melanogenic cytokine</td>
+</tr>
+<tr>
+<td><strong>EDNRB</strong></td>
+<td>HGNC:3180</td>
+<td>13q22.3</td>
+<td>131244</td>
+<td>Endothelin receptor B; melanocyte + enteric neuron development</td>
+</tr>
+<tr>
+<td><strong>EDN3</strong></td>
+<td>HGNC:3178</td>
+<td>20q13.32</td>
+<td>131242</td>
+<td>Endothelin-3; neural crest progenitor self-renewal</td>
+</tr>
+<tr>
+<td><strong>EDNRA</strong></td>
+<td>HGNC:3179</td>
+<td>4q31.22-q31.23</td>
+<td>131243</td>
+<td>Endothelin receptor A; enriched 4.2× in arteries vs skin</td>
+</tr>
+<tr>
+<td><strong>ECE1</strong></td>
+<td>HGNC:3146</td>
+<td>1p36.12</td>
+<td>600423</td>
+<td>Endothelin converting enzyme 1; aortic arch morphogenesis</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Supporting evidence for candidate genes:</strong></p>
+<ol>
+<li><strong>EDN1/PHACTR1 locus</strong>: GWAS identifies rs9349379 as regulating EDN1 expression and associated with cervical artery dissection (<a href="https://pubmed.ncbi.nlm.nih.gov/28753427/">PMID: 28753427</a>)</li>
+<li><strong>EDNRB</strong>: Mouse Ednrb mutants exhibit 96 unique phenotypes including 13 pigmentation phenotypes (white spotting, decreased melanocyte number) and 9 cardiovascular phenotypes (increased blood pressure, decreased vasodilation) — dual phenotype overlap with this syndrome</li>
+<li><strong>ECE1</strong>: Controls aortic arch morphogenesis via neural crest (<a href="https://pubmed.ncbi.nlm.nih.gov/12950083/">PMID: 12950083</a>)</li>
+<li><strong>EDN3/EDNRB</strong>: Controls neural crest melanocyte progenitor survival and self-renewal. Trentin et al. (2004): "<em>glia-melanocyte and glia-myofibroblast progenitors behave like stem cells in that they are able both to self-renew and generate a restricted progeny</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/15070746/">PMID: 15070746</a>)</li>
+</ol>
+<h3>Excluded Genes</h3>
+<ul>
+<li><strong>COL5A1</strong>: "<em>Mutations in the COL5A1 gene do not appear to be a major factor in the etiology of sCAD</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/10471441/">PMID: 10471441</a>)</li>
+<li><strong>COL3A1</strong>, <strong>FBN1</strong>, <strong>TGFBR1/2</strong>: Found in only a minority of familial CeAD pedigrees</li>
+<li>Standard connective tissue disorder genes explain only ~25% of familial CeAD pedigrees (<a href="https://pubmed.ncbi.nlm.nih.gov/31903434/">PMID: 31903434</a>)</li>
+</ul>
+<h3>Key Mechanistic Distinction from Related EDNRB Disorders</h3>
+<ul>
+<li><strong>ABCD syndrome</strong> (homozygous EDNRB R201X): "<em>ABCD syndrome is an autosomal recessive syndrome characterized by albinism, black lock, cell migration disorder of the neurocytes of the gut (Hirschsprung disease [HSCR]), and deafness</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/11891690/">PMID: 11891690</a>). This produces <strong>albinism</strong> (depigmentation) — the <strong>opposite</strong> of this syndrome's lentigines (hyperpigmentation).</li>
+<li><strong>Waardenburg-Shah type 4</strong>: EDNRB/EDN3 loss-of-function → depigmentation + Hirschsprung disease</li>
+<li><strong>This syndrome</strong>: Hyperpigmentation + arterial dissection, <strong>no Hirschsprung disease</strong> — suggesting a partial/selective rather than complete loss of endothelin signaling</li>
+</ul>
+<h3>Variant Classification</h3>
+<p>No specific pathogenic variants classified (ACMG/AMP). Disorder remains genetically unresolved.</p>
+<h3>Functional Consequences (Hypothesized)</h3>
+<p>Proposed partial loss-of-function or altered-function mutation that:
+- Does NOT completely abolish signaling (unlike ABCD syndrome with EDNRB null)
+- Selectively shifts neural crest progenitor lineage allocation
+- Results in gain of melanocyte fate (lentigines) with loss of vascular smooth muscle fate (cystic medial necrosis)</p>
+<h3>WES in Familial Cervical Artery Dissection</h3>
+<ul>
+<li>Grond-Ginsbach et al. (2017): WES of 9 familial CeAD pedigrees — "<em>Non-benign single nucleotide variants in both affected patients were identified in four of the nine cervical artery dissection families (COL3A1; Gly324Ser, FBN1: Arg2554Trp, COL4A1: Pro116Leu, and TGFBR2: Ala292Thr) yielding an allele frequency of 22.2% (4/18)</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/31008308/">PMID: 31008308</a>)</li>
+<li>Erhart et al. (2022): "<em>genetic testing should be recommended after recurrent arterial dissections, independently of apparent phenotypical signs of connective tissue disorders</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/35743335/">PMID: 35743335</a>)</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>Environmental Factors</h3>
+<p>No specific environmental toxins or exposures have been identified as causative. Arterial dissection may be triggered by:
+- Minor cervical trauma or neck manipulation
+- Physical exertion
+- Seasonal factors (autumn peak; <a href="https://pubmed.ncbi.nlm.nih.gov/9647179/">PMID: 9647179</a>)</p>
+<h3>Lifestyle Factors</h3>
+<ul>
+<li><strong>Hypertension</strong>: May exacerbate dissection risk given underlying arterial wall weakness</li>
+<li><strong>Contact sports/physical trauma</strong>: May trigger dissection events</li>
+<li><strong>Smoking</strong>: General vascular risk factor</li>
+</ul>
+<h3>Infectious Agents</h3>
+<p>Seasonal clustering in October has raised the hypothesis of infectious triggers, but no specific pathogen identified.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Proposed Mechanistic Model: The Neural Crest Lineage Balance Hypothesis</h3>
+<p>{{figure:disease_model_comprehensive.png|caption=Comprehensive disease model showing the proposed causal chain from genetic defect through neural crest progenitor lineage imbalance to the dual phenotype of arterial dissection and lentigines, with candidate genes and supporting evidence lines indicated.}}</p>
+<h4>Causal Chain</h4>
+<pre><code>Recessive mutation in endothelin pathway gene
+↓
+Altered signaling in neural crest progenitors
+↓
+Shifted lineage allocation:
+    ├── EXCESS melanocyte differentiation → Multiple lentigines
+    └── DEFICIENT vascular smooth muscle cell differentiation → Cystic medial necrosis
+↓
+Weakened arterial wall (especially aortic arch derivatives)
+↓
+Spontaneous arterial dissection → Stroke, hemorrhage
+</code></pre>
+<h4>Molecular Pathways</h4>
+<p><strong>Endothelin signaling cascade</strong> (KEGG: hsa04080):
+- EDN1/EDN3 → EDNRB → Gq/G11 → PLC → IP3/DAG → Ca²⁺ signaling
+- EDN1 → EDNRA → Gq/G12/13 → RhoA/ROCK → vascular smooth muscle contraction
+- ECE1 converts big-endothelin to active endothelin-1</p>
+<p><strong>Melanogenesis pathway</strong> (KEGG: hsa04916):
+- EDN1/EDNRB → PKC → CREB → MITF → tyrosinase → melanin synthesis
+- SCF/c-KIT cooperates with EDN1 in melanocyte activation (<a href="https://pubmed.ncbi.nlm.nih.gov/15016298/">PMID: 15016298</a>)</p>
+<p><strong>Neural crest progenitor self-renewal</strong> (GO:0007399):
+- EDN3/EDNRB required for melanocyte progenitor survival and self-renewal (<a href="https://pubmed.ncbi.nlm.nih.gov/15070746/">PMID: 15070746</a>)
+- Bipotent glia-melanocyte progenitors can also generate myofibroblasts/vascular smooth muscle cells
+- Dupin et al. (2007) confirmed: "<em>In the head and the neck, the NC also yields mesenchymal cells that form craniofacial cartilages, bones, dermis, adipose tissue, and vascular smooth muscle cells</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/17631447/">PMID: 17631447</a>)</p>
+<h4>Tissue Damage Mechanisms</h4>
+<p>Cystic medial necrosis involves:
+- Loss of vascular smooth muscle cells from the tunica media
+- Fragmentation of elastic laminae
+- Accumulation of mucoid (glycosaminoglycan-rich) material
+- Progressive weakening of arterial wall → dissection under hemodynamic stress</p>
+<p>Jain et al. (2011) demonstrated in mouse models that neural crest deficiency causes cystic medial necrosis and smooth muscle apoptosis throughout the aortic arch (<a href="https://pubmed.ncbi.nlm.nih.gov/21157040/">PMID: 21157040</a>), directly modeling the vascular component.</p>
+<h4>Connective Tissue Substrate</h4>
+<p>Gunduz et al. (2023) systematic review: "<em>ultrastructural connective tissue aberrations found cumulatively in 50.5% of patients</em>" with spontaneous cervical artery dissection, described as "<em>irregular contours and calibers of collagen fibrils, composite flower-like fibrils, fragmented moth-eaten elastin, and microcalcifications</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/37885478/">PMID: 37885478</a>).</p>
+<h4>GTEx Expression Evidence</h4>
+<p>{{figure:gtex_expression_candidate_genes.png|caption=GTEx v8 median expression (TPM) of endothelin pathway candidate genes across arterial and skin tissues, demonstrating dual-tissue expression consistent with the proposed pathogenic mechanism.}}</p>
+<p>GTEx v8 expression data confirms endothelin pathway genes are co-expressed in both target tissues:</p>
+<table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>Aorta (TPM)</th>
+<th>Coronary Art. (TPM)</th>
+<th>Tibial Art. (TPM)</th>
+<th>Skin (no sun) (TPM)</th>
+<th>Skin (sun) (TPM)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>EDN1</strong></td>
+<td>9.30</td>
+<td>20.13</td>
+<td>18.45</td>
+<td>18.68</td>
+<td>18.27</td>
+</tr>
+<tr>
+<td><strong>EDNRB</strong></td>
+<td>6.08</td>
+<td>15.22</td>
+<td>11.10</td>
+<td>12.11</td>
+<td>12.67</td>
+</tr>
+<tr>
+<td><strong>EDNRA</strong></td>
+<td>16.65</td>
+<td>34.58</td>
+<td>38.32</td>
+<td>6.60</td>
+<td>7.56</td>
+</tr>
+<tr>
+<td><strong>ECE1</strong></td>
+<td>93.88</td>
+<td>122.64</td>
+<td>161.28</td>
+<td>46.99</td>
+<td>50.49</td>
+</tr>
+</tbody>
+</table>
+<p>Key observations: EDN1 and EDNRB are expressed equally in arteries and skin (ratio ~0.9), while EDNRA is 4.2× enriched in arteries, consistent with its role in vascular smooth muscle contraction.</p>
+<h3>Evidence Convergence</h3>
+<p>{{figure:evidence_convergence.png|caption=Six independent lines of evidence converging on the endothelin signaling pathway as the top candidate mechanism: GWAS genetics, melanocyte biology, neural crest developmental biology, GTEx co-expression, KEGG pathway annotations, and mouse Ednrb mutant phenotypes.}}</p>
+<h3>GO Terms for Biological Processes</h3>
+<ul>
+<li>GO:0001755 — Neural crest cell migration</li>
+<li>GO:0030318 — Melanocyte differentiation</li>
+<li>GO:0035886 — Vascular smooth muscle cell differentiation</li>
+<li>GO:0030198 — Extracellular matrix organization</li>
+<li>GO:0048514 — Blood vessel morphogenesis</li>
+<li>GO:0042310 — Vasoconstriction</li>
+<li>GO:0043473 — Pigmentation</li>
+</ul>
+<h3>Cell Ontology Terms</h3>
+<ul>
+<li>CL:0000333 — Neural crest cell (progenitor)</li>
+<li>CL:0000148 — Melanocyte (excess in this syndrome)</li>
+<li>CL:0000359 — Vascular smooth muscle cell (deficient)</li>
+<li>CL:0000115 — Endothelial cell (secondary involvement)</li>
+</ul>
+<h3>CHEBI Chemical Entities</h3>
+<ul>
+<li>CHEBI:27787 — Endothelin-1</li>
+<li>CHEBI:55344 — Endothelin-3</li>
+<li>CHEBI:28300 — Melanin</li>
+<li>CHEBI:37491 — Collagen</li>
+<li>CHEBI:61095 — Elastin</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ Level</h3>
+<p><strong>Primary organs:</strong>
+- <strong>Arteries</strong> (UBERON:0001637): Cervical, cerebral, and visceral arteries; especially aortic arch branches (neural crest-derived media)
+  - Internal carotid arteries (UBERON:0001532)
+  - Vertebral arteries (UBERON:0001535)
+  - Aorta (UBERON:0000947)
+- <strong>Skin</strong> (UBERON:0002097): Trunk and extremities (lentigines)</p>
+<p><strong>Secondary organ involvement (complications):</strong>
+- <strong>Brain</strong> (UBERON:0000955): Ischemic stroke from dissection
+- <strong>Heart</strong>: If aortic root or coronary involvement</p>
+<p><strong>Body systems:</strong> Cardiovascular (primary), Integumentary (primary), Nervous (secondary)</p>
+<h3>Tissue and Cell Level</h3>
+<table>
+<thead>
+<tr>
+<th>Tissue/Cell Type</th>
+<th>Cell Ontology</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vascular smooth muscle cell</td>
+<td>CL:0000359</td>
+<td>Deficient — causes cystic medial necrosis</td>
+</tr>
+<tr>
+<td>Melanocyte</td>
+<td>CL:0000148</td>
+<td>Excess — causes lentigines</td>
+</tr>
+<tr>
+<td>Neural crest cell</td>
+<td>CL:0000333</td>
+<td>Progenitor with shifted fate</td>
+</tr>
+<tr>
+<td>Endothelial cell</td>
+<td>CL:0000115</td>
+<td>Secondary involvement</td>
+</tr>
+<tr>
+<td>Fibroblast</td>
+<td>CL:0000057</td>
+<td>Connective tissue abnormalities</td>
+</tr>
+</tbody>
+</table>
+<h3>Subcellular Level</h3>
+<ul>
+<li>Extracellular matrix (GO:0031012) — elastic fiber fragmentation</li>
+<li>Cell surface (GO:0009986) — EDNRB signaling</li>
+<li>Melanosome (GO:0042470) — melanin synthesis in melanocytes</li>
+</ul>
+<h3>Localization (UBERON terms)</h3>
+<ul>
+<li>UBERON:0001637 (artery); UBERON:0002097 (skin); UBERON:0003083 (trunk); UBERON:0002101 (limb)</li>
+<li>Lateralization: Bilateral for lentigines; unilateral or bilateral for arterial dissections</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Lentigines</strong>: Likely congenital or early childhood (insidious)</li>
+<li><strong>Arterial dissection</strong>: Young adulthood, typically 2nd–4th decade (acute)</li>
+<li><strong>Cystic medial necrosis</strong>: Silent, progressive</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li><strong>Disease course</strong>: Chronic with episodic acute events</li>
+<li><strong>Dissection recurrence</strong>: 50% in familial cases (<a href="https://pubmed.ncbi.nlm.nih.gov/8614918/">PMID: 8614918</a>)</li>
+<li><strong>Lentigines</strong>: Stable once established</li>
+<li><strong>Disease duration</strong>: Lifelong</li>
+</ul>
+<h3>Critical Periods</h3>
+<ul>
+<li>Early adulthood: highest risk for first dissection</li>
+<li>First 2 weeks after dissection: highest ischemic risk</li>
+<li>Early recognition of lentigines as vascular risk marker could enable preventive surveillance</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Prevalence</strong>: Unknown; ultra-rare (&lt;1/1,000,000)</li>
+<li><strong>Reported cases</strong>: Only 2 families (approximately &lt;20 individuals)</li>
+<li>Orphanet classification: "Rare circulatory system disease" (ORPHA:98028)</li>
+</ul>
+<h3>Inheritance</h3>
+<ul>
+<li><strong>Pattern</strong>: Autosomal recessive (HP:0000007)</li>
+<li><strong>Penetrance</strong>: Likely high for homozygotes/compound heterozygotes</li>
+<li><strong>Expressivity</strong>: Variable — dissection timing and severity differ</li>
+<li><strong>Carrier frequency</strong>: Unknown</li>
+<li><strong>Consanguinity</strong>: Not reported but plausible given rarity and AR pattern</li>
+</ul>
+<h3>Population Demographics</h3>
+<ul>
+<li>No ethnic or geographic predilection identified (too few cases)</li>
+<li>Familial CeAD patients are younger (mean 38.4 years) than sporadic cases (<a href="https://pubmed.ncbi.nlm.nih.gov/22507869/">PMID: 22507869</a>)</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical Tests</h3>
+<p><strong>Imaging studies:</strong>
+- <strong>CT angiography (CTA)</strong>: First-line for acute dissection; shows stenosis, occlusion, intimal flap
+- <strong>MR angiography (MRA)</strong>: Demonstrates intramural hematoma, long tapered stenosis
+- <strong>Echocardiography</strong>: To exclude associated cardiac anomalies</p>
+<p><strong>Histopathology:</strong>
+- Arterial wall: Cystic medial necrosis — loss of elastic fibers and smooth muscle cells
+- Skin biopsy: Expected to show increased melanocytes and epidermal hyperpigmentation</p>
+<p><strong>Connective tissue evaluation:</strong>
+- Ultrastructural skin biopsy: ~50% of sCeAD patients show connective tissue aberrations (<a href="https://pubmed.ncbi.nlm.nih.gov/37885478/">PMID: 37885478</a>)
+- Joint hypermobility assessment (Beighton score)</p>
+<h3>Genetic Testing</h3>
+<ul>
+<li><strong>Recommended</strong>: WES or WGS as first-line (unknown causal gene)</li>
+<li><strong>Gene panels</strong>: Familial thoracic aortic aneurysm panel (ACTA2, COL3A1, TGFBR1/2, SMAD3, TGFB2, MYLK, MYH11, PRKG1) to exclude known entities</li>
+<li><strong>Targeted sequencing</strong>: EDN1, EDNRB, EDN3, EDNRA, ECE1 should be prioritized as candidates</li>
+<li><strong>Yield</strong>: ~36% of patients with suspected genetic vascular disease receive a diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/29510914/">PMID: 29510914</a>)</li>
+</ul>
+<h3>Differential Diagnosis</h3>
+<p>{{figure:differential_diagnosis_table.png|caption=Differential diagnosis comparison table showing key distinguishing features across related syndromes including vascular Ehlers-Danlos, Loeys-Dietz, Marfan, NSML/LEOPARD, Carney complex, and Peutz-Jeghers syndrome.}}</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Gene(s)</th>
+<th>Inheritance</th>
+<th>Key Distinguishing Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Vascular EDS (type IV)</strong></td>
+<td>COL3A1</td>
+<td>AD</td>
+<td>Thin translucent skin, organ rupture, NO lentigines</td>
+</tr>
+<tr>
+<td><strong>Loeys-Dietz syndrome</strong></td>
+<td>TGFBR1/2, SMAD3</td>
+<td>AD</td>
+<td>Bifid uvula, hypertelorism, aortic root aneurysm</td>
+</tr>
+<tr>
+<td><strong>Marfan syndrome</strong></td>
+<td>FBN1</td>
+<td>AD</td>
+<td>Tall stature, lens subluxation, arachnodactyly</td>
+</tr>
+<tr>
+<td><strong>NSML (LEOPARD)</strong></td>
+<td>PTPN11, RAF1</td>
+<td>AD</td>
+<td>Lentigines + HCM, deafness, short stature</td>
+</tr>
+<tr>
+<td><strong>Carney complex</strong></td>
+<td>PRKAR1A</td>
+<td>AD</td>
+<td>Cardiac myxomas, endocrine tumors</td>
+</tr>
+<tr>
+<td><strong>Peutz-Jeghers</strong></td>
+<td>STK11</td>
+<td>AD</td>
+<td>Mucocutaneous pigmentation + GI polyps</td>
+</tr>
+<tr>
+<td><strong>ABCD syndrome</strong></td>
+<td>EDNRB (R201X)</td>
+<td>AR</td>
+<td>Albinism (OPPOSITE pigment), Hirschsprung</td>
+</tr>
+<tr>
+<td><strong>Waardenburg-Shah (WS4)</strong></td>
+<td>EDNRB, EDN3</td>
+<td>AR</td>
+<td>Depigmentation, deafness, Hirschsprung</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key distinguishing features</strong>: Autosomal recessive (most differentials are AD); hyperpigmentation (not depigmentation); arterial dissection + cystic medial necrosis as primary vascular feature; absence of skeletal, cardiac, GI, or endocrine manifestations.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<h3>Survival and Mortality</h3>
+<ul>
+<li>No formal survival data for this specific syndrome</li>
+<li>Cervical artery dissection: 91% of conservatively managed patients report complete symptom resolution; 77% complete anatomical resolution (<a href="https://pubmed.ncbi.nlm.nih.gov/36918105/">PMID: 36918105</a>)</li>
+<li>Recurrent dissections are common in familial forms (50% recurrence)</li>
+</ul>
+<h3>Morbidity</h3>
+<ul>
+<li>Stroke from dissection can cause permanent neurological disability</li>
+<li>Quality of life impact primarily from vascular complications</li>
+</ul>
+<h3>Complications</h3>
+<ul>
+<li>Ischemic stroke; subarachnoid hemorrhage; pseudoaneurysm formation; recurrent dissection</li>
+</ul>
+<h3>Prognostic Factors</h3>
+<ul>
+<li>Family history strongest predictor of recurrence (RR 6.3; <a href="https://pubmed.ncbi.nlm.nih.gov/8614918/">PMID: 8614918</a>)</li>
+<li>Number of prior dissections; vascular territory; time since last event</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Pharmacotherapy</h3>
+<p><strong>Antithrombotic therapy</strong> (primary treatment):</p>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Evidence</th>
+<th>MAXO Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anticoagulation (heparin → warfarin)</td>
+<td>Meta-analysis: RR 0.63 (95% CI 0.43–0.94) vs antiplatelets (<a href="https://pubmed.ncbi.nlm.nih.gov/38847098/">PMID: 38847098</a>)</td>
+<td>MAXO:0000573</td>
+</tr>
+<tr>
+<td>Antiplatelet therapy (aspirin)</td>
+<td>CADISS/TREAT-CAD: no clear superiority (<a href="https://pubmed.ncbi.nlm.nih.gov/34687376/">PMID: 34687376</a>)</td>
+<td>MAXO:0000647</td>
+</tr>
+<tr>
+<td>Antihypertensive therapy</td>
+<td>Reduce hemodynamic stress</td>
+<td>MAXO:0001001</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Treatment evidence</strong>: Yaghi et al. (2024) meta-analysis of 5,039 patients: "<em>anticoagulation was associated with a lower ischemic stroke risk (relative risk, 0.63 [95% CI, 0.43 to 0.94])</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/38847098/">PMID: 38847098</a>). However, individual patient data meta-analysis of the 2 RCTs (n=444) showed the difference was not statistically significant (OR 0.33, 95% CI 0.08–1.05, P=0.06) (<a href="https://pubmed.ncbi.nlm.nih.gov/38739383/">PMID: 38739383</a>).</p>
+<p>The CADISS trial "<em>found that treatment with AC did not lower the risk of subsequent stroke or death at 3 months when compared to AP agents</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/34687376/">PMID: 34687376</a>).</p>
+<p><strong>Potential targeted therapy</strong>: If endothelin pathway involvement confirmed, endothelin receptor antagonists (bosentan, macitentan) could be investigated. Mouse models show bosentan prevents ET-1-mediated arterial remodeling (<a href="https://pubmed.ncbi.nlm.nih.gov/20495147/">PMID: 20495147</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26679613/">PMID: 26679613</a>).</p>
+<h3>Surgical and Interventional</h3>
+<ul>
+<li>Endovascular stenting for refractory symptomatic stenosis</li>
+<li>Extracranial-intracranial bypass: reserved for refractory cases (<a href="https://pubmed.ncbi.nlm.nih.gov/11128183/">PMID: 11128183</a>)</li>
+</ul>
+<h3>Supportive Care</h3>
+<ul>
+<li>Stroke rehabilitation (MAXO:0000502)</li>
+<li>Genetic counseling (MAXO:0000079)</li>
+<li>Vascular imaging surveillance</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary Prevention</h3>
+<ul>
+<li>Genetic counseling for known carriers and affected families (MAXO:0000079)</li>
+<li>Avoidance of cervical trauma and high-impact activities</li>
+</ul>
+<h3>Secondary Prevention (Early Detection)</h3>
+<ul>
+<li>Vascular surveillance (CTA/MRA) in affected individuals and at-risk relatives</li>
+<li>Dermatological screening for lentigines as vascular risk marker</li>
+<li>Genetic testing recommended after recurrent arterial dissections (<a href="https://pubmed.ncbi.nlm.nih.gov/35743335/">PMID: 35743335</a>)</li>
+<li>Cascade genetic testing in families (MAXO:0000127)</li>
+</ul>
+<h3>Tertiary Prevention</h3>
+<ul>
+<li>Long-term antithrombotic therapy; blood pressure optimization; vascular imaging follow-up</li>
+</ul>
+<h3>Genetic Counseling</h3>
+<ul>
+<li>Autosomal recessive: 25% recurrence risk for siblings</li>
+<li>Both parents are obligate carriers</li>
+<li>Prenatal testing possible if causal mutation identified</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<h3>Comparative Biology</h3>
+<p><strong>Mouse Ednrb mutants</strong> (NCBI Taxon: 10090, <em>Mus musculus</em>) — most directly relevant:
+- Ednrb mutations cause both pigmentation defects AND cardiovascular phenotypes
+- WS4 mouse: Ednrb deletion → white spotting, megacolon, deafness (<a href="https://pubmed.ncbi.nlm.nih.gov/11773966/">PMID: 11773966</a>: "<em>mutants did not respond to sound, and the stria vascularis of their cochlea lacked intermediate cells, i.e., neural crest-derived melanocytes</em>")
+- Monarch Initiative: 96 unique phenotypes including 13 pigmentation and 9 vascular phenotypes</p>
+<p><strong>Bovine Marfan syndrome</strong> (NCBI Taxon: 9913):
+- Fibrillin defect → aortic dilatation, aneurysm, rupture (<a href="https://pubmed.ncbi.nlm.nih.gov/7801427/">PMID: 7801427</a>)
+- Elastic fiber fragmentation similar to human cystic medial necrosis</p>
+<p><strong>Friesian horses</strong> (NCBI Taxon: 9796):
+- Inbred breed with genetic aortic rupture (<a href="https://pubmed.ncbi.nlm.nih.gov/27527829/">PMID: 27527829</a>)
+- Elevated urinary pyridinoline suggesting increased collagen degradation (<a href="https://pubmed.ncbi.nlm.nih.gov/29699546/">PMID: 29699546</a>)</p>
+<h3>Orthologous Genes</h3>
+<ul>
+<li><strong>EDNRB</strong>: Mouse Gene ID MGI:102720; zebrafish ednrba</li>
+<li><strong>EDN1</strong>: Mouse Gene ID 13614; zebrafish edn1</li>
+<li><strong>ECE1</strong>: Mouse Gene ID 230857</li>
+<li>Neural crest contributions to both melanocytes and vascular smooth muscle are conserved across vertebrates</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Available Models</h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Gene</th>
+<th>Phenotype Recapitulation</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WS4 mouse (Ednrb Δex2-3)</td>
+<td>Ednrb</td>
+<td>Pigmentation + enteric + hearing defects</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11773966/">PMID: 11773966</a></td>
+</tr>
+<tr>
+<td>Piebald-lethal mouse</td>
+<td>Ednrb</td>
+<td>White spotting, megacolon</td>
+<td>MGI</td>
+</tr>
+<tr>
+<td>Lethal spotting mouse</td>
+<td>Edn3</td>
+<td>White spotting, megacolon</td>
+<td>MGI</td>
+</tr>
+<tr>
+<td>Ece1 knockout mouse</td>
+<td>Ece1</td>
+<td>Aortic arch defects</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12950083/">PMID: 12950083</a></td>
+</tr>
+<tr>
+<td>Neural crest-ablated mouse</td>
+<td>Multiple</td>
+<td>Cystic medial necrosis of aorta</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21157040/">PMID: 21157040</a></td>
+</tr>
+</tbody>
+</table>
+<h3>Model Characteristics</h3>
+<p><strong>Strengths:</strong>
+- Mouse Ednrb mutants demonstrate single gene causing both pigmentation and vascular phenotypes
+- Neural crest ablation models reproduce cystic medial necrosis (<a href="https://pubmed.ncbi.nlm.nih.gov/21157040/">PMID: 21157040</a>)
+- Endothelin receptor antagonists testable as therapeutics</p>
+<p><strong>Limitations:</strong>
+- No model fully recapitulates the human syndrome (AR, lentigines + dissection)
+- Ednrb null produces depigmentation (white spotting), not hyperpigmentation (lentigines)
+- A hypomorphic or altered-function allele would better model the lentiginosis phenotype</p>
+<h3>Proposed Model Development</h3>
+<ol>
+<li><strong>Conditional Ednrb hypomorph</strong>: Partial loss-of-function to test lineage balance model</li>
+<li><strong>Neural crest-specific compound mutants</strong>: Ednrb/Ednra ratio perturbation</li>
+<li><strong>Patient-derived iPSC neural crest differentiation</strong>: Melanocyte vs. SMC fate ratio assays</li>
+</ol>
+<hr />
+<h2>Key Findings Summary</h2>
+<h3>Finding 1: Disease Identity</h3>
+<p>Arterial Dissection-Lentiginosis Syndrome is a confirmed entity (OMIM:600459, ORPHA:1682, MONDO:0010889), first described 1995, autosomal recessive, with only 2 families reported.</p>
+<h3>Finding 2: Neural Crest Hypothesis</h3>
+<p>Both melanocytes and vascular smooth muscle cells derive from neural crest progenitors (<a href="https://pubmed.ncbi.nlm.nih.gov/17631447/">PMID: 17631447</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/7570751/">PMID: 7570751</a>), explaining the co-occurrence of vascular and pigmentary features.</p>
+<h3>Finding 3: Endothelin Pathway as Top Candidate</h3>
+<p>Six convergent evidence lines identify the endothelin signaling pathway as the most likely mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/28753427/">PMID: 28753427</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31357457/">PMID: 31357457</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15016298/">PMID: 15016298</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15070746/">PMID: 15070746</a>).</p>
+<h3>Finding 4: Familial Recurrence Risk</h3>
+<p>6.3× increased recurrence risk in familial vs sporadic arterial dissection (95% CI 2.2–18.3, P=0.0007) (<a href="https://pubmed.ncbi.nlm.nih.gov/8614918/">PMID: 8614918</a>).</p>
+<h3>Finding 5: Connective Tissue Substrate</h3>
+<p>~50% of sCeAD patients have ultrastructural connective tissue aberrations (<a href="https://pubmed.ncbi.nlm.nih.gov/37885478/">PMID: 37885478</a>).</p>
+<h3>Finding 6: ABCD Syndrome as Contrasting Evidence</h3>
+<p>ABCD syndrome (EDNRB R201X → albinism) represents the opposite pigment phenotype, supporting the lineage balance model (<a href="https://pubmed.ncbi.nlm.nih.gov/11891690/">PMID: 11891690</a>).</p>
+<h3>Finding 7: Mouse Models Validate Dual Phenotype</h3>
+<p>Neural crest-deficient mice develop cystic medial necrosis (<a href="https://pubmed.ncbi.nlm.nih.gov/21157040/">PMID: 21157040</a>); Ednrb mutants exhibit both pigmentation and cardiovascular phenotypes.</p>
+<hr />
+<h2>Mechanistic Model</h2>
+<p>{{figure:mechanistic_model.png|caption=Proposed mechanistic model showing how a partial endothelin pathway mutation shifts neural crest progenitor fate between melanocyte and vascular smooth muscle lineages, producing the dual phenotype.}}</p>
+<h3>Lineage Balance Hypothesis</h3>
+<ol>
+<li><strong>Normal state</strong>: Balanced endothelin signaling → proportionate melanocyte + vascular SMC differentiation</li>
+<li><strong>Complete EDNRB loss (ABCD syndrome)</strong>: All neural crest derivatives lost → albinism + Hirschsprung</li>
+<li><strong>Selective/partial mutation (this syndrome)</strong>: Neural crest progenitors shift toward melanocyte fate → lentigines; away from vascular SMC → cystic medial necrosis → dissection</li>
+<li><strong>EDNRA/EDNRB receptor balance</strong>: May be critical; EDNRA enriched 4.2× in arteries vs skin</li>
+</ol>
+<hr />
+<h2>Evidence Base</h2>
+<table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Authors (Year)</th>
+<th>Key Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7838191/">7838191</a></td>
+<td>Schievink et al. (1995)</td>
+<td>Original syndrome description</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7570751/">7570751</a></td>
+<td>Schievink &amp; Mokri (1995)</td>
+<td>Neural crest hypothesis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8614918/">8614918</a></td>
+<td>Schievink et al. (1996)</td>
+<td>Familial recurrence risk (RR 6.3)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28753427/">28753427</a></td>
+<td>Gupta et al. (2017)</td>
+<td>PHACTR1/EDN1 GWAS for CeAD</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17631447/">17631447</a></td>
+<td>Dupin et al. (2007)</td>
+<td>Neural crest progenitors and stem cells</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15070746/">15070746</a></td>
+<td>Trentin et al. (2004)</td>
+<td>Bipotent progenitor self-renewal via EDN3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11773966/">11773966</a></td>
+<td>Matsushima et al. (2002)</td>
+<td>WS4 mouse model (Ednrb)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21157040/">21157040</a></td>
+<td>Jain et al. (2011)</td>
+<td>Neural crest deficiency → cystic medial necrosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37885478/">37885478</a></td>
+<td>Gunduz et al. (2023)</td>
+<td>Connective tissue abnormalities in 50% sCeAD</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11891690/">11891690</a></td>
+<td>Verheij et al. (2002)</td>
+<td>ABCD syndrome — EDNRB R201X</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31903434/">31903434</a></td>
+<td>Traenka et al. (2019)</td>
+<td>WES: 75% familial CeAD unexplained</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38847098/">38847098</a></td>
+<td>Yaghi et al. (2024)</td>
+<td>Anticoagulation vs antiplatelets meta-analysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12950083/">12950083</a></td>
+<td>Yanagisawa et al. (2003)</td>
+<td>ECE1 in aortic arch morphogenesis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15016298/">15016298</a></td>
+<td>Imokawa (2004)</td>
+<td>EDN1/EDNRB melanogenic axis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31357457/">31357457</a></td>
+<td>Imokawa (2019)</td>
+<td>EDN1/EDNRB in solar lentigo</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34687376/">34687376</a></td>
+<td>CADISS/TREAT-CAD review (2021)</td>
+<td>Treatment trials review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38739383/">38739383</a></td>
+<td>Kaufmann et al. (2024)</td>
+<td>IPD meta-analysis of RCTs</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Ultra-rarity</strong>: Only 2 families; all phenotypic data from original descriptions</li>
+<li><strong>No causal gene identified</strong>: Endothelin pathway hypothesis, while well-supported, remains unproven</li>
+<li><strong>No functional validation</strong>: No patient-derived cells tested for endothelin pathway function</li>
+<li><strong>Limited histopathology</strong>: No detailed comparison of lentigines in this vs. other syndromes</li>
+<li><strong>No longitudinal data</strong>: Natural history beyond original case reports unknown</li>
+<li><strong>Mouse model mismatch</strong>: Ednrb null → depigmentation (white spotting), not hyperpigmentation</li>
+<li><strong>Absent abstract</strong>: PMID:7838191 has no PubMed abstract, limiting extracted clinical details</li>
+<li><strong>Treatment extrapolation</strong>: All therapy recommendations from broader CeAD literature</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments/Actions</h2>
+<h3>High Priority</h3>
+<ol>
+<li><strong>Whole genome sequencing of original families</strong>: Focus on endothelin pathway genes (EDN1, EDN3, EDNRB, EDNRA, ECE1) and regulatory regions</li>
+<li><strong>Gene discovery in unexplained familial CeAD</strong>: The 75% of families without causative variants should be screened for endothelin pathway variants</li>
+<li><strong>Patient-derived iPSC studies</strong>: Neural crest differentiation assays to test melanocyte vs. SMC fate ratios</li>
+</ol>
+<h3>Medium Priority</h3>
+<ol>
+<li><strong>Conditional Ednrb hypomorph mouse</strong>: Test whether partial loss-of-function produces hyperpigmentation + vascular deficiency</li>
+<li><strong>Histological comparison</strong>: Compare lentigines from this syndrome with solar and NSML lentigines for melanocyte density and EDN1/EDNRB expression</li>
+<li><strong>International registry</strong>: Via Orphanet/GARD/Matchmaker Exchange to identify additional families</li>
+</ol>
+<h3>Lower Priority</h3>
+<ol>
+<li><strong>Endothelin receptor antagonist trials in animal models</strong>: Test bosentan/selective antagonists in neural crest development assays</li>
+<li><strong>Single-cell RNA-seq</strong>: Neural crest differentiation under varying endothelin concentrations</li>
+<li><strong>CRISPR screen</strong>: In neural crest progenitors for genes shifting melanocyte vs. SMC fate ratios</li>
+</ol>
+<hr />
+<h2>Ontology Term Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Disease</strong></td>
+<td>MONDO:0010889</td>
+</tr>
+<tr>
+<td><strong>Phenotype (HPO)</strong></td>
+<td>HP:0005294, HP:0012180, HP:0001003, HP:0000995, HP:0100026, HP:0001269, HP:0000007, HP:0002315, HP:0002084</td>
+</tr>
+<tr>
+<td><strong>GO (Biological Process)</strong></td>
+<td>GO:0001755, GO:0030318, GO:0035886, GO:0030198, GO:0048514, GO:0042310, GO:0043473</td>
+</tr>
+<tr>
+<td><strong>GO (Cellular Component)</strong></td>
+<td>GO:0031012, GO:0009986, GO:0042470</td>
+</tr>
+<tr>
+<td><strong>Cell Ontology</strong></td>
+<td>CL:0000333, CL:0000148, CL:0000359, CL:0000115</td>
+</tr>
+<tr>
+<td><strong>Anatomy (UBERON)</strong></td>
+<td>UBERON:0001637, UBERON:0002097, UBERON:0000955, UBERON:0001532, UBERON:0001535</td>
+</tr>
+<tr>
+<td><strong>Chemical (CHEBI)</strong></td>
+<td>CHEBI:27787, CHEBI:55344, CHEBI:28300, CHEBI:37491, CHEBI:61095</td>
+</tr>
+<tr>
+<td><strong>Treatment (MAXO)</strong></td>
+<td>MAXO:0000573, MAXO:0000647, MAXO:0001001, MAXO:0000079, MAXO:0000127, MAXO:0000502</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Report generated through systematic investigation across 5 iterations, reviewing 94 papers and confirming 13 findings. The investigation employed converging evidence from GWAS, developmental biology, expression databases, model organisms, and clinical literature to propose the endothelin pathway lineage balance model as a mechanistic hypothesis for this ultra-rare neurocristopathy.</em></p>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
             
         </div>
@@ -4296,7 +8506,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Arterial Dissection-Lentiginosis Syndrome", "mondoId": "MONDO:0010889", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arterial_Dissection-Lentiginosis_Syndrome", "yamlRevision": "df26ec1f8091"};
+        const OS_CONFIG = {"diseaseName": "Arterial Dissection-Lentiginosis Syndrome", "mondoId": "MONDO:0010889", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arterial_Dissection-Lentiginosis_Syndrome", "yamlRevision": "88fac707c0f9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2828,6 +3019,8 @@
                 
                 <div class="evidence-explanation">Directly supports the role of biotinidase in biotin recycling and its link to carboxylase function.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2847,6 +3040,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that biotinidase deficiency leads to impaired carboxylase activity and toxic metabolite accumulation.</div>
+                
+                
                 
             </div>
             
@@ -3092,6 +3287,8 @@
                 
                 <div class="evidence-explanation">Documents the specific metabolite accumulation pattern in biotinidase deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3306,6 +3503,8 @@
                 
                 <div class="evidence-explanation">Multicenter neuroimaging study documenting CNS involvement patterns in biotinidase deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3325,6 +3524,8 @@
                 
                 
                 <div class="evidence-explanation">Case demonstrating cerebellar and white matter injury in profound biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3478,6 +3679,8 @@
                 
                 <div class="evidence-explanation">Quantifies skin involvement at 53.7% of symptomatic cases in the largest systematic review.</div>
                 
+                
+                
             </div>
             
             
@@ -3512,7 +3715,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-Hydroxyisovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hair loss, often patchy or diffuse, is one of the classic dermatologic features of biotinidase deficiency, reflecting impaired biotin-dependent metabolism in skin appendages.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001596\"}}, {\"id\": \"Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apneic episodes occur as part of respiratory system involvement, particularly in neonatal and early childhood-onset presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002104\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia can occur in biotinidase deficiency, consistent with cerebellar involvement demonstrated on neuroimaging.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"BTD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BTD\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"BTD gene variants causing biotinidase deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"BTD\"], \"variant_count\": 3}}, {\"id\": \"Brain imaging abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"MRI abnormalities including white matter changes, cerebellar atrophy, and involvement of optic pathways and brainstem are characteristic neuroimaging findings in symptomatic biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0410263\"}}, {\"id\": \"Central nervous system vulnerability and white matter injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CNS is particularly vulnerable in biotinidase deficiency. Neuropathologic changes include defective myelination, spongy white-matter changes, and involvement of specific neuroanatomical structures including fornices, brainstem, optic pathways, and spinal cord. Biotinidase localization to cerebellar Purkinje cells and auditory brainstem nuclei is consistent with frequent neurologic and auditory phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\", \"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"brain white matter\", \"cerebellum\"]}}, {\"id\": \"Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjunctivitis is among the ocular manifestations of biotinidase deficiency, contributing to the 34.4% eye involvement rate documented in symptomatic cases.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000509\"}}, {\"id\": \"Decreased biotinidase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced serum biotinidase enzyme activity is the hallmark diagnostic marker. Profound deficiency is defined as less than 10% of mean normal activity and partial deficiency as 10-30%.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0410145\"}}, {\"id\": \"Dermatologic manifestations from systemic biotin depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skin rash and alopecia result from disrupted biotin-dependent metabolism affecting rapidly dividing cutaneous tissues. Dermatologic features are among the most common presenting signs of biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"fatty acid biosynthetic process\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Disrupted intermediary metabolism and organic aciduria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional loss of biotin-dependent carboxylases causes characteristic biochemical derangements including lactic acidosis (pyruvate carboxylase impairment), propionate and methylcitrate accumulation (propionyl-CoA carboxylase impairment), and 3-hydroxyisovalerate accumulation (3-methylcrotonyl-CoA carboxylase impairment).\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\", \"propionate catabolic process\", \"leucine catabolic process\"]}}, {\"id\": \"Eczematoid dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczematous or seborrheic dermatitis affecting perioral, periorbital, and diaper regions is a characteristic cutaneous finding distinct from generalized skin rash.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000964\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth and failure to thrive occur in symptomatic children due to metabolic derangement and feeding difficulties.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed achievement of developmental milestones occurs in untreated or late-diagnosed biotinidase deficiency, reflecting CNS injury from chronic biotin depletion.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood ammonia levels occur during metabolic decompensation. The mechanism involves propionyl-CoA carboxylase impairment leading to propionyl-CoA accumulation, which inhibits N-acetylglutamate synthase (NAGS), impairing carbamyl phosphate synthetase 1 (CPS1) and thereby disrupting the urea cycle. Hyperammonemia can contribute to encephalopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of biotinidase activity prevents efficient recycling of biotin from biocytin and biotinyl-peptides. This leads to depletion of free biotin and impaired biotinylation of apocarboxylases by holocarboxylase synthetase, resulting in functional deficiency of all four biotin-dependent carboxylases.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"biotin metabolic process\"], \"molecular_functions\": [\"biotinidase activity\"], \"genes\": [\"BTD\"]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile spasms (West syndrome) have been reported as a seizure type in neonatal and early infantile-onset biotinidase deficiency presentations.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012469\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability can result from delayed diagnosis and treatment. Once established, cognitive deficits may be irreversible despite biotin therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Laryngeal stridor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stridor from laryngeal involvement can be a presenting respiratory symptom, particularly in infants with biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006511\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lethargy and decreased arousal can occur during metabolic decompensation or as part of progressive encephalopathy in untreated cases.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metabolic acidosis with lactic acidosis occurs during metabolic decompensation, reflecting impaired pyruvate carboxylase activity and disrupted energy metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Metabolic ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ketoacidosis results from impaired carboxylase-dependent intermediary metabolism, particularly during catabolic stress. It is one of the most consistent metabolic findings in untreated biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005979\"}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a common early neurological finding in symptomatic biotinidase deficiency, often presenting before seizures or developmental concerns.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy occurs in a subset of symptomatic cases. Early treatment may halt or reverse the disease process, but delayed diagnosis can result in permanent vision loss.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Oral biotin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifelong oral free biotin is the definitive disease-modifying therapy for biotinidase deficiency. Recommended doses are 5-20 mg daily for profound deficiency and 2.5-10 mg for partial deficiency. Biotin treatment led to clinical stability or improvement in 89.2% of individuals in a systematic review. Early treatment can prevent all symptoms.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"biotin\"]}}, {\"id\": \"Organic aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated urinary organic acids, including 3-hydroxyisovaleric acid, 3-methylcrotonylglycine, methylcitrate, and lactate, are characteristic metabolic markers reflecting impaired biotin-dependent carboxylase function.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001992\"}}, {\"id\": \"Propionylcarnitine (C3)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent fungal infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Immune dysfunction in biotinidase deficiency manifests as susceptibility to fungal and candidal infections, likely reflecting impaired T-cell and B-cell function secondary to biotin depletion.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002841\"}}, {\"id\": \"Respiratory distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory distress is an occasional respiratory manifestation of symptomatic biotinidase deficiency and may accompany metabolic decompensation in infants and children.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002098\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are one of the most common neurological manifestations, occurring as part of the nervous system involvement seen in 67.2% of symptomatic cases. Seizure types may vary and can be the presenting symptom.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is one of the most clinically significant complications, occurring in approximately 26.9% of symptomatic cases overall but classified as frequent (79-30%) by Orphanet when considering all severity levels. It can be irreversible once established and is attributed to auditory brainstem involvement. Early biotin treatment may prevent onset but cannot reverse established hearing loss.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skin rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczematous or seborrheic dermatitis is a characteristic cutaneous feature, often involving perioral and periorbital regions.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000988\"}}, {\"id\": \"Spastic paraparesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myelopathy with spastic paraparesis has been reported in severe or late-diagnosed cases, consistent with spinal cord involvement on neuroimaging.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002313\"}}, {\"id\": \"c.1270G\u003eC (p.Asp424His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common BTD variant worldwide. Associated predominantly with partial biotinidase deficiency when homozygous. This variant is often also written as p.Asp444His when full-length protein numbering is used. Biotinidase enzyme activity is above 30% in 97.3% of patients with homozygous p.Asp424His.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"c.38_44delGCGCTGinsTCC (p.Cys13Phefs*36)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift variant associated with profound enzyme deficiency and severe phenotype including hearing loss and optic atrophy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"c.410G\u003eA (p.Arg137His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Associated with profound enzyme deficiency. More commonly observed in patients with neurological symptoms.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"target\": \"Disrupted intermediary metabolism and organic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"target\": \"Decreased biotinidase activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Central nervous system vulnerability and white matter injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Dermatologic manifestations from systemic biotin depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"3-Hydroxyisovaleric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Propionylcarnitine (C3)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Organic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Metabolic ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Respiratory distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Apnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Laryngeal stridor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Brain imaging abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Infantile spasms\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Spastic paraparesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Skin rash\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Eczematoid dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Recurrent fungal infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Conjunctivitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oral biotin supplementation\", \"target\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oral biotin supplementation\", \"target\": \"Disrupted intermediary metabolism and organic aciduria\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BTD gene variants causing biotinidase deficiency\", \"target\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BTD\", \"target\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1270G\u003eC (p.Asp424His)\", \"target\": \"BTD gene variants causing biotinidase deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.410G\u003eA (p.Arg137His)\", \"target\": \"BTD gene variants causing biotinidase deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.38_44delGCGCTGinsTCC (p.Cys13Phefs*36)\", \"target\": \"BTD gene variants causing biotinidase deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-Hydroxyisovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hair loss, often patchy or diffuse, is one of the classic dermatologic features of biotinidase deficiency, reflecting impaired biotin-dependent metabolism in skin appendages.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001596\"}}, {\"id\": \"Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apneic episodes occur as part of respiratory system involvement, particularly in neonatal and early childhood-onset presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002104\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia can occur in biotinidase deficiency, consistent with cerebellar involvement demonstrated on neuroimaging.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"BTD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BTD\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"BTD gene variants causing biotinidase deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"BTD\"], \"variant_count\": 3}}, {\"id\": \"Brain imaging abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"MRI abnormalities including white matter changes, cerebellar atrophy, and involvement of optic pathways and brainstem are characteristic neuroimaging findings in symptomatic biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0410263\"}}, {\"id\": \"Central nervous system vulnerability and white matter injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CNS is particularly vulnerable in biotinidase deficiency. Neuropathologic changes include defective myelination, spongy white-matter changes, and involvement of specific neuroanatomical structures including fornices, brainstem, optic pathways, and spinal cord. Biotinidase localization to cerebellar Purkinje cells and auditory brainstem nuclei is consistent with frequent neurologic and auditory phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\", \"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"brain white matter\", \"cerebellum\"]}}, {\"id\": \"Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjunctivitis is among the ocular manifestations of biotinidase deficiency, contributing to the 34.4% eye involvement rate documented in symptomatic cases.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000509\"}}, {\"id\": \"Decreased biotinidase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced serum biotinidase enzyme activity is the hallmark diagnostic marker. Profound deficiency is defined as less than 10% of mean normal activity and partial deficiency as 10-30%.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0410145\"}}, {\"id\": \"Dermatologic manifestations from systemic biotin depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skin rash and alopecia result from disrupted biotin-dependent metabolism affecting rapidly dividing cutaneous tissues. Dermatologic features are among the most common presenting signs of biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"fatty acid biosynthetic process\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Disrupted intermediary metabolism and organic aciduria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional loss of biotin-dependent carboxylases causes characteristic biochemical derangements including lactic acidosis (pyruvate carboxylase impairment), propionate and methylcitrate accumulation (propionyl-CoA carboxylase impairment), and 3-hydroxyisovalerate accumulation (3-methylcrotonyl-CoA carboxylase impairment).\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\", \"propionate catabolic process\", \"leucine catabolic process\"]}}, {\"id\": \"Eczematoid dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczematous or seborrheic dermatitis affecting perioral, periorbital, and diaper regions is a characteristic cutaneous finding distinct from generalized skin rash.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000964\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth and failure to thrive occur in symptomatic children due to metabolic derangement and feeding difficulties.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed achievement of developmental milestones occurs in untreated or late-diagnosed biotinidase deficiency, reflecting CNS injury from chronic biotin depletion.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood ammonia levels occur during metabolic decompensation. The mechanism involves propionyl-CoA carboxylase impairment leading to propionyl-CoA accumulation, which inhibits N-acetylglutamate synthase (NAGS), impairing carbamyl phosphate synthetase 1 (CPS1) and thereby disrupting the urea cycle. Hyperammonemia can contribute to encephalopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of biotinidase activity prevents efficient recycling of biotin from biocytin and biotinyl-peptides. This leads to depletion of free biotin and impaired biotinylation of apocarboxylases by holocarboxylase synthetase, resulting in functional deficiency of all four biotin-dependent carboxylases.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"biotin metabolic process\"], \"molecular_functions\": [\"biotinidase activity\"], \"genes\": [\"BTD\"]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile spasms (West syndrome) have been reported as a seizure type in neonatal and early infantile-onset biotinidase deficiency presentations.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012469\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability can result from delayed diagnosis and treatment. Once established, cognitive deficits may be irreversible despite biotin therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Laryngeal stridor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stridor from laryngeal involvement can be a presenting respiratory symptom, particularly in infants with biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006511\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lethargy and decreased arousal can occur during metabolic decompensation or as part of progressive encephalopathy in untreated cases.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metabolic acidosis with lactic acidosis occurs during metabolic decompensation, reflecting impaired pyruvate carboxylase activity and disrupted energy metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Metabolic ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ketoacidosis results from impaired carboxylase-dependent intermediary metabolism, particularly during catabolic stress. It is one of the most consistent metabolic findings in untreated biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005979\"}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a common early neurological finding in symptomatic biotinidase deficiency, often presenting before seizures or developmental concerns.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy occurs in a subset of symptomatic cases. Early treatment may halt or reverse the disease process, but delayed diagnosis can result in permanent vision loss.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Oral biotin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifelong oral free biotin is the definitive disease-modifying therapy for biotinidase deficiency. Recommended doses are 5-20 mg daily for profound deficiency and 2.5-10 mg for partial deficiency. Biotin treatment led to clinical stability or improvement in 89.2% of individuals in a systematic review. Early treatment can prevent all symptoms.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"biotin\"]}}, {\"id\": \"Organic aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated urinary organic acids, including 3-hydroxyisovaleric acid, 3-methylcrotonylglycine, methylcitrate, and lactate, are characteristic metabolic markers reflecting impaired biotin-dependent carboxylase function.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001992\"}}, {\"id\": \"Propionylcarnitine (C3)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Recurrent fungal infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Immune dysfunction in biotinidase deficiency manifests as susceptibility to fungal and candidal infections, likely reflecting impaired T-cell and B-cell function secondary to biotin depletion.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002841\"}}, {\"id\": \"Respiratory distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory distress is an occasional respiratory manifestation of symptomatic biotinidase deficiency and may accompany metabolic decompensation in infants and children.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002098\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are one of the most common neurological manifestations, occurring as part of the nervous system involvement seen in 67.2% of symptomatic cases. Seizure types may vary and can be the presenting symptom.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is one of the most clinically significant complications, occurring in approximately 26.9% of symptomatic cases overall but classified as frequent (79-30%) by Orphanet when considering all severity levels. It can be irreversible once established and is attributed to auditory brainstem involvement. Early biotin treatment may prevent onset but cannot reverse established hearing loss.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skin rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczematous or seborrheic dermatitis is a characteristic cutaneous feature, often involving perioral and periorbital regions.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000988\"}}, {\"id\": \"Spastic paraparesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myelopathy with spastic paraparesis has been reported in severe or late-diagnosed cases, consistent with spinal cord involvement on neuroimaging.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002313\"}}, {\"id\": \"c.1270G\u003eC (p.Asp424His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common BTD variant worldwide. Associated predominantly with partial biotinidase deficiency when homozygous. This variant is often also written as p.Asp444His when full-length protein numbering is used. Biotinidase enzyme activity is above 30% in 97.3% of patients with homozygous p.Asp424His.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"c.38_44delGCGCTGinsTCC (p.Cys13Phefs*36)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift variant associated with profound enzyme deficiency and severe phenotype including hearing loss and optic atrophy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"c.410G\u003eA (p.Arg137His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Associated with profound enzyme deficiency. More commonly observed in patients with neurological symptoms.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"target\": \"Disrupted intermediary metabolism and organic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"target\": \"Decreased biotinidase activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Central nervous system vulnerability and white matter injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Dermatologic manifestations from systemic biotin depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"3-Hydroxyisovaleric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Propionylcarnitine (C3)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Organic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Metabolic ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Respiratory distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Apnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Laryngeal stridor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Brain imaging abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Infantile spasms\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Spastic paraparesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Central nervous system vulnerability and white matter injury\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Skin rash\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Eczematoid dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Recurrent fungal infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dermatologic manifestations from systemic biotin depletion\", \"target\": \"Conjunctivitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oral biotin supplementation\", \"target\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oral biotin supplementation\", \"target\": \"Disrupted intermediary metabolism and organic aciduria\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BTD gene variants causing biotinidase deficiency\", \"target\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BTD\", \"target\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1270G\u003eC (p.Asp424His)\", \"target\": \"BTD gene variants causing biotinidase deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.410G\u003eA (p.Arg137His)\", \"target\": \"BTD gene variants causing biotinidase deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.38_44delGCGCTGinsTCC (p.Cys13Phefs*36)\", \"target\": \"BTD gene variants causing biotinidase deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3610,6 +3813,8 @@
                 
                 <div class="evidence-explanation">Eye involvement at 34.4% includes conjunctivitis as a specific presentation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3627,6 +3832,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies conjunctivitis as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3693,6 +3900,8 @@
                 
                 <div class="evidence-explanation">Auditory involvement at 26.9% supports sensorineural hearing impairment as a significant phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3713,6 +3922,8 @@
                 
                 <div class="evidence-explanation">Documents hearing loss in a Turkish cohort and links it to specific BTD variants.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3730,6 +3941,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies sensorineural hearing impairment as frequent in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3796,6 +4009,8 @@
                 
                 <div class="evidence-explanation">Eye involvement at 34.4% includes optic atrophy; Orphanet classifies optic atrophy specifically as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3816,6 +4031,8 @@
                 
                 <div class="evidence-explanation">Case report demonstrates bilateral optic neuropathy with improvement after biotin supplementation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3833,6 +4050,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies optic atrophy as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3899,6 +4118,8 @@
                 
                 <div class="evidence-explanation">Systematic review found organic aciduria in 57.1% of symptomatic cases when tested; frequency is VERY_FREQUENT per Orphanet, reflecting expected biochemical abnormality in untreated disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3916,6 +4137,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet is the authoritative frequency source here; the lower PMID figure reflects incomplete metabolic workups in a heterogeneous cohort.</div>
+                
+                
                 
             </div>
             
@@ -3982,6 +4205,8 @@
                 
                 <div class="evidence-explanation">Skin involvement at 53.7% supports dermatitis as a frequent phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -4038,6 +4263,8 @@
                 
                 <div class="evidence-explanation">Skin involvement at 53.7% includes eczematoid dermatitis as a specific presentation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4055,6 +4282,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies eczematoid dermatitis as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4121,6 +4350,8 @@
                 
                 <div class="evidence-explanation">Skin involvement at 53.7% includes alopecia; Orphanet classifies alopecia specifically as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4138,6 +4369,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies alopecia as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4204,6 +4437,8 @@
                 
                 <div class="evidence-explanation">Directly quantifies metabolic acidosis frequency at 42.4% in the 1113-case systematic review.</div>
                 
+                
+                
             </div>
             
             
@@ -4257,6 +4492,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies hyperammonemia as frequent in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4323,6 +4560,8 @@
                 
                 <div class="evidence-explanation">Case report documents hypotonia as a prominent feature in biotinidase deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4342,6 +4581,8 @@
                 
                 
                 <div class="evidence-explanation">Nervous system involvement at 67.2% in the systematic review supports hypotonia as a frequent neurological manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4399,6 +4640,8 @@
                 
                 <div class="evidence-explanation">Neuroimaging series supports neurologic involvement but does not directly name spastic paraparesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4416,6 +4659,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies spastic paraparesis as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4482,6 +4727,8 @@
                 
                 <div class="evidence-explanation">Nervous system involvement at 67.2% supports seizures as a frequent neurological phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -4538,6 +4785,8 @@
                 
                 <div class="evidence-explanation">Case report documents severe psychomotor retardation in a child with profound biotinidase deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4555,6 +4804,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies global developmental delay as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4612,6 +4863,8 @@
                 
                 <div class="evidence-explanation">Neuroimaging study documents cerebellar and brainstem involvement consistent with ataxia.</div>
                 
+                
+                
             </div>
             
             
@@ -4668,6 +4921,8 @@
                 
                 <div class="evidence-explanation">Case report demonstrates that intellectual disability may be irreversible once established despite biotin treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -4721,6 +4976,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies lethargy as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4785,6 +5042,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies respiratory distress as occasional in biotinidase deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4804,6 +5063,8 @@
                 
                 
                 <div class="evidence-explanation">Respiratory system involvement at 17.8% supports respiratory involvement broadly; Orphanet provides the specific respiratory distress term.</div>
+                
+                
                 
             </div>
             
@@ -4861,6 +5122,8 @@
                 
                 <div class="evidence-explanation">Respiratory system involvement at 17.8% includes apneic episodes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4878,6 +5141,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies apnea as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4944,6 +5209,8 @@
                 
                 <div class="evidence-explanation">Case report documents failure to thrive as a clinical feature of profound biotinidase deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -5009,6 +5276,8 @@
                 
                 <div class="evidence-explanation">The systematic review supports metabolic acidosis broadly; Orphanet provides the specific metabolic ketoacidosis support.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5026,6 +5295,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies metabolic ketoacidosis as very frequent in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5081,6 +5352,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies laryngeal stridor as occasional in biotinidase deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -5134,6 +5407,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies recurrent fungal infections as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5191,6 +5466,8 @@
                 
                 <div class="evidence-explanation">Multicenter neuroimaging study documenting characteristic brain MRI patterns.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5208,6 +5485,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies brain imaging abnormality as frequent in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5262,6 +5541,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies infantile spasms as occasional in biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5319,6 +5600,8 @@
                 
                 <div class="evidence-explanation">Large cohort quantifies the distribution of enzyme deficiency severity categories.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5336,6 +5619,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies decreased biotinidase activity as very frequent (diagnostic hallmark).</div>
+                
+                
                 
             </div>
             
@@ -5426,6 +5711,8 @@
                 
                 <div class="evidence-explanation">Large cohort study providing comprehensive genotype-phenotype correlations in biotinidase deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5446,6 +5733,8 @@
                 
                 <div class="evidence-explanation">Regional cohort study demonstrating genetic diversity and variant-phenotype relationships.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5463,6 +5752,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet confirms BTD as the disease-causing gene for biotinidase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5506,6 +5797,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the BTD-biotinidase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5618,6 +5911,8 @@
                 
                 <div class="evidence-explanation">Treatment-response evidence supports free biotin supplementation as the disease-modifying intervention.</div>
                 
+                
+                
             </div>
             
             
@@ -5661,6 +5956,8 @@
                 
                 <div class="evidence-explanation">Review evidence supports pharmacologic biotin as treatment for biotin-homeostasis defects.</div>
                 
+                
+                
             </div>
             
             
@@ -5700,6 +5997,8 @@
                 
                 <div class="evidence-explanation">Systematic review of 1113 cases demonstrating high efficacy of biotin treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5719,6 +6018,8 @@
                 
                 
                 <div class="evidence-explanation">Case demonstrating biotin supplementation improving visual function in an adult patient.</div>
+                
+                
                 
             </div>
             
@@ -5798,6 +6099,8 @@
                 
                 <div class="evidence-explanation">Systematic review confirms the positive impact of newborn screening on outcomes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5817,6 +6120,8 @@
                 
                 
                 <div class="evidence-explanation">Large cohort demonstrating that newborn screening identifies the vast majority of cases.</div>
+                
+                
                 
             </div>
             
@@ -5898,6 +6203,8 @@
                 
                 <div class="evidence-explanation">Case demonstrates that antiepileptic therapy alone is insufficient and biotin is the essential treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -5976,6 +6283,8 @@
                 
                 <div class="evidence-explanation">Autosomal recessive inheritance pattern supports the role of genetic counseling.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5995,6 +6304,8 @@
                 
                 
                 <div class="evidence-explanation">Genetic basis of the disorder supports counseling for recurrence risk assessment.</div>
+                
+                
                 
             </div>
             
@@ -6074,6 +6385,8 @@
                 
                 <div class="evidence-explanation">Supports comprehensive monitoring and supportive care approach for affected individuals.</div>
                 
+                
+                
             </div>
             
             
@@ -6152,6 +6465,8 @@
                 
                 <div class="evidence-explanation">Auditory involvement at 26.9% supports the need for audiological monitoring and management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6171,6 +6486,8 @@
                 
                 
                 <div class="evidence-explanation">Documents hearing loss as a significant complication requiring audiological management.</div>
+                
+                
                 
             </div>
             
@@ -6208,6 +6525,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6233,6 +6551,8 @@
                 
                 <div class="evidence-explanation">Directly identifies elevated C5-OH as a primary plasma marker.</div>
                 
+                
+                
             </div>
             
             
@@ -6252,6 +6572,7 @@
                 
                 <div class="item-desc">Context: Elevated urinary 3-hydroxyisovaleric acid is a characteristic organic acid marker reflecting impaired leucine catabolism via 3-methylcrotonyl-CoA carboxylase.
 </div>
+                
                 
                 
     
@@ -6279,6 +6600,8 @@
                 
                 <div class="evidence-explanation">Directly identifies elevated urinary 3-hydroxyisovaleric acid as a characteristic marker.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6299,6 +6622,8 @@
                 
                 <div class="evidence-explanation">Confirms organic acid abnormalities in the majority of symptomatic cases.</div>
                 
+                
+                
             </div>
             
             
@@ -6318,6 +6643,7 @@
                 
                 <div class="item-desc">Context: Elevated C3-acylcarnitine reflects propionyl-CoA carboxylase dysfunction in the setting of secondary multiple carboxylase deficiency.
 </div>
+                
                 
                 
     
@@ -6345,6 +6671,8 @@
                 
                 <div class="evidence-explanation">Review supports impaired biotin recycling and downstream carboxylase dysfunction, but does not directly name C3 propionylcarnitine.</div>
                 
+                
+                
             </div>
             
             
@@ -6364,6 +6692,7 @@
                 
                 <div class="item-desc">Context: Lactic acidosis results from pyruvate carboxylase impairment. Brain lactate may be detectable by magnetic resonance spectroscopy.
 </div>
+                
                 
                 
     
@@ -6391,6 +6720,8 @@
                 
                 <div class="evidence-explanation">Metabolic acidosis in biotinidase deficiency includes lactic acidosis from pyruvate carboxylase dysfunction.</div>
                 
+                
+                
             </div>
             
             
@@ -6410,6 +6741,7 @@
                 
                 <div class="item-desc">Context: Reduced serum biotinidase enzyme activity is the definitive diagnostic marker. Profound deficiency is defined as less than 10% of mean normal activity and partial deficiency as 10-30%.
 </div>
+                
                 
                 
     
@@ -6437,6 +6769,8 @@
                 
                 <div class="evidence-explanation">Case report documents severely reduced biotinidase activity confirming the diagnosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6456,6 +6790,8 @@
                 
                 
                 <div class="evidence-explanation">Large cohort quantifies the distribution of enzyme deficiency severity categories.</div>
+                
+                
                 
             </div>
             

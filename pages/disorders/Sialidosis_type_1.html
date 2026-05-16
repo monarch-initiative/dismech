@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2779,6 +2970,8 @@
                 
                 <div class="evidence-explanation">Orphanet defines Sialidosis type 1 as a very rare lysosomal storage disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2798,6 +2991,8 @@
                 
                 
                 <div class="evidence-explanation">The contemporary clinical review supports the genetic and lysosomal-disease framing.</div>
+                
+                
                 
             </div>
             
@@ -2866,6 +3061,8 @@
                 
                 <div class="evidence-explanation">The clinical cohort explicitly distinguishes the normomorphic Type 1 form from the dysmorphic Type 2 form.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2886,6 +3083,8 @@
                 
                 <div class="evidence-explanation">The Type 1 description supports excluding unsupported dysmorphic and skeletal Type 2 features.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2905,6 +3104,8 @@
                 
                 
                 <div class="evidence-explanation">The same source identifies dysmorphic and skeletal findings as Type 2 features rather than unqualified Type 1 features.</div>
+                
+                
                 
             </div>
             
@@ -2985,6 +3186,8 @@
                 
                 <div class="evidence-explanation">Orphanet records autosomal recessive inheritance for Sialidosis type 1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3004,6 +3207,8 @@
                 
                 
                 <div class="evidence-explanation">The review explicitly describes autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -3210,6 +3415,8 @@
                 
                 <div class="evidence-explanation">The study identifies deficient lysosomal NEU1 activity as causal for sialidosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3229,6 +3436,8 @@
                 
                 
                 <div class="evidence-explanation">Patient enzyme testing directly supports neuraminidase deficiency in Sialidosis type 1.</div>
+                
+                
                 
             </div>
             
@@ -3334,6 +3543,8 @@
                 
                 <div class="evidence-explanation">The genotype-structure-phenotype study states that type I retains at least one catalytically active variant.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3353,6 +3564,8 @@
                 
                 
                 <div class="evidence-explanation">Functional studies of patient variants support residual activity and abnormal trafficking as determinants of type I disease.</div>
+                
+                
                 
             </div>
             
@@ -3517,6 +3730,8 @@
                 
                 <div class="evidence-explanation">The therapy study states the biochemical storage consequence of NEU1 deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3536,6 +3751,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records urinary sialylated oligosaccharide excretion as very frequent.</div>
+                
+                
                 
             </div>
             
@@ -3775,6 +3992,8 @@
                 
                 <div class="evidence-explanation">The Neu1-deficient mouse model supports lysosomal neurologic pathology with glial activation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3794,6 +4013,8 @@
                 
                 
                 <div class="evidence-explanation">The review identifies progressive ataxia and myoclonic seizures as core clinical features.</div>
+                
+                
                 
             </div>
             
@@ -3951,6 +4172,8 @@
                 
                 <div class="evidence-explanation">The clinical Type 1 cohort explains the retinal storage basis of cherry-red spots.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3970,6 +4193,8 @@
                 
                 
                 <div class="evidence-explanation">The cohort identifies lens, ganglion-cell, and RNFL metabolic-product accumulation as characteristic ocular pathology.</div>
+                
+                
                 
             </div>
             
@@ -4027,6 +4252,8 @@
                 
                 <div class="evidence-explanation">The Type 1 cohort identifies the cellular retinal storage basis of the macular cherry-red spot.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4046,6 +4273,8 @@
                 
                 
                 <div class="evidence-explanation">OCT evidence supports a microscopic/cellular retinal finding in Type 1 disease.</div>
+                
+                
                 
             </div>
             
@@ -4160,6 +4389,8 @@
                 
                 <div class="evidence-explanation">The Type 1 ophthalmic cohort identifies cherry-red spots as a distinctive ocular feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4179,6 +4410,8 @@
                 
                 
                 <div class="evidence-explanation">The literature review within the cohort supports a frequent, not universal, frequency estimate.</div>
+                
+                
                 
             </div>
             
@@ -4245,6 +4478,8 @@
                 
                 <div class="evidence-explanation">The Type 1 ophthalmic cohort supports retinopathy with OCT abnormalities in all patients.</div>
                 
+                
+                
             </div>
             
             
@@ -4301,6 +4536,8 @@
                 
                 <div class="evidence-explanation">The Type 1 cohort documents visual impairment in all four patients.</div>
                 
+                
+                
             </div>
             
             
@@ -4355,6 +4592,8 @@
                 
                 <div class="evidence-explanation">The Type 1 ophthalmic cohort supports cataract as a recurrent ocular manifestation.</div>
                 
+                
+                
             </div>
             
             
@@ -4408,6 +4647,8 @@
                 
                 
                 <div class="evidence-explanation">The Type 1 review section identifies progressive impaired vision as a typical manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4465,6 +4706,8 @@
                 
                 <div class="evidence-explanation">The Type 1 cohort documents nystagmus in two of four patients.</div>
                 
+                
+                
             </div>
             
             
@@ -4518,6 +4761,8 @@
                 
                 
                 <div class="evidence-explanation">The Type 1 ophthalmic cohort review supports corneal clouding as an ophthalmic sign.</div>
+                
+                
                 
             </div>
             
@@ -4584,6 +4829,8 @@
                 
                 <div class="evidence-explanation">The Type 1 cohort supports seizures in three of four patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4603,6 +4850,8 @@
                 
                 
                 <div class="evidence-explanation">The 2026 treatment review identifies myoclonic and bilateral tonic-clonic seizures as core features.</div>
+                
+                
                 
             </div>
             
@@ -4660,6 +4909,8 @@
                 
                 <div class="evidence-explanation">The Type 1 cohort supports progressive myoclonus epilepsy in three of four patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4679,6 +4930,8 @@
                 
                 
                 <div class="evidence-explanation">The 2026 review identifies myoclonic seizures as a core Type 1 manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4736,6 +4989,8 @@
                 
                 <div class="evidence-explanation">The Type 1 cohort supports cerebellar ataxia in three of four patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4755,6 +5010,8 @@
                 
                 
                 <div class="evidence-explanation">The case report supports ataxia as a Type 1 manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4810,6 +5067,8 @@
                 
                 <div class="evidence-explanation">Orphanet records gait disturbance for Sialidosis type 1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4829,6 +5088,8 @@
                 
                 
                 <div class="evidence-explanation">The Type 1 case report supports gait ataxia.</div>
+                
+                
                 
             </div>
             
@@ -4886,6 +5147,8 @@
                 
                 <div class="evidence-explanation">The Type 1 cohort documents progressive myoclonus in three of four patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4905,6 +5168,8 @@
                 
                 
                 <div class="evidence-explanation">Genetically confirmed cases support progressive cortical myoclonus as a typical presentation.</div>
+                
+                
                 
             </div>
             
@@ -4960,6 +5225,8 @@
                 
                 <div class="evidence-explanation">The Type 1 case report supports intentional tremor.</div>
                 
+                
+                
             </div>
             
             
@@ -5014,6 +5281,8 @@
                 
                 <div class="evidence-explanation">The Type 1 case report documents dysarthria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5033,6 +5302,8 @@
                 
                 
                 <div class="evidence-explanation">The Type 1 cohort supports progressive speech involvement in late-stage disease.</div>
+                
+                
                 
             </div>
             
@@ -5087,6 +5358,8 @@
                 
                 
                 <div class="evidence-explanation">The Type 1 case report documents hyperreflexia.</div>
+                
+                
                 
             </div>
             
@@ -5144,6 +5417,8 @@
                 
                 <div class="evidence-explanation">The Type 1 cohort documents EEG abnormalities in two of four patients.</div>
                 
+                
+                
             </div>
             
             
@@ -5198,6 +5473,8 @@
                 
                 <div class="evidence-explanation">The Type I study documents cerebellar atrophy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5217,6 +5494,8 @@
                 
                 
                 <div class="evidence-explanation">Serial imaging supports progressive neurodegeneration in some Type I patients.</div>
+                
+                
                 
             </div>
             
@@ -5283,6 +5562,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5338,6 +5619,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records increased urinary O-linked sialopeptides for Sialidosis type 1.</div>
+                
+                
                 
             </div>
             
@@ -5395,6 +5678,8 @@
                 
                 <div class="evidence-explanation">Orphanet records urinary sialylated oligosaccharide excretion as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5414,6 +5699,8 @@
                 
                 
                 <div class="evidence-explanation">The Type 1 cohort review links NEU1 deficiency to urinary sialylated oligosaccharide excretion.</div>
+                
+                
                 
             </div>
             
@@ -5506,6 +5793,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies NEU1 as the disease-causing gene for Sialidosis type 1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5526,6 +5815,8 @@
                 
                 <div class="evidence-explanation">The case report identifies a homozygous NEU1 variant in a patient with Sialidosis type 1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5545,6 +5836,8 @@
                 
                 
                 <div class="evidence-explanation">The study reports a family with NEU1 variants causing Sialidosis type 1.</div>
+                
+                
                 
             </div>
             
@@ -5702,6 +5995,8 @@
                 
                 <div class="evidence-explanation">The 2026 multicenter analysis reports fairly consistent seizure-management efficacy for several antiseizure medications.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5721,6 +6016,8 @@
                 
                 
                 <div class="evidence-explanation">The review limits the strength of treatment recommendations despite symptomatic benefit.</div>
+                
+                
                 
             </div>
             
@@ -5831,6 +6128,8 @@
                 
                 <div class="evidence-explanation">The multicenter review lists sodium oxybate as a consideration for refractory cases, without establishing standardized efficacy.</div>
                 
+                
+                
             </div>
             
             
@@ -5927,6 +6226,8 @@
                 
                 
                 <div class="evidence-explanation">The multicenter review lists deep-brain stimulation as a consideration for refractory cases, without establishing standardized efficacy.</div>
+                
+                
                 
             </div>
             
@@ -6025,6 +6326,8 @@
                 
                 <div class="evidence-explanation">The review supports symptomatic management in the absence of curative options.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6044,6 +6347,8 @@
                 
                 
                 <div class="evidence-explanation">The therapy study supports the absence of an established disease-modifying therapy.</div>
+                
+                
                 
             </div>
             
@@ -6144,6 +6449,8 @@
                 
                 <div class="evidence-explanation">Patient fibroblast experiments support partial restoration of residual NEU1 activity.</div>
                 
+                
+                
             </div>
             
             
@@ -6182,6 +6489,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse-model data suggest betaine can improve mutant NEU1 levels and oligosacchariduria, but this remains preclinical.</div>
+                
+                
                 
             </div>
             
@@ -6270,6 +6579,8 @@
                 
                 <div class="evidence-explanation">The mouse study describes the NEU1/CTSA AAV vector design.</div>
                 
+                
+                
             </div>
             
             
@@ -6308,6 +6619,8 @@
                 
                 
                 <div class="evidence-explanation">The Neu1 knockout mouse study supports neurologic-pathology improvement after AAV treatment.</div>
+                
+                
                 
             </div>
             
@@ -6396,6 +6709,8 @@
                 
                 <div class="evidence-explanation">The single case report supports biomarker response after BMT.</div>
                 
+                
+                
             </div>
             
             
@@ -6434,6 +6749,8 @@
                 
                 
                 <div class="evidence-explanation">The same case report limits evidence strength because neurologic motor performance still declined.</div>
+                
+                
                 
             </div>
             
@@ -6513,6 +6830,8 @@
                 
                 <div class="evidence-explanation">Autosomal recessive inheritance supports genetic counseling for recurrence risk.</div>
                 
+                
+                
             </div>
             
             
@@ -6548,6 +6867,7 @@
                 <div class="item-desc">Context: Diagnostic enzymatic defect</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6573,6 +6893,8 @@
                 
                 <div class="evidence-explanation">Patient enzyme analysis supports neuraminidase deficiency as the diagnostic defect.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6593,6 +6915,8 @@
                 
                 <div class="evidence-explanation">Functional activity testing supports variant-specific sialidase deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -6611,6 +6935,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Diagnostic urinary storage biomarker</div>
+                
                 
                 
     
@@ -6638,6 +6963,8 @@
                 
                 <div class="evidence-explanation">Orphanet records urinary sialylated oligosaccharide excretion as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6658,6 +6985,8 @@
                 
                 <div class="evidence-explanation">The study supports sialylated metabolite accumulation as the biochemical storage signature.</div>
                 
+                
+                
             </div>
             
             
@@ -6676,6 +7005,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Diagnostic urinary storage biomarker</div>
+                
                 
                 
     
@@ -6702,6 +7032,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records this urinary glycopeptide abnormality as very frequent.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2788,6 +2979,8 @@
                 
                 <div class="evidence-explanation">This review confirms that dopaminergic neuronal loss in the substantia nigra pars compacta is a pathological hallmark of Parkinson&#39;s disease, supporting the core mechanism of dopaminergic neuron degeneration.</div>
                 
+                
+                
             </div>
             
             
@@ -2878,6 +3071,8 @@
                 
                 <div class="evidence-explanation">This authoritative Lancet review establishes that aggregated α-synuclein deposition is a defining feature of Parkinson&#39;s disease pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2896,6 +3091,8 @@
                 
                 <div class="evidence-explanation">This provides direct evidence for the prion-like spreading mechanism of α-synuclein pathology across neural networks, supporting the mechanism of trans-neuronal propagation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2913,6 +3110,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that α-synuclein accumulation is a key pathological characterization of PD, reinforcing the central role of protein aggregation in disease pathology.</div>
+                
+                
                 
             </div>
             
@@ -2999,6 +3198,8 @@
                 
                 <div class="evidence-explanation">This establishes that mitochondrial dysfunction is a common cellular feature across both genetic and sporadic forms of PD, supporting its central role in disease pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3017,6 +3218,8 @@
                 
                 <div class="evidence-explanation">This directly supports the role of PINK1 and Parkin genes in mitochondrial quality control and confirms that mitochondrial damage is involved in PD pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3034,6 +3237,8 @@
                 
                 
                 <div class="evidence-explanation">This review confirms the long-standing central role of mitochondrial dysfunction in PD and validates the connection between PINK1/Parkin mutations and mitochondrial quality control defects.</div>
+                
+                
                 
             </div>
             
@@ -3140,6 +3345,8 @@
                 
                 <div class="evidence-explanation">This establishes that maladaptive immune and inflammatory responses play an active role in accelerating PD pathogenesis, supporting the neuroinflammation mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3158,6 +3365,8 @@
                 
                 <div class="evidence-explanation">This directly supports the role of microglia-mediated neuroinflammation in PD initiation and progression, confirming the importance of microglial activation in disease pathology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3175,6 +3384,8 @@
                 
                 
                 <div class="evidence-explanation">This links α-synuclein accumulation to microglial activation and pro-inflammatory M1 phenotype polarization, supporting the mechanism by which neuroinflammation contributes to neurodegeneration in PD.</div>
+                
+                
                 
             </div>
             
@@ -3309,6 +3520,8 @@
                 
                 
                 <div class="evidence-explanation">This review establishes the genetic basis for autophagy-lysosome dysfunction in PD, identifying key genes and their mechanistic roles.</div>
+                
+                
                 
             </div>
             
@@ -3449,6 +3662,8 @@
                 
                 <div class="evidence-explanation">This review establishes the gut microbiota-brain connection in PD pathophysiology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3466,6 +3681,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes the vagus nerve as the key anatomical connection mediating gut-brain communication in PD.</div>
+                
+                
                 
             </div>
             
@@ -3606,6 +3823,8 @@
                 
                 <div class="evidence-explanation">This review directly describes the mechanism by which oxidative stress drives dopaminergic neurodegeneration.</div>
                 
+                
+                
             </div>
             
             
@@ -3745,6 +3964,8 @@
                 
                 <div class="evidence-explanation">This review establishes the fundamental role of calcium channel dysregulation in PD pathogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -3878,6 +4099,8 @@
                 
                 
                 <div class="evidence-explanation">This review establishes ER stress as an early and central event in PD pathogenesis.</div>
+                
+                
                 
             </div>
             
@@ -4013,6 +4236,8 @@
                 
                 <div class="evidence-explanation">Establishes synaptic vesicle endocytosis dysfunction as an early feature of PD.</div>
                 
+                
+                
             </div>
             
             
@@ -4146,6 +4371,8 @@
                 
                 
                 <div class="evidence-explanation">This review establishes iron accumulation as a significant pathological characteristic and mechanistic driver of PD.</div>
+                
+                
                 
             </div>
             
@@ -4321,6 +4548,8 @@
                 
                 <div class="evidence-explanation">This comprehensive 2024 review establishes BBB dysfunction as an emerging mechanism in PD pathogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -4437,6 +4666,8 @@
                 
                 <div class="evidence-explanation">This study directly evaluates constipation in PD patients, supporting constipation as a common non-motor symptom.</div>
                 
+                
+                
             </div>
             
             
@@ -4501,6 +4732,8 @@
                 
                 
                 <div class="evidence-explanation">This establishes hyposmia as a highly prevalent prodromal symptom that precedes motor symptoms, supporting its importance as an early marker of PD.</div>
+                
+                
                 
             </div>
             
@@ -4567,6 +4800,8 @@
                 
                 <div class="evidence-explanation">This confirms rigidity as a cardinal sign of parkinsonism relevant to PD.</div>
                 
+                
+                
             </div>
             
             
@@ -4632,6 +4867,8 @@
                 
                 <div class="evidence-explanation">This identifies resting tremor as a cardinal sign used to detect parkinsonism, supporting it as a core PD phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -4687,6 +4924,8 @@
                 
                 
                 <div class="evidence-explanation">This lists bradykinesia among the cardinal signs of parkinsonism, supporting its central role in PD.</div>
+                
+                
                 
             </div>
             
@@ -4744,6 +4983,8 @@
                 
                 <div class="evidence-explanation">This supports postural instability as a cardinal parkinsonian sign captured in PD assessments.</div>
                 
+                
+                
             </div>
             
             
@@ -4797,6 +5038,8 @@
                 
                 
                 <div class="evidence-explanation">This indicates depressive symptoms are present and clinically relevant in PD, supporting depression as a non-motor phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4881,6 +5124,8 @@
                 
                 <div class="evidence-explanation">This landmark 1997 Science paper identified the first SNCA mutations in familial PD with autosomal dominant inheritance, establishing SNCA as a causative gene for Parkinson&#39;s disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4900,6 +5145,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the SNCA-Parkinson disease gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -4942,6 +5189,8 @@
                 
                 <div class="evidence-explanation">This systematic review establishes that LRRK2 G2019S is the most common genetic cause of both familial and sporadic PD, supporting its role as the major genetic risk factor.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4961,6 +5210,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the LRRK2-Parkinson disease gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5003,6 +5254,8 @@
                 
                 <div class="evidence-explanation">This identifies GBA as a genetic risk locus shared with PD, supporting its role as a PD risk factor.</div>
                 
+                
+                
             </div>
             
             
@@ -5043,6 +5296,8 @@
                 
                 
                 <div class="evidence-explanation">This establishes Parkin (PARK2) as a gene mutated in autosomal recessive parkinsonism, supporting its causative role.</div>
+                
+                
                 
             </div>
             
@@ -5085,6 +5340,8 @@
                 
                 <div class="evidence-explanation">This identifies PINK1 mutations in autosomal recessive parkinsonism, supporting its causative role in PD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5104,6 +5361,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the PINK1-Parkinson disease gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5148,6 +5407,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the GBA1-Parkinson disease gene-disease relationship as definitive with autosomal dominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -5190,6 +5451,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the PARK7-Parkinson disease gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5234,6 +5497,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PRKN-Parkinson disease gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -5276,6 +5541,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the VPS35-Parkinson disease gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5383,6 +5650,8 @@
                 
                 <div class="evidence-explanation">This review identifies L-Dopa as a core pharmacotherapy for PD motor symptoms.</div>
                 
+                
+                
             </div>
             
             
@@ -5457,6 +5726,8 @@
                 
                 
                 <div class="evidence-explanation">This review identifies dopamine agonists as part of standard pharmacotherapy for PD.</div>
+                
+                
                 
             </div>
             
@@ -5533,6 +5804,8 @@
                 
                 <div class="evidence-explanation">This review lists MAO-B inhibitors among standard PD pharmacotherapies.</div>
                 
+                
+                
             </div>
             
             
@@ -5607,6 +5880,8 @@
                 
                 
                 <div class="evidence-explanation">This review lists COMT inhibitors among standard PD pharmacotherapies.</div>
+                
+                
                 
             </div>
             
@@ -5683,6 +5958,8 @@
                 
                 <div class="evidence-explanation">This review identifies deep brain stimulation as a standard symptomatic therapy for PD.</div>
                 
+                
+                
             </div>
             
             
@@ -5758,6 +6035,8 @@
                 
                 <div class="evidence-explanation">This review lists physiotherapy as part of symptomatic treatment for PD.</div>
                 
+                
+                
             </div>
             
             
@@ -5810,6 +6089,8 @@
                 
                 <div class="evidence-explanation">This review supports pesticide exposure as an environmental factor influencing PD risk.</div>
                 
+                
+                
             </div>
             
             
@@ -5850,6 +6131,8 @@
                 
                 <div class="evidence-explanation">This review notes that clear links to rural living are not established, indicating mixed evidence for this risk factor.</div>
                 
+                
+                
             </div>
             
             
@@ -5889,6 +6172,8 @@
                 
                 
                 <div class="evidence-explanation">This meta-analysis supports head trauma (TBI) as a risk factor for developing PD.</div>
+                
+                
                 
             </div>
             
@@ -5995,6 +6280,8 @@
                 
                 <div class="evidence-explanation">This supports the relevance of gut microbiome datasets to PD mechanisms.</div>
                 
+                
+                
             </div>
             
             
@@ -6078,6 +6365,8 @@
                 
                 <div class="evidence-explanation">This supports the relevance of gut microbiome datasets to PD mechanisms.</div>
                 
+                
+                
             </div>
             
             
@@ -6158,6 +6447,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the relevance of gut microbiome datasets to PD mechanisms.</div>
+                
+                
                 
             </div>
             
@@ -6242,6 +6533,8 @@
                 
                 <div class="evidence-explanation">This supports the relevance of gut microbiome datasets to PD mechanisms.</div>
                 
+                
+                
             </div>
             
             
@@ -6325,6 +6618,8 @@
                 
                 <div class="evidence-explanation">The dataset description reports lipid pathway alterations detected in sebum metabolomics for PD.</div>
                 
+                
+                
             </div>
             
             
@@ -6362,6 +6657,8 @@
                 
                 
                 <div class="evidence-explanation">The dataset description specifies LC-MS profiling and the PD/control cohort sizes.</div>
+                
+                
                 
             </div>
             
@@ -6406,6 +6703,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes that the dataset focuses on PD sebum metabolomics.</div>
+                
+                
                 
             </div>
             
@@ -6486,6 +6785,8 @@
                 
                 <div class="evidence-explanation">The dataset description reports discriminative metabolomic signatures between GBA1-PD and idiopathic PD.</div>
                 
+                
+                
             </div>
             
             
@@ -6523,6 +6824,8 @@
                 
                 
                 <div class="evidence-explanation">The dataset description lists pathway-level differences in serum and hypothesized lipid degradation products in sebum.</div>
+                
+                
                 
             </div>
             
@@ -6563,6 +6866,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes the dataset&#39;s serum and sebum metabolomics design distinguishing GBA1-PD from idiopathic PD.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2927,6 +3118,8 @@
                 
                 <div class="evidence-explanation">The TAKT study targets IL-6 receptor signaling, confirming the central role of IL-6 in TAK pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2946,6 +3139,8 @@
                 
                 
                 <div class="evidence-explanation">The Italian cohort study confirms the role of both humoral and cell-mediated immune mechanisms in TAK pathogenesis.</div>
+                
+                
                 
             </div>
             
@@ -3020,6 +3215,8 @@
                 
                 
                 <div class="evidence-explanation">The NIH cohort demonstrates that stenotic lesions predominate over aneurysmal disease, confirming the vascular remodeling pattern.</div>
+                
+                
                 
             </div>
             
@@ -3107,6 +3304,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis of 20 studies with 1864 TA patients confirms strong HLA-B*52 association with Takayasu arteritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3127,6 +3326,8 @@
                 
                 <div class="evidence-explanation">Review confirms HLA-B*52:01 as the primary susceptibility allele across populations, with IL12B having a central role in onset and progression.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3144,6 +3345,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists HLA-B as a major susceptibility factor for Takayasu arteritis.</div>
+                
+                
                 
             </div>
             
@@ -3279,6 +3482,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies anemia as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -3344,6 +3549,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies arteritis as very frequent in Takayasu arteritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3363,6 +3570,8 @@
                 
                 
                 <div class="evidence-explanation">The Italian cohort study confirms arteritis of the aorta and branches as the core feature.</div>
+                
+                
                 
             </div>
             
@@ -3418,6 +3627,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies arterial stenosis as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3437,6 +3648,8 @@
                 
                 
                 <div class="evidence-explanation">The NIH cohort found stenotic lesions in 98% of patients.</div>
+                
+                
                 
             </div>
             
@@ -3494,6 +3707,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies vascular dilatation as very frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3513,6 +3728,8 @@
                 
                 
                 <div class="evidence-explanation">The NIH cohort found aneurysms in 27% of patients.</div>
+                
+                
                 
             </div>
             
@@ -3568,6 +3785,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies vasculitis as very frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -3621,6 +3840,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies abnormal heart valve morphology as very frequent.</div>
+                
+                
                 
             </div>
             
@@ -3678,6 +3899,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies absent pulse as frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3697,6 +3920,8 @@
                 
                 
                 <div class="evidence-explanation">The Pakistan cohort found absent pulses in 38.9% of patients.</div>
+                
+                
                 
             </div>
             
@@ -3754,6 +3979,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies hypertension as frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3774,6 +4001,8 @@
                 
                 <div class="evidence-explanation">NIH cohort confirms hypertension commonly linked to renal artery stenosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3793,6 +4022,8 @@
                 
                 
                 <div class="evidence-explanation">The Pakistan cohort found hypertension in 61.5% of patients.</div>
+                
+                
                 
             </div>
             
@@ -3848,6 +4079,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies myocardial infarction as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -3901,6 +4134,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies pulmonary arterial hypertension as frequent.</div>
+                
+                
                 
             </div>
             
@@ -3956,6 +4191,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies aortic regurgitation as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -4009,6 +4246,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies congestive heart failure as occasional.</div>
+                
+                
                 
             </div>
             
@@ -4064,6 +4303,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies dilated cardiomyopathy as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -4118,6 +4359,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies stroke as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4137,6 +4380,8 @@
                 
                 
                 <div class="evidence-explanation">The NIH cohort identifies stroke as part of the clinical spectrum.</div>
+                
+                
                 
             </div>
             
@@ -4201,6 +4446,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies anorexia as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -4263,6 +4510,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies vertigo as occasional.</div>
+                
+                
                 
             </div>
             
@@ -4327,6 +4576,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies retinopathy as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -4380,6 +4631,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies visual impairment as occasional.</div>
+                
+                
                 
             </div>
             
@@ -4444,6 +4697,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies erythema nodosum as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -4506,6 +4761,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies skin ulcer as frequent.</div>
+                
+                
                 
             </div>
             
@@ -4570,6 +4827,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies fever as very frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -4633,6 +4892,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies arthritis as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -4686,6 +4947,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies muscle weakness as frequent.</div>
+                
+                
                 
             </div>
             
@@ -4750,6 +5013,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies headache as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -4803,6 +5068,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies migraine as frequent.</div>
+                
+                
                 
             </div>
             
@@ -4858,6 +5125,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies seizure as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -4911,6 +5180,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies speech abnormality as occasional.</div>
+                
+                
                 
             </div>
             
@@ -4975,6 +5246,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies dyspnea as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -5028,6 +5301,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies hemoptysis as occasional.</div>
+                
+                
                 
             </div>
             
@@ -5092,6 +5367,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies chest pain as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -5145,6 +5422,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies gangrene as frequent.</div>
+                
+                
                 
             </div>
             
@@ -5200,6 +5479,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies fatigue as very frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -5253,6 +5534,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies malaise as occasional.</div>
+                
+                
                 
             </div>
             
@@ -5308,6 +5591,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies night sweats as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -5362,6 +5647,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies myalgia as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -5415,6 +5702,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies arthralgia as occasional.</div>
+                
+                
                 
             </div>
             
@@ -5478,6 +5767,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies weight loss as very frequent.</div>
+                
+                
                 
             </div>
             
@@ -5544,6 +5835,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies hypertensive crisis as very frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -5597,6 +5890,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies abnormal aortic valve morphology as frequent.</div>
+                
+                
                 
             </div>
             
@@ -5652,6 +5947,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies ascending aortic aneurysm as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -5706,6 +6003,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies renal artery stenosis as frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5725,6 +6024,8 @@
                 
                 
                 <div class="evidence-explanation">The Pakistan cohort found renal artery involvement in 33.3% of patients.</div>
+                
+                
                 
             </div>
             
@@ -5780,6 +6081,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies intermittent claudication as frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5799,6 +6102,8 @@
                 
                 
                 <div class="evidence-explanation">The Pakistan cohort found limb claudication in 44.4% as the most common initial presentation.</div>
+                
+                
                 
             </div>
             
@@ -5854,6 +6159,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies blood pressure discrepancy as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -5908,6 +6215,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies asymmetric blood pressure between arms as frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5927,6 +6236,8 @@
                 
                 
                 <div class="evidence-explanation">The Pakistan cohort found blood pressure discrepancy between arms in 88.9% of patients.</div>
+                
+                
                 
             </div>
             
@@ -5982,6 +6293,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies carotidynia as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -6035,6 +6348,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies endocardial abnormality as occasional.</div>
+                
+                
                 
             </div>
             
@@ -6090,6 +6405,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies transient ischemic attack as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -6143,6 +6460,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies cerebral ischemia as occasional.</div>
+                
+                
                 
             </div>
             
@@ -6198,6 +6517,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies reduced consciousness as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -6251,6 +6572,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies amaurosis fugax as occasional.</div>
+                
+                
                 
             </div>
             
@@ -6306,6 +6629,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies increased inflammatory response as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -6359,6 +6684,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies gastrointestinal infarctions as occasional.</div>
+                
+                
                 
             </div>
             
@@ -6445,6 +6772,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis demonstrates a highly significant association between HLA-B*52 and TA susceptibility.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6462,6 +6791,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies HLA-B as a major susceptibility factor.</div>
+                
+                
                 
             </div>
             
@@ -6506,6 +6837,8 @@
                 
                 <div class="evidence-explanation">GWAS review identifies IL12B as a key non-HLA susceptibility locus.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6523,6 +6856,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists IL12B as a major susceptibility factor.</div>
+                
+                
                 
             </div>
             
@@ -6564,6 +6899,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists MLX as a major susceptibility factor for Takayasu arteritis.</div>
+                
+                
                 
             </div>
             
@@ -6668,6 +7005,8 @@
                 
                 <div class="evidence-explanation">The TAKT study used glucocorticoids to induce remission in all patients before randomization, confirming their role as standard first-line therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6687,6 +7026,8 @@
                 
                 
                 <div class="evidence-explanation">NIH cohort confirms glucocorticoid use in 80% of patients with significant relapse rate.</div>
+                
+                
                 
             </div>
             
@@ -6778,6 +7119,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms standard use of steroid-sparing immunosuppressive agents including methotrexate alongside glucocorticoids.</div>
+                
+                
                 
             </div>
             
@@ -6874,6 +7217,8 @@
                 
                 <div class="evidence-explanation">The TAKT trial showed a trend favoring tocilizumab but did not meet its primary endpoint, providing partial support for efficacy.</div>
                 
+                
+                
             </div>
             
             
@@ -6951,6 +7296,8 @@
                 
                 <div class="evidence-explanation">NIH cohort confirms that surgical revascularization provides palliation but restenosis is a significant problem.</div>
                 
+                
+                
             </div>
             
             
@@ -6986,6 +7333,7 @@
                 <div class="item-desc">Context: Elevated ESR is common during active disease, though normal ESR does not exclude active inflammation.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -7009,6 +7357,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies elevated ESR as frequent in TAK.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7029,6 +7379,8 @@
                 
                 <div class="evidence-explanation">The NIH cohort found ESR elevated but unreliable as a sole disease activity marker.</div>
                 
+                
+                
             </div>
             
             
@@ -7047,6 +7399,7 @@
                 </div>
                 
                 <div class="item-desc">Context: CRP is elevated during active inflammation but may not correlate perfectly with disease activity.</div>
+                
                 
                 
     
@@ -7071,6 +7424,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies elevated CRP as occasional.</div>
+                
+                
                 
             </div>
             

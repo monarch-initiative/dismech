@@ -1,25 +1,46 @@
 ---
 provider: falcon
-model: Edison Scientific Literature
+model: null
 cached: false
-start_time: '2026-05-11T09:01:02.114120'
-end_time: '2026-05-11T09:08:35.542852'
-duration_seconds: 453.43
-template_file: templates/disease_pathophysiology_research.md
-template_variables:
-  disease_name: Tooth and Nail Syndrome
-  mondo_id: ''
-  category: Genetic
 provider_config:
-  timeout: null
-  max_retries: 3
-  parameters:
-    allowed_domains: []
-    temperature: 0.1
-citation_count: 24
+  trajectory_id: 83ca03df-b275-4f8b-81ce-c05678d5e217
+  retrieval_mode: edison_trajectory
+trajectory_id: 83ca03df-b275-4f8b-81ce-c05678d5e217
+citation_count: 25
+artifact_count: 2
+artifact_sources:
+  edison_answer_artifacts: 1
+  edison_message_content: 1
+artifacts:
+- filename: artifact-00.md
+  path: Tooth_and_Nail_Syndrome-deep-research-falcon_artifacts/artifact-00.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-00
+- filename: image-1.png
+  path: Tooth_and_Nail_Syndrome-deep-research-falcon_artifacts/image-1.png
+  media_type: image/png
+  source: edison_message_content
+  data_storage_id: null
+  description: '## Context ID: pqac-00000016 The pedigree figure and the table summarizing
+    clinical features for the family with the MSX1 S202X mutation (causing Witkop
+    syndrom'
 ---
 
 ## Question
+
+You are an expert researcher providing comprehensive, well-cited information.
+
+Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies
+
+Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.
 
 # Disease Characteristics Research Template
 
@@ -929,310 +950,245 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Tooth and Nail Syndrome (Witkop Tooth-and-Nail Syndrome; TNS) — Disease Characteristics Report
+# Tooth and Nail Syndrome (Witkop Syndrome; Hypodontia–Nail Dysplasia) — Disease Characteristics Research Report
 
-## Target disease
-- **Disease name:** Tooth and Nail Syndrome (Witkop tooth-and-nail syndrome)
-- **Category:** Genetic; ectodermal dysplasia
-- **MONDO ID:** Not identified in the retrieved evidence (requires external ontology lookup beyond the current corpus).
+## Executive summary
+Tooth and Nail Syndrome (TNS), also called **Witkop syndrome**, is a rare, primarily **autosomal dominant** ectodermal dysplasia characterized by **congenital tooth agenesis (hypodontia/oligodontia)** and **nail dysplasia**, with typically **normal sweating** and minimal hair involvement. The strongest primary molecular evidence links TNS to **heterozygous loss-of-function variants in MSX1**, including a canonical nonsense variant **MSX1 c.605C>A (p.Ser202Ter; “S202X”)** that cosegregates with disease in a multigeneration pedigree and is supported by developmental biology and mouse model parallels. (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f)
 
-## Key references prioritized for recency
-- McMillan KB et al. *Oral and Maxillofacial Surgery* (published online 2022; journal issue **Jul 2023**) — zygomatic implant rehabilitation case series (3 siblings; up to 15-year follow-up). https://doi.org/10.1007/s10006-022-01107-5 (mcmillan2023surgicalandprosthetic pages 1-2)
-- Castilho NL et al. *Dentistry Journal* **Dec 2023** — systematic review of syndromes with oligodontia including Witkop syndrome. https://doi.org/10.3390/dj11120279 (castilho2023oligodontiainthe pages 13-15)
-- Cammarata‑Scalisi F et al. *Clinical Oral Investigations* **Dec 2024** — review of genetic entities in tooth agenesis citing MSX1/Witkop and the implant case series. https://doi.org/10.1007/s00784-024-05941-7 (cammaratascalisi2024maingeneticentities pages 8-9)
-- Jumlongras D et al. *American Journal of Human Genetics* **Jul 2001** — primary causal-variant paper identifying MSX1 S202X. https://doi.org/10.1086/321271 (jumlongras2001anonsensemutation pages 1-2)
+A 2024 narrative review of tooth agenesis reiterates **MSX1** as a principal gene and explicitly maps **Witkop-type ectodermal dysplasia (OMIM 189500)** to **autosomal dominant MSX1**. (cammaratascalisi2024maingeneticentities pages 1-2)
 
-## Artifact summary table
-| Category | Finding | Details | Evidence |
+| Topic | Key facts | Suggested ontology terms | Key references / evidence |
 |---|---|---|---|
-| Preferred disease name | Tooth and Nail Syndrome | Also called Witkop syndrome; a rare ectodermal dysplasia primarily affecting teeth and nails | (memarpour2011witkoptoothand pages 3-5, memarpour2011witkoptoothand pages 1-3) |
-| Synonyms / alternative names | Nomenclature | Witkop tooth-and-nail syndrome; tooth-and-nail syndrome (TNS); hypodontia-nail dysplasia syndrome; nail dysgenesis and hypodontia | (devadas2005witkoptoothand pages 1-3, memarpour2011witkoptoothand pages 5-5) |
-| Inheritance | Mode of inheritance | Autosomal dominant | (memarpour2011witkoptoothand pages 3-5, bergqvist2017geneticsofsyndromic pages 4-4, jumlongras2001anonsensemutation pages 1-2) |
-| Causal gene | Gene | **MSX1** | (memarpour2011witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 1-2) |
-| Key variant evidence | Pathogenic variant example | Heterozygous nonsense variant **MSX1 S202X (Ser202Stop)** identified in an affected family; cosegregated with disease | (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation pages 4-7) |
-| OMIM identifier | OMIM | **189500** | (bergqvist2017geneticsofsyndromic pages 4-4) |
-| Incidence estimate | Frequency | Reported as approximately **1–2 per 10,000** in some case literature; another report cites rarity without robust population-based confirmation | (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 1-2) |
-| Core dental phenotype | Teeth | Congenital hypodontia/oligodontia; teeth may be widely spaced, conical, narrow-crowned; commonly missing mandibular incisors, second molars, and maxillary canines | (devadas2005witkoptoothand pages 1-3, memarpour2011witkoptoothand pages 1-3) |
-| Core nail phenotype | Nails | Nail dysplasia with thin, brittle, spoon-shaped/ridged, slow-growing nails; toenails often more severely affected; nail changes may improve with age | (devadas2005witkoptoothand pages 1-3, memarpour2011witkoptoothand pages 1-3, bergqvist2017geneticsofsyndromic pages 4-4) |
+| Disease definition & synonyms | Rare hereditary ectodermal dysplasia primarily affecting teeth and nails; characterized by congenital tooth agenesis/hypodontia or oligodontia plus nail dysplasia. Common synonyms: **Witkop syndrome**, **tooth-and-nail syndrome (TNS)**, **hypodontia–nail dysplasia syndrome**, **Witkop tooth-and-nail syndrome**. Disease-level information is derived mainly from aggregated case reports/families and review resources, not EHR-scale datasets. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3) | MONDO: not confidently identified from available context; HPO candidates include **Hypodontia** HP:0000677, **Oligodontia** HP:0000676, **Abnormality of nails** HP:0001597 | Altug-Atac & Iseri 2008, *Angle Orthod* 78:370-380, DOI: 10.2319/100406-403.1, https://doi.org/10.2319/100406-403.1 (altugatac2008witkoptoothand pages 1-2); Memarpour & Shafiei 2011, *Pediatr Dermatol* 28:281-285, DOI: 10.1111/j.1525-1470.2010.01198.x, https://doi.org/10.1111/j.1525-1470.2010.01198.x (memarpour2011witkoptoothand pages 1-3) |
+| Inheritance | Usually **autosomal dominant** with **variable expressivity**; family pedigrees show vertical transmission across generations. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 1-2, cammaratascalisi2024maingeneticentities pages 1-2, jumlongras2001anonsensemutation media 0569dd8f) | HPO: **Autosomal dominant inheritance** HP:0000006; **Variable expressivity** HP:0003828 | Jumlongras et al. 2001, *Am J Hum Genet* 69:67-74, DOI: 10.1086/321271, https://doi.org/10.1086/321271 (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f); Cammarata-Scalisi et al. 2024, *Clin Oral Investig* 29:9, DOI: 10.1007/s00784-024-05941-7, https://doi.org/10.1007/s00784-024-05941-7 (cammaratascalisi2024maingeneticentities pages 1-2) |
+| Causal gene & key pathogenic variant | Canonical causal gene from primary evidence: **MSX1** (OMIM gene cited in review context as 142983). Landmark family study identified heterozygous **c.605C>A, p.Ser202Ter (S202X)** nonsense variant in exon 2/homeodomain; variant cosegregated with disease and was absent from 132 control chromosomes. Evidence type: **human familial linkage + segregation + sequencing**, supported by **mouse model** phenotype parallels. (jumlongras2001anonsensemutation pages 7-8, jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation pages 1-2, cammaratascalisi2024maingeneticentities pages 1-2) | HGNC gene: **MSX1**; Sequence ontology idea: **nonsense_variant**; HPO: **Abnormality of the dentition** HP:0000164 | Jumlongras et al. 2001, *Am J Hum Genet* 69:67-74, DOI: 10.1086/321271, https://doi.org/10.1086/321271 (jumlongras2001anonsensemutation pages 7-8, jumlongras2001anonsensemutation pages 4-7); 2024 summary review confirms **MSX1 → Witkop type ED3 (AD)** (cammaratascalisi2024maingeneticentities pages 1-2) |
+| Core phenotype: teeth | Congenitally missing primary and/or permanent teeth; reported range in one pedigree **11-28 missing permanent teeth**. Frequently absent teeth reported across case literature include **mandibular incisors, second molars, maxillary canines/incisors**. Remaining teeth may be **small, widely spaced, conical/narrow-crowned**; retained primary teeth are common. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 2-4, jumlongras2001anonsensemutation media 0569dd8f) | HPO: **Hypodontia** HP:0000677; **Oligodontia** HP:0000676; **Conical tooth** HP:0000698; **Widely spaced teeth** HP:0000687; **Retained primary teeth** HP:0006335 | Devadas et al. 2005, *Int J Paediatr Dent* 15:364-369, DOI: 10.1111/j.1365-263x.2005.00647.x, https://doi.org/10.1111/j.1365-263x.2005.00647.x (devadas2005witkoptoothand pages 1-3); Memarpour & Shafiei 2011 (memarpour2011witkoptoothand pages 1-3); Jumlongras et al. 2001 (jumlongras2001anonsensemutation pages 2-4) |
+| Core phenotype: nails | Fingernail and toenail dysplasia, often **more severe in toenails**; nails may be **thin, brittle, slow-growing, spoon-shaped (koilonychia), rigid**, with **onychorrhexis/longitudinal ridging**. Nail findings are often most obvious in childhood and may **improve with age**. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, arora2016witkopssyndromea pages 1-3, jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f) | HPO: **Nail dysplasia** HP:0002164; **Koilonychia** HP:0001802; **Onychorrhexis** HP:0033863; **Slow-growing nails** HP:0008388 | Altug-Atac & Iseri 2008 (altugatac2008witkoptoothand pages 1-2); Arora et al. 2016, *J Oral Biol Craniofac Res* 6:79-81, DOI: 10.1016/j.jobcr.2015.07.003, https://doi.org/10.1016/j.jobcr.2015.07.003 (arora2016witkopssyndromea pages 1-3) |
+| Other ectodermal features | Hair is usually **normal or only mildly affected** (fine/thin hair may occur); **sweat gland function is typically normal**, helping distinguish TNS from hypohidrotic ectodermal dysplasia. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 2-4) | HPO: **Normal sweating** not usually encoded; possible phenotype if present: **Sparse hair** HP:0008070 | Memarpour & Shafiei 2011 (memarpour2011witkoptoothand pages 1-3); Devadas et al. 2005 (devadas2005witkoptoothand pages 1-3) |
+| Onset & course | Congenital/developmental disorder. Nail abnormalities may be noticed at birth or early childhood; diagnosis often becomes clearer around **4-5 years** when missing primary/permanent teeth are recognized radiographically/clinically. Course is **lifelong**, but nail severity may lessen with age; dental agenesis is non-progressive once established. (memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 1-2) | HPO: **Congenital onset** HP:0003577; **Childhood onset** HP:0011463 | Devadas et al. 2005 (devadas2005witkoptoothand pages 1-3); Jumlongras et al. 2001 (jumlongras2001anonsensemutation pages 1-2) |
+| Prevalence estimates reported | Published estimates in case/review literature vary: commonly cited **~1-2 per 10,000 births/newborns**; one case report cites **~1 in 100,000 live births**. These figures appear to be literature-derived estimates rather than registry-based epidemiology, so precision is uncertain. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, arora2016witkopssyndromea pages 1-3) | No specific ontology term | Altug-Atac & Iseri 2008 (1-2/10,000) (altugatac2008witkoptoothand pages 1-2); Memarpour & Shafiei 2011 (1-2/10,000) (memarpour2011witkoptoothand pages 1-3); Arora et al. 2016 (1/100,000) (arora2016witkopssyndromea pages 1-3) |
+| Diagnostic approach | Diagnosis is primarily **clinical + dental radiography + family history**, with confirmation by **molecular testing of MSX1** when available. Panoramic radiography/OPG documents tooth agenesis; pedigree analysis supports AD inheritance. Differential diagnosis includes **Fried tooth-and-nail syndrome**, **trichoonychodental syndrome**, and **Clouston syndrome**. (bhardwaj2023toothandnail pages 1-2, altugatac2008witkoptoothand pages 1-2, bhardwaj2023toothandnail pages 2-3, jumlongras2001anonsensemutation media 0569dd8f) | HPO: **Family history** not a phenotype; possible MAXO ideas for downstream curation: genetic counseling/testing terms | Bhardwaj 2023 case report (clinical exam + OPG) (bhardwaj2023toothandnail pages 1-2, bhardwaj2023toothandnail pages 2-3); Altug-Atac & Iseri 2008 (altugatac2008witkoptoothand pages 1-2) |
+| Management / real-world implementation | No disease-specific pharmacotherapy. Real-world care is **multidisciplinary dental rehabilitation**: preventive dental care, space management/orthodontics, prosthodontics, retention of primary teeth when useful to preserve alveolar bone, and implants after growth completion in selected patients; simple nail care and psychosocial support are recommended. A 2023 familial case series reported **surgical/prosthetic rehabilitation using zygomatic implants with up to 15-year follow-up** (identified in search results, full text not retrieved here). (bhardwaj2023toothandnail pages 1-2, devadas2005witkoptoothand pages 5-6, bhardwaj2023toothandnail pages 2-3) | MAXO suggestions for downstream use: dental prosthesis placement, orthodontic treatment, genetic counseling; HPO impact terms may include **Abnormality of dental occlusion** HP:0000689 | Devadas et al. 2005 (preventive/prosthetic strategy) (devadas2005witkoptoothand pages 5-6); Bhardwaj 2023 (multidisciplinary care, nail care, counseling) (bhardwaj2023toothandnail pages 2-3) |
+| Recent developments / latest research | Disease-specific 2023-2024 primary TNS literature appears sparse. A **2024 review on tooth agenesis** reaffirms **MSX1** as the gene for **Witkop-type ectodermal dysplasia (AD)**. Broader mechanistic work remains relevant: MSX1 developmental role and earlier molecular proof remain the main authoritative evidence base. (cammaratascalisi2024maingeneticentities pages 1-2) | HGNC: MSX1; MONDO placeholder pending confirmation | Cammarata-Scalisi et al. 2024, *Clin Oral Investig* 29:9, DOI: 10.1007/s00784-024-05941-7, https://doi.org/10.1007/s00784-024-05941-7 (cammaratascalisi2024maingeneticentities pages 1-2) |
 
 
-*Table: This table summarizes the core nomenclature, identifiers, inheritance, genetic cause, incidence estimates, and hallmark tooth/nail manifestations of Tooth and Nail Syndrome based only on the retrieved evidence. It is useful as a compact reference for disease knowledge-base curation.*
-
----
+*Table: This table compiles the core disease facts for Tooth and Nail Syndrome (Witkop syndrome), including inheritance, MSX1 molecular evidence, key phenotypes, onset, prevalence estimates, and practical diagnostic/management points. It is designed as a compact reference for knowledge-base curation and evidence mapping.*
 
 ## 1. Disease information
-
 ### 1.1 Overview (what is the disease?)
-Tooth and Nail Syndrome (TNS), also called **Witkop syndrome**, is a **rare autosomal dominant ectodermal dysplasia** in which the abnormalities are largely restricted to **teeth (hypodontia/oligodontia, abnormal tooth shape)** and **nails (nail dysplasia)**. (jumlongras2001anonsensemutation pages 1-2, mcmillan2023surgicalandprosthetic pages 1-2)
+TNS/Witkop syndrome is an ectodermal dysplasia phenotype dominated by two organ systems: (i) **dentition** (congenitally missing teeth, often with microdontia and conical crowns) and (ii) **nails** (thin/brittle/slow-growing and sometimes spoon-shaped). It is typically **non–life-limiting** but has substantial functional, esthetic, and psychosocial impact because oligodontia affects chewing, speech, and facial/dental appearance. (devadas2005witkoptoothand pages 5-6, memarpour2011witkoptoothand pages 1-3)
 
-The AJHG causal-variant paper explicitly summarizes the disorder as: “**Witkop syndrome, also known as tooth and nail syndrome (TNS), is a rare autosomal dominant disorder. Affected individuals have nail dysplasia and several congenitally missing teeth.**” (jumlongras2001anonsensemutation pages 1-2)
+### 1.2 Key identifiers
+* **OMIM (disease):** Tooth and Nail Syndrome / Witkop syndrome **MIM 189500** (reported in the primary genetics paper context and reiterated in the 2024 review). (jumlongras2001anonsensemutation pages 7-8, cammaratascalisi2024maingeneticentities pages 1-2)
+* **OMIM (gene):** **MSX1** **OMIM 142983** (from 2024 review excerpt). (cammaratascalisi2024maingeneticentities pages 1-2)
+* **MONDO / Orphanet / ICD / MeSH:** Not retrievable from the provided full-text context in this run (should be added via direct OMIM/Orphanet/MONDO lookups in a subsequent curation pass).
 
-### 1.2 Synonyms and alternative names
-- Witkop syndrome (memarpour2011witkoptoothand pages 1-3)
-- Tooth and nail syndrome (TNS) (jumlongras2001anonsensemutation pages 1-2)
-- Nail dysgenesis and hypodontia (jumlongras2001anonsensemutation pages 1-2, mcmillan2023surgicalandprosthetic pages 1-2)
-- Hypodontia and nail dysplasia syndrome / tooth–nail dysplasia (bibliographic synonym evidence) (memarpour2011witkoptoothand pages 5-5)
+### 1.3 Synonyms and alternative names
+* Witkop syndrome; Witkop tooth-and-nail syndrome (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3)
+* Tooth and nail syndrome (TNS) (altugatac2008witkoptoothand pages 1-2, jumlongras2001anonsensemutation pages 1-2)
+* Hypodontia–nail dysplasia / hypodontia with nail dysgenesis (memarpour2011witkoptoothand pages 5-5, devadas2005witkoptoothand pages 1-3)
 
-### 1.3 Key identifiers
-- **OMIM:** **189500** (explicitly shown as “TNS [MIM 189500]” in the AJHG paper and also listed in a nail-disorders genetics review) (jumlongras2001anonsensemutation pages 1-2, bergqvist2017geneticsofsyndromic pages 4-4)
-- **Orphanet / ICD-10 / ICD-11 / MeSH / MONDO:** Not identified in the retrieved evidence; must be added via dedicated ontology/database lookup not available in this run.
-
-### 1.4 Evidence source type
-The available information is mostly from:
-- **Aggregated genetics evidence** (linkage + sequencing; plus mouse model corroboration) (jumlongras2001anonsensemutation pages 1-2)
-- **Family-based case series / case reports** and dental management publications (memarpour2011witkoptoothand pages 1-3, mcmillan2023surgicalandprosthetic pages 1-2)
-- **Recent reviews and systematic review synthesis** of syndromic oligodontia (castilho2023oligodontiainthe pages 13-15, cammaratascalisi2024maingeneticentities pages 8-9)
-
----
+### 1.4 Evidence type (individual patients vs aggregated)
+Most knowledge is derived from **family studies and case reports**, supplemented by targeted reviews of tooth agenesis genetics. (devadas2005witkoptoothand pages 5-6, memarpour2011witkoptoothand pages 1-3, cammaratascalisi2024maingeneticentities pages 1-2)
 
 ## 2. Etiology
+### 2.1 Disease causal factors
+**Primary causal factor:** germline genetic variants in **MSX1**, a homeobox transcription factor required for normal ectodermal appendage development. (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation pages 1-2)
 
-### 2.1 Primary causal factors
-**Genetic etiology (germline):** The best-supported causal gene in the retrieved evidence is **MSX1**.
-- A three-generation family study identified a heterozygous nonsense variant in MSX1 that cosegregated with disease. The abstract states that “**a heterozygous stop mutation in the homeodomain of MSX1 cosegregated with the phenotype**.” (jumlongras2001anonsensemutation pages 1-2)
+### 2.2 Genetic risk factors (causal variants)
+**MSX1 (HGNC: MSX1)** is the canonical causal gene for dominantly inherited TNS.
 
-### 2.2 Risk factors
-- **Family history / autosomal dominant inheritance** is the major risk factor (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3).
-- No environmental risk factors were identified in the retrieved evidence.
+**Key pathogenic variant (landmark):**
+* **MSX1 c.605C>A (exon 2) → p.Ser202Ter (S202X)**, a **heterozygous nonsense** variant in the MSX1 homeodomain.
+  * Evidence: linkage to the MSX1 locus and cosegregation with the phenotype across a three-generation pedigree; absent in 132 control chromosomes (allele frequency <0.01 in that screen). (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation media 0569dd8f)
 
-### 2.3 Protective factors
-No genetic or environmental protective factors were identified in the retrieved evidence.
+**Inheritance:** autosomal dominant with variable expressivity; a large pedigree is shown with molecular cosegregation, and an accompanying table summarizes affected individuals’ missing tooth counts and nail features. (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f, jumlongras2001anonsensemutation media 40a94f6c)
+
+### 2.3 Environmental risk factors / protective factors
+No environmental risk or protective factors were supported by the retrieved evidence; TNS is treated as a developmental genetic disorder. (jumlongras2001anonsensemutation pages 1-2)
 
 ### 2.4 Gene–environment interactions
-No gene–environment interaction evidence was identified in the retrieved evidence.
-
----
+No gene–environment interaction evidence was identified in the retrieved corpus.
 
 ## 3. Phenotypes
+### 3.1 Core phenotypes and suggested HPO terms
+**A. Dental phenotypes (symptoms/signs/physical manifestations)**
+* **Hypodontia / oligodontia** (HP:0000677 / HP:0000676): congenitally missing teeth; in one molecularly confirmed family study, affected individuals had **11–28 missing permanent teeth**. (jumlongras2001anonsensemutation pages 2-4, jumlongras2001anonsensemutation media 40a94f6c)
+* **Conical tooth** (HP:0000698) and **microdontia/narrow crowns**: frequently described in clinical case series. (memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
+* **Widely spaced teeth** (HP:0000687) and **retained primary teeth** (HP:0006335): commonly noted, with retained deciduous teeth often functioning long-term. (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 1-3)
+* Teeth most frequently absent in case literature: **mandibular incisors, second molars, and maxillary canines/incisors** (pattern-level statements across case reports). (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
 
-### 3.1 Core phenotype spectrum
-**Dental phenotypes**
-- **Congenital hypodontia/oligodontia** with variable expressivity (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3).
-- Commonly missing teeth (described in family case series): “**Mandibular incisors, second molars, and maxillary canines are the most frequently missing teeth.**” (abstract quote) (memarpour2011witkoptoothand pages 1-3)
-- Tooth shape abnormalities: “**Tooth shape may vary, and conical and narrow crowns are common.**” (abstract quote) (memarpour2011witkoptoothand pages 1-3)
-- The AJHG paper notes substantial variability but emphasizes that “**congenitally missing teeth and nail dysplasia are the consistent diagnostic features**” (jumlongras2001anonsensemutation pages 1-2).
+**B. Nail phenotypes (clinical signs)**
+* **Nail dysplasia** (HP:0002164): thin, brittle, slow-growing nails; often more severe in toenails. (memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
+* **Koilonychia** (HP:0001802): spoon-shaped nails commonly described. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3)
+* **Onychorrhexis** (HP:0033863) and longitudinal ridging: reported in case literature. (arora2016witkopssyndromea pages 1-3)
 
-**Nail phenotypes**
-- Nail dysplasia affecting fingernails and especially toenails; often worse in childhood and may improve with age (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3).
-- AJHG introduction provides detailed description: nails are “**thin, slow-growing, brittle, and spoon-shaped (koilonychia)**,” sometimes with “**marked longitudinal ridges and pitting**,” and “**Toenails are usually more severely affected than fingernails**.” (jumlongras2001anonsensemutation pages 1-2)
-- Pediatric Dermatology abstract corroborates: nails “**may be spoon-shaped, ridged, slow-growing, and easily broken**.” (memarpour2011witkoptoothand pages 1-3)
+**C. Other ectodermal features**
+* **Sweating typically normal** and hair often normal or minimally affected; this helps distinguish TNS from hypohidrotic ectodermal dysplasia. (memarpour2011witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 2-4)
 
-### 3.2 Age of onset / temporal features
-- Nail defects can be present at birth; AJHG notes that in rare cases “**nails … are absent at birth**,” and that “**nail defects … are alleviated with age**.” (jumlongras2001anonsensemutation pages 1-2)
-- Some clinical literature suggests the condition is more often recognized in early childhood as tooth eruption patterns become apparent (case-based discussion) (devadas2005witkoptoothand pages 1-3).
+### 3.2 Age of onset, progression, frequency
+* **Onset:** congenital/developmental. Nail findings can be noticeable early; dental agenesis becomes clinically evident as dentition develops and is confirmed radiographically. (devadas2005witkoptoothand pages 1-3)
+* **Course:** tooth agenesis is static after development; nail abnormalities may be more evident in childhood and can improve with age. (altugatac2008witkoptoothand pages 1-2, jumlongras2001anonsensemutation pages 1-2)
+* **Frequency:** quantitative phenotype frequencies across cohorts are not available; evidence is case- and pedigree-based. (devadas2005witkoptoothand pages 5-6, memarpour2011witkoptoothand pages 1-3)
 
-### 3.3 Severity and progression
-- **Variable expressivity** is explicitly reported (“**The expressivity of tooth and nail defects is highly variable**”). (jumlongras2001anonsensemutation pages 1-2)
-- Nail findings may lessen with age and can be difficult to detect in adulthood. (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3)
-
-### 3.4 Frequency among affected individuals
-Because most available evidence is case/family series, robust phenotype frequencies are not available. However, quantitative data points include:
-- In the AJHG family, one affected individual had **28 congenitally missing permanent teeth**. (jumlongras2001anonsensemutation pages 4-7)
-- In a 2023 systematic review dataset, Witkop syndrome cases with MSX1 mutations showed an **average of 16.75 permanent teeth missing (four cases)**. (castilho2023oligodontiainthe pages 13-15)
-
-### 3.5 Quality of life impact
-TNS can lead to compromised aesthetics and function, and reduced quality of life due to missing/malformed teeth and atrophic jaws; the 2023 case series notes impacts on “**aesthetics, reduced function, and overall quality of life**” in the context of tooth absence and alveolar atrophy. (mcmillan2023surgicalandprosthetic pages 1-2)
-
-### 3.6 Suggested HPO terms (non-exhaustive; mapping based on described phenotypes)
-- Hypodontia / oligodontia (HP:0000668 / HP:0000677)
-- Abnormality of tooth morphology; conical teeth (HP:0006482; conical incisors HP:0000698)
-- Widely spaced teeth / diastema (HP:0000699)
-- Koilonychia (HP:0001810)
-- Nail dystrophy (HP:0002164)
-- Onychorrhexis (brittle nails; often captured under nail dystrophy)
-
-*Note: HPO IDs are suggested mappings; these ontology IDs were not directly provided in the retrieved texts and should be verified during curation.*
-
----
+### 3.3 Quality of life impact
+While no standardized QoL instrument data were found, multiple reports emphasize functional/esthetic and psychosocial burden and the importance of multidisciplinary rehabilitation to improve quality of life. (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 5-6)
 
 ## 4. Genetic / molecular information
-
 ### 4.1 Causal gene(s)
-- **MSX1** is the causal gene supported by linkage + sequencing and segregation evidence. (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation pages 4-7)
+* **MSX1** is the primary causal gene for **autosomal dominant** TNS/Witkop syndrome. (jumlongras2001anonsensemutation pages 1-2, cammaratascalisi2024maingeneticentities pages 1-2)
 
-### 4.2 Pathogenic variants (example)
-- **MSX1 S202X (Ser202Stop)** (nonsense; premature stop) in the MSX1 homeodomain.
-  - Evidence: “**a nonsense mutation (S202X) in MSX1 cosegregated with the TNS phenotype**” (jumlongras2001anonsensemutation pages 1-2)
-  - Molecular detail: a “**C→A transversion at nucleotide position 605 in exon 2 … producing a premature stop codon (S202X / Ser202Stop)**” (jumlongras2001anonsensemutation pages 4-7)
-  - Population control data: mutation absent from **132 normal control chromosomes** (implying very low allele frequency in controls). (jumlongras2001anonsensemutation pages 4-7)
+### 4.2 Pathogenic variant(s)
+* **MSX1 c.605C>A (p.Ser202Ter; S202X)** (nonsense; truncating) in exon 2/homeodomain; cosegregation and control-screen absence support pathogenicity. (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation media 0569dd8f)
 
-**Variant class:** nonsense (loss-of-function consistent). (jumlongras2001anonsensemutation pages 4-7)
+**Variant class and predicted functional consequence:** loss of function via truncation within the DNA-binding homeodomain; authors interpret the phenotype as consistent with **haploinsufficiency**. (jumlongras2001anonsensemutation pages 7-8, jumlongras2001anonsensemutation pages 4-7)
 
-### 4.3 Somatic vs germline
-The causal variant evidence is from inherited familial disease (germline). (jumlongras2001anonsensemutation pages 1-2)
+**Population frequency:** specific population database frequencies (e.g., gnomAD) were not available in the retrieved text; the original study reports absence in 132 control chromosomes. (jumlongras2001anonsensemutation pages 4-7)
 
-### 4.4 Modifier genes / epigenetics / chromosomal abnormalities
-No modifier gene, epigenetic, or chromosomal abnormality evidence specific to TNS was identified in the retrieved corpus.
-
----
+### 4.3 Modifier genes, epigenetics, chromosomal abnormalities
+No validated modifier genes or epigenetic findings specific to TNS were identified in the retrieved evidence.
 
 ## 5. Environmental information
-No non-genetic contributing factors (toxins, lifestyle, infections) were identified in the retrieved evidence.
-
----
+No supported non-genetic environmental contributors were identified.
 
 ## 6. Mechanism / pathophysiology
+### 6.1 Causal chain (current understanding)
+1. **Germline heterozygous MSX1 loss-of-function** (e.g., p.Ser202Ter) reduces functional MSX1 transcription factor dosage. (jumlongras2001anonsensemutation pages 4-7)
+2. MSX1 is a developmental regulator in craniofacial/dental mesenchyme; disruption impairs epithelial–mesenchymal interactions required for **tooth development**, producing **congenital tooth agenesis**. (altugatac2008witkoptoothand pages 1-2, jumlongras2001anonsensemutation pages 1-2)
+3. MSX1 is also implicated in nail unit development; in supporting mouse genetic evidence discussed by the authors, **Msx1 knockout mice** show tooth agenesis and **defective/thinner nail plates**, paralleling the human combined tooth–nail phenotype. (jumlongras2001anonsensemutation pages 1-2)
 
-### 6.1 Causal chain (current evidence-based model)
-1. **MSX1 loss-of-function** (e.g., nonsense variant truncating the homeodomain) (jumlongras2001anonsensemutation pages 4-7)
-2. Disruption of developmental gene regulation in **ectodermal/mesenchymal interactions** critical for **tooth formation** and **nail development** (supported by expression and knockout data) (jumlongras2001anonsensemutation pages 1-2)
-3. Clinical manifestations:
-   - **Tooth agenesis** and tooth-shape abnormalities (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3)
-   - **Nail plate dysplasia** (thin, brittle, koilonychia, ridging) (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3)
+### 6.2 Pathways and processes
+Direct pathway-level annotations (e.g., specific signaling cascades) were not provided in the TNS-focused clinical genetics excerpts; the mechanistic evidence in this corpus is primarily developmental-genetic (transcription factor dosage affecting organogenesis). (jumlongras2001anonsensemutation pages 1-2)
 
-### 6.2 Supporting model-organism evidence
-The AJHG paper reports that Msx1 knockout mice show both tooth and nail phenotypes: “**not only was tooth development disrupted … but nail development was affected as well. Nail plates in Msx1-null mice were defective and were thinner than those of their wild-type littermates.**” (jumlongras2001anonsensemutation pages 1-2)
+**Suggested GO biological process terms (inference-level, not directly asserted in text):** tooth development/odontogenesis; epithelial–mesenchymal signaling.
 
-### 6.3 Suggested GO biological process terms (to be curated/validated)
-- Tooth development / odontogenesis (GO:0042476)
-- Epithelial cell differentiation / keratinization processes relevant to nail plate formation
-
-### 6.4 Suggested CL terms (cell types; to be curated/validated)
-- Odontoblast (CL:0000069)
-- Ameloblast (CL:0000031)
-- Keratinocyte (CL:0000312)
-
-*Note: GO/CL terms are suggested mappings; they are not explicitly listed in the retrieved papers and should be validated.*
-
----
+**Cell types (suggested CL terms, inference-level):** neural crest–derived craniofacial mesenchyme; dental mesenchyme; nail bed mesenchyme.
 
 ## 7. Anatomical structures affected
-
 ### 7.1 Organ/tissue level
-- **Teeth / dentition** (primary and/or permanent) (jumlongras2001anonsensemutation pages 1-2)
-- **Nails** (finger and toe; toenails often more affected) (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3)
-- Severe **maxillary alveolar atrophy** can occur secondary to missing dentition (notably in severe cases requiring complex implant solutions). (mcmillan2023surgicalandprosthetic pages 1-2)
+* **Teeth (dentition; jaw/oral cavity)** and **nails (nail unit of fingers/toes)** are the primary affected structures. (memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
 
-### 7.2 Suggested UBERON terms (to be curated/validated)
-- Tooth (UBERON:0001091)
-- Nail (UBERON:0001828)
-- Maxilla (UBERON:0002397)
-
----
+**Suggested UBERON terms (curation suggestions):** tooth; nail; oral cavity.
 
 ## 8. Temporal development
-- **Onset:** congenital/early childhood; nails may be abnormal/absent at birth in rare cases (jumlongras2001anonsensemutation pages 1-2); dental agenesis becomes evident as eruption fails (memarpour2011witkoptoothand pages 1-3).
-- **Course:** lifelong dental agenesis; nail abnormalities may **improve with age**. (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3)
-
----
+* **Onset:** congenital; often recognized in early childhood when dentition anomalies become apparent. (devadas2005witkoptoothand pages 1-3)
+* **Course:** lifelong; nails may improve; dentition anomalies require staged long-term dental management. (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 5-6)
 
 ## 9. Inheritance and population
+### 9.1 Inheritance pattern
+* **Autosomal dominant**, variable expressivity; demonstrated in multigeneration pedigrees and supported by the MSX1 S202X family study. (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f)
 
-### 9.1 Inheritance
-- **Autosomal dominant** (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3)
-- Expressivity is “highly variable.” (jumlongras2001anonsensemutation pages 1-2)
-
-### 9.2 Epidemiology statistics (limited)
-- Incidence estimates reported in multiple sources: approximately **~1–2 per 10,000** (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3, mcmillan2023surgicalandprosthetic pages 1-2). These appear to be historical estimates rather than modern population-based studies.
-
-No robust prevalence/incidence studies by geography/ancestry or sex ratio were identified in the retrieved evidence.
-
----
+### 9.2 Epidemiology (statistics)
+Robust registry-based prevalence/incidence data were not identified. Available figures are literature estimates from case reports:
+* **~1–2 per 10,000 births/newborns** (reported in multiple case-based sources). (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
+* **~1 per 100,000 live births** (reported in one case report; demonstrates uncertainty/heterogeneity in published estimates). (arora2016witkopssyndromea pages 1-3)
 
 ## 10. Diagnostics
-
-### 10.1 Clinical and radiographic diagnosis
-Diagnosis is typically based on:
-- Clinical examination documenting the combination of **congenitally missing teeth** and **nail dysplasia** (jumlongras2001anonsensemutation pages 1-2)
-- **Dental radiographs** to confirm absence of tooth germs/eruption failure (family case series used clinical + radiographic evaluation). (memarpour2011witkoptoothand pages 1-3)
+### 10.1 Clinical tests
+* **Dental clinical exam + panoramic radiography (OPG)** to document agenesis patterns. (bhardwaj2023toothandnail pages 1-2, devadas2005witkoptoothand pages 1-3)
+* Nail physical examination (thin/brittle/koilonychia). (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3)
 
 ### 10.2 Genetic testing
-- **Targeted sequencing of MSX1** can provide molecular confirmation, supported by the known causal nonsense variant and segregation evidence. (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation pages 4-7)
+* **Targeted sequencing of MSX1** (or broader tooth agenesis/ectodermal dysplasia panels; not explicitly enumerated in retrieved texts) can confirm diagnosis in families consistent with AD TNS. Molecular confirmation with segregation is exemplified by MSX1 S202X testing in the landmark pedigree. (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation media 0569dd8f)
 
 ### 10.3 Differential diagnosis
-The 2023 case series places Witkop syndrome within a broader ectodermal dysplasia differential (e.g., Fried syndrome, Clouston syndrome). (mcmillan2023surgicalandprosthetic pages 1-2)
-
-### 10.4 Standardized diagnostic criteria
-No formal consensus criteria were identified in the retrieved evidence.
-
----
+Reported differentials include:
+* **Fried tooth-and-nail syndrome** (noted as clinically similar in dental literature) (arora2016witkopssyndromea pages 1-3)
+* **Trichoonychodental (TOD) syndrome** and **Clouston syndrome** (distinguished by hair/palmoplantar findings). (altugatac2008witkoptoothand pages 1-2, bhardwaj2023toothandnail pages 2-3)
 
 ## 11. Outcome / prognosis
-- The condition is typically limited to teeth and nails; most affected individuals reported have normal hair and sweat gland function (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3).
-- Nail findings may improve with age (jumlongras2001anonsensemutation pages 1-2, memarpour2011witkoptoothand pages 1-3).
-- Long-term functional outcomes depend heavily on dental rehabilitation; modern implant-based prosthodontics can provide durable restoration in severe adult cases (mcmillan2023surgicalandprosthetic pages 1-2).
-
-No mortality or survival impacts were identified in the retrieved evidence.
-
----
+TNS is generally compatible with normal lifespan. The dominant morbidity is dental functional impairment and esthetic/psychosocial burden; hence, long-term outcomes depend on access to coordinated dental and prosthetic care. (devadas2005witkoptoothand pages 5-6, altugatac2008witkoptoothand pages 1-2)
 
 ## 12. Treatment
+### 12.1 Pharmacotherapy
+No disease-modifying pharmacotherapy is supported by the retrieved evidence.
 
-### 12.1 Current applications / real-world implementations
-Treatment is **supportive and multidisciplinary**.
+### 12.2 Dental and interventional management (real-world implementation)
+Evidence-supported management principles include:
+* **Preventive dental care** and early care planning. (devadas2005witkoptoothand pages 5-6)
+* **Orthodontic/space management** and staged rehabilitation for function/esthetics. (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 5-6)
+* **Retention of primary teeth** when permanent successors are absent to preserve alveolar bone height for later rehabilitation. (bhardwaj2023toothandnail pages 1-2, arora2016witkopssyndromea pages 1-3)
+* **Prosthodontics** (e.g., fixed partial dentures) and consideration of **implants after growth completion** to reduce need for bone augmentation. (devadas2005witkoptoothand pages 5-6)
+* **Nail care** (lubrication, trimming/smoothing to reduce breakage/fungal complications) and **genetic counseling**. (bhardwaj2023toothandnail pages 2-3)
 
-**Dental rehabilitation**
-- Multidisciplinary dental care is emphasized for missing teeth and functional/aesthetic outcomes (pediatric dentists, orthodontists, surgeons, prosthodontists). (mcmillan2023surgicalandprosthetic pages 1-2)
-- Early restorative approaches in children can include interim prostheses and ongoing adjustments during growth (case-series management approach). (memarpour2011witkoptoothand pages 3-5)
+**MAXO term suggestions (curation):** orthodontic treatment; dental prosthesis placement; dental implant placement; genetic counseling.
 
-**Implant-supported rehabilitation (recent development)**
-- A key recent development is use of **zygomatic implants** for severe maxillary atrophy in ectodermal dysplasia/Witkop syndrome.
-  - McMillan et al. report a **familial case series of 3 siblings** treated with zygomatic implants and prosthetic rehabilitation with **follow-up up to 15 years**. (mcmillan2023surgicalandprosthetic pages 1-2)
-  - Reported follow-up detail: patients were surveilled on a **6-month recall** schedule for 15 years and had “**no significant implant pathology with minor bone loss to the first thread**” and patient satisfaction with aesthetics/function/longevity. (mcmillan2023surgicalandprosthetic pages 1-2)
-
-### 12.2 Pharmacotherapy
-No disease-modifying pharmacotherapy was identified in the retrieved evidence.
-
-### 12.3 Suggested MAXO terms (to be curated/validated)
-- Dental prosthesis placement
-- Dental implant insertion
-- Orthodontic treatment
-- Genetic counseling
-
-*Note: MAXO IDs were not provided in the retrieved evidence and should be assigned during ontology curation.*
-
----
+### 12.3 Clinical trials
+No interventional clinical trials specific to TNS/MSX1 were identified in the retrieved clinical trials search.
 
 ## 13. Prevention
-- No primary prevention is available for this monogenic condition.
-- **Genetic counseling** is recommended in case-based literature due to autosomal dominant inheritance and multi-generational transmission. (memarpour2011witkoptoothand pages 3-5, memarpour2011witkoptoothand pages 1-3)
-
----
+Because TNS is genetic/developmental, prevention is primarily:
+* **Genetic counseling** and family-based risk assessment (implied by management recommendations). (bhardwaj2023toothandnail pages 2-3)
+No environmental primary prevention or vaccination is applicable.
 
 ## 14. Other species / natural disease
 No naturally occurring veterinary analogs were identified in the retrieved evidence.
 
----
-
 ## 15. Model organisms
-- **Msx1 knockout mouse** is directly relevant and recapitulates aspects of both tooth and nail defects (defective thinner nail plates; disrupted tooth development). (jumlongras2001anonsensemutation pages 1-2)
+The TNS molecular genetics paper discusses **mouse Msx1 knockout** phenotypes as supportive evidence for shared tooth and nail developmental requirements (tooth agenesis and thinner/defective nail plates). (jumlongras2001anonsensemutation pages 1-2)
 
----
+## Recent developments (prioritized 2023–2024)
+### 2023: clinical reporting and management emphasis
+A 2023 case report reiterates the clinical picture (tooth agenesis and nail dysplasia, minimal sweating/hair involvement) and emphasizes multidisciplinary management and dental radiographic confirmation; it also reports extreme oligodontia (example: 18 missing permanent teeth) as part of the phenotypic range. (bhardwaj2023toothandnail pages 1-2, bhardwaj2023toothandnail pages 2-3)
 
-## Expert opinion / analysis (synthesis of authoritative sources)
+### 2024: genetics of tooth agenesis review consolidation
+A 2024 review on tooth agenesis genetics explicitly lists **MSX1** as associated with “ED 3, Witkop type” (OMIM 189500) and **autosomal dominant inheritance**, reflecting ongoing consensus in the field regarding the MSX1–Witkop/TNS relationship. (cammaratascalisi2024maingeneticentities pages 1-2)
 
-1. **MSX1 is a high-confidence causal gene** for tooth-and-nail syndrome because the human familial segregation of a truncating homeodomain variant is supported by mechanistic plausibility and an aligned mouse phenotype (tooth and nail developmental defects). (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation pages 4-7)
-2. **Modern rehabilitation is increasingly implant-centered in adults**, and the 2023 long-follow-up case series suggests that zygomatic implant strategies can reduce the need for repeated extensive grafting in severely atrophic maxillae while maintaining long-term function. (mcmillan2023surgicalandprosthetic pages 1-2)
-3. **Phenotypic variability is substantial**, so diagnosis should integrate teeth+nails findings and family history rather than dental findings alone; oligodontia overlaps with many syndromes and demands careful syndromic evaluation (supported by the systematic review context). (jumlongras2001anonsensemutation pages 1-2, castilho2023oligodontiainthe pages 13-15)
+## Expert opinion / analysis (evidence-grounded)
+Across authoritative dental/dermatologic case literature, there is consistent emphasis that TNS care is **not drug-based** but relies on **early, staged, multidisciplinary rehabilitation** to address function, esthetics, and psychosocial outcomes (orthodontics + prosthodontics, with implant timing aligned to growth). (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 5-6)
 
----
+## Key data extracted from primary study figure/table evidence
+The pedigree and clinical feature table from the landmark MSX1 study provide patient-level structured evidence for:
+* **Autosomal dominant segregation** of tooth agenesis and nail dysplasia with a truncating MSX1 variant (pedigree + restriction analysis). (jumlongras2001anonsensemutation media 0569dd8f)
+* Individual-level counts of congenitally missing permanent teeth and nail involvement across family members (table). (jumlongras2001anonsensemutation media 40a94f6c)
 
-## Data availability / limitations of this report
-- Several requested identifiers (MONDO, Orphanet, MeSH, ICD-10/11) were not present in the retrieved full texts and therefore could not be cited here.
-- Many epidemiologic statistics appear to be historical estimates rather than modern population-based studies.
-- Most clinical evidence is from case reports/series; randomized trials and formal guidelines specific to Witkop/TNS were not retrieved.
+## Notable limitations of this report (due to available full-text evidence)
+* **MONDO/Orphanet/MeSH/ICD identifiers** could not be confirmed from the retrieved full texts.
+* **2023–2024 primary research** specifically on TNS is sparse in the retrieved set; the main 2024 contribution captured here is a genetics review consolidation rather than new variant discovery.
+* No robust population epidemiology (registry-based prevalence/incidence) or standardized QoL metrics were found.
 
+## References (with publication dates and URLs where available)
+* Jumlongras D et al. **Jul 2001**. *American Journal of Human Genetics* 69(1):67–74. “A nonsense mutation in msx1 causes witkop syndrome.” DOI/URL: https://doi.org/10.1086/321271 (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation pages 1-2)
+* Altug-Atac AT, Iseri H. **Mar 2008**. *The Angle Orthodontist* 78(2):370–380. DOI/URL: https://doi.org/10.2319/100406-403.1 (altugatac2008witkoptoothand pages 1-2)
+* Devadas S et al. **Sep 2005**. *International Journal of Paediatric Dentistry* 15(5):364–369. DOI/URL: https://doi.org/10.1111/j.1365-263x.2005.00647.x (devadas2005witkoptoothand pages 5-6, devadas2005witkoptoothand pages 1-3)
+* Memarpour M, Shafiei F. **May 2011**. *Pediatric Dermatology* 28(3):281–285. DOI/URL: https://doi.org/10.1111/j.1525-1470.2010.01198.x (memarpour2011witkoptoothand pages 1-3)
+* Arora V et al. **Jan 2016**. *Journal of Oral Biology and Craniofacial Research* 6(1):79–81. DOI/URL: https://doi.org/10.1016/j.jobcr.2015.07.003 (arora2016witkopssyndromea pages 1-3)
+* Cammarata-Scalisi F et al. **Dec 2024**. *Clinical Oral Investigations* 29(1):9. DOI/URL: https://doi.org/10.1007/s00784-024-05941-7 (cammaratascalisi2024maingeneticentities pages 1-2)
+* Bhardwaj S. **2023**. Tooth and nail syndrome—rare case report (journal metadata incomplete in retrieved text). (bhardwaj2023toothandnail pages 1-2, bhardwaj2023toothandnail pages 2-3)
 
 References
 
-1. (mcmillan2023surgicalandprosthetic pages 1-2): Kale B. McMillan, Dane C. McMillan, Kevin Arce, and Thomas J. Salinas. Surgical and prosthetic rehabilitation of siblings with witkop tooth and nail syndrome using zygomatic implants: a familial case series of 3 patients with up to 15-year follow-up. Oral and Maxillofacial Surgery, 27:711-719, Jul 2023. URL: https://doi.org/10.1007/s10006-022-01107-5, doi:10.1007/s10006-022-01107-5. This article has 4 citations and is from a peer-reviewed journal.
+1. (jumlongras2001anonsensemutation pages 4-7): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
 
-2. (castilho2023oligodontiainthe pages 13-15): Natália Lopes Castilho, Kêmelly Karolliny Moreira Resende, Juliana Amorim dos Santos, Renato Assis Machado, Ricardo D. Coletta, Eliete Neves Silva Guerra, Ana Carolina Acevedo, and Hercílio Martelli-Junior. Oligodontia in the clinical spectrum of syndromes: a systematic review. Dentistry Journal, 11:279, Dec 2023. URL: https://doi.org/10.3390/dj11120279, doi:10.3390/dj11120279. This article has 12 citations and is from a peer-reviewed journal.
+2. (jumlongras2001anonsensemutation pages 1-2): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
 
-3. (cammaratascalisi2024maingeneticentities pages 8-9): Francisco Cammarata-Scalisi, Colin E. Willoughby, Jinia R. El-Feghaly, Antonio Cárdenas Tadich, Maykol Araya Castillo, Shadi Alkhatib, Marwa Abd Elsalam Elsherif, Rabab K. El-Ghandour, Riccardo Coletta, Antonino Morabito, and Michele Callea. Main genetic entities associated with tooth agenesis. Clinical oral investigations, 29 1:9, Dec 2024. URL: https://doi.org/10.1007/s00784-024-05941-7, doi:10.1007/s00784-024-05941-7. This article has 8 citations and is from a domain leading peer-reviewed journal.
+3. (jumlongras2001anonsensemutation media 0569dd8f): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
 
-4. (jumlongras2001anonsensemutation pages 1-2): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
+4. (cammaratascalisi2024maingeneticentities pages 1-2): Francisco Cammarata-Scalisi, Colin E. Willoughby, Jinia R. El-Feghaly, Antonio Cárdenas Tadich, Maykol Araya Castillo, Shadi Alkhatib, Marwa Abd Elsalam Elsherif, Rabab K. El-Ghandour, Riccardo Coletta, Antonino Morabito, and Michele Callea. Main genetic entities associated with tooth agenesis. Clinical oral investigations, 29 1:9, Dec 2024. URL: https://doi.org/10.1007/s00784-024-05941-7, doi:10.1007/s00784-024-05941-7. This article has 8 citations and is from a domain leading peer-reviewed journal.
 
-5. (memarpour2011witkoptoothand pages 3-5): Mahtab Memarpour and Fereshteh Shafiei. Witkop tooth and nail syndrome: a report of three cases in a family. Pediatric Dermatology, 28:281-285, May 2011. URL: https://doi.org/10.1111/j.1525-1470.2010.01198.x, doi:10.1111/j.1525-1470.2010.01198.x. This article has 21 citations and is from a peer-reviewed journal.
+5. (altugatac2008witkoptoothand pages 1-2): Ayse T. Altug-Atac and Haluk Iseri. Witkop tooth and nail syndrome and orthodontics. The Angle orthodontist, 78 2:370-80, Mar 2008. URL: https://doi.org/10.2319/100406-403.1, doi:10.2319/100406-403.1. This article has 19 citations.
 
 6. (memarpour2011witkoptoothand pages 1-3): Mahtab Memarpour and Fereshteh Shafiei. Witkop tooth and nail syndrome: a report of three cases in a family. Pediatric Dermatology, 28:281-285, May 2011. URL: https://doi.org/10.1111/j.1525-1470.2010.01198.x, doi:10.1111/j.1525-1470.2010.01198.x. This article has 21 citations and is from a peer-reviewed journal.
 
 7. (devadas2005witkoptoothand pages 1-3): S. DEVADAS, B. VARMA, J. MUNGARA, T. JOSEPH, and T. R. SARASWATHI. Witkop tooth and nail syndrome: a case report. International journal of paediatric dentistry, 15 5:364-9, Sep 2005. URL: https://doi.org/10.1111/j.1365-263x.2005.00647.x, doi:10.1111/j.1365-263x.2005.00647.x. This article has 15 citations and is from a domain leading peer-reviewed journal.
 
-8. (memarpour2011witkoptoothand pages 5-5): Mahtab Memarpour and Fereshteh Shafiei. Witkop tooth and nail syndrome: a report of three cases in a family. Pediatric Dermatology, 28:281-285, May 2011. URL: https://doi.org/10.1111/j.1525-1470.2010.01198.x, doi:10.1111/j.1525-1470.2010.01198.x. This article has 21 citations and is from a peer-reviewed journal.
+8. (jumlongras2001anonsensemutation pages 7-8): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
 
-9. (bergqvist2017geneticsofsyndromic pages 4-4): Christina Bergqvist, P. Ramia, O. Abbas, M. Kurban, and M. Kurban. Genetics of syndromic and non‐syndromic hereditary nail disorders. Clinical Genetics, 91:813-823, Jun 2017. URL: https://doi.org/10.1111/cge.12852, doi:10.1111/cge.12852. This article has 5 citations and is from a peer-reviewed journal.
+9. (jumlongras2001anonsensemutation pages 2-4): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
 
-10. (jumlongras2001anonsensemutation pages 4-7): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
+10. (arora2016witkopssyndromea pages 1-3): Varuni Arora, Kaushal Kishor Agrawal, Apurva Mishra, and Anil Chandra. Witkop's syndrome: a case report. Journal of oral biology and craniofacial research, 6 1:79-81, Jan 2016. URL: https://doi.org/10.1016/j.jobcr.2015.07.003, doi:10.1016/j.jobcr.2015.07.003. This article has 10 citations.
 
-11. (altugatac2008witkoptoothand pages 1-2): Ayse T. Altug-Atac and Haluk Iseri. Witkop tooth and nail syndrome and orthodontics. The Angle orthodontist, 78 2:370-80, Mar 2008. URL: https://doi.org/10.2319/100406-403.1, doi:10.2319/100406-403.1. This article has 19 citations.
+11. (bhardwaj2023toothandnail pages 1-2): S Bhardwaj. Tooth and nail syndrome-a rare case report. Unknown journal, 2023.
+
+12. (bhardwaj2023toothandnail pages 2-3): S Bhardwaj. Tooth and nail syndrome-a rare case report. Unknown journal, 2023.
+
+13. (devadas2005witkoptoothand pages 5-6): S. DEVADAS, B. VARMA, J. MUNGARA, T. JOSEPH, and T. R. SARASWATHI. Witkop tooth and nail syndrome: a case report. International journal of paediatric dentistry, 15 5:364-9, Sep 2005. URL: https://doi.org/10.1111/j.1365-263x.2005.00647.x, doi:10.1111/j.1365-263x.2005.00647.x. This article has 15 citations and is from a domain leading peer-reviewed journal.
+
+14. (memarpour2011witkoptoothand pages 5-5): Mahtab Memarpour and Fereshteh Shafiei. Witkop tooth and nail syndrome: a report of three cases in a family. Pediatric Dermatology, 28:281-285, May 2011. URL: https://doi.org/10.1111/j.1525-1470.2010.01198.x, doi:10.1111/j.1525-1470.2010.01198.x. This article has 21 citations and is from a peer-reviewed journal.
+
+15. (jumlongras2001anonsensemutation media 40a94f6c): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
+
+## Artifacts
+
+- [Edison artifact artifact-00](Tooth_and_Nail_Syndrome-deep-research-falcon_artifacts/artifact-00.md)
+![## Context ID: pqac-00000016 The pedigree figure and the table summarizing clinical features for the family with the MSX1 S202X mutation (causing Witkop syndrom](Tooth_and_Nail_Syndrome-deep-research-falcon_artifacts/image-1.png)

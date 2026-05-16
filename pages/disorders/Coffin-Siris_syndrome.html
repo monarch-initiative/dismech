@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2716,6 +2907,8 @@
                 
                 <div class="evidence-explanation">This directly supports autosomal dominant inheritance for CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2735,6 +2928,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the statement that many CSS cases arise de novo.</div>
+                
+                
                 
             </div>
             
@@ -3002,6 +3197,8 @@
                 
                 <div class="evidence-explanation">This explicitly supports CSS as a SWI/SNF complex disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3022,6 +3219,8 @@
                 
                 <div class="evidence-explanation">This independently confirms BAF-complex dysfunction as the central disease mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3041,6 +3240,8 @@
                 
                 
                 <div class="evidence-explanation">The landmark 2012 study showing high diagnostic yield of SWI/SNF mutations in CSS.</div>
+                
+                
                 
             </div>
             
@@ -3230,6 +3431,8 @@
                 
                 <div class="evidence-explanation">Direct evidence from an Arid1b haploinsufficiency mouse model showing reduced cortical interneurons.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3249,6 +3452,8 @@
                 
                 
                 <div class="evidence-explanation">This provides the epigenetic mechanism linking Arid1b loss to reduced parvalbumin interneuron differentiation.</div>
+                
+                
                 
             </div>
             
@@ -3387,6 +3592,8 @@
                 
                 <div class="evidence-explanation">This provides direct functional evidence that ARID1B haploinsufficiency alters cell-cycle dynamics.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3406,6 +3613,8 @@
                 
                 
                 <div class="evidence-explanation">This explicitly connects altered cell-cycle control to CSS pathogenesis.</div>
+                
+                
                 
             </div>
             
@@ -3506,6 +3715,8 @@
                 
                 <div class="evidence-explanation">This supports protein misfolding and aggregation as a pathogenic mechanism for a subset of ARID1B variants in CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3525,6 +3736,8 @@
                 
                 
                 <div class="evidence-explanation">This shows that aggregation-prone ARID1B variants converge on the same downstream molecular state as haploinsufficient CSS.</div>
+                
+                
                 
             </div>
             
@@ -3725,6 +3938,8 @@
                 
                 <div class="evidence-explanation">Directly demonstrates that ARID1A haploinsufficiency in CSS-patient iPSCs impairs cranial neural crest EMT and delamination.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3745,6 +3960,8 @@
                 
                 <div class="evidence-explanation">Mechanistically supports loss of ARID1A-BAF activity at EMT enhancers as the molecular event upstream of cranial NCC failure.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3764,6 +3981,8 @@
                 
                 
                 <div class="evidence-explanation">Independent in vivo evidence that the BAF complex is required for craniofacial neural crest development.</div>
+                
+                
                 
             </div>
             
@@ -3946,6 +4165,8 @@
                 
                 <div class="evidence-explanation">Establishes Brg1/SMARCA4 as required in cardiac neural crest, the cell population implicated in CSS cardiac malformations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3965,6 +4186,8 @@
                 
                 
                 <div class="evidence-explanation">Provides the mechanistic role of Brg1/BAF in cardiac precursors, complementing the neural-crest pathway.</div>
+                
+                
                 
             </div>
             
@@ -4127,6 +4350,8 @@
                 
                 <div class="evidence-explanation">Functionally identifies the cell-autonomous defect in SATB2+ neurons as the proximate cause of CC agenesis in ARID1B haploinsufficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4147,6 +4372,8 @@
                 
                 <div class="evidence-explanation">Provides the chromatin-accessibility/transcriptomic mechanism connecting ARID1B haploinsufficiency to CC dysgenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4166,6 +4393,8 @@
                 
                 
                 <div class="evidence-explanation">Cohort-level confirmation that corpus callosum dysgenesis is a frequent CSS phenotype consistent with this mechanism.</div>
+                
+                
                 
             </div>
             
@@ -4308,6 +4537,8 @@
                 
                 <div class="evidence-explanation">Provides the disease-model linkage for the SMARCB1 brain midline mechanism in CSS.</div>
                 
+                
+                
             </div>
             
             
@@ -4433,6 +4664,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes the Arid1b haploinsufficiency mouse model that recapitulates ARID1B-CSS growth phenotypes.</div>
+                
+                
                 
             </div>
             
@@ -4604,6 +4837,8 @@
                 
                 <div class="evidence-explanation">Establishes ARID1B as a regulator of MSC quiescence in the craniofacial/dental lineage relevant to CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4623,6 +4858,8 @@
                 
                 
                 <div class="evidence-explanation">Shows BAF-paralog (ARID1A/ARID1B) interdependence is required for odontoblast differentiation, supporting the dental phenotype mechanism.</div>
+                
+                
                 
             </div>
             
@@ -4825,6 +5062,8 @@
                 
                 <div class="evidence-explanation">Establishes the SOXC -&gt; noncanonical Wnt/PCP -&gt; growth plate axis required for limb skeletal development.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4844,6 +5083,8 @@
                 
                 
                 <div class="evidence-explanation">SOX11 expression and GDF5 regulation in joint interzones link SOX11 dysfunction to digit/joint development relevant to the CSS fifth-digit phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4895,7 +5136,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARID1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARID1A\"], \"association\": \"Causative\"}}, {\"id\": \"ARID1B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ARID1B\"], \"association\": \"Causative\"}}, {\"id\": \"ARID2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ARID2\"], \"association\": \"Causative\"}}, {\"id\": \"Agenesis of corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis or hypoplasia of the corpus callosum is the most common structural brain abnormality in CSS, with prevalence approaching 50% in some cohorts. It reflects a cell-autonomous defect of SATB2+ callosal projection neuron maturation in ARID1B haploinsufficiency and midline glia aberrations in SMARCB1-related CSS.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001274\"}}, {\"id\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency causes delayed cell-cycle re-entry in patient-derived cells, indicating that abnormal proliferation dynamics contribute to CSS pathogenesis and likely impair tissue growth and developmental progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"regulation of cell cycle process\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Altered developmental transcription programs\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Antiseizure medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most CSS patients with epilepsy achieve seizure control on antiseizure medications; in the international CSS registry, all but one of the patients with seizures were controlled on ASMs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in BAF-complex genes reduce or alter ATP-dependent chromatin remodeling, disturbing transcriptional programs required for embryonic patterning and neurodevelopment. CSS therefore behaves as a BAFopathy in which disruption of one of several chromatin-remodeling subunits converges on abnormal developmental gene regulation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"chromatin remodeling\", \"regulation of transcription by RNA polymerase II\", \"nervous system development\"], \"genes\": [\"ARID1A\", \"ARID1B\", \"ARID2\", \"DPF2\", \"SMARCA2\", \"SMARCA4\", \"SMARCB1\", \"SMARCE1\"], \"locations\": [\"brain\"]}}, {\"id\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brg1 (SMARCA4)/BAF activity in neural crest cells is required for outflow tract septation, pharyngeal arch artery patterning, and cardiomyocyte differentiation. CSS-causing variants in SMARCA4 and other BAF subunits disrupt the cardiac neural crest gene program, producing the spectrum of congenital heart defects (including septal defects, hypoplastic left heart, truncus arteriosus, and outflow tract anomalies) seen in CSS, particularly in prenatal and ARID1A-related cases.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac neural crest cell\"], \"biological_processes\": [\"outflow tract morphogenesis\", \"neural crest cell migration\"], \"genes\": [\"SMARCA4\", \"ARID1A\", \"SMARCB1\"], \"locations\": [\"heart\"]}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features are characteristic and often become more apparent over time.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000280\"}}, {\"id\": \"Congenital heart defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart defects are among the organ-system anomalies seen in CSS and may include septal defects, patent foramen ovale, and other structural cardiac anomalies.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corpus callosum projection neuron axonogenesis defect from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency impairs maturation of SATB2+ callosal projection neurons by reducing chromatin accessibility at TCF/NFI/ARID-bound regulatory regions controlling corpus callosum (CC) genes, leading to underdeveloped long-range axonal projections and structural underconnectivity. This cell-autonomous axonogenesis defect explains the high frequency of agenesis or hypoplasia of the corpus callosum (~50% in some cohorts) seen in CSS.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"callosal projection neuron\"], \"biological_processes\": [\"axonogenesis\", \"regulation of transcription by RNA polymerase II\"], \"genes\": [\"ARID1B\"], \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency reduces GABAergic interneuron numbers in the cerebral cortex through impaired proliferation and increased apoptosis of interneuron progenitors in the ganglionic eminence, creating an excitatory-inhibitory imbalance that underlies cognitive and behavioral abnormalities.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"GABAergic interneuron\", \"neural progenitor cell\"], \"biological_processes\": [\"GABAergic neuron differentiation\", \"regulation of neuron apoptotic process\"], \"genes\": [\"ARID1B\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1A haploinsufficiency impairs ARID1A-BAF binding at enhancers of epithelial-to-mesenchymal transition (EMT) genes, disrupts ZIC2 occupancy at these enhancers, and impairs delamination/migration of cranial neural crest cells. Conserved BAF complex activity (via BAF155/BAF170) is also required during murine neural crest development for correct craniofacial, pharyngeal arch and outflow tract formation. Failure of cranial neural crest specification underlies coarse facial dysmorphism, micrognathism, and other craniofacial features of CSS.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cranial neural crest cell\", \"migratory neural crest cell\"], \"biological_processes\": [\"neural crest cell migration\", \"epithelial to mesenchymal transition\"], \"genes\": [\"ARID1A\", \"SMARCA4\"], \"locations\": [\"neural tube\"]}}, {\"id\": \"DPF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DPF2\"], \"association\": \"Causative\"}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies including hypoplasia and delayed eruption are part of the ectodermal phenotype spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006482\"}}, {\"id\": \"Excitatory-inhibitory imbalance\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay affecting multiple domains is one of the most consistent manifestations of Coffin-Siris syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth hormone supplementation (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the Arid1b haploinsufficient mouse model, growth hormone supplementation rescued growth retardation and muscle weakness, identifying a mechanistically rational therapeutic strategy for the IGF1/GH axis dysregulation underlying CSS short stature. Clinical use of GH in CSS is investigational and would require individualized endocrine assessment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypoplastic fifth fingernail\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or aplasia of the fifth fingernail or distal phalanx is a classic physical feature and remains one of the most recognizable clues to the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008398\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia commonly contributes to motor delay and feeding difficulty. Hypotonia is among the most common features in large CSS cohorts and may be mechanistically linked to ARID1B-driven IGF1/GH-axis dysregulation given that GH supplementation rescued muscle weakness in the Arid1b mouse model.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001252\"}}, {\"id\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency in mice produces growth impairment driven by insulin-like growth factor 1 (IGF1) deficiency with inadequate compensation by GHRH and GH. Growth hormone supplementation rescued growth retardation and muscle weakness, identifying a reversible endocrine axis underlying the short stature and contributing to hypotonia in CSS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\", \"growth hormone secretion\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is common and spans a broad severity range across CSS genotypes.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Limb skeletal patterning defect from SOXC and BAF dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOX11 and its SOXC paralogs (SOX4/SOX12) are required in limb mesenchyme for growth plate formation and skeletal elongation through noncanonical Wnt/PCP signaling. SoxC deletion in limb bud skeletogenic mesenchyme abolishes growth plate formation and produces severely shortened skeletal elements. SOX11 also positively regulates GDF5 in the joint interzone, contributing to joint and digit development. CSS-causing SOX11 variants therefore plausibly underlie the signature distal phalanx and fifth-digit hypoplasia, complementing the broader BAF-complex requirement for skeletal differentiation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\", \"skeletal mesenchymal cell\"], \"biological_processes\": [\"skeletal system development\", \"chondrocyte differentiation\", \"planar cell polarity pathway involved in axis elongation\"], \"genes\": [\"SOX11\", \"SOX4\"], \"locations\": [\"limb\"]}}, {\"id\": \"Mesenchymal stem cell quiescence loss and tooth root progenitor defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B normally maintains GLI1+ mesenchymal stem cell quiescence by suppressing BCL11B-driven non-canonical Activin signaling. Loss of ARID1B drives MSCs out of quiescence into ectopic proliferation. In parallel, Arid1a controls a Plagl1-Hedgehog signaling axis required for the differentiation-associated cell-cycle arrest of tooth root progenitors; Arid1a loss causes shortened tooth roots and odontoblast differentiation defects. Together, these BAF-dependent MSC and odontogenic mechanisms underlie dental anomalies in CSS.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mesenchymal stem cell\", \"odontoblast\"], \"biological_processes\": [\"stem cell maintenance\", \"smoothened signaling pathway\"], \"genes\": [\"ARID1B\", \"ARID1A\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a common craniofacial finding in CSS reflecting impaired brain growth.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Midline brain glia aberrations from SMARCB1 dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nervous-system-restricted partial loss of SMARCB1 produces brain midline abnormalities including agenesis of the corpus callosum through defective midline glia development. This pathway provides a SMARCB1-specific mechanism for the brain midline phenotype that overlaps with the ARID1B-axonogenesis pathway above.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glial cell\"], \"biological_processes\": [\"glial cell development\"], \"genes\": [\"SMARCB1\"], \"locations\": [\"corpus callosum\", \"forebrain\"]}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy targets hypotonia and motor delays to improve functional mobility and developmental milestones.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of ARID1B missense variants cause CSS by provoking protein misfolding and aggregate formation rather than classical nonsense-mediated decay, thereby reducing functional nuclear BAF activity through an alternative loss-of-function mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Reduced functional ARID1B availability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Reduced proliferative capacity\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"SMARCA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCA2\"], \"association\": \"Causative\"}}, {\"id\": \"SMARCA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SMARCA4\"], \"association\": \"Causative\"}}, {\"id\": \"SMARCB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SMARCB1\"], \"association\": \"Causative\"}}, {\"id\": \"SMARCE1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SMARCE1\"], \"association\": \"Causative\"}}, {\"id\": \"SOX11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SOX11\"], \"association\": \"Causative\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a frequent complication in CSS individuals, reported in ~26-28% of patients in literature reviews and registry-based studies. The excitatory-inhibitory imbalance caused by reduced cortical GABAergic interneurons provides a mechanistic basis for seizure susceptibility, and seizures are most often focal/multifocal and generally controllable on antiseizure medications.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is part of the variable growth phenotype and may be milder in some ARID2-associated cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Altered developmental transcription programs\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Excitatory-inhibitory imbalance\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"target\": \"Reduced proliferative capacity\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"target\": \"Reduced functional ARID1B availability\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"target\": \"Congenital heart defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Corpus callosum projection neuron axonogenesis defect from ARID1B haploinsufficiency\", \"target\": \"Agenesis of corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Corpus callosum projection neuron axonogenesis defect from ARID1B haploinsufficiency\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Midline brain glia aberrations from SMARCB1 dysfunction\", \"target\": \"Agenesis of corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mesenchymal stem cell quiescence loss and tooth root progenitor defects\", \"target\": \"Dental anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Limb skeletal patterning defect from SOXC and BAF dysfunction\", \"target\": \"Hypoplastic fifth fingernail\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure medication\", \"target\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiseizure medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Growth hormone supplementation (investigational)\", \"target\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Growth hormone supplementation (investigational)\", \"target\": \"Short stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Corpus callosum projection neuron axonogenesis defect from ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Mesenchymal stem cell quiescence loss and tooth root progenitor defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA4\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA4\", \"target\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA4\", \"target\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCB1\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCB1\", \"target\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCB1\", \"target\": \"Midline brain glia aberrations from SMARCB1 dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCE1\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1A\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1A\", \"target\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1A\", \"target\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1A\", \"target\": \"Mesenchymal stem cell quiescence loss and tooth root progenitor defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DPF2\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID2\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SOX11\", \"target\": \"Limb skeletal patterning defect from SOXC and BAF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA2\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Altered developmental transcription programs\", \"Excitatory-inhibitory imbalance\", \"Reduced functional ARID1B availability\", \"Reduced proliferative capacity\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARID1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARID1A\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"ARID1B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ARID1B\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"ARID2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ARID2\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"Agenesis of corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis or hypoplasia of the corpus callosum is the most common structural brain abnormality in CSS, with prevalence approaching 50% in some cohorts. It reflects a cell-autonomous defect of SATB2+ callosal projection neuron maturation in ARID1B haploinsufficiency and midline glia aberrations in SMARCB1-related CSS.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001274\"}}, {\"id\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency causes delayed cell-cycle re-entry in patient-derived cells, indicating that abnormal proliferation dynamics contribute to CSS pathogenesis and likely impair tissue growth and developmental progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"regulation of cell cycle process\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Altered developmental transcription programs\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Antiseizure medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most CSS patients with epilepsy achieve seizure control on antiseizure medications; in the international CSS registry, all but one of the patients with seizures were controlled on ASMs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in BAF-complex genes reduce or alter ATP-dependent chromatin remodeling, disturbing transcriptional programs required for embryonic patterning and neurodevelopment. CSS therefore behaves as a BAFopathy in which disruption of one of several chromatin-remodeling subunits converges on abnormal developmental gene regulation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"chromatin remodeling\", \"regulation of transcription by RNA polymerase II\", \"nervous system development\"], \"genes\": [\"ARID1A\", \"ARID1B\", \"ARID2\", \"DPF2\", \"SMARCA2\", \"SMARCA4\", \"SMARCB1\", \"SMARCE1\"], \"locations\": [\"brain\"]}}, {\"id\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brg1 (SMARCA4)/BAF activity in neural crest cells is required for outflow tract septation, pharyngeal arch artery patterning, and cardiomyocyte differentiation. CSS-causing variants in SMARCA4 and other BAF subunits disrupt the cardiac neural crest gene program, producing the spectrum of congenital heart defects (including septal defects, hypoplastic left heart, truncus arteriosus, and outflow tract anomalies) seen in CSS, particularly in prenatal and ARID1A-related cases.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac neural crest cell\"], \"biological_processes\": [\"outflow tract morphogenesis\", \"neural crest cell migration\"], \"genes\": [\"SMARCA4\", \"ARID1A\", \"SMARCB1\"], \"locations\": [\"heart\"]}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features are characteristic and often become more apparent over time.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000280\"}}, {\"id\": \"Congenital heart defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart defects are among the organ-system anomalies seen in CSS and may include septal defects, patent foramen ovale, and other structural cardiac anomalies.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corpus callosum projection neuron axonogenesis defect from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency impairs maturation of SATB2+ callosal projection neurons by reducing chromatin accessibility at TCF/NFI/ARID-bound regulatory regions controlling corpus callosum (CC) genes, leading to underdeveloped long-range axonal projections and structural underconnectivity. This cell-autonomous axonogenesis defect explains the high frequency of agenesis or hypoplasia of the corpus callosum (~50% in some cohorts) seen in CSS.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"callosal projection neuron\"], \"biological_processes\": [\"axonogenesis\", \"regulation of transcription by RNA polymerase II\"], \"genes\": [\"ARID1B\"], \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency reduces GABAergic interneuron numbers in the cerebral cortex through impaired proliferation and increased apoptosis of interneuron progenitors in the ganglionic eminence, creating an excitatory-inhibitory imbalance that underlies cognitive and behavioral abnormalities.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"GABAergic interneuron\", \"neural progenitor cell\"], \"biological_processes\": [\"GABAergic neuron differentiation\", \"regulation of neuron apoptotic process\"], \"genes\": [\"ARID1B\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1A haploinsufficiency impairs ARID1A-BAF binding at enhancers of epithelial-to-mesenchymal transition (EMT) genes, disrupts ZIC2 occupancy at these enhancers, and impairs delamination/migration of cranial neural crest cells. Conserved BAF complex activity (via BAF155/BAF170) is also required during murine neural crest development for correct craniofacial, pharyngeal arch and outflow tract formation. Failure of cranial neural crest specification underlies coarse facial dysmorphism, micrognathism, and other craniofacial features of CSS.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cranial neural crest cell\", \"migratory neural crest cell\"], \"biological_processes\": [\"neural crest cell migration\", \"epithelial to mesenchymal transition\"], \"genes\": [\"ARID1A\", \"SMARCA4\"], \"locations\": [\"neural tube\"]}}, {\"id\": \"DPF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DPF2\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies including hypoplasia and delayed eruption are part of the ectodermal phenotype spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006482\"}}, {\"id\": \"Excitatory-inhibitory imbalance\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay affecting multiple domains is one of the most consistent manifestations of Coffin-Siris syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth hormone supplementation (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the Arid1b haploinsufficient mouse model, growth hormone supplementation rescued growth retardation and muscle weakness, identifying a mechanistically rational therapeutic strategy for the IGF1/GH axis dysregulation underlying CSS short stature. Clinical use of GH in CSS is investigational and would require individualized endocrine assessment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypoplastic fifth fingernail\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or aplasia of the fifth fingernail or distal phalanx is a classic physical feature and remains one of the most recognizable clues to the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008398\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia commonly contributes to motor delay and feeding difficulty. Hypotonia is among the most common features in large CSS cohorts and may be mechanistically linked to ARID1B-driven IGF1/GH-axis dysregulation given that GH supplementation rescued muscle weakness in the Arid1b mouse model.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001252\"}}, {\"id\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency in mice produces growth impairment driven by insulin-like growth factor 1 (IGF1) deficiency with inadequate compensation by GHRH and GH. Growth hormone supplementation rescued growth retardation and muscle weakness, identifying a reversible endocrine axis underlying the short stature and contributing to hypotonia in CSS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\", \"growth hormone secretion\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is common and spans a broad severity range across CSS genotypes.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Limb skeletal patterning defect from SOXC and BAF dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOX11 and its SOXC paralogs (SOX4/SOX12) are required in limb mesenchyme for growth plate formation and skeletal elongation through noncanonical Wnt/PCP signaling. SoxC deletion in limb bud skeletogenic mesenchyme abolishes growth plate formation and produces severely shortened skeletal elements. SOX11 also positively regulates GDF5 in the joint interzone, contributing to joint and digit development. CSS-causing SOX11 variants therefore plausibly underlie the signature distal phalanx and fifth-digit hypoplasia, complementing the broader BAF-complex requirement for skeletal differentiation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\", \"skeletal mesenchymal cell\"], \"biological_processes\": [\"skeletal system development\", \"chondrocyte differentiation\", \"planar cell polarity pathway involved in axis elongation\"], \"genes\": [\"SOX11\", \"SOX4\"], \"locations\": [\"limb\"]}}, {\"id\": \"Mesenchymal stem cell quiescence loss and tooth root progenitor defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B normally maintains GLI1+ mesenchymal stem cell quiescence by suppressing BCL11B-driven non-canonical Activin signaling. Loss of ARID1B drives MSCs out of quiescence into ectopic proliferation. In parallel, Arid1a controls a Plagl1-Hedgehog signaling axis required for the differentiation-associated cell-cycle arrest of tooth root progenitors; Arid1a loss causes shortened tooth roots and odontoblast differentiation defects. Together, these BAF-dependent MSC and odontogenic mechanisms underlie dental anomalies in CSS.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mesenchymal stem cell\", \"odontoblast\"], \"biological_processes\": [\"stem cell maintenance\", \"smoothened signaling pathway\"], \"genes\": [\"ARID1B\", \"ARID1A\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a common craniofacial finding in CSS reflecting impaired brain growth.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Midline brain glia aberrations from SMARCB1 dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nervous-system-restricted partial loss of SMARCB1 produces brain midline abnormalities including agenesis of the corpus callosum through defective midline glia development. This pathway provides a SMARCB1-specific mechanism for the brain midline phenotype that overlaps with the ARID1B-axonogenesis pathway above.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glial cell\"], \"biological_processes\": [\"glial cell development\"], \"genes\": [\"SMARCB1\"], \"locations\": [\"corpus callosum\", \"forebrain\"]}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy targets hypotonia and motor delays to improve functional mobility and developmental milestones.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of ARID1B missense variants cause CSS by provoking protein misfolding and aggregate formation rather than classical nonsense-mediated decay, thereby reducing functional nuclear BAF activity through an alternative loss-of-function mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Reduced functional ARID1B availability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Reduced proliferative capacity\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"SMARCA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCA2\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"SMARCA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SMARCA4\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"SMARCB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SMARCB1\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"SMARCE1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SMARCE1\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"SOX11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SOX11\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a frequent complication in CSS individuals, reported in ~26-28% of patients in literature reviews and registry-based studies. The excitatory-inhibitory imbalance caused by reduced cortical GABAergic interneurons provides a mechanistic basis for seizure susceptibility, and seizures are most often focal/multifocal and generally controllable on antiseizure medications.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is part of the variable growth phenotype and may be milder in some ARID2-associated cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Altered developmental transcription programs\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Excitatory-inhibitory imbalance\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"target\": \"Reduced proliferative capacity\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"target\": \"Reduced functional ARID1B availability\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"target\": \"Congenital heart defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Corpus callosum projection neuron axonogenesis defect from ARID1B haploinsufficiency\", \"target\": \"Agenesis of corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Corpus callosum projection neuron axonogenesis defect from ARID1B haploinsufficiency\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Midline brain glia aberrations from SMARCB1 dysfunction\", \"target\": \"Agenesis of corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mesenchymal stem cell quiescence loss and tooth root progenitor defects\", \"target\": \"Dental anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Limb skeletal patterning defect from SOXC and BAF dysfunction\", \"target\": \"Hypoplastic fifth fingernail\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure medication\", \"target\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiseizure medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Growth hormone supplementation (investigational)\", \"target\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Growth hormone supplementation (investigational)\", \"target\": \"Short stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Corpus callosum projection neuron axonogenesis defect from ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"IGF1/GH axis dysregulation in ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Mesenchymal stem cell quiescence loss and tooth root progenitor defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA4\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA4\", \"target\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA4\", \"target\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCB1\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCB1\", \"target\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCB1\", \"target\": \"Midline brain glia aberrations from SMARCB1 dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCE1\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1A\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1A\", \"target\": \"Cardiac neural crest dysregulation from BAF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1A\", \"target\": \"Cranial neural crest specification defect from ARID1A-BAF/ZIC2 axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1A\", \"target\": \"Mesenchymal stem cell quiescence loss and tooth root progenitor defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DPF2\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID2\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SOX11\", \"target\": \"Limb skeletal patterning defect from SOXC and BAF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA2\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Altered developmental transcription programs\", \"Excitatory-inhibitory imbalance\", \"Reduced functional ARID1B availability\", \"Reduced proliferative capacity\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4987,6 +5228,8 @@
                 
                 <div class="evidence-explanation">This confirms that cardiac malformations are part of the CSS phenotypic spectrum, though they occur less frequently in ARID2-associated cases.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5006,6 +5249,8 @@
                 
                 
                 <div class="evidence-explanation">This case report documents a cardiac anomaly (patent foramen ovale) in a CSS patient.</div>
+                
+                
                 
             </div>
             
@@ -5070,6 +5315,8 @@
                 
                 <div class="evidence-explanation">This supports infant feeding difficulties as a common clinical issue in CSS.</div>
                 
+                
+                
             </div>
             
             
@@ -5132,6 +5379,8 @@
                 
                 
                 <div class="evidence-explanation">This case report documents hearing loss as part of the ARID1B-associated CSS phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5196,6 +5445,8 @@
                 
                 <div class="evidence-explanation">Establishes SMARCA4-related microphthalmia within the CSS phenotypic spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -5259,6 +5510,8 @@
                 
                 <div class="evidence-explanation">This case report documents bilateral renal cysts in a CSS patient.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5278,6 +5531,8 @@
                 
                 
                 <div class="evidence-explanation">44-patient prenatal CSS cohort confirms renal anomalies (including renal agenesis) as a recognized fetal phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5342,6 +5597,8 @@
                 
                 <div class="evidence-explanation">This supports coarse facial features as one of the major physical findings in CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5361,6 +5618,8 @@
                 
                 
                 <div class="evidence-explanation">This independently confirms coarse facial features as a defining clinical characteristic.</div>
+                
+                
                 
             </div>
             
@@ -5416,6 +5675,8 @@
                 
                 <div class="evidence-explanation">This supports sparse scalp hair as a characteristic ectodermal feature of CSS.</div>
                 
+                
+                
             </div>
             
             
@@ -5469,6 +5730,8 @@
                 
                 
                 <div class="evidence-explanation">Microcephaly is listed as a defining characteristic of CSS.</div>
+                
+                
                 
             </div>
             
@@ -5524,6 +5787,8 @@
                 
                 <div class="evidence-explanation">Dental anomalies are listed among the physical features of CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5543,6 +5808,8 @@
                 
                 
                 <div class="evidence-explanation">This case report documents dental hypoplasia in an ARID1B-associated CSS patient.</div>
+                
+                
                 
             </div>
             
@@ -5607,6 +5874,8 @@
                 
                 <div class="evidence-explanation">This directly supports the classic fifth-digit nail/phalangeal hypoplasia phenotype in CSS.</div>
                 
+                
+                
             </div>
             
             
@@ -5661,6 +5930,8 @@
                 
                 <div class="evidence-explanation">This supports hypertrichosis as a recurring physical feature in CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5680,6 +5951,8 @@
                 
                 
                 <div class="evidence-explanation">208-individual registry data identify hypertrichosis among the most common CSS features.</div>
+                
+                
                 
             </div>
             
@@ -5744,6 +6017,8 @@
                 
                 <div class="evidence-explanation">This supports hypotonia as a frequent early-life manifestation of CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5764,6 +6039,8 @@
                 
                 <div class="evidence-explanation">This independently lists hypotonia as a characteristic feature of CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5783,6 +6060,8 @@
                 
                 
                 <div class="evidence-explanation">208-individual CSS/BAF complex registry confirms hypotonia is among the most common features across all CSS genotypes.</div>
+                
+                
                 
             </div>
             
@@ -5847,6 +6126,8 @@
                 
                 <div class="evidence-explanation">This supports global developmental delay as a near-universal feature of CSS.</div>
                 
+                
+                
             </div>
             
             
@@ -5901,6 +6182,8 @@
                 
                 <div class="evidence-explanation">This directly supports intellectual disability as a core clinical feature of CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5920,6 +6203,8 @@
                 
                 
                 <div class="evidence-explanation">This confirms intellectual disability as a defining feature of CSS.</div>
+                
+                
                 
             </div>
             
@@ -5977,6 +6262,8 @@
                 
                 <div class="evidence-explanation">The excitatory-inhibitory imbalance from Arid1b haploinsufficiency provides a mechanistic basis for seizure susceptibility in CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5997,6 +6284,8 @@
                 
                 <div class="evidence-explanation">International CSS registry literature review quantifies epilepsy prevalence at ~26% of published CSS patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6016,6 +6305,8 @@
                 
                 
                 <div class="evidence-explanation">Documents the focal/multifocal character of seizures consistent with the predicted cortical interneuron-deficit substrate.</div>
+                
+                
                 
             </div>
             
@@ -6071,6 +6362,8 @@
                 
                 <div class="evidence-explanation">Confirms hydrocephalus as a frequent prenatal CSS phenotype across 44 fetal cases.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6090,6 +6383,8 @@
                 
                 
                 <div class="evidence-explanation">Arid1b haploinsufficient mouse model recapitulates hydrocephalus seen in CSS patients.</div>
+                
+                
                 
             </div>
             
@@ -6145,6 +6440,8 @@
                 
                 <div class="evidence-explanation">Cohort-level frequency of CC agenesis/hypoplasia among Korean SSRIDD patients (predominantly CSS).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6165,6 +6462,8 @@
                 
                 <div class="evidence-explanation">Identifies CC agenesis as the most common structural brain abnormality in ARID1B-related CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6184,6 +6483,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that brain midline abnormalities (including CC agenesis) are seen in CSS patients with multiple BAF gene variants.</div>
+                
+                
                 
             </div>
             
@@ -6239,6 +6540,8 @@
                 
                 <div class="evidence-explanation">Direct cohort-level evidence that profound speech delay is a defining CSS feature.</div>
                 
+                
+                
             </div>
             
             
@@ -6293,6 +6596,8 @@
                 
                 <div class="evidence-explanation">Case-level documentation of CSS-ASD comorbidity in an ARID1B variant carrier.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6312,6 +6617,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse model evidence linking ARID1B haploinsufficiency to autism-like phenotypes.</div>
+                
+                
                 
             </div>
             
@@ -6376,6 +6683,8 @@
                 
                 <div class="evidence-explanation">This supports short stature as part of the recognized CSS phenotype spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6395,6 +6704,8 @@
                 
                 
                 <div class="evidence-explanation">Growth deficiency supports the short stature phenotype in CSS.</div>
+                
+                
                 
             </div>
             
@@ -6481,6 +6792,8 @@
                 
                 <div class="evidence-explanation">This supports ARID1B as the predominant causative gene in CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6501,6 +6814,8 @@
                 
                 <div class="evidence-explanation">This independently confirms ARID1B as the most common CSS gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6520,6 +6835,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the haploinsufficiency mechanism for most ARID1B variants.</div>
+                
+                
                 
             </div>
             
@@ -6566,6 +6883,8 @@
                 
                 <div class="evidence-explanation">This supports SMARCA4 as one of the causative CSS genes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6586,6 +6905,8 @@
                 
                 <div class="evidence-explanation">This establishes the distinctive non-truncating variant pattern for SMARCA4 in CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6605,6 +6926,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the SMARCA4-Coffin-Siris syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6649,6 +6972,8 @@
                 
                 <div class="evidence-explanation">The original 2012 identification of SMARCB1 as a CSS gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6669,6 +6994,8 @@
                 
                 <div class="evidence-explanation">This establishes the non-truncating variant pattern for SMARCB1 in CSS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6688,6 +7015,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the SMARCB1-Coffin-Siris syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6732,6 +7061,8 @@
                 
                 <div class="evidence-explanation">SMARCE1 is identified as one of the six CSS-causing SWI/SNF genes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6751,6 +7082,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the SMARCE1-Coffin-Siris syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6795,6 +7128,8 @@
                 
                 <div class="evidence-explanation">ARID1A is identified as one of the six CSS-causing SWI/SNF genes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6814,6 +7149,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the ARID1A-Coffin-Siris syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6858,6 +7195,8 @@
                 
                 <div class="evidence-explanation">This supports DPF2 as a causative CSS gene with a dominant-negative mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6877,6 +7216,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the DPF2-Coffin-Siris syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6921,6 +7262,8 @@
                 
                 <div class="evidence-explanation">This supports ARID2 as a recognized CSS gene with a variable phenotype spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6941,6 +7284,8 @@
                 
                 <div class="evidence-explanation">This highlights the distinctive and generally milder ARID2-associated phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6960,6 +7305,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the ARID2-Coffin-Siris syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7004,6 +7351,8 @@
                 
                 <div class="evidence-explanation">A case report confirming SOX11 as a causative CSS gene.</div>
                 
+                
+                
             </div>
             
             
@@ -7047,6 +7396,8 @@
                 
                 <div class="evidence-explanation">This directly supports SMARCC2 as a causative CSS gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7066,6 +7417,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the SMARCC2-Coffin-Siris syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7110,6 +7463,8 @@
                 
                 <div class="evidence-explanation">SMARCA2 is identified as one of the six original CSS-causing SWI/SNF genes.</div>
                 
+                
+                
             </div>
             
             
@@ -7153,6 +7508,8 @@
                 
                 <div class="evidence-explanation">BICRA is listed as a recently identified CSS gene in this ARID2 cohort study. Note that the same sentence erroneously expands BAF as &#34;Bromocriptine activating factor&#34; rather than the correct &#34;BRG1/BRM-Associated Factors.&#34;</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7172,6 +7529,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the BICRA-Coffin-Siris syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7262,6 +7621,8 @@
                 
                 <div class="evidence-explanation">This supports structured supportive management and surveillance as the main treatment approach for CSS.</div>
                 
+                
+                
             </div>
             
             
@@ -7341,6 +7702,8 @@
                 
                 <div class="evidence-explanation">Universal developmental delay supports the need for speech and language therapy as part of CSS management.</div>
                 
+                
+                
             </div>
             
             
@@ -7417,6 +7780,8 @@
                 
                 
                 <div class="evidence-explanation">The high rate of de novo mutations in CSS supports the importance of genetic counseling for recurrence risk assessment.</div>
+                
+                
                 
             </div>
             
@@ -7507,6 +7872,8 @@
                 
                 <div class="evidence-explanation">The high frequency of hypotonia supports physical therapy as part of CSS management.</div>
                 
+                
+                
             </div>
             
             
@@ -7593,6 +7960,8 @@
                 
                 <div class="evidence-explanation">Mouse-model rescue with a GABAA-receptor positive allosteric modulator provides indirect support that pharmacologic enhancement of inhibitory transmission targets the interneuron-deficit mechanism that drives CSS seizures.</div>
                 
+                
+                
             </div>
             
             
@@ -7643,6 +8012,8 @@
                 
                 
                 <div class="evidence-explanation">Registry data support standard ASM therapy as the operative epilepsy management for CSS patients.</div>
+                
+                
                 
             </div>
             
@@ -7730,6 +8101,8 @@
                 
                 <div class="evidence-explanation">Same study identifies IGF1/GH axis deficiency as the mechanistic target restored by exogenous GH supplementation.</div>
                 
+                
+                
             </div>
             
             
@@ -7780,6 +8153,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse-model evidence that GH supplementation can rescue ARID1B haploinsufficiency-driven growth and muscle phenotypes.</div>
+                
+                
                 
             </div>
             

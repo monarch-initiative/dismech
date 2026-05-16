@@ -1,25 +1,46 @@
 ---
 provider: falcon
-model: Edison Scientific Literature
+model: null
 cached: false
-start_time: '2026-05-11T09:01:02.092251'
-end_time: '2026-05-11T09:13:04.500406'
-duration_seconds: 722.41
-template_file: templates/disease_pathophysiology_research.md
-template_variables:
-  disease_name: Feingold Syndrome
-  mondo_id: ''
-  category: Mendelian
 provider_config:
-  timeout: null
-  max_retries: 3
-  parameters:
-    allowed_domains: []
-    temperature: 0.1
-citation_count: 31
+  trajectory_id: 10e24020-8603-465b-b5c9-db321b155b49
+  retrieval_mode: edison_trajectory
+trajectory_id: 10e24020-8603-465b-b5c9-db321b155b49
+citation_count: 34
+artifact_count: 2
+artifact_sources:
+  edison_answer_artifacts: 1
+  edison_message_content: 1
+artifacts:
+- filename: artifact-00.md
+  path: Feingold_Syndrome-deep-research-falcon_artifacts/artifact-00.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-00
+- filename: image-1.png
+  path: Feingold_Syndrome-deep-research-falcon_artifacts/image-1.png
+  media_type: image/png
+  source: edison_message_content
+  data_storage_id: null
+  description: '## Context ID: pqac-00000039 Table 3 on page 5 provides a summary
+    of clinical features and their frequencies (percentages) for 77 patients with
+    *MYCN*-related F'
 ---
 
 ## Question
+
+You are an expert researcher providing comprehensive, well-cited information.
+
+Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies
+
+Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.
 
 # Disease Characteristics Research Template
 
@@ -929,309 +950,320 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Feingold Syndrome (Mendelian) — Comprehensive Disease Characteristics Report
+# Feingold Syndrome (Mendelian disorder) — Disease Characteristics Research Report
 
 ## Target disease
-**Disease name:** Feingold syndrome (Feingold syndrome type 1; Feingold syndrome type 2) (OpenTargets Search: Feingold syndrome)
+- **Disease name:** Feingold syndrome (Feingold syndrome type 1; Feingold syndrome type 2)
+- **Category:** Mendelian (autosomal dominant developmental syndrome)
+- **MONDO ID:** Not confirmed from retrieved evidence in this tool run (not present in extracted sources).
 
-**MONDO IDs (Open Targets):**
-- Feingold syndrome: **MONDO_0015267** (OpenTargets Search: Feingold syndrome)
-- Feingold syndrome type 1: **MONDO_0008115** (OpenTargets Search: Feingold syndrome)
-- Feingold syndrome type 2: **MONDO_0013691** (OpenTargets Search: Feingold syndrome)
-
-**OMIM:** Feingold syndrome type 1 **OMIM #164280** (klaniewska2021occurrenceofesophageal pages 1-2, nishio2024mycninhuman pages 1-2)
-
-**Orphanet:** **ORPHA:391641** (klaniewska2021occurrenceofesophageal pages 1-2)
-
-**Other identifiers (ICD-10/ICD-11, MeSH):** not retrievable from the tool-accessible corpus used here; should be completed from OMIM/Orphanet/MeSH browser in a production curation workflow.
-
-**Common synonyms / alternative names:**
-- Feingold syndrome
-- Feingold syndrome type 1 (MYCN-related)
-- Feingold syndrome type 2 (MIR17HG/miR-17~92-related)
-- “oculodigitoesophagoduodenal (Feingold) syndrome” (zeka2022anewvariant pages 5-5)
-
-**Evidence sources:** This report is derived from aggregated disease-level cohort studies and mechanistic animal-model studies (e.g., MYCN genotype–phenotype correlation cohort; MIR17HG deletion cohort; mouse models), supplemented by detailed human case reports and recent narrative reviews (marcelis2008genotype–phenotypecorrelationsin pages 1-3, klaniewska2021occurrenceofesophageal pages 2-4, nishio2024mycninhuman pages 1-2, mirzamohammadi2018distinctmolecularpathways pages 1-2, muriello2019growthhormonedeficiency pages 2-4).
+## Executive overview
+Feingold syndrome (FS) is an autosomal dominant congenital malformation syndrome defined by **microcephaly**, characteristic **digital anomalies** (classically brachymesophalangy of the 2nd and 5th fingers and toe syndactyly), variable **learning disability/intellectual disability**, and (for many patients) **gastrointestinal atresias**—especially esophageal and/or duodenal atresia. FS is genetically heterogeneous with two main molecular subtypes: **FS1 due to MYCN haploinsufficiency** and **FS2 due to MIR17HG/miR-17~92 haploinsufficiency**; phenotypic overlap is substantial, but **GI atresia is a key discriminator favoring FS1**. (marcelis2008genotype–phenotypecorrelationsin pages 1-3, nishio2024mycninhuman pages 7-8, nishio2024mycninhuman pages 1-2, grote2015expandingthephenotype pages 1-2)
 
 ---
 
-## 1. Disease information (overview)
-Feingold syndrome is a rare, autosomal dominant, congenital malformation syndrome characterized principally by **microcephaly** and **digital skeletal anomalies** (notably brachymesophalangy/short middle phalanges and toe syndactyly), with variable additional findings including **gastrointestinal atresias** (esophageal/duodenal/other) and neurodevelopmental differences (marcelis2008genotype–phenotypecorrelationsin pages 1-3, klaniewska2021occurrenceofesophageal pages 1-2, zeka2022anewvariant pages 1-2).
+## 1. Disease information
+### 1.1 Definition and current understanding
+- **Feingold syndrome (FS)** is described as a syndromic microcephaly condition characterized by **digital anomalies**, **microcephaly**, and **esophageal/duodenal atresia**, with variable intellectual disability (cognet2011dissectionofthe pages 1-2).
+- In a large genotype–phenotype series of **MYCN**-positive individuals (n=77), the most common features were digital anomalies, microcephaly/small head size, and GI atresia (marcelis2008genotype–phenotypecorrelationsin pages 5-6, marcelis2008genotype–phenotypecorrelationsin media c1476c34).
 
-Two main Mendelian subtypes are recognized:
-- **Type 1 (FS1):** heterozygous **loss-of-function MYCN** variants (MYCN haploinsufficiency) (marcelis2008genotype–phenotypecorrelationsin pages 1-3, nishio2024mycninhuman pages 1-2)
-- **Type 2 (FS2):** heterozygous **MIR17HG** deletions (haploinsufficiency of the **miR-17~92** cluster) (muriello2019growthhormonedeficiency pages 1-2, muriello2019growthhormonedeficiency pages 2-4)
+### 1.2 Key identifiers (from retrieved literature)
+- **OMIM disease:** **164280** (Feingold syndrome) (cognet2011dissectionofthe pages 1-2, marcelis2008genotype–phenotypecorrelationsin pages 1-3, klaniewska2021occurrenceofesophageal pages 1-2)
+- **Orphanet:** **ORPHA:391641** (klaniewska2021occurrenceofesophageal pages 1-2)
+- **FS2 / Feingold syndrome type 2:** **MIM 614326** referenced in MIR17HG-deletion reports (low2015tetralogyoffallot pages 1-2)
+- **Causal gene OMIM (FS1):** **MYCN** (MIM **164840**) (cognet2011dissectionofthe pages 1-2, samara2026prenataldiagnosisof pages 2-5)
 
-Recent reviews emphasize MYCN’s broader developmental role beyond oncology and highlight “inverse” phenotypes caused by MYCN gain-of-function (megalencephaly-polydactyly syndrome) versus MYCN loss-of-function (Feingold syndrome) (Frontiers in Oncology; May 2024; https://doi.org/10.3389/fonc.2024.1417607) (nishio2024mycninhuman pages 1-2).
+**Not found in retrieved evidence:** ICD-10/ICD-11 codes, MeSH descriptor, MONDO ID.
+
+### 1.3 Synonyms / alternative names
+- “Feingold syndrome”, “Feingold syndrome type 1 (FS1)”, “Feingold syndrome type 2 (FS2)” (samara2026prenataldiagnosisof pages 2-5, nishio2024mycninhuman pages 1-2, low2015tetralogyoffallot pages 1-2).
+
+### 1.4 Evidence provenance
+The information summarized here is derived primarily from **aggregated case series** and **gene-identified cohorts** (e.g., MYCN-positive series and locus studies) and secondarily from **individual case reports** (familial atresia presentations, prenatal diagnosis). (cognet2011dissectionofthe pages 1-2, marcelis2008genotype–phenotypecorrelationsin pages 5-6, huynh2023geneticscornerfamiliala pages 1-2)
 
 ---
 
 ## 2. Etiology
 ### 2.1 Disease causal factors
-**Primary cause (genetic):**
-- **FS1:** heterozygous MYCN loss-of-function (nonsense/frameshift/PTC variants, certain missense in DNA-binding domain, and larger deletions) with evidence consistent with **haploinsufficiency** (marcelis2008genotype–phenotypecorrelationsin pages 1-3, klaniewska2021occurrenceofesophageal pages 2-4).
-- **FS2:** heterozygous deletions affecting **MIR17HG** (miR-17~92 polycistron) on chromosome 13q31.3, with variable deletion sizes sometimes including neighboring genes (muriello2019growthhormonedeficiency pages 1-2, muriello2019growthhormonedeficiency pages 2-4).
-
-**OpenTargets disease–target associations** support MYCN and MIR17HG as the top Feingold syndrome targets and provide literature cross-references (PubMed IDs listed by OpenTargets) (OpenTargets Search: Feingold syndrome).
+**Genetic causes (primary):**
+- **FS1:** heterozygous **loss-of-function (LoF) variants or deletions in MYCN** leading to haploinsufficiency (nishio2024mycninhuman pages 1-2, samara2026prenataldiagnosisof pages 2-5).
+- **FS2:** heterozygous deletions affecting **MIR17HG**, which encodes the **miR-17~92 microRNA cluster**, leading to haploinsufficiency (low2015tetralogyoffallot pages 1-2, grote2015expandingthephenotype pages 1-2).
 
 ### 2.2 Risk factors
-For this Mendelian syndrome, “risk factors” largely correspond to **carrying a pathogenic variant** or inheriting it from an affected parent; intrafamilial variability is common.
-- A three-generation family illustrates marked variable expressivity with a shared MYCN frameshift variant and variable occurrence of esophageal/duodenal atresia and neurodevelopmental findings (Frontiers in Pediatrics; Dec 2021; https://doi.org/10.3389/fped.2021.783553) (klaniewska2021occurrenceofesophageal pages 2-4, klaniewska2021occurrenceofesophageal pages 1-2).
+- The main “risk factor” is **carrying a pathogenic variant** (familial autosomal dominant transmission), as illustrated by multigenerational families with MYCN frameshift variants and recurrent atresias (klaniewska2021occurrenceofesophageal pages 1-2, huynh2023geneticscornerfamiliala pages 1-2).
 
-### 2.3 Protective factors / gene–environment interactions
-No protective variants or robust gene–environment interactions specific to Feingold syndrome were identified in the tool-accessible literature set. Given congenital onset and high-effect variants, classical G×E evidence is expected to be limited; future work could include modifier-gene discovery and quantitative trait modifier analyses.
+### 2.3 Protective factors
+- No genetic or environmental protective factors were identified in the retrieved evidence.
+
+### 2.4 Gene–environment interactions
+- No gene–environment interaction data were identified in the retrieved evidence.
 
 ---
 
 ## 3. Phenotypes
-### 3.1 Core phenotype spectrum with frequencies
-#### FS1 (MYCN-related) — cohort-level frequencies
-A genotype–phenotype study assembling **77 patients** with MYCN-related Feingold syndrome reported:
-- **Brachymesophalangy:** **100%**
-- **Toe syndactyly:** **97%**
-- **Microcephaly/small head circumference:** **89%**
-- **Gastrointestinal atresia:** **55%**
-with additional “frequent” cardiac and renal anomalies (Human Mutation; Sep 2008; https://doi.org/10.1002/humu.20750) (marcelis2008genotype–phenotypecorrelationsin pages 1-3).
+### 3.1 Core phenotypes (with frequencies where available)
+A major quantitative synthesis comes from a cohort of **77 patients with MYCN abnormalities** (FS1) (marcelis2008genotype–phenotypecorrelationsin pages 5-6, marcelis2008genotype–phenotypecorrelationsin media c1476c34).
 
-A later frequency summary compiled in a 2022 case report (reflecting prior series) reported: brachymesophalangy **95%**, microcephaly **86%**, toe syndactyly **80%**, short palpebral fissures **57%**, learning disability **41%**, and gastrointestinal atresia **38%** (Clinical Case Reports; May 2022; https://doi.org/10.1002/ccr3.5886) (zeka2022anewvariant pages 2-2).
+**Key frequencies (FS1, MYCN-positive, n=77):**
+- **Brachymesophalangy:** 100% (marcelis2008genotype–phenotypecorrelationsin pages 5-6, marcelis2008genotype–phenotypecorrelationsin media c1476c34)
+- **Toe syndactyly:** 97% (marcelis2008genotype–phenotypecorrelationsin pages 5-6, marcelis2008genotype–phenotypecorrelationsin media c1476c34)
+- **Microcephaly / small head size (OFC <10th percentile):** 89–90% (marcelis2008genotype–phenotypecorrelationsin pages 5-6, marcelis2008genotype–phenotypecorrelationsin media c1476c34)
+- **GI atresia (any):** 55% (esophageal 32%; duodenal 31%; multiple atresias 12%) (marcelis2008genotype–phenotypecorrelationsin pages 5-6, marcelis2008genotype–phenotypecorrelationsin media c1476c34)
+- **Short palpebral fissures:** 73% (marcelis2008genotype–phenotypecorrelationsin pages 5-6, marcelis2008genotype–phenotypecorrelationsin media c1476c34)
+- **Learning disability / mild-to-moderate intellectual disability:** ~50% (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **Renal anomalies:** 18% (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **Cardiac anomalies:** 15% (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
 
-#### FS2 (MIR17HG/miR-17~92-related) — cohort-level frequencies
-A 2019 FS2 report provides a tabulated phenotype frequency summary across published/known cases:
-- DD/ID/learning disability: **100% (16/16)**
-- Brachymesophalangy: **100% (17/17)**
-- 5th finger clinodactyly: **100% (9/9)**
-- Microcephaly: **88% (14/16)**
-- Short stature: **86% (13/14)**
-- Toe syndactyly: **64% (9/14)**
-- Thumb hypoplasia: **33% (4/12)**
-- Cardiac defects: **40% (4/10)**
-(American Journal of Medical Genetics Part A; Mar 2019; https://doi.org/10.1002/ajmg.a.61037) (muriello2019growthhormonedeficiency pages 2-4).
+**FS2 phenotype summary (MIR17HG deletions):**
+- A 2015 review/case report stated that by that time **10 individuals** with deletions involving MIR17HG had been described, and “those ten all had microcephaly, short stature, brachymesophalangy, and learning disabilities.” (grote2015expandingthephenotype pages 1-2)
+- FS2 is often described as overlapping with FS1 but **generally lacking GI atresia** (grote2015expandingthephenotype pages 1-2, grote2015expandingthephenotype pages 6-7).
 
-### 3.2 Phenotype characteristics (onset, severity, progression)
-- **Onset:** typically **congenital/early life**, as digital anomalies, microcephaly, and GI atresias are present at birth or detected in infancy (klaniewska2021occurrenceofesophageal pages 1-2, muriello2019growthhormonedeficiency pages 2-4).
-- **Severity:** variable expressivity is prominent, including intrafamilial variability; some individuals may show limited findings (e.g., microcephaly and mild learning differences) while others have complex GI malformations (klaniewska2021occurrenceofesophageal pages 2-4, klaniewska2021occurrenceofesophageal pages 1-2).
-- **Progression:** largely **non-progressive structural** phenotype; growth and neurocognitive trajectories vary. FS2 may include endocrine/cardiovascular issues requiring longitudinal surveillance (muriello2019growthhormonedeficiency pages 5-6, muriello2019growthhormonedeficiency pages 2-4).
+### 3.2 Age of onset and progression
+- Phenotypes are typically **congenital** (microcephaly, digital anomalies, GI atresia). In one FS series, postnatal microcephaly was described as becoming constant after early childhood even if head circumference may be near-normal at birth in some (cognet2011dissectionofthe pages 1-2).
 
-### 3.3 Suggested HPO terms (non-exhaustive)
-- Microcephaly **HP:0000252**
-- Brachymesophalangy **HP:0005930** (commonly 2nd/5th fingers)
-- Clinodactyly **HP:0030084**
-- Syndactyly of toes **HP:0004691**
-- Hypoplastic thumb **HP:0009601**
-- Esophageal atresia **HP:0002032** / Tracheoesophageal fistula **HP:0002564**
-- Duodenal atresia **HP:0002249**
-- Short stature **HP:0004322**
-- Intellectual disability / developmental delay **HP:0001249 / HP:0001263**
-- Congenital heart defect **HP:0001627**
+### 3.3 Quality-of-life and functional impact
+- GI atresias can require **urgent neonatal surgery** and may drive morbidity (huynh2023geneticscornerfamilial pages 2-4, laymanpleet2007feingoldsyndomea pages 1-3).
+- Children with repaired esophageal atresia may experience complications such as **anastomotic stricture requiring repeated dilations** and episodic feeding/swallowing issues, affecting daily functioning (klaniewska2021occurrenceofesophageal pages 1-2).
 
-### 3.4 Quality of life impact
-No disease-specific QoL instrument data were identified in the retrieved set. Based on phenotype burden, QoL impact is expected to arise from (i) neonatal/infant surgery for GI atresia, (ii) feeding/growth issues, and (iii) neurodevelopmental and educational needs (klaniewska2021occurrenceofesophageal pages 2-4, muriello2019growthhormonedeficiency pages 2-4).
+### 3.4 HPO term suggestions (non-exhaustive)
+- **Microcephaly** (HP:0000252) (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **Brachymesophalangy** (e.g., HP:0004100 / “Brachymesophalangy of fingers”) (cognet2011dissectionofthe pages 1-2, marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **2–3 toe syndactyly / 4–5 toe syndactyly** (HP:0004691 / HP:0004689 or related toe syndactyly terms) (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **Esophageal atresia** (HP:0002032) (cognet2011dissectionofthe pages 1-2, marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **Duodenal atresia** (HP:0002249) (marcelis2008genotype–phenotypecorrelationsin pages 5-6, huynh2023geneticscornerfamilial pages 1-2)
+- **Intellectual disability / learning disability** (HP:0001249 / HP:0001328) (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **Short palpebral fissures** (HP:0000584) (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **Short stature** (HP:0004322) (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
 
 ---
 
 ## 4. Genetic / molecular information
 ### 4.1 Causal genes
-- **MYCN** (FS1): MYC-family bHLH transcription factor; heterozygous loss-of-function causes Feingold syndrome type 1 (marcelis2008genotype–phenotypecorrelationsin pages 1-3, nishio2024mycninhuman pages 1-2).
-- **MIR17HG** (FS2): host gene encoding the **miR-17~92** microRNA cluster; heterozygous deletions cause Feingold syndrome type 2 (muriello2019growthhormonedeficiency pages 1-2, muriello2019growthhormonedeficiency pages 2-4).
+- **MYCN** (FS1): LoF variants/deletions causing haploinsufficiency (nishio2024mycninhuman pages 1-2, marcelis2008genotype–phenotypecorrelationsin pages 1-3).
+- **MIR17HG** (FS2): deletions affecting miR-17~92 cluster (low2015tetralogyoffallot pages 1-2, grote2015expandingthephenotype pages 1-2).
 
-### 4.2 Pathogenic variant classes and examples
-- **MYCN:** frameshift variants segregating in families (e.g., c.266dupG/p.(Ser90GlnfsTer176)) (klaniewska2021occurrenceofesophageal pages 2-4); missense variants reported (e.g., c.1177C>T/p.Arg393Cys in a case report) (zeka2022anewvariant pages 1-2).
-- **MIR17HG:** recurrently **CNV deletions** spanning MIR17HG (example deletion coordinates given in FS2 case compilation, e.g., arr[hg19] 91,491,721–99,522,261 for an ~8 Mb deletion) (muriello2019growthhormonedeficiency pages 2-4).
+### 4.2 Variant spectrum (FS1)
+In the MYCN-related genotype–phenotype analysis, pathogenic variation included premature termination codons/frameshifts and missense variants in the DNA-binding domain; deletions were also observed. (marcelis2008genotype–phenotypecorrelationsin pages 1-3, marcelis2008genotype–phenotypecorrelationsin pages 4-5, marcelis2008genotype–phenotypecorrelationsin pages 5-6)
 
-**Somatic vs germline:** Feingold syndrome is driven by **germline** pathogenic variation (marcelis2008genotype–phenotypecorrelationsin pages 1-3, muriello2019growthhormonedeficiency pages 1-2), while MYCN also has prominent **somatic** roles in cancer (reviewed in 2024) (nishio2024mycninhuman pages 1-2).
+### 4.3 Variant classification standards
+- A recent (2026) MYCN case report explicitly referenced applying ACMG/AMP variant classification with ACGS 2024 refinements (useful as an implementation example for modern labs), but this is outside the user-prioritized 2023–2024 window (torre2026expandingthemycn pages 2-5).
 
-### 4.3 Modifier genes / contiguous gene effects
-Large deletions involving MIR17HG often include additional genes; **GPC5** haploinsufficiency has been suggested as a potential modifier for limb/cardiac findings in some FS2 deletions (muriello2019growthhormonedeficiency pages 5-6, low2015tetralogyoffallot pages 1-2).
+### 4.4 Allele frequencies / population databases
+- Specific gnomAD allele frequencies were not extractable from the retrieved evidence.
 
-### 4.4 Epigenetic information
-No Feingold-syndrome–specific methylation signatures were identified here. However, recent ncRNA-focused reviews discuss MIR17HG/miR-17~92 as a key developmental regulatory module relevant to microcephaly phenotypes (Frontiers in Cell and Developmental Biology; Jun 2023; https://doi.org/10.3389/fcell.2023.1168072) (tokunaga2023emergingconceptsinvolving pages 1-2).
+### 4.5 Somatic vs germline
+- FS is a **germline** developmental disorder; MYCN is also a cancer gene somatically, but FS pathogenesis is described in the retrieved evidence as germline haploinsufficiency (nishio2024mycninhuman pages 1-2).
+
+### 4.6 Modifier genes / dual diagnoses
+- Severe or atypical phenotypes may reflect **additional genetic diagnoses** beyond MYCN; a 2021 series reported one FS1 patient with severe intellectual disability who had an MYCN variant plus a pathogenic GNAO1 variant, suggesting “further genetic testing” in severe cases (tedesco2021clinicalandmolecular pages 1-2).
+
+### 4.7 Epigenetics / chromosomal abnormalities
+- Not a primary feature in the retrieved evidence; however, chromosomal microarray detects pathogenic deletions encompassing MYCN (2p24.3) or MIR17HG (13q31.3) (samara2026prenataldiagnosisof pages 2-5, low2015tetralogyoffallot pages 1-2).
 
 ---
 
 ## 5. Environmental information
-No consistent environmental, lifestyle, toxicant, or infectious contributors were identified in this tool-accessible evidence base, consistent with Feingold syndrome’s classification as a Mendelian developmental disorder.
+No specific environmental, lifestyle, or infectious contributors were identified in the retrieved evidence, consistent with FS being a primarily genetic disorder.
 
 ---
 
 ## 6. Mechanism / pathophysiology
-### 6.1 Unifying developmental concept
-Feingold syndrome is a **developmental growth and patterning disorder** affecting craniofacial/brain size and limb skeletogenesis, driven by dosage disruption of a transcription factor (MYCN) or its downstream microRNA effector cluster (miR-17~92). MYCN is expressed in multiple fetal tissues (brain, limbs, heart, kidney, lung), consistent with multisystem involvement (nishio2024mycninhuman pages 1-2).
+### 6.1 High-level causal chain (current model)
+**FS1 (MYCN haploinsufficiency):** reduced MYCN transcription-factor dosage perturbs embryonic proliferation/differentiation programs in developing brain and limb and may contribute to foregut/midgut developmental anomalies, yielding microcephaly, digital anomalies, and GI atresias (nishio2024mycninhuman pages 1-2, lim2023transcriptionfactorsin pages 10-11).
 
-### 6.2 Distinct downstream mechanisms in FS1 vs FS2 (functional evidence)
-A key mechanistic advance is evidence that FS1 and FS2—despite overlapping skeletal phenotypes—can arise via **distinct pathway perturbations** in mesenchymal progenitors:
-- **FS2 / Mir17-92 deficiency:** upregulation of **TGF-β signaling**, including derepression/upregulation of **Tgfbr2**, and pharmacologic/genetic TGF-β inhibition can rescue skeletal defects in mouse models (mirzamohammadi2018distinctmolecularpathways pages 1-2, mirzamohammadi2018distinctmolecularpathways pages 6-7).
-- **FS1 / Mycn deficiency:** downregulation of **PI3K/Akt signaling** in limb mesenchymal cells; partial rescue by **Pten** heterozygosity, but not by TGF-β inhibition (mirzamohammadi2018distinctmolecularpathways pages 1-2, mirzamohammadi2018distinctmolecularpathways pages 6-7).
+**FS2 (miR-17~92 haploinsufficiency):** reduced MIR17HG/miR-17~92 dosage disrupts developmental gene regulation in skeletal and growth pathways, producing overlapping skeletal/growth phenotypes (low2015tetralogyoffallot pages 1-2, grote2015expandingthephenotype pages 1-2).
 
-**Visual evidence (mouse-model figures):** a schematic contrasts these mechanisms and shows rescue experiments with TGF-β receptor inhibition (mirzamohammadi2018distinctmolecularpathways media f81b61fb, mirzamohammadi2018distinctmolecularpathways media 412f5292).
+### 6.2 Molecular pathways and cell processes (with model-system evidence)
+A 2024 mechanistic review synthesized evidence that MYCN regulates miR-17~92 and that FS1 and FS2 can be mechanistically distinct despite overlap:
+- “the expression of miR-17-92 … is controlled with transcriptional regulation by MYCN” (nishio2024mycninhuman pages 7-8).
+- In limb mesenchymal cells, **Mir17-92 deficiency** leads to **upregulation of TGF-β signaling**, whereas **Mycn deficiency** induces **downregulation of PI3K signaling**; these differences explain differential rescue responses (nishio2024mycninhuman pages 7-8).
 
-### 6.3 Suggested ontology terms
-**GO biological processes (examples):**
-- limb development; skeletal system development; regulation of cell proliferation; TGF-β receptor signaling pathway; PI3K signaling; mesenchymal cell proliferation.
+Neurodevelopmental mechanisms (mouse/functional evidence, summarized in a 2023 review of microcephaly transcription factors):
+- Conditional MYCN loss in neuronal progenitors shows reduced proliferation and increased differentiation signatures; the review quotes: “Pathogenic variants of MYCN are found in ∼70% of the patients with FS1; 60% are point mutations, and 10% are chromosomal deletions encompassing the entire MYCN locus.” (lim2023transcriptionfactorsin pages 10-11)
 
-**Cell Ontology (CL) terms (examples):**
-- mesenchymal progenitor cell / limb bud mesenchyme cells (consistent with the functional mouse-model work) (mirzamohammadi2018distinctmolecularpathways pages 6-7).
+### 6.3 GO/CL term suggestions (mechanism anchoring)
+- **GO biological process:** regulation of cell proliferation / cell cycle (MYCN targets and CDK inhibitor dysregulation in MYCN loss models are discussed) (nishio2024mycninhuman pages 7-8, lim2023transcriptionfactorsin pages 10-11)
+- **GO biological process:** TGF-β receptor signaling pathway (FS2 limb mesenchyme mechanism) (nishio2024mycninhuman pages 7-8)
+- **GO biological process:** PI3K signaling (FS1 limb mesenchyme mechanism) (nishio2024mycninhuman pages 7-8)
+- **CL cell types:** limb mesenchymal cells (cell type used in mechanism delineation) (nishio2024mycninhuman pages 7-8)
 
 ---
 
 ## 7. Anatomical structures affected
-### 7.1 Organ/system level (suggested UBERON mappings)
-- Brain / head (microcephaly): **UBERON:0000955 (brain)**; **UBERON:0000033 (head)**
-- Hands/feet/digits: **UBERON:0002387 (hand)**; **UBERON:0002389 (foot)**; digits/phalanges
-- Gastrointestinal tract (atresias): **UBERON:0001043 (esophagus)**; **UBERON:0002114 (duodenum)**
-- Heart (subset of cases): **UBERON:0000948 (heart)**
-- Kidney (subset): **UBERON:0002113 (kidney)**
+### 7.1 Organ/system level
+- **Central nervous system:** microcephaly/small head size (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **Limbs (hands/feet):** brachymesophalangy, toe syndactyly, clinodactyly, thumb hypoplasia (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
+- **Gastrointestinal tract:** esophageal and duodenal atresia (FS1 particularly) (marcelis2008genotype–phenotypecorrelationsin pages 5-6, huynh2023geneticscornerfamilial pages 1-2)
+- **Cardiorenal:** congenital heart and renal anomalies occur in a minority (marcelis2008genotype–phenotypecorrelationsin pages 5-6)
 
-Multi-organ developmental expression of MYCN is emphasized in the 2024 review (nishio2024mycninhuman pages 1-2).
+### 7.2 UBERON term suggestions (non-exhaustive)
+- **Brain** (UBERON:0000955) / **cerebrum** (UBERON:0000956)
+- **Hand** (UBERON:0002387), **foot** (UBERON:0002389), **digit** (UBERON:0002544)
+- **Esophagus** (UBERON:0001043), **duodenum** (UBERON:0002114)
+- **Heart** (UBERON:0000948), **kidney** (UBERON:0002113)
 
 ---
 
 ## 8. Temporal development
-- **Typical onset:** congenital; structural anomalies may prompt neonatal surgery (atresia) and early dysmorphology evaluation (klaniewska2021occurrenceofesophageal pages 2-4, muriello2019growthhormonedeficiency pages 2-4).
-- **Course:** chronic/lifelong, non-remitting congenital phenotype; neurodevelopmental and growth outcomes vary; FS2 may require ongoing endocrine and cardiovascular follow-up (muriello2019growthhormonedeficiency pages 5-6, muriello2019growthhormonedeficiency pages 2-4).
+- **Onset:** Congenital; atresias present neonatally; microcephaly and digital anomalies typically present at birth or early infancy (laymanpleet2007feingoldsyndomea pages 1-3, klaniewska2021occurrenceofesophageal pages 1-2).
+- **Course:** Lifelong skeletal phenotype; developmental/learning issues may manifest in childhood; GI surgical sequelae may require repeated interventions (e.g., strictures/dilations) (klaniewska2021occurrenceofesophageal pages 1-2).
 
 ---
 
 ## 9. Inheritance and population
-### 9.1 Inheritance
-- Both FS1 and FS2 are consistent with **autosomal dominant inheritance** (heterozygous pathogenic variants/deletions), with **variable expressivity** and intrafamilial variability (marcelis2008genotype–phenotypecorrelationsin pages 1-3, klaniewska2021occurrenceofesophageal pages 2-4, muriello2019growthhormonedeficiency pages 1-2).
+### 9.1 Inheritance pattern
+- Autosomal dominant with variable expressivity is consistently described (laymanpleet2007feingoldsyndomea pages 1-3, klaniewska2021occurrenceofesophageal pages 1-2).
 
-### 9.2 Epidemiology and available statistics
-Robust population prevalence/incidence estimates were not identified in the retrieved evidence set. Available “rarity” indicators include:
-- A 2022 case report notes incidence is unknown and that “nearly 200 cases are reported” since 1975 (zeka2022anewvariant pages 1-2).
-- A 2021 family report notes “>120 patients reported in the literature” (klaniewska2021occurrenceofesophageal pages 1-2).
+### 9.2 Penetrance and expressivity
+- A surgical case report described FS as “fully penetrant” with variable expressivity (laymanpleet2007feingoldsyndomea pages 1-3). A 2023 genetics-focused case report also summarized penetrance as 100% with variable expression (huynh2023geneticscornerfamilial pages 2-4).
 
-For context on one major presenting complication:
-- General population prevalence of esophageal atresia (EA) quoted as **2.3–2.4 per 10,000 births** (klaniewska2021occurrenceofesophageal pages 1-2), and recurrence risk in siblings was summarized as **0.5–2%**, increasing up to **~20%** when another sibling is affected (as quoted in the Feingold-family EA report) (klaniewska2021occurrenceofesophageal pages 2-4).
+### 9.3 Epidemiology (prevalence/incidence)
+- FS1 is described as rare (<1/1,000,000) in one 2023 clinical summary, but population-based prevalence/incidence estimates were not otherwise available in retrieved evidence (huynh2023geneticscornerfamilial pages 2-4).
 
 ---
 
 ## 10. Diagnostics
-### 10.1 Clinical recognition
-A large MYCN cohort analysis recommends **MYCN testing** when the combination of **brachymesophalangy + toe syndactyly + microcephaly** is present (marcelis2008genotype–phenotypecorrelationsin pages 1-3). Clinical suspicion increases with GI atresia or tracheoesophageal fistula and characteristic digital findings (klaniewska2021occurrenceofesophageal pages 1-2).
+### 10.1 Clinical criteria / recognition
+- One study used clinical ascertainment requiring **≥3 core features** (microcephaly; brachymesophalangy of 2nd/5th fingers; toe syndactyly; esophageal atresia) before molecular evaluation of MYCN (cognet2011dissectionofthe pages 1-2).
 
-### 10.2 Genetic testing approaches (real-world implementation)
-- **Single-gene MYCN testing** can be justified by classic digital patterning plus microcephaly (marcelis2008genotype–phenotypecorrelationsin pages 1-3).
-- **Chromosomal microarray / CNV analysis** is important when a contiguous deletion is suspected (e.g., 2p24 deletions encompassing MYCN; 13q31 deletions involving MIR17HG) (zeka2022anewvariant pages 3-4, muriello2019growthhormonedeficiency pages 2-4).
-- **Whole-exome sequencing (WES):** used to solve familial esophageal atresia and identify MYCN frameshift variants (klaniewska2021occurrenceofesophageal pages 2-4).
-- **Genome sequencing (GS):** can identify multiple variant classes simultaneously (SNVs, CNVs, mosaic variants) and may be valuable in complex phenotypes with multiple diagnoses (zeka2022anewvariant pages 5-5).
+### 10.2 Genetic testing strategy (implementation evidence)
+**Recommended approach supported by retrieved studies:**
+1) **Phenotype-driven suspicion** using microcephaly + characteristic digital anomalies ± GI atresia (cognet2011dissectionofthe pages 1-2, marcelis2008genotype–phenotypecorrelationsin pages 5-6).
+2) **MYCN sequencing** (Sanger/NGS) plus **copy-number assessment** (MLPA, targeted locus CGH, or chromosomal microarray) to capture point variants and deletions (marcelis2008genotype–phenotypecorrelationsin pages 1-3, cognet2011dissectionofthe pages 1-2, samara2026prenataldiagnosisof pages 2-5).
+3) If MYCN-negative or phenotype severe/atypical, consider broader genomic testing (genome-wide array-CGH; WES) to capture other etiologies or dual diagnoses (cognet2011dissectionofthe pages 1-2, tedesco2021clinicalandmolecular pages 1-2, klaniewska2021occurrenceofesophageal pages 1-2).
+4) For suspected FS2, evaluate for **13q31.3 deletions involving MIR17HG** by CMA/array-CGH (low2015tetralogyoffallot pages 1-2, grote2015expandingthephenotype pages 1-2).
 
-### 10.3 Differential diagnosis (examples)
-Differential considerations for microcephaly + limb anomalies + GI malformations include other syndromic microcephaly disorders and VACTERL-spectrum conditions; Feingold should remain on the differential even when some classic features are absent because variable expressivity is common (klaniewska2021occurrenceofesophageal pages 2-4, klaniewska2021occurrenceofesophageal pages 1-2).
+**Prenatal implementation:** ultrasound features (microcephaly/clinodactyly) prompted amniocentesis and array-CGH identifying a pathogenic ~342 kb 2p24.3 deletion encompassing MYCN, followed by parental testing confirming inheritance (samara2026prenataldiagnosisof pages 2-5).
+
+### 10.3 Differential diagnosis
+- In neonates with EA/TEF, Feingold syndrome is discussed as a syndromic cause distinct from VACTERL association; chromosomal etiologies account for a non-trivial fraction of EA/TEF and should be considered (laymanpleet2007feingoldsyndomea pages 3-3).
 
 ---
 
 ## 11. Outcome / prognosis
-No population-based survival statistics were identified. Prognosis appears driven by:
-- severity and timing of repair of GI atresias (including complications such as postoperative strictures) (klaniewska2021occurrenceofesophageal pages 2-4),
-- neurodevelopmental profile and learning support needs (muriello2019growthhormonedeficiency pages 2-4), and
-- cardiac/endocrine complications in FS2 (recommendations below) (muriello2019growthhormonedeficiency pages 5-6).
+- Prognosis is heavily influenced by the presence and severity of **GI atresia** and postoperative complications (klaniewska2021occurrenceofesophageal pages 1-2).
+- In a Feingold familial EA/TEF report, postoperative course included strictures requiring three dilations and later food impaction, with acceptable growth and good cognitive development by age ~3 in one child (klaniewska2021occurrenceofesophageal pages 1-2).
+- For the broader (not Feingold-specific) combined EA+DA population, a systematic review found high and variable mortality across historical reports (overall 41% across included series), underscoring the seriousness of combined atresias (miscia2021esophagealatresiaand pages 1-2).
 
 ---
 
 ## 12. Treatment
-Feingold syndrome has no established disease-modifying molecular therapy in humans; management is **supportive**, multidisciplinary, and complication-directed.
+### 12.1 Pharmacotherapy
+- No disease-modifying pharmacotherapy for FS was identified in retrieved evidence.
 
-### 12.1 Surgical and interventional
-- **Surgical repair of esophageal/duodenal atresia / tracheoesophageal fistula** is a key real-world intervention when present; family case reports describe EA with TEF and postoperative complications such as anastomotic stricture (klaniewska2021occurrenceofesophageal pages 2-4).
+### 12.2 Surgical/interventional (real-world implementation)
+- **Duodenal atresia:** duodenoduodenostomy is described with initiation of oral feeds by postoperative day 6 and good early weight gain in a familial FS case (huynh2023geneticscornerfamilial pages 1-2).
+- **EA/TEF:** thoracoscopic repair and endoscopic dilations for strictures were required in a familial FS case (klaniewska2021occurrenceofesophageal pages 1-2).
 
-**Suggested MAXO terms:** surgical repair of congenital gastrointestinal atresia; esophageal atresia repair.
+### 12.3 Supportive/rehabilitative
+- Ongoing developmental and hearing surveillance is recommended in older surgical/genetics discussions due to risk of developmental delay and hearing loss (laymanpleet2007feingoldsyndomea pages 3-3).
 
-### 12.2 Supportive, rehabilitative, and surveillance
-- FS2 management recommendations include **echocardiography at diagnosis** for all patients and consideration of **growth hormone deficiency evaluation** in short stature (muriello2019growthhormonedeficiency pages 1-2).
-- A FS2 patient was “treated successfully with growth hormone” (muriello2019growthhormonedeficiency pages 1-2).
-
-**Suggested MAXO terms:** echocardiographic monitoring; endocrine evaluation; growth hormone therapy.
-
-### 12.3 Experimental therapies / clinical trials
-A ClinicalTrials.gov search using the disease name retrieved no Feingold-syndrome–specific interventional trials in this tool run (clinical trials tool state indicated 1 trial found but none were returned as relevant records), consistent with the current supportive-care paradigm.
+### 12.4 MAXO term suggestions (non-exhaustive)
+- Surgical repair of esophageal atresia / tracheoesophageal fistula
+- Surgical repair of duodenal atresia
+- Endoscopic dilation of esophageal stricture
+- Genetic counseling
 
 ---
 
 ## 13. Prevention
-### 13.1 Genetic counseling (primary prevention)
-Because Feingold syndrome is autosomal dominant, prevention focuses on **genetic counseling** for affected individuals and at-risk families, including discussion of variable expressivity (klaniewska2021occurrenceofesophageal pages 2-4, klaniewska2021occurrenceofesophageal pages 1-2).
-
-**Suggested MAXO terms:** genetic counseling; cascade genetic testing.
-
-### 13.2 Secondary/tertiary prevention
-- Early diagnosis enables anticipatory guidance for GI surgery planning (when prenatal anomalies are detected) and early developmental intervention.
-- For FS2, early cardiac and endocrine screening may prevent complications (muriello2019growthhormonedeficiency pages 1-2, muriello2019growthhormonedeficiency pages 5-6).
+- Primary prevention is not established (genetic condition).
+- **Secondary/tertiary prevention** centers on **early recognition**, prompt **surgical correction** of atresias, and long-term surveillance for feeding, growth, and developmental complications (laymanpleet2007feingoldsyndomea pages 1-3, klaniewska2021occurrenceofesophageal pages 1-2).
+- **Genetic counseling and cascade testing** are key for families due to autosomal dominant inheritance and variable expressivity (huynh2023geneticscornerfamiliala pages 1-2, laymanpleet2007feingoldsyndomea pages 3-3).
 
 ---
 
 ## 14. Other species / natural disease
-No naturally occurring veterinary Feingold-syndrome analogs were identified in the retrieved set.
+No naturally occurring non-human Feingold syndrome analogs were identified in the retrieved evidence.
 
 ---
 
 ## 15. Model organisms
-### 15.1 Mouse models (in vivo)
-A high-impact mechanistic study used conditional deletions in mouse limb mesenchyme to model FS2 (Mir17-92 deficiency) and FS1 (Mycn deficiency), demonstrating both phenotypic overlap (skeletal defects, microcephaly-like cranial defects) and distinct downstream pathway signatures (TGF-β vs PI3K) (Nature Communications; Apr 2018; https://doi.org/10.1038/s41467-018-03788-7) (mirzamohammadi2018distinctmolecularpathways pages 1-2, mirzamohammadi2018distinctmolecularpathways pages 6-7). Rescue of FS2-like skeletal defects by TGF-β inhibition supports a causal chain for miR-17~92 haploinsufficiency (mirzamohammadi2018distinctmolecularpathways media f81b61fb, mirzamohammadi2018distinctmolecularpathways media 412f5292).
-
-### 15.2 Model limitations
-These models robustly recapitulate limb and cranial skeletal findings, but congenital GI atresias and full neurodevelopmental phenotypes may be incompletely represented depending on tissue specificity and timing of gene deletion.
-
----
-
-## Recent developments and expert synthesis (prioritizing 2023–2024)
-1. **MYCN’s developmental role and “inverse phenotype” paradigm (2024):** A 2024 review synthesizes evidence that MYCN loss-of-function causes FS1, while specific MYCN gain-of-function variants cause an opposite brain-growth phenotype (megalencephaly-polydactyly syndrome), helping refine MYCN dosage/function models in human development (Frontiers in Oncology; May 2024; https://doi.org/10.3389/fonc.2024.1417607) (nishio2024mycninhuman pages 1-2).
-2. **ncRNA framing of Feingold microcephaly (2023):** A 2023 review places Feingold syndrome within broader ncRNA biology of microcephaly and highlights MIR17HG/miR-17~92 composition and apoptosis-related mechanisms (e.g., BIM derepression), reinforcing noncoding RNA dosage as a key developmental determinant (Frontiers in Cell and Developmental Biology; Jun 2023; https://doi.org/10.3389/fcell.2023.1168072) (tokunaga2023emergingconceptsinvolving pages 1-2).
-3. **Mechanism-to-rescue logic (translational potential):** Although still preclinical, mouse-model rescue of FS2 skeletal defects via TGF-β inhibition provides a concrete pathway-based hypothesis for future therapeutics, while concurrently showing FS1 may require PI3K/Akt-directed strategies rather than TGF-β inhibition (mirzamohammadi2018distinctmolecularpathways pages 6-7, mirzamohammadi2018distinctmolecularpathways media f81b61fb).
+Evidence supporting developmental mechanisms derives from animal and cell models summarized in recent reviews:
+- MYCN loss-of-function models show impaired neural progenitor proliferation and microcephaly-like outcomes (review synthesis) (lim2023transcriptionfactorsin pages 10-11).
+- In limb mesenchymal cells, mechanistic divergence between FS1 and FS2 is described: miR-17~92 deficiency → TGF-β upregulation; Mycn deficiency → PI3K downregulation (nishio2024mycninhuman pages 7-8).
+- MYCN is described as transcriptionally regulating miR-17~92 (nishio2024mycninhuman pages 7-8, pontual2011germlinedeletionof pages 3-6).
 
 ---
 
-## Structured summary table (FS1 vs FS2)
-| Type | Causal gene/locus | Typical variant class | Inheritance | Core features | Key quantitative phenotype frequencies reported | Mechanistic/pathway notes | Key references with year/DOI/PMID if available |
-|---|---|---|---|---|---|---|---|
-| Feingold syndrome type 1 | **MYCN** (2p24.3); MONDO also maps Feingold syndrome to MYCN associations (OpenTargets Search: Feingold syndrome, marcelis2008genotype–phenotypecorrelationsin pages 1-3) | Predominantly heterozygous loss-of-function variants: nonsense, frameshift, splice/PTC variants; missense variants in DNA-binding domain; larger 2p24 deletions including **MYCN** also reported (marcelis2008genotype–phenotypecorrelationsin pages 1-3, zeka2022anewvariant pages 3-4, klaniewska2021occurrenceofesophageal pages 1-2, zeka2022anewvariant pages 1-2) | Autosomal dominant with variable expressivity; familial and de novo cases reported (marcelis2008genotype–phenotypecorrelationsin pages 1-3, klaniewska2021occurrenceofesophageal pages 2-4, zeka2022anewvariant pages 1-2) | Microcephaly, digital anomalies (especially brachymesophalangy of 2nd/5th fingers, toe syndactyly), short stature, gastrointestinal atresia; additional learning/developmental issues and occasional cardiac/renal/hearing anomalies (marcelis2008genotype–phenotypecorrelationsin pages 1-3, klaniewska2021occurrenceofesophageal pages 1-2, zeka2022anewvariant pages 1-2, zeka2022anewvariant pages 2-2) | **MYCN cohort, n=77 (Marcelis 2008):** brachymesophalangy **100%**, toe syndactyly **97%**, microcephaly/small head circumference **89%**, gastrointestinal atresia **55%**; cardiac and renal anomalies described as frequent (marcelis2008genotype–phenotypecorrelationsin pages 1-3). Another summarized review/case source reports brachymesophalangy **95%**, microcephaly **86%**, toe syndactyly **80%**, short palpebral fissures **57%**, learning disability **41%**, gastrointestinal atresia **38%**, cardiac **14%**, renal **5%**, hearing loss **7%** (zeka2022anewvariant pages 2-2). | Human and mouse data support haploinsufficiency. In limb mesenchyme, **Mycn** deficiency is linked mainly to **downregulated PI3K/Akt signaling**; skeletal phenotype was partially rescued by **Pten** heterozygosity, but not by TGF-β inhibition, indicating a pathway distinct from type 2 (mirzamohammadi2018distinctmolecularpathways pages 1-2, mirzamohammadi2018distinctmolecularpathways pages 6-7). | Marcelis et al., **2008**, *Human Mutation*, DOI: **10.1002/humu.20750** (marcelis2008genotype–phenotypecorrelationsin pages 1-3); Klaniewska et al., **2021**, DOI: **10.3389/fped.2021.783553** (klaniewska2021occurrenceofesophageal pages 2-4, klaniewska2021occurrenceofesophageal pages 1-2); Zeka et al., **2022**, DOI: **10.1002/ccr3.5886** (zeka2022anewvariant pages 1-2, zeka2022anewvariant pages 2-2); Nishio et al., **2024**, DOI: **10.3389/fonc.2024.1417607** (nishio2024mycninhuman pages 1-2) |
-| Feingold syndrome type 2 | **MIR17HG** / miR-17~92 cluster (13q31.3); Open Targets also links Feingold syndrome type 2 to MIR17HG (OpenTargets Search: Feingold syndrome, muriello2019growthhormonedeficiency pages 1-2) | Usually heterozygous germline deletions/CNV losses involving **MIR17HG** (sometimes with neighboring genes such as **GPC5**); pathogenic mechanism is miR-17~92 haploinsufficiency (muriello2019growthhormonedeficiency pages 1-2, low2015tetralogyoffallot pages 1-2, muriello2019growthhormonedeficiency pages 2-4) | Autosomal dominant / dominant transmission of hemizygous loss; familial segregation reported in some families (muriello2019growthhormonedeficiency pages 1-2, low2015tetralogyoffallot pages 1-2) | Microcephaly, short stature, brachymesophalangy/digital anomalies, toe syndactyly, learning or developmental problems; variable cardiac anomalies; reported expansions include growth hormone deficiency, aortic dilation, joint contractures, memory/sleep issues (muriello2019growthhormonedeficiency pages 1-2, muriello2019growthhormonedeficiency pages 5-6, muriello2019growthhormonedeficiency pages 2-4) | **MIR17HG deletion cohort frequencies (Muriello 2019):** DD/ID/learning disability **100% (16/16)**, brachymesophalangy **100% (17/17)**, 5th finger clinodactyly **100% (9/9)**, microcephaly **88% (14/16)**, short stature **86% (13/14)**, toe syndactyly **64% (9/14)**, thumb hypoplasia **33% (4/12)**, cardiac defects **40% (4/10)** (muriello2019growthhormonedeficiency pages 2-4). Earlier diagnostic series found **MIR17HG deletions in 2/10** tested suspected Feingold cases (low2015tetralogyoffallot pages 1-2). | Mouse and functional data indicate **Mir17-92 deficiency upregulates TGF-β signaling**, including derepression of **Tgfbr2**; genetic or pharmacologic **TGF-β inhibition** rescued skeletal defects. This contrasts with FS1, where the dominant perturbation is PI3K/Akt downregulation (mirzamohammadi2018distinctmolecularpathways pages 2-3, mirzamohammadi2018distinctmolecularpathways pages 1-2, mirzamohammadi2018distinctmolecularpathways pages 6-7, tokunaga2023emergingconceptsinvolving pages 1-2). | de Pontual et al., **2011**, *Nature Genetics*, DOI: **10.1038/ng.915** (low2015tetralogyoffallot pages 1-2); Muriello et al., **2019**, *Am J Med Genet A*, DOI: **10.1002/ajmg.a.61037** (muriello2019growthhormonedeficiency pages 1-2, muriello2019growthhormonedeficiency pages 2-4); Mirzamohammadi et al., **2018**, *Nature Communications*, DOI: **10.1038/s41467-018-03788-7** (mirzamohammadi2018distinctmolecularpathways pages 2-3, mirzamohammadi2018distinctmolecularpathways pages 1-2, mirzamohammadi2018distinctmolecularpathways pages 6-7) |
+## Key statistics snapshot (with visual evidence)
+The table below summarizes FS1 vs FS2 at a glance and consolidates the most useful quantitative phenotype frequencies and molecular-diagnostic estimates.
+
+| Subtype | Canonical disease label | Causal gene / locus | Inheritance | Core hallmark phenotypes | Distinguishing features | Key quantitative findings from extracted evidence |
+|---|---|---|---|---|---|---|
+| FS1 | Feingold syndrome type 1 | **MYCN** (2p24.3; OMIM gene 164840) | Autosomal dominant; complete/near-complete penetrance with variable expressivity reported (laymanpleet2007feingoldsyndomea pages 1-3, marcelis2008genotype–phenotypecorrelationsin pages 1-3) | Microcephaly; brachymesophalangy of 2nd/5th fingers; toe syndactyly; short palpebral fissures; short stature; learning disability/intellectual disability; esophageal and/or duodenal atresia (marcelis2008genotype–phenotypecorrelationsin pages 1-3, cognet2011dissectionofthe pages 1-2, marcelis2008genotype–phenotypecorrelationsin pages 5-6) | GI atresia is the major clinical discriminator from FS2; MYCN loss-of-function/haploinsufficiency is the established mechanism (samara2026prenataldiagnosisof pages 2-5, nishio2024mycninhuman pages 7-8, nishio2024mycninhuman pages 1-2) | In aggregated **MYCN**-positive series (n=77): brachymesophalangy **100%**, toe syndactyly **97%**, OFC <p10 / microcephaly **89–90%**, GI atresia **55%** (esophageal **32%**, duodenal **31%**), short palpebral fissures **73%**, mild MR/learning disability **51%**, renal anomalies **18%**, cardiac anomalies **15%** (marcelis2008genotype–phenotypecorrelationsin pages 1-3, marcelis2008genotype–phenotypecorrelationsin pages 5-6, marcelis2008genotype–phenotypecorrelationsin media c1476c34). Recent review/case-series estimate pathogenic **MYCN** variants in ~**70%** of FS1 patients; ~**60%** point variants and ~**10%** deletions (lim2023transcriptionfactorsin pages 10-11, tedesco2021clinicalandmolecular pages 1-2). In one clinically defined FS cohort, MYCN mutation/deletion detection was **47%** (7/15 evaluable cases), supporting genetic heterogeneity among clinically suspected patients (cognet2011dissectionofthe pages 1-2). |
+| FS2 | Feingold syndrome type 2 | **MIR17HG** / miR-17~92 cluster (13q31.3; OMIM phenotype 614326 referenced) | Autosomal dominant due to heterozygous deletion / haploinsufficiency (low2015tetralogyoffallot pages 1-2, grote2015expandingthephenotype pages 1-2, pontual2011germlinedeletionof pages 3-6) | Overlapping skeletal/growth phenotype with FS1: microcephaly, short stature, brachymesophalangy, clinodactyly/toe syndactyly, learning/neurocognitive issues (grote2015expandingthephenotype pages 1-2, muriello2019growthhormonedeficiency pages 5-6, grote2015expandingthephenotype pages 6-7) | Usually **lacks gastrointestinal atresia**; some reports expand phenotype to congenital heart disease, hearing loss, growth hormone deficiency, aortic dilation, neurocognitive/psychiatric issues (grote2015expandingthephenotype pages 1-2, muriello2019growthhormonedeficiency pages 5-6, grote2015expandingthephenotype pages 6-7) | Reported literature up to 2015 described **10** individuals with deletions involving **MIR17HG**; those ten had microcephaly, short stature, brachymesophalangy, and learning disabilities (grote2015expandingthephenotype pages 1-2). Additional cited summary: brachymesophalangia **100% (16/16)**, short stature **81% (13/16)**, fifth-finger clinodactyly **68% (11/16)** (samara2026prenataldiagnosisof pages 5-6). Cardiac anomalies were reported in **50%** of FG2 patients in whom cardiac examination was described in one review of published cases/series (muriello2019growthhormonedeficiency pages 5-6). |
+| Cross-subtype comparison | Feingold syndrome (disease-level summary; OMIM 164280, ORPHA 391641 reported for Feingold syndrome) | FS1 = **MYCN**; FS2 = **MIR17HG** | Mendelian, autosomal dominant | Shared syndrome core = microcephaly + characteristic digital anomalies + variable developmental issues; disease-level data come from aggregated case series/case reports rather than EHR-derived datasets (klaniewska2021occurrenceofesophageal pages 1-2, marcelis2008genotype–phenotypecorrelationsin pages 1-3, cognet2011dissectionofthe pages 1-2) | Mechanistically distinct despite phenotypic overlap: **MIR17HG/miR-17~92 deficiency upregulates TGF-β signaling**, whereas **MYCN deficiency downregulates PI3K signaling** in limb mesenchymal cells; MYCN also transcriptionally regulates miR-17~92 (nishio2024mycninhuman pages 7-8, pontual2011germlinedeletionof pages 3-6) | Historical/clinical summaries note Feingold syndrome is probably the most frequent single-gene cause of esophageal and duodenal atresia, with esophageal/duodenal atresia in about **1/3** of reported patients in older summaries (laymanpleet2007feingoldsyndomea pages 1-3), whereas larger aggregated MYCN datasets place GI atresia closer to **55%** among molecularly confirmed carriers (marcelis2008genotype–phenotypecorrelationsin pages 5-6). More than **120** patients/families with FS1 had been reported in the literature by recent case-series/reviews (klaniewska2021occurrenceofesophageal pages 1-2, tedesco2021clinicalandmolecular pages 1-2). |
 
 
-*Table: This table compares Feingold syndrome types 1 and 2 across causal loci, variant classes, inheritance, hallmark phenotypes, quantitative frequencies, and mechanistic distinctions. It is useful for quickly contrasting MYCN-associated and MIR17HG-associated disease for diagnostic and knowledge-base curation.*
+*Table: This table summarizes the core knowledge-base facts for Feingold syndrome, contrasting FS1 and FS2 by causal gene, inheritance, hallmark phenotype pattern, and the most useful quantitative statistics extracted from the cited literature. It is designed for rapid disease-entry curation and genotype-phenotype comparison.*
+
+A key primary source for these frequency estimates is the MYCN-positive cohort phenotype table (n=77) (marcelis2008genotype–phenotypecorrelationsin media c1476c34).
 
 ---
 
-## Evidence limitations and curation gaps
-- ICD-10/ICD-11 and MeSH identifiers were not available in the tool-retrieved evidence set and should be added from authoritative terminologies.
-- Many statements about penetrance, genotype-specific outcomes, and population prevalence remain incompletely quantified in accessible cohort data; most statistics are cohort-derived rather than population-based.
-- For PMID-preferred citations: OpenTargets lists PubMed IDs for key gene–disease associations, but PMIDs were not directly extracted from full-text in this run; future curation should add PMIDs by cross-referencing DOIs to PubMed (OpenTargets Search: Feingold syndrome).
+## Recent developments (2023–2024 prioritized)
+- **Diagnostic yield framing for FS1 (2023):** A 2023 review of transcription factors in microcephaly provides a current synthesis that “Pathogenic variants of MYCN are found in ∼70% of the patients with FS1; 60% are point mutations, and 10% are chromosomal deletions encompassing the entire MYCN locus,” supporting modern diagnostic workflows that pair sequence and CNV analysis (lim2023transcriptionfactorsin pages 10-11).
+- **Mechanistic refinement (2024):** A 2024 review integrates evidence that MYCN transcriptionally regulates miR-17~92 and argues that FS1 and FS2 have **distinct downstream signaling abnormalities** (PI3K vs TGF-β) despite shared skeletal phenotypes, highlighting subtype-specific biology that could matter for future targeted therapies (nishio2024mycninhuman pages 7-8).
+
+---
+
+## Limitations of this report (evidence availability)
+- Many retrieved articles did not include PMIDs in the captured text snippets; therefore, PMID-preferred citations could not always be provided from this run’s evidence.
+- MONDO/MeSH/ICD identifiers and robust population prevalence/incidence estimates were not present in retrieved sources and are not asserted here.
+
 
 References
 
-1. (OpenTargets Search: Feingold syndrome): Open Targets Query (Feingold syndrome, 6 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
+1. (marcelis2008genotype–phenotypecorrelationsin pages 1-3): Carlo L.M. Marcelis, Frans A. Hol, Gail E. Graham, Paul N.M.A. Rieu, Richard Kellermayer, Rowdy P.P. Meijer, Dorien Lugtenberg, Hans Scheffer, Hans van Bokhoven, Han G. Brunner, and Arjan P.M. de Brouwer. Genotype–phenotype correlations in mycn‐related feingold syndrome. Human Mutation, 29:1125-1132, Sep 2008. URL: https://doi.org/10.1002/humu.20750, doi:10.1002/humu.20750. This article has 105 citations and is from a domain leading peer-reviewed journal.
 
-2. (klaniewska2021occurrenceofesophageal pages 1-2): Magdalena Klaniewska, Krystian Toczewski, Anna Rozensztrauch, Michal Bloch, Agata Dzielendziak, Piotr Gasperowicz, Ryszard Slezak, Rafał Ploski, Małgorzata Rydzanicz, Robert Smigiel, and Dariusz Patkowski. Occurrence of esophageal atresia with tracheoesophageal fistula in siblings from three-generation family affected by variable expressivity mycn mutation: a case report. Frontiers in Pediatrics, Dec 2021. URL: https://doi.org/10.3389/fped.2021.783553, doi:10.3389/fped.2021.783553. This article has 6 citations.
+2. (nishio2024mycninhuman pages 7-8): Yosuke Nishio, Kohji Kato, Hisashi Oishi, Yoshiyuki Takahashi, and Shinji Saitoh. Mycn in human development and diseases. Frontiers in Oncology, May 2024. URL: https://doi.org/10.3389/fonc.2024.1417607, doi:10.3389/fonc.2024.1417607. This article has 8 citations.
 
 3. (nishio2024mycninhuman pages 1-2): Yosuke Nishio, Kohji Kato, Hisashi Oishi, Yoshiyuki Takahashi, and Shinji Saitoh. Mycn in human development and diseases. Frontiers in Oncology, May 2024. URL: https://doi.org/10.3389/fonc.2024.1417607, doi:10.3389/fonc.2024.1417607. This article has 8 citations.
 
-4. (zeka2022anewvariant pages 5-5): Naim Zeka, Ramush Bejiqi, Abdurrahim Gerguri, Leonore Zogaj, and Haki Jashari. A new variant of mycn gene as a cause of feingold syndrome. Clinical Case Reports, May 2022. URL: https://doi.org/10.1002/ccr3.5886, doi:10.1002/ccr3.5886. This article has 4 citations.
+4. (grote2015expandingthephenotype pages 1-2): Lauren E. Grote, Elena A. Repnikova, and Shivarajan M. Amudhavalli. Expanding the phenotype of feingold syndrome‐2. American Journal of Medical Genetics Part A, 167:3219-3225, Dec 2015. URL: https://doi.org/10.1002/ajmg.a.37368, doi:10.1002/ajmg.a.37368. This article has 16 citations.
 
-5. (marcelis2008genotype–phenotypecorrelationsin pages 1-3): Carlo L.M. Marcelis, Frans A. Hol, Gail E. Graham, Paul N.M.A. Rieu, Richard Kellermayer, Rowdy P.P. Meijer, Dorien Lugtenberg, Hans Scheffer, Hans van Bokhoven, Han G. Brunner, and Arjan P.M. de Brouwer. Genotype–phenotype correlations in mycn‐related feingold syndrome. Human Mutation, 29:1125-1132, Sep 2008. URL: https://doi.org/10.1002/humu.20750, doi:10.1002/humu.20750. This article has 105 citations and is from a domain leading peer-reviewed journal.
+5. (cognet2011dissectionofthe pages 1-2): Marie Cognet, Agnés Nougayrede, Valérie Malan, Patrick Callier, Celia Cretolle, Laurence Faivre, David Genevieve, Alice Goldenberg, Delphine Heron, Sandra Mercier, Nicole Philip, Sabine Sigaudy, Alain Verloes, Sabine Sarnacki, Arnold Munnich, Michel Vekemans, Stanislas Lyonnet, Heather Etchevers, Jeanne Amiel, and Loïc de Pontual. Dissection of the mycn locus in feingold syndrome and isolated oesophageal atresia. European Journal of Human Genetics, 19:602-606, Jan 2011. URL: https://doi.org/10.1038/ejhg.2010.225, doi:10.1038/ejhg.2010.225. This article has 28 citations and is from a domain leading peer-reviewed journal.
 
-6. (klaniewska2021occurrenceofesophageal pages 2-4): Magdalena Klaniewska, Krystian Toczewski, Anna Rozensztrauch, Michal Bloch, Agata Dzielendziak, Piotr Gasperowicz, Ryszard Slezak, Rafał Ploski, Małgorzata Rydzanicz, Robert Smigiel, and Dariusz Patkowski. Occurrence of esophageal atresia with tracheoesophageal fistula in siblings from three-generation family affected by variable expressivity mycn mutation: a case report. Frontiers in Pediatrics, Dec 2021. URL: https://doi.org/10.3389/fped.2021.783553, doi:10.3389/fped.2021.783553. This article has 6 citations.
+6. (marcelis2008genotype–phenotypecorrelationsin pages 5-6): Carlo L.M. Marcelis, Frans A. Hol, Gail E. Graham, Paul N.M.A. Rieu, Richard Kellermayer, Rowdy P.P. Meijer, Dorien Lugtenberg, Hans Scheffer, Hans van Bokhoven, Han G. Brunner, and Arjan P.M. de Brouwer. Genotype–phenotype correlations in mycn‐related feingold syndrome. Human Mutation, 29:1125-1132, Sep 2008. URL: https://doi.org/10.1002/humu.20750, doi:10.1002/humu.20750. This article has 105 citations and is from a domain leading peer-reviewed journal.
 
-7. (mirzamohammadi2018distinctmolecularpathways pages 1-2): Fatemeh Mirzamohammadi, Anastasia Kozlova, Garyfallia Papaioannou, Elena Paltrinieri, Ugur M. Ayturk, and Tatsuya Kobayashi. Distinct molecular pathways mediate mycn and myc-regulated mir-17-92 microrna action in feingold syndrome mouse models. Nature Communications, Apr 2018. URL: https://doi.org/10.1038/s41467-018-03788-7, doi:10.1038/s41467-018-03788-7. This article has 25 citations and is from a highest quality peer-reviewed journal.
+7. (marcelis2008genotype–phenotypecorrelationsin media c1476c34): Carlo L.M. Marcelis, Frans A. Hol, Gail E. Graham, Paul N.M.A. Rieu, Richard Kellermayer, Rowdy P.P. Meijer, Dorien Lugtenberg, Hans Scheffer, Hans van Bokhoven, Han G. Brunner, and Arjan P.M. de Brouwer. Genotype–phenotype correlations in mycn‐related feingold syndrome. Human Mutation, 29:1125-1132, Sep 2008. URL: https://doi.org/10.1002/humu.20750, doi:10.1002/humu.20750. This article has 105 citations and is from a domain leading peer-reviewed journal.
 
-8. (muriello2019growthhormonedeficiency pages 2-4): Michael Muriello, Alexander Y. Kim, Krista Sondergaard Schatz, Natalie Beck, Meral Gunay‐Aygun, and Julie E. Hoover‐Fong. Growth hormone deficiency, aortic dilation, and neurocognitive issues in feingold syndrome 2. American Journal of Medical Genetics Part A, 179:410-416, Mar 2019. URL: https://doi.org/10.1002/ajmg.a.61037, doi:10.1002/ajmg.a.61037. This article has 16 citations.
+8. (klaniewska2021occurrenceofesophageal pages 1-2): Magdalena Klaniewska, Krystian Toczewski, Anna Rozensztrauch, Michal Bloch, Agata Dzielendziak, Piotr Gasperowicz, Ryszard Slezak, Rafał Ploski, Małgorzata Rydzanicz, Robert Smigiel, and Dariusz Patkowski. Occurrence of esophageal atresia with tracheoesophageal fistula in siblings from three-generation family affected by variable expressivity mycn mutation: a case report. Frontiers in Pediatrics, Dec 2021. URL: https://doi.org/10.3389/fped.2021.783553, doi:10.3389/fped.2021.783553. This article has 6 citations.
 
-9. (zeka2022anewvariant pages 1-2): Naim Zeka, Ramush Bejiqi, Abdurrahim Gerguri, Leonore Zogaj, and Haki Jashari. A new variant of mycn gene as a cause of feingold syndrome. Clinical Case Reports, May 2022. URL: https://doi.org/10.1002/ccr3.5886, doi:10.1002/ccr3.5886. This article has 4 citations.
+9. (low2015tetralogyoffallot pages 1-2): Karen J. Low, Chris C. Buxton, and Ruth A. Newbury-Ecob. Tetralogy of fallot, microcephaly, short stature and brachymesophalangy is associated with hemizygous loss of noncoding mir17hg and coding gpc5. Clinical dysmorphology, 24 3:113-4, Jul 2015. URL: https://doi.org/10.1097/mcd.0000000000000069, doi:10.1097/mcd.0000000000000069. This article has 9 citations and is from a peer-reviewed journal.
 
-10. (muriello2019growthhormonedeficiency pages 1-2): Michael Muriello, Alexander Y. Kim, Krista Sondergaard Schatz, Natalie Beck, Meral Gunay‐Aygun, and Julie E. Hoover‐Fong. Growth hormone deficiency, aortic dilation, and neurocognitive issues in feingold syndrome 2. American Journal of Medical Genetics Part A, 179:410-416, Mar 2019. URL: https://doi.org/10.1002/ajmg.a.61037, doi:10.1002/ajmg.a.61037. This article has 16 citations.
+10. (samara2026prenataldiagnosisof pages 2-5): Athina A. Samara, Paraskevas Perros, Antonios Koutras, Michel B. Janho, Emmanuil Manolakos, Nikoletta Daponte, Apostolos C. Ziogas, Antonios Garas, Chara Skentou, and Sotirios Sotiriou. Prenatal diagnosis of a feingold syndrome pregnancy complicated with severe preeclampsia: a report of a challenging case. Genes, 17:54, Jan 2026. URL: https://doi.org/10.3390/genes17010054, doi:10.3390/genes17010054. This article has 0 citations.
 
-11. (zeka2022anewvariant pages 2-2): Naim Zeka, Ramush Bejiqi, Abdurrahim Gerguri, Leonore Zogaj, and Haki Jashari. A new variant of mycn gene as a cause of feingold syndrome. Clinical Case Reports, May 2022. URL: https://doi.org/10.1002/ccr3.5886, doi:10.1002/ccr3.5886. This article has 4 citations.
+11. (huynh2023geneticscornerfamiliala pages 1-2): MC Huynh and RD Clark. Genetics corner: familial duodenal atresia due to feingold syndrome. Unknown journal, 2023.
 
-12. (muriello2019growthhormonedeficiency pages 5-6): Michael Muriello, Alexander Y. Kim, Krista Sondergaard Schatz, Natalie Beck, Meral Gunay‐Aygun, and Julie E. Hoover‐Fong. Growth hormone deficiency, aortic dilation, and neurocognitive issues in feingold syndrome 2. American Journal of Medical Genetics Part A, 179:410-416, Mar 2019. URL: https://doi.org/10.1002/ajmg.a.61037, doi:10.1002/ajmg.a.61037. This article has 16 citations.
+12. (grote2015expandingthephenotype pages 6-7): Lauren E. Grote, Elena A. Repnikova, and Shivarajan M. Amudhavalli. Expanding the phenotype of feingold syndrome‐2. American Journal of Medical Genetics Part A, 167:3219-3225, Dec 2015. URL: https://doi.org/10.1002/ajmg.a.37368, doi:10.1002/ajmg.a.37368. This article has 16 citations.
 
-13. (low2015tetralogyoffallot pages 1-2): Karen J. Low, Chris C. Buxton, and Ruth A. Newbury-Ecob. Tetralogy of fallot, microcephaly, short stature and brachymesophalangy is associated with hemizygous loss of noncoding mir17hg and coding gpc5. Clinical dysmorphology, 24 3:113-4, Jul 2015. URL: https://doi.org/10.1097/mcd.0000000000000069, doi:10.1097/mcd.0000000000000069. This article has 9 citations and is from a peer-reviewed journal.
+13. (huynh2023geneticscornerfamilial pages 2-4): MC Huynh and RD Clark. Genetics corner: familial duodenal atresia due to feingold syndrome. Unknown journal, 2023.
 
-14. (tokunaga2023emergingconceptsinvolving pages 1-2): Mayuri Tokunaga and Takuya Imamura. Emerging concepts involving inhibitory and activating rna functionalization towards the understanding of microcephaly phenotypes and brain diseases in humans. Frontiers in Cell and Developmental Biology, Jun 2023. URL: https://doi.org/10.3389/fcell.2023.1168072, doi:10.3389/fcell.2023.1168072. This article has 0 citations.
+14. (laymanpleet2007feingoldsyndomea pages 1-3): Leah Layman-Pleet, Carl-Christian A. Jackson, Shirley Chou, and Kym M. Boycott. Feingold syndome: a rare but important cause of syndromic tracheoesophageal fistula. Journal of pediatric surgery, 42 9:E1-3, Sep 2007. URL: https://doi.org/10.1016/j.jpedsurg.2007.06.005, doi:10.1016/j.jpedsurg.2007.06.005. This article has 6 citations and is from a peer-reviewed journal.
 
-15. (mirzamohammadi2018distinctmolecularpathways pages 6-7): Fatemeh Mirzamohammadi, Anastasia Kozlova, Garyfallia Papaioannou, Elena Paltrinieri, Ugur M. Ayturk, and Tatsuya Kobayashi. Distinct molecular pathways mediate mycn and myc-regulated mir-17-92 microrna action in feingold syndrome mouse models. Nature Communications, Apr 2018. URL: https://doi.org/10.1038/s41467-018-03788-7, doi:10.1038/s41467-018-03788-7. This article has 25 citations and is from a highest quality peer-reviewed journal.
+15. (huynh2023geneticscornerfamilial pages 1-2): MC Huynh and RD Clark. Genetics corner: familial duodenal atresia due to feingold syndrome. Unknown journal, 2023.
 
-16. (mirzamohammadi2018distinctmolecularpathways media f81b61fb): Fatemeh Mirzamohammadi, Anastasia Kozlova, Garyfallia Papaioannou, Elena Paltrinieri, Ugur M. Ayturk, and Tatsuya Kobayashi. Distinct molecular pathways mediate mycn and myc-regulated mir-17-92 microrna action in feingold syndrome mouse models. Nature Communications, Apr 2018. URL: https://doi.org/10.1038/s41467-018-03788-7, doi:10.1038/s41467-018-03788-7. This article has 25 citations and is from a highest quality peer-reviewed journal.
+16. (marcelis2008genotype–phenotypecorrelationsin pages 4-5): Carlo L.M. Marcelis, Frans A. Hol, Gail E. Graham, Paul N.M.A. Rieu, Richard Kellermayer, Rowdy P.P. Meijer, Dorien Lugtenberg, Hans Scheffer, Hans van Bokhoven, Han G. Brunner, and Arjan P.M. de Brouwer. Genotype–phenotype correlations in mycn‐related feingold syndrome. Human Mutation, 29:1125-1132, Sep 2008. URL: https://doi.org/10.1002/humu.20750, doi:10.1002/humu.20750. This article has 105 citations and is from a domain leading peer-reviewed journal.
 
-17. (mirzamohammadi2018distinctmolecularpathways media 412f5292): Fatemeh Mirzamohammadi, Anastasia Kozlova, Garyfallia Papaioannou, Elena Paltrinieri, Ugur M. Ayturk, and Tatsuya Kobayashi. Distinct molecular pathways mediate mycn and myc-regulated mir-17-92 microrna action in feingold syndrome mouse models. Nature Communications, Apr 2018. URL: https://doi.org/10.1038/s41467-018-03788-7, doi:10.1038/s41467-018-03788-7. This article has 25 citations and is from a highest quality peer-reviewed journal.
+17. (torre2026expandingthemycn pages 2-5): Francisco Javier Mérida De la Torre, Javier Porta Pelayo, and Inmaculada Ortiz-Martín. Expanding the mycn variant spectrum in feingold syndrome type 1: a novel n-terminal missense variant segregating in an affected family. Genes, 17:552, May 2026. URL: https://doi.org/10.3390/genes17050552, doi:10.3390/genes17050552. This article has 0 citations.
 
-18. (zeka2022anewvariant pages 3-4): Naim Zeka, Ramush Bejiqi, Abdurrahim Gerguri, Leonore Zogaj, and Haki Jashari. A new variant of mycn gene as a cause of feingold syndrome. Clinical Case Reports, May 2022. URL: https://doi.org/10.1002/ccr3.5886, doi:10.1002/ccr3.5886. This article has 4 citations.
+18. (tedesco2021clinicalandmolecular pages 1-2): Maria Giovanna Tedesco, Fortunato Lonardo, Caterina Ceccarini, Carla Cesarano, Maria Cristina Digilio, Monia Magliozzi, Daniela Rogaia, Amedea Mencarelli, Chiara Leoni, Carmelo Piscopo, Valentina Imperatore, Maria Teresa Falco, Paolo Fontana, Anna Maria Nardone, Antonio Novelli, Stefania Troiani, Marco Seri, and Paolo Prontera. Clinical and molecular characterizations of 11 new patients with type 1 feingold syndrome: proposal for selecting diagnostic criteria and further genetic testing in patients with severe phenotype. American Journal of Medical Genetics Part A, 185:1204-1210, Jan 2021. URL: https://doi.org/10.1002/ajmg.a.62068, doi:10.1002/ajmg.a.62068. This article has 9 citations.
 
-19. (mirzamohammadi2018distinctmolecularpathways pages 2-3): Fatemeh Mirzamohammadi, Anastasia Kozlova, Garyfallia Papaioannou, Elena Paltrinieri, Ugur M. Ayturk, and Tatsuya Kobayashi. Distinct molecular pathways mediate mycn and myc-regulated mir-17-92 microrna action in feingold syndrome mouse models. Nature Communications, Apr 2018. URL: https://doi.org/10.1038/s41467-018-03788-7, doi:10.1038/s41467-018-03788-7. This article has 25 citations and is from a highest quality peer-reviewed journal.
+19. (lim2023transcriptionfactorsin pages 10-11): Youngshin Lim. Transcription factors in microcephaly. Frontiers in Neuroscience, Nov 2023. URL: https://doi.org/10.3389/fnins.2023.1302033, doi:10.3389/fnins.2023.1302033. This article has 13 citations and is from a peer-reviewed journal.
+
+20. (laymanpleet2007feingoldsyndomea pages 3-3): Leah Layman-Pleet, Carl-Christian A. Jackson, Shirley Chou, and Kym M. Boycott. Feingold syndome: a rare but important cause of syndromic tracheoesophageal fistula. Journal of pediatric surgery, 42 9:E1-3, Sep 2007. URL: https://doi.org/10.1016/j.jpedsurg.2007.06.005, doi:10.1016/j.jpedsurg.2007.06.005. This article has 6 citations and is from a peer-reviewed journal.
+
+21. (miscia2021esophagealatresiaand pages 1-2): Maria Enrica Miscia, Giuseppe Lauriti, Dacia Di Renzo, Angela Riccio, Gabriele Lisi, and Pierluigi Lelli Chiesa. Esophageal atresia and associated duodenal atresia: a cohort study and review of the literature. European Journal of Pediatric Surgery, 31:445-451, Sep 2021. URL: https://doi.org/10.1055/s-0040-1716884, doi:10.1055/s-0040-1716884. This article has 13 citations and is from a peer-reviewed journal.
+
+22. (pontual2011germlinedeletionof pages 3-6): Loïc de Pontual, Evelyn Yao, Patrick Callier, Laurence Faivre, Valérie Drouin, Sandra Cariou, Arie Van Haeringen, David Geneviève, Alice Goldenberg, Myriam Oufadem, Sylvie Manouvrier, Arnold Munnich, Joana Alves Vidigal, Michel Vekemans, Stanislas Lyonnet, Alexandra Henrion-Caude, Andrea Ventura, and Jeanne Amiel. Germline deletion of the mir-17∼92 cluster causes skeletal and growth defects in humans. Nature Genetics, 43:1026-1030, Sep 2011. URL: https://doi.org/10.1038/ng.915, doi:10.1038/ng.915. This article has 385 citations and is from a highest quality peer-reviewed journal.
+
+23. (muriello2019growthhormonedeficiency pages 5-6): Michael Muriello, Alexander Y. Kim, Krista Sondergaard Schatz, Natalie Beck, Meral Gunay‐Aygun, and Julie E. Hoover‐Fong. Growth hormone deficiency, aortic dilation, and neurocognitive issues in feingold syndrome 2. American Journal of Medical Genetics Part A, 179:410-416, Mar 2019. URL: https://doi.org/10.1002/ajmg.a.61037, doi:10.1002/ajmg.a.61037. This article has 16 citations.
+
+24. (samara2026prenataldiagnosisof pages 5-6): Athina A. Samara, Paraskevas Perros, Antonios Koutras, Michel B. Janho, Emmanuil Manolakos, Nikoletta Daponte, Apostolos C. Ziogas, Antonios Garas, Chara Skentou, and Sotirios Sotiriou. Prenatal diagnosis of a feingold syndrome pregnancy complicated with severe preeclampsia: a report of a challenging case. Genes, 17:54, Jan 2026. URL: https://doi.org/10.3390/genes17010054, doi:10.3390/genes17010054. This article has 0 citations.
+
+## Artifacts
+
+- [Edison artifact artifact-00](Feingold_Syndrome-deep-research-falcon_artifacts/artifact-00.md)
+![## Context ID: pqac-00000039 Table 3 on page 5 provides a summary of clinical features and their frequencies (percentages) for 77 patients with *MYCN*-related F](Feingold_Syndrome-deep-research-falcon_artifacts/image-1.png)

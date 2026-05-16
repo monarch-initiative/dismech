@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2702,6 +2893,8 @@
                 
                 <div class="evidence-explanation">Study of patient-derived fibroblasts and mouse models demonstrates biallelic SLC17A5 mutations and identifies founder variants.</div>
                 
+                
+                
             </div>
             
             
@@ -2783,6 +2976,8 @@
                 
                 <div class="evidence-explanation">Longitudinal study characterizes clinical course of intermediate-severe Salla disease as distinct from classic form with progressive regression.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2802,6 +2997,8 @@
                 
                 
                 <div class="evidence-explanation">Comprehensive literature review and case report of intermediate-severe Salla disease identifies hypomyelination, developmental delay, and hypotonia as characteristic features, with compound heterozygous SLC17A5 variants. Demonstrates that normal or marginally elevated urine sialic acid cannot exclude this phenotype.</div>
+                
+                
                 
             </div>
             
@@ -2883,6 +3080,8 @@
                 
                 <div class="evidence-explanation">Study of patient-derived cells confirms c.115C&gt;T as founder variant and demonstrates pathogenicity through CRISPR approaches.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2902,6 +3101,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews directly links biallelic pathogenic SLC17A5 variants to FSASD diagnosis.</div>
+                
+                
                 
             </div>
             
@@ -3023,6 +3224,8 @@
                 
                 <div class="evidence-explanation">2023 Science Advances cryo-EM structure and functional assays support the role of SLC17A5/sialin transporter malfunction in FSASD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3043,6 +3246,8 @@
                 
                 <div class="evidence-explanation">2025 study demonstrates pathogenicity of SLC17A5 variants including tissue-specific mosaic mutations causing atypical FSASD presentations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3062,6 +3267,8 @@
                 
                 
                 <div class="evidence-explanation">Patient-cell and model study directly links sialin deficiency to impaired lysosomal free sialic acid export and cellular dysfunction.</div>
+                
+                
                 
             </div>
             
@@ -3134,6 +3341,8 @@
                 
                 <div class="evidence-explanation">Diagnostic study demonstrates profound accumulation of free sialic acid in FSASD patients, confirming primary biochemical defect.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3153,6 +3362,8 @@
                 
                 
                 <div class="evidence-explanation">2024 soft X-ray spectromicroscopy study demonstrates cellular vacuolation and lysosomal dysfunction in Salla disease fibroblasts.</div>
+                
+                
                 
             </div>
             
@@ -3333,6 +3544,8 @@
                 
                 <div class="evidence-explanation">Study of CSF and plasma in FSASD patients demonstrates dysregulated GSL metabolism with elevated gangliosides, supporting alterations in pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3352,6 +3565,8 @@
                 
                 
                 <div class="evidence-explanation">Patient-derived iPSC neural-cell study supports secondary GSL catabolic dysregulation in FSASD neural cells.</div>
+                
+                
                 
             </div>
             
@@ -3499,6 +3714,8 @@
                 
                 <div class="evidence-explanation">iPSC disease modeling confirms oligodendroglial involvement and differential cell-type vulnerability in FSASD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3518,6 +3735,8 @@
                 
                 
                 <div class="evidence-explanation">FSASD review directly links the disease to central hypomyelination and associated neuroimaging abnormalities.</div>
+                
+                
                 
             </div>
             
@@ -3701,6 +3920,8 @@
                 
                 <div class="evidence-explanation">Longitudinal study documents progressive neurodegeneration from infancy through adolescence in intermediate-severe Salla disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3720,6 +3941,8 @@
                 
                 
                 <div class="evidence-explanation">FSASD review supports progressive neurodegenerative involvement with cognitive and motor manifestations.</div>
+                
+                
                 
             </div>
             
@@ -3835,6 +4058,8 @@
                 
                 <div class="evidence-explanation">Salla disease cohort review lists nystagmus among characteristic neurological features.</div>
                 
+                
+                
             </div>
             
             
@@ -3898,6 +4123,8 @@
                 
                 <div class="evidence-explanation">Review lists muscular hypotonia among FSASD neurodegenerative clinical features.</div>
                 
+                
+                
             </div>
             
             
@@ -3951,6 +4178,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews lists spasticity among features of less severe FSASD historically called Salla disease.</div>
+                
+                
                 
             </div>
             
@@ -4015,6 +4244,8 @@
                 
                 <div class="evidence-explanation">Review identifies cognitive impairment among FSASD neurodegenerative clinical features, supporting intellectual disability in Salla disease spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -4068,6 +4299,8 @@
                 
                 
                 <div class="evidence-explanation">Longitudinal study confirms disease onset in early infancy with delayed developmental milestones.</div>
+                
+                
                 
             </div>
             
@@ -4123,6 +4356,8 @@
                 
                 <div class="evidence-explanation">Salla disease cohort review lists ataxia among characteristic neurological features.</div>
                 
+                
+                
             </div>
             
             
@@ -4176,6 +4411,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews lists epileptic seizures among characteristic neurologic features of less severe FSASD historically called Salla disease.</div>
+                
+                
                 
             </div>
             
@@ -4231,6 +4468,8 @@
                 
                 <div class="evidence-explanation">Review identifies thinning of the corpus callosum as a prominent FSASD neuroimaging feature.</div>
                 
+                
+                
             </div>
             
             
@@ -4284,6 +4523,8 @@
                 
                 
                 <div class="evidence-explanation">Review identifies central hypomyelination as a prominent disease feature.</div>
+                
+                
                 
             </div>
             
@@ -4339,6 +4580,8 @@
                 
                 <div class="evidence-explanation">Review identifies cerebellar atrophy as a prominent FSASD disease feature.</div>
                 
+                
+                
             </div>
             
             
@@ -4392,6 +4635,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review of 24 Salla disease patients identified psychosis as a previously unreported psychiatric manifestation, occurring in 2 of the 24 patients during adolescence.</div>
+                
+                
                 
             </div>
             
@@ -4447,6 +4692,8 @@
                 
                 <div class="evidence-explanation">Systematic cohort analysis of 24 Salla disease patients found sleep disorders in 32% of the population, making it a common neuropsychiatric comorbidity.</div>
                 
+                
+                
             </div>
             
             
@@ -4500,6 +4747,8 @@
                 
                 
                 <div class="evidence-explanation">Cohort study of 24 Salla disease patients identified aggressive behavior and restlessness in 25% of individuals, demonstrating frequent behavioral manifestations.</div>
+                
+                
                 
             </div>
             
@@ -4564,6 +4813,8 @@
                 
                 <div class="evidence-explanation">GeneReviews lists athetosis among characteristic neurologic features of less severe FSASD historically called Salla disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4583,6 +4834,8 @@
                 
                 
                 <div class="evidence-explanation">Longitudinal Finnish cohort data support age-related emergence of athetotic movements in Salla disease.</div>
+                
+                
                 
             </div>
             
@@ -4669,6 +4922,8 @@
                 
                 <div class="evidence-explanation">Studies of patient-derived cells demonstrate SLC17A5 biallelic mutations as causative for FSASD including Salla disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4688,6 +4943,8 @@
                 
                 
                 <div class="evidence-explanation">Case report documents a novel homozygous deletion of SLC17A5 exons 8-9 causing infantile-onset FSASD with prenatal hydrops, demonstrating the spectrum of SLC17A5 pathogenic variants extends beyond point mutations to exonic deletions.</div>
+                
+                
                 
             </div>
             
@@ -4777,6 +5034,8 @@
                 
                 
                 <div class="evidence-explanation">Standard treatment remains supportive pending development of specific disease-modifying therapies.</div>
+                
+                
                 
             </div>
             
@@ -4873,6 +5132,8 @@
                 
                 <div class="evidence-explanation">Base editing approach successfully corrects the founder variant and reduces sialic acid accumulation in patient-derived cells and animal models.</div>
                 
+                
+                
             </div>
             
             
@@ -4906,6 +5167,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4931,6 +5193,8 @@
                 
                 <div class="evidence-explanation">Free sialic acid accumulation is the pathognomonic biochemical feature and a diagnostic biomarker in FSASD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4951,6 +5215,8 @@
                 
                 <div class="evidence-explanation">Newborn screening case report demonstrates early detection of elevated urinary free sialic acid as a diagnostic marker, enabling early identification of asymptomatic FSASD before clinical manifestations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4970,6 +5236,8 @@
                 
                 
                 <div class="evidence-explanation">Large cross-sectional study of 116 FSASD cases demonstrates that biochemical biomarker levels (urinary and intracellular free sialic acid) are strong predictors of disease progression and survival, with thresholds of 6.37-fold (urine) and 7.37-fold (fibroblasts) distinguishing slower and faster disease courses.</div>
+                
+                
                 
             </div>
             
@@ -5044,6 +5312,8 @@
                 
                 <div class="evidence-explanation">Clinical spectrum of FSASD demonstrates infantile form as most severe.</div>
                 
+                
+                
             </div>
             
             
@@ -5100,6 +5370,8 @@
                 
                 
                 <div class="evidence-explanation">Diagnostic study demonstrates distinct biochemical profile in FSASD vs other lysosomal storage disorders including NPC.</div>
+                
+                
                 
             </div>
             
@@ -5256,6 +5528,8 @@
                 
                 
                 <div class="evidence-explanation">MDBP is an active biorepository network that includes Salla disease as a condition of interest for myelin disorder research.</div>
+                
+                
                 
             </div>
             

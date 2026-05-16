@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00504023
+reference_id: "clinicaltrials:NCT00504023"
 title: "A Pilot Study of Topical Imiquimod Therapy for the Treatment of Recurrent Extramammary Paget's Disease"
 content_type: summary
 ---

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2608,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Gastrointestinal Disease</span>
@@ -2562,7 +2753,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">6</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2576,7 +2767,7 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -2584,16 +2775,18 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">9</div>
+                <div class="stat-value">24</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
             
+            <a class="stat-link" href="#genetic">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Genes</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#treatments">
@@ -2630,7 +2823,7 @@
             
             <a class="stat-link" href="#models">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -2774,6 +2967,8 @@
                 
                 <div class="evidence-explanation">This guideline review provides a direct disease-level framing of chemotherapy-induced diarrhea as a common and clinically important treatment toxicity.</div>
                 
+                
+                
             </div>
             
             
@@ -2802,13 +2997,132 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">9</span>
             </div>
             
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-chemotherapy-induced-crypt-and-epithelial-injury">
-                <div class="item-name">Chemotherapy-induced crypt and epithelial injury</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytotoxic-chemotherapy-exposure-and-intestinal-drug-delivery">
+                <div class="item-name">Cytotoxic chemotherapy exposure and intestinal drug delivery</div>
                 
-                <div class="item-desc">Cytotoxic chemotherapy damages rapidly renewing crypt stem and progenitor cells and surface epithelium, leading to apoptosis, impaired epithelial renewal, and mucositis.</div>
+                <div class="item-desc">Exposure to diarrheagenic antineoplastic agents, especially fluoropyrimidines and irinotecan, initiates intestinal toxicity by delivering cytotoxic drugs and metabolites to the intestinal mucosa and lumen.</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-human-intestinal-organoid-5-fluorouracil-multi-omics-toxicity-model">Human intestinal organoid 5-fluorouracil multi-omics toxicity model</a>
+                            
+                            <span class="crosslink-meta">ORGANOID</span>
+                            
+                            
+                            <span class="crosslink-desc">Applies clinically relevant 5-fluorouracil exposure concentrations to human intestinal organoids.</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Crypt stem/progenitor apoptosis and epithelial injury</span>
+	                            
+	                            <span class="crosslink-desc">Cytotoxic agents injure rapidly proliferating crypt and epithelial cells.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Microbial beta-glucuronidase reactivation of irinotecan metabolites</span>
+	                            
+	                            <span class="crosslink-desc">Irinotecan exposure supplies glucuronidated metabolites that can be reactivated by bacterial beta-glucuronidase activity in the gut lumen.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chemotherapy-associated gut microbial dysbiosis</span>
+	                            
+	                            <span class="crosslink-desc">Chemotherapy exposure and mucosal injury alter gut microbial community structure in patients and preclinical models.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30739515" target="_blank">PMID:30739515</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Although the fluoropyrimidines are effective chemotherapeutic agents for malignant gastrointestinal tumors, they sometimes cause enteritis with diarrhea."</div>
+                
+                
+                <div class="evidence-explanation">Human clinical data support fluoropyrimidine exposure as a proximal initiating context for chemotherapy-related enteritis with diarrhea.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32170007" target="_blank">PMID:32170007</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Irinotecan treats a range of solid tumors, but its effectiveness is severely limited by gastrointestinal (GI) tract toxicity caused by gut bacterial β-glucuronidase (GUS) enzymes."</div>
+                
+                
+                <div class="evidence-explanation">Preclinical irinotecan evidence supports the chemotherapy exposure and its luminal microbial-enzyme toxicity context.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-crypt-stem-progenitor-apoptosis-and-epithelial-injury">
+                <div class="item-name">Crypt stem/progenitor apoptosis and epithelial injury</div>
+                
+                <div class="item-desc">Rapidly renewing crypt stem and progenitor cells and surface epithelium are damaged after chemotherapy exposure, leading to apoptosis, impaired epithelial renewal, and mucositis.</div>
                 
                 
                 <div class="item-meta">
@@ -2914,6 +3228,36 @@
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-human-intestinal-organoid-5-fluorouracil-multi-omics-toxicity-model">Human intestinal organoid 5-fluorouracil multi-omics toxicity model</a>
+                            
+                            <span class="crosslink-meta">ORGANOID</span>
+                            
+                            
+                            <span class="crosslink-desc">Measures epithelial viability, apoptosis, and cell-cycle/apoptosis pathway responses after 5-fluorouracil exposure.</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-primary-human-intestinal-stem-cell-2d-diarrhea-prediction-model">Primary human intestinal stem-cell 2D diarrhea-prediction model</a>
+                            
+                            <span class="crosslink-meta">PRIMARY CELL CULTURE</span>
+                            
+                            
+                            <span class="crosslink-desc">Measures proliferation and cell abundance in primary proliferative intestinal cells exposed to marketed drugs.</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-microbiota-product-epithelial-apoptosis-iec-6-and-organoid-model">Microbiota-product epithelial apoptosis IEC-6 and organoid model</a>
+                            
+                            <span class="crosslink-meta">OTHER</span>
+                            
+                            
+                            <span class="crosslink-desc">Assays epithelial apoptosis and organoid development after microbiota product exposure in a chemotherapy-induced diarrhea context.</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2965,6 +3309,8 @@
                 
                 
                 <div class="evidence-explanation">Review evidence directly links chemotherapy-associated mucositis to stem-cell apoptosis and failed epithelial renewal.</div>
+                
+                
                 
             </div>
             
@@ -3093,6 +3439,8 @@
                 
                 <div class="evidence-explanation">Preclinical irinotecan data support chemotherapy-associated tight-junction disruption as a proximal step in diarrhea pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3112,6 +3460,8 @@
                 
                 
                 <div class="evidence-explanation">General intestinal barrier evidence provides the MLCK/MLC mechanism that connects tight-junction remodeling to paracellular leak.</div>
+                
+                
                 
             </div>
             
@@ -3201,6 +3551,26 @@
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-primary-human-intestinal-stem-cell-2d-diarrhea-prediction-model">Primary human intestinal stem-cell 2D diarrhea-prediction model</a>
+                            
+                            <span class="crosslink-meta">PRIMARY CELL CULTURE</span>
+                            
+                            
+                            <span class="crosslink-desc">Uses transepithelial electrical resistance as a barrier-formation readout relevant to epithelial barrier disruption.</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-anaerobic-human-intestine-on-chip-host-microbiome-coculture">Anaerobic human intestine-on-chip host-microbiome coculture</a>
+                            
+                            <span class="crosslink-meta">ORGAN ON CHIP</span>
+                            
+                            
+                            <span class="crosslink-desc">Measures epithelial barrier function under host-microbiome coculture conditions.</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -3211,9 +3581,16 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Dysbiosis and inflammatory amplification</span>
+	                            <span class="crosslink-meta">Chemotherapy-associated gut microbial dysbiosis</span>
 	                            
-	                            <span class="crosslink-desc">Barrier failure permits additional microbiome disturbance and sustains mucosal inflammatory injury.</span>
+	                            <span class="crosslink-desc">Barrier failure permits additional host-microbiome crosstalk and may reinforce chemotherapy-associated community disruption.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysbiosis-associated inflammatory amplification</span>
+	                            
+	                            <span class="crosslink-desc">Barrier leak permits microbial products and luminal contents to amplify mucosal inflammatory injury.</span>
 	                            
 	                        </div>
 	                        
@@ -3253,6 +3630,8 @@
                 
                 <div class="evidence-explanation">Prospective human study explicitly ties fluoropyrimidine exposure to barrier dysfunction and downstream diarrhea.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3273,6 +3652,8 @@
                 
                 <div class="evidence-explanation">Human capsule-endoscopy data show that chemotherapy-related diarrhea is commonly accompanied by structural mucosal injury.</div>
                 
+                
+                
             </div>
             
             
@@ -3282,10 +3663,240 @@
     
 	            </div>
 	            
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysbiosis-and-inflammatory-amplification">
-                <div class="item-name">Dysbiosis and inflammatory amplification</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-chemotherapy-associated-gut-microbial-dysbiosis">
+                <div class="item-name">Chemotherapy-associated gut microbial dysbiosis</div>
                 
-                <div class="item-desc">Barrier injury, luminal drug-metabolite handling by gut bacteria, and altered community structure amplify inflammatory injury, reinforcing epithelial damage and diarrheal severity.</div>
+                <div class="item-desc">Chemotherapy and mucosal barrier injury alter gut microbial community structure, with patient studies showing diarrhea-associated diversity and taxonomic shifts and preclinical irinotecan models showing Enterobacteriaceae expansion.</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-anaerobic-human-intestine-on-chip-host-microbiome-coculture">Anaerobic human intestine-on-chip host-microbiome coculture</a>
+                            
+                            <span class="crosslink-meta">ORGAN ON CHIP</span>
+                            
+                            
+                            <span class="crosslink-desc">Provides a human host-microbiome coculture platform for modeling microbial community structure and dysbiosis-related perturbations.</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Microbial beta-glucuronidase reactivation of irinotecan metabolites</span>
+	                            
+	                            <span class="crosslink-desc">Community composition and bacterial enzyme capacity shape luminal irinotecan metabolite reactivation.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysbiosis-associated inflammatory amplification</span>
+	                            
+	                            <span class="crosslink-desc">Altered microbial communities can reinforce inflammatory host responses after barrier injury.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37231829" target="_blank">PMID:37231829</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In 19 patients treated with oral FPs, the α diversity of the microbial community decreased significantly following chemotherapy only in the diarrheal group."</div>
+                
+                
+                <div class="evidence-explanation">Prospective human microbiome data support a chemotherapy-associated dysbiosis node separated from inflammatory amplification.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32170007" target="_blank">PMID:32170007</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Remarkably, GUS inhibitor also effectively blocks the striking irinotecan-induced bloom of Enterobacteriaceae in immune-deficient mice."</div>
+                
+                
+                <div class="evidence-explanation">Mouse irinotecan models support chemotherapy-driven microbial community shifts as a separable mechanism.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-microbial-beta-glucuronidase-reactivation-of-irinotecan-metabolites">
+                <div class="item-name">Microbial beta-glucuronidase reactivation of irinotecan metabolites</div>
+                
+                <div class="item-desc">Gut bacterial beta-glucuronidase activity reactivates glucuronidated irinotecan metabolites in the intestinal lumen, increasing local epithelial toxicity and linking drug metabolism to microbiome-dependent injury.</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        xenobiotic metabolic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006805" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        beta-glucuronidase activity
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0004566" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+	                
+	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Crypt stem/progenitor apoptosis and epithelial injury</span>
+	                            
+	                            <span class="crosslink-desc">Reactivation of irinotecan metabolites increases local epithelial toxicity and loss of crypt proliferation.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
+	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32170007" target="_blank">PMID:32170007</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We demonstrate that a single dose of irinotecan increases GI bacterial GUS activity in 1 d and reduces intestinal epithelial cell proliferation in 5 d, both blocked by a single dose of a GUS inhibitor."</div>
+                
+                
+                <div class="evidence-explanation">Supports the microbiome-dependent drug-metabolite handling node and links increased bacterial GUS activity to downstream epithelial proliferation loss.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+	            </div>
+	            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysbiosis-associated-inflammatory-amplification">
+                <div class="item-name">Dysbiosis-associated inflammatory amplification</div>
+                
+                <div class="item-desc">Altered microbial communities and barrier leak amplify mucosal inflammatory injury, reinforcing epithelial damage and diarrheal severity.</div>
                 
                 
                 
@@ -3317,11 +3928,62 @@
     
     
                     
+                    <span class="tag tag-bio">
+                        symbiont-mediated perturbation of host process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0044003" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
                 </div>
                 
                 
                 
                 
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-anaerobic-human-intestine-on-chip-host-microbiome-coculture">Anaerobic human intestine-on-chip host-microbiome coculture</a>
+                            
+                            <span class="crosslink-meta">ORGAN ON CHIP</span>
+                            
+                            
+                            <span class="crosslink-desc">Represents a tractable host-microbiome interface for testing how microbial communities modulate epithelial barrier and host-response readouts.</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-microbiota-product-epithelial-apoptosis-iec-6-and-organoid-model">Microbiota-product epithelial apoptosis IEC-6 and organoid model</a>
+                            
+                            <span class="crosslink-meta">OTHER</span>
+                            
+                            
+                            <span class="crosslink-desc">Provides an in vitro microbiota-host interaction assay for testing how dysbiosis-linked microbial products alter epithelial injury responses.</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
                 
 	                
 	                
@@ -3333,6 +3995,13 @@
 	                            <span class="crosslink-meta">Reduced fluid absorption and diarrheal output</span>
 	                            
 	                            <span class="crosslink-desc">Persistent mucosal injury and inflammatory remodeling impair net absorptive function and increase stool water loss.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Crypt stem/progenitor apoptosis and epithelial injury</span>
+	                            
+	                            <span class="crosslink-desc">Inflammatory amplification can reinforce epithelial and crypt damage, creating a feed-forward injury loop.</span>
 	                            
 	                        </div>
 	                        
@@ -3365,6 +4034,8 @@
                 
                 <div class="evidence-explanation">Supports a microbiome-associated amplification step in chemotherapy-linked diarrhea.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3384,6 +4055,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse irinotecan models implicate microbiome-dependent amplification of epithelial damage and dysbiosis in chemotherapy toxicity.</div>
+                
+                
                 
             </div>
             
@@ -3521,6 +4194,8 @@
                 
                 <div class="evidence-explanation">Review evidence links chemotherapy mucositis to epithelial apoptosis and failed renewal.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3540,6 +4215,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse mucositis data show villus shortening and crypt destruction downstream of chemotherapy injury.</div>
+                
+                
                 
             </div>
             
@@ -3657,6 +4334,8 @@
                 
                 <div class="evidence-explanation">General intestinal transport physiology shows that diarrhea emerges when fluid secretion overwhelms absorptive capacity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3676,6 +4355,8 @@
                 
                 
                 <div class="evidence-explanation">Human data tie worsening diarrhea severity to more extensive small-bowel mucosal injury, consistent with absorptive failure.</div>
+                
+                
                 
             </div>
             
@@ -3711,7 +4392,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chemotherapy-induced crypt and epithelial injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytotoxic chemotherapy damages rapidly renewing crypt stem and progenitor cells and surface epithelium, leading to apoptosis, impaired epithelial renewal, and mucositis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"enterocyte\"], \"biological_processes\": [\"apoptotic process\"], \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer permeability model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Provides a human epithelial-injury readout in a primary small-intestinal monolayer.\"}, {\"name\": \"Murine intestinal organoid 5-fluorouracil injury model\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"Measures direct epithelial cytotoxicity after 5-fluorouracil exposure.\"}]}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased stool frequency and water loss are the defining clinical manifestation of chemotherapy-induced diarrhea.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dysbiosis and inflammatory amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barrier injury, luminal drug-metabolite handling by gut bacteria, and altered community structure amplify inflammatory injury, reinforcing epithelial damage and diarrheal severity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Enterocyte apoptosis, villus blunting, and surface loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemotherapy-induced epithelial apoptosis and failed renewal shorten villi, blunt the absorptive surface, and reduce functional enterocyte area.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"enterocyte\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"MLCK/actomyosin-mediated tight-junction remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemotherapy-associated tight-junction defects can increase paracellular permeability through MLCK/MLC-dependent actomyosin remodeling of the tight junction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"tight junction assembly\"]}}, {\"id\": \"Murine intestinal organoid 5-fluorouracil injury model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Murine intestinal organoids exposed to 5-fluorouracil to quantify epithelial cytotoxicity and candidate protective interventions in chemotherapy-induced mucositis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"chemotherapy-induced mucositis\", \"5-fluorouracil epithelial cytotoxicity\", \"organoid viability\"], \"publication\": \"PMID:39226257\"}}, {\"id\": \"Paracellular barrier leak and mucosal break formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemotherapy-induced mucosal injury compromises epithelial barrier function, increases paracellular permeability, and produces visible small-intestinal mucosal breaks in affected patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"tight junction assembly\"], \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer permeability model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Measures permeability and luminal-to-basolateral flux relevant to barrier-leak mechanisms.\"}]}}, {\"id\": \"Primary human small-intestinal monolayer permeability model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Polarized primary human small-intestinal epithelial monolayers grown on a permeable scaffold to measure epithelial injury, barrier permeability, and luminal-to-basolateral flux in a human intestinal system.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"epithelial injury\", \"intestinal barrier dysfunction\", \"paracellular permeability\"], \"publication\": \"PMID:29094594\"}}, {\"id\": \"Reduced fluid absorption and diarrheal output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced absorptive surface area, villus injury, and transport imbalance lower net fluid absorption and increase stool water loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"enterocyte\"], \"biological_processes\": [\"intestinal absorption\"]}}], \"edges\": [{\"source\": \"Chemotherapy-induced crypt and epithelial injury\", \"target\": \"MLCK/actomyosin-mediated tight-junction remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chemotherapy-induced crypt and epithelial injury\", \"target\": \"Enterocyte apoptosis, villus blunting, and surface loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MLCK/actomyosin-mediated tight-junction remodeling\", \"target\": \"Paracellular barrier leak and mucosal break formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Paracellular barrier leak and mucosal break formation\", \"target\": \"Dysbiosis and inflammatory amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Paracellular barrier leak and mucosal break formation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysbiosis and inflammatory amplification\", \"target\": \"Reduced fluid absorption and diarrheal output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Enterocyte apoptosis, villus blunting, and surface loss\", \"target\": \"Reduced fluid absorption and diarrheal output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced fluid absorption and diarrheal output\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Primary human small-intestinal monolayer permeability model\", \"target\": \"Chemotherapy-induced crypt and epithelial injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Primary human small-intestinal monolayer permeability model\", \"target\": \"Paracellular barrier leak and mucosal break formation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Murine intestinal organoid 5-fluorouracil injury model\", \"target\": \"Chemotherapy-induced crypt and epithelial injury\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anaerobic human intestine-on-chip host-microbiome coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Microfluidic human intestine-on-chip system that sustains complex aerobic and anaerobic human gut microbiota in direct contact with living intestinal epithelium and mucus under a physiologic oxygen gradient.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"conditions\": [\"host-microbiome interaction\", \"microbial community diversity\", \"intestinal barrier function\"], \"publication\": \"PMID:31086325\"}}, {\"id\": \"Chemotherapy-associated gut microbial dysbiosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemotherapy and mucosal barrier injury alter gut microbial community structure, with patient studies showing diarrhea-associated diversity and taxonomic shifts and preclinical irinotecan models showing Enterobacteriaceae expansion.\", \"meta\": {\"evidence_count\": 2, \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Anaerobic human intestine-on-chip host-microbiome coculture\", \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"description\": \"Provides a human host-microbiome coculture platform for modeling microbial community structure and dysbiosis-related perturbations.\"}]}}, {\"id\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rapidly renewing crypt stem and progenitor cells and surface epithelium are damaged after chemotherapy exposure, leading to apoptosis, impaired epithelial renewal, and mucositis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"enterocyte\"], \"biological_processes\": [\"apoptotic process\"], \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer permeability model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Provides a human epithelial-injury readout in a primary small-intestinal monolayer.\"}, {\"name\": \"Murine intestinal organoid 5-fluorouracil injury model\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"Measures direct epithelial cytotoxicity after 5-fluorouracil exposure.\"}, {\"name\": \"Human intestinal organoid 5-fluorouracil multi-omics toxicity model\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"Measures epithelial viability, apoptosis, and cell-cycle/apoptosis pathway responses after 5-fluorouracil exposure.\"}, {\"name\": \"Primary human intestinal stem-cell 2D diarrhea-prediction model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Measures proliferation and cell abundance in primary proliferative intestinal cells exposed to marketed drugs.\"}, {\"name\": \"Microbiota-product epithelial apoptosis IEC-6 and organoid model\", \"model_type\": \"OTHER\", \"description\": \"Assays epithelial apoptosis and organoid development after microbiota product exposure in a chemotherapy-induced diarrhea context.\"}]}}, {\"id\": \"Cytotoxic chemotherapy exposure and intestinal drug delivery\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Exposure to diarrheagenic antineoplastic agents, especially fluoropyrimidines and irinotecan, initiates intestinal toxicity by delivering cytotoxic drugs and metabolites to the intestinal mucosa and lumen.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Human intestinal organoid 5-fluorouracil multi-omics toxicity model\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"Applies clinically relevant 5-fluorouracil exposure concentrations to human intestinal organoids.\"}]}}, {\"id\": \"DPYD HapB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reduced-function haplotype, included among the key clinically actionable DPYD variants in pharmacogenomics reviews.\"}, {\"id\": \"DPYD c.2846A\u003eT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant p.D949V, associated with increased fluoropyrimidine toxicity risk.\"}, {\"id\": \"DPYD pharmacogenomic susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DPYD\"], \"association\": \"Germline reduced-function DPYD variants increase fluoropyrimidine toxicity risk\", \"variant_count\": 4}}, {\"id\": \"DPYD*13\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reduced-function variant c.1679T\u003eG, repeatedly implicated in severe fluoropyrimidine toxicity.\"}, {\"id\": \"DPYD*2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice variant c.1905+1G\u003eA, repeatedly implicated in severe fluoropyrimidine toxicity and highlighted in the deep-research artifact as a high-effect diarrhea risk allele.\"}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased stool frequency and water loss are the defining clinical manifestation of chemotherapy-induced diarrhea.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dysbiosis-associated inflammatory amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered microbial communities and barrier leak amplify mucosal inflammatory injury, reinforcing epithelial damage and diarrheal severity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"symbiont-mediated perturbation of host process\"], \"experimental_models\": [{\"name\": \"Anaerobic human intestine-on-chip host-microbiome coculture\", \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"description\": \"Represents a tractable host-microbiome interface for testing how microbial communities modulate epithelial barrier and host-response readouts.\"}, {\"name\": \"Microbiota-product epithelial apoptosis IEC-6 and organoid model\", \"model_type\": \"OTHER\", \"description\": \"Provides an in vitro microbiota-host interaction assay for testing how dysbiosis-linked microbial products alter epithelial injury responses.\"}]}}, {\"id\": \"Enterocyte apoptosis, villus blunting, and surface loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemotherapy-induced epithelial apoptosis and failed renewal shorten villi, blunt the absorptive surface, and reduce functional enterocyte area.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"enterocyte\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Human intestinal organoid 5-fluorouracil multi-omics toxicity model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Three-dimensional human colon and small-intestinal organoids exposed to clinically relevant 5-fluorouracil concentrations to measure epithelial viability, apoptosis, morphology, transcriptomic responses, and metabolomic responses.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"5-fluorouracil intestinal toxicity\", \"apoptosis\", \"transcriptomic response\", \"metabolomic response\"], \"publication\": \"PMID:34151400\"}}, {\"id\": \"MLCK/actomyosin-mediated tight-junction remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemotherapy-associated tight-junction defects can increase paracellular permeability through MLCK/MLC-dependent actomyosin remodeling of the tight junction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"tight junction assembly\"]}}, {\"id\": \"Microbial beta-glucuronidase reactivation of irinotecan metabolites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gut bacterial beta-glucuronidase activity reactivates glucuronidated irinotecan metabolites in the intestinal lumen, increasing local epithelial toxicity and linking drug metabolism to microbiome-dependent injury.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"xenobiotic metabolic process\"], \"molecular_functions\": [\"beta-glucuronidase activity\"], \"role\": \"amplifier\"}}, {\"id\": \"Microbiota-product epithelial apoptosis IEC-6 and organoid model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"In vitro epithelial cell and intestinal organoid assays used with chemotherapy-induced diarrhea models to test microbiota-derived effects on epithelial integrity, mitochondrial function, organoid development, and apoptotic signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"OTHER\", \"conditions\": [\"microbiota-host interaction\", \"intestinal epithelial apoptosis\", \"chemotherapy-induced diarrhea\"], \"publication\": \"PMID:40624638\"}}, {\"id\": \"Murine intestinal organoid 5-fluorouracil injury model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Murine intestinal organoids exposed to 5-fluorouracil to quantify epithelial cytotoxicity and candidate protective interventions in chemotherapy-induced mucositis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"chemotherapy-induced mucositis\", \"5-fluorouracil epithelial cytotoxicity\", \"organoid viability\"], \"publication\": \"PMID:39226257\"}}, {\"id\": \"Paracellular barrier leak and mucosal break formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemotherapy-induced mucosal injury compromises epithelial barrier function, increases paracellular permeability, and produces visible small-intestinal mucosal breaks in affected patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"tight junction assembly\"], \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer permeability model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Measures permeability and luminal-to-basolateral flux relevant to barrier-leak mechanisms.\"}, {\"name\": \"Primary human intestinal stem-cell 2D diarrhea-prediction model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Uses transepithelial electrical resistance as a barrier-formation readout relevant to epithelial barrier disruption.\"}, {\"name\": \"Anaerobic human intestine-on-chip host-microbiome coculture\", \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"description\": \"Measures epithelial barrier function under host-microbiome coculture conditions.\"}]}}, {\"id\": \"Primary human intestinal stem-cell 2D diarrhea-prediction model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary human intestinal stem cell-derived RepliGut Planar cultures in a two-dimensional Transwell format used for high-throughput drug-induced diarrhea risk prediction by measuring proliferation, cell abundance, and transepithelial electrical resistance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"drug-induced diarrhea risk\", \"epithelial proliferation\", \"barrier formation\"], \"publication\": \"PMID:40086646\"}}, {\"id\": \"Primary human small-intestinal monolayer permeability model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Polarized primary human small-intestinal epithelial monolayers grown on a permeable scaffold to measure epithelial injury, barrier permeability, and luminal-to-basolateral flux in a human intestinal system.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"epithelial injury\", \"intestinal barrier dysfunction\", \"paracellular permeability\"], \"publication\": \"PMID:29094594\"}}, {\"id\": \"Reduced fluid absorption and diarrheal output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced absorptive surface area, villus injury, and transport imbalance lower net fluid absorption and increase stool water loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"enterocyte\"], \"biological_processes\": [\"intestinal absorption\"]}}, {\"id\": \"UGT1A1 pharmacogenomic susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"UGT1A1\"], \"association\": \"Reduced-function UGT1A1 variants increase irinotecan gastrointestinal toxicity risk\", \"variant_count\": 2}}, {\"id\": \"UGT1A1*28\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Promoter repeat allele associated with lower SN-38 glucuronidation and increased irinotecan gastrointestinal toxicity susceptibility.\"}, {\"id\": \"UGT1A1*6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reduced-function allele included in pharmacogenomic irinotecan dosing guidance, especially in Asian ancestry populations.\"}], \"edges\": [{\"source\": \"Cytotoxic chemotherapy exposure and intestinal drug delivery\", \"target\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytotoxic chemotherapy exposure and intestinal drug delivery\", \"target\": \"Microbial beta-glucuronidase reactivation of irinotecan metabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytotoxic chemotherapy exposure and intestinal drug delivery\", \"target\": \"Chemotherapy-associated gut microbial dysbiosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"target\": \"MLCK/actomyosin-mediated tight-junction remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"target\": \"Enterocyte apoptosis, villus blunting, and surface loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MLCK/actomyosin-mediated tight-junction remodeling\", \"target\": \"Paracellular barrier leak and mucosal break formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Paracellular barrier leak and mucosal break formation\", \"target\": \"Chemotherapy-associated gut microbial dysbiosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Paracellular barrier leak and mucosal break formation\", \"target\": \"Dysbiosis-associated inflammatory amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Paracellular barrier leak and mucosal break formation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chemotherapy-associated gut microbial dysbiosis\", \"target\": \"Microbial beta-glucuronidase reactivation of irinotecan metabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chemotherapy-associated gut microbial dysbiosis\", \"target\": \"Dysbiosis-associated inflammatory amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Microbial beta-glucuronidase reactivation of irinotecan metabolites\", \"target\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysbiosis-associated inflammatory amplification\", \"target\": \"Reduced fluid absorption and diarrheal output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysbiosis-associated inflammatory amplification\", \"target\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Enterocyte apoptosis, villus blunting, and surface loss\", \"target\": \"Reduced fluid absorption and diarrheal output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced fluid absorption and diarrheal output\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Primary human small-intestinal monolayer permeability model\", \"target\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Primary human small-intestinal monolayer permeability model\", \"target\": \"Paracellular barrier leak and mucosal break formation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Murine intestinal organoid 5-fluorouracil injury model\", \"target\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Human intestinal organoid 5-fluorouracil multi-omics toxicity model\", \"target\": \"Cytotoxic chemotherapy exposure and intestinal drug delivery\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Human intestinal organoid 5-fluorouracil multi-omics toxicity model\", \"target\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Primary human intestinal stem-cell 2D diarrhea-prediction model\", \"target\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Primary human intestinal stem-cell 2D diarrhea-prediction model\", \"target\": \"Paracellular barrier leak and mucosal break formation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Anaerobic human intestine-on-chip host-microbiome coculture\", \"target\": \"Chemotherapy-associated gut microbial dysbiosis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Anaerobic human intestine-on-chip host-microbiome coculture\", \"target\": \"Dysbiosis-associated inflammatory amplification\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Anaerobic human intestine-on-chip host-microbiome coculture\", \"target\": \"Paracellular barrier leak and mucosal break formation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Microbiota-product epithelial apoptosis IEC-6 and organoid model\", \"target\": \"Crypt stem/progenitor apoptosis and epithelial injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Microbiota-product epithelial apoptosis IEC-6 and organoid model\", \"target\": \"Dysbiosis-associated inflammatory amplification\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"DPYD*2A\", \"target\": \"DPYD pharmacogenomic susceptibility\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DPYD*13\", \"target\": \"DPYD pharmacogenomic susceptibility\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DPYD c.2846A\u003eT\", \"target\": \"DPYD pharmacogenomic susceptibility\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DPYD HapB3\", \"target\": \"DPYD pharmacogenomic susceptibility\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"UGT1A1*28\", \"target\": \"UGT1A1 pharmacogenomic susceptibility\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"UGT1A1*6\", \"target\": \"UGT1A1 pharmacogenomic susceptibility\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3724,28 +4405,46 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">4</span>
             </div>
             
             
+            <div class="pheno-toc">
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(2)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
+                
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
             
-            <div class="item-box phenotype-box">
-                <div class="item-name">
-                    Diarrhea
-                    
-                    
+            
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Diarrhea
+                        
                     
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank">
-                            HP:0002014
+                            Diarrhea
                         </a>
-                    </span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002014)</span>
+                        </span>
+                        
+                    </div>
                     
-                </div>
-                
-                
-                
-                
+                    
+                    
+                    
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3771,6 +4470,8 @@
                 
                 <div class="evidence-explanation">This guideline review directly establishes diarrhea as the central treatment-related phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -3778,16 +4479,393 @@
     </details>
     
     
+                    
+    
+    
+                </div>
                 
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">2</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Dehydration
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank">
+                            Dehydration
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001944)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
     
-    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35170355" target="_blank">PMID:35170355</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"fluid secretion, driven primarily by Cl- secretion, overwhelms absorptive capacity, leading to increased loss of water in the stool."</div>
+                
+                
+                <div class="evidence-explanation">This review explains how secretory diarrhea produces excess stool water loss, supporting dehydration as a downstream CID complication.</div>
+                
+                
+                
             </div>
             
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25186048" target="_blank">PMID:25186048</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Adequate--and, if necessary, repeated--assessment, appropriate use of loperamide, and knowledge of fluid resuscitation requirements of affected patients is the second crucial step."</div>
+                
+                
+                <div class="evidence-explanation">Management guidance highlights fluid resuscitation requirements in chemotherapy-induced diarrhea, consistent with clinically important volume depletion risk.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Electrolyte imbalance
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank">
+                            Hypokalemia
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002900)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35170355" target="_blank">PMID:35170355</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"One of the primary functions of the intestinal epithelium is to transport fluid and electrolytes to and from the luminal contents."</div>
+                
+                
+                <div class="evidence-explanation">The review establishes electrolyte transport as central to intestinal fluid balance; CID-associated diarrhea can therefore present with clinically relevant electrolyte disturbance.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Abdominal pain
+                        
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank">
+                            Abdominal pain
+                        </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002027)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34151400" target="_blank">PMID:34151400</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Furthermore, intestinal mucositis is usually accompanied by nausea, abdominal pain, vomiting and diarrhoea"</div>
+                
+                
+                <div class="evidence-explanation">This review links fluoropyrimidine-associated intestinal mucositis to abdominal pain alongside diarrhea.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
             
         </div>
         
 
         <!-- Genetic Associations -->
+        
+        <div class="card" id="genetic">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
+                <h2 class="card-title">Genetic Associations</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    DPYD pharmacogenomic susceptibility
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Germline reduced-function DPYD variants increase fluoropyrimidine toxicity risk)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ph18050727" target="_blank">DOI:10.3390/ph18050727</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Germline variants in the DPYD gene, which encodes the enzyme dihydropyrimidine dehydrogenase (DPD), are known to impair drug metabolism and increase the risk of severe toxicity."</div>
+                
+                
+                <div class="evidence-explanation">The umbrella review establishes germline DPYD variation as a pharmacogenomic risk factor for severe fluoropyrimidine toxicity.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fphar.2025.1645188" target="_blank">DOI:10.3389/fphar.2025.1645188</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In the DA cohort, 12% of patients experienced severe fluoropyrimidines-related adverse events, compared to 50% in the NDA cohort"</div>
+                
+                
+                <div class="evidence-explanation">Human implementation data support DPYD-guided dosing as clinically actionable for reducing severe fluoropyrimidine toxicity.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box genetic-box">
+                <div class="item-name">
+                    UGT1A1 pharmacogenomic susceptibility
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Reduced-function UGT1A1 variants increase irinotecan gastrointestinal toxicity risk)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11990381" target="_blank">PMID:11990381</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"screening for UGT1A1*28 polymorphism may identify patients with lower SN-38 glucuronidation rates and greater susceptibility to irinotecan induced gastrointestinal and bone marrow toxicity."</div>
+                
+                
+                <div class="evidence-explanation">Human pharmacokinetic evidence directly links UGT1A1*28 to lower SN-38 glucuronidation and increased irinotecan gastrointestinal toxicity risk.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36443464" target="_blank">PMID:36443464</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gene variants leading to UGT1A1 enzyme deficiency (e.g. UGT1A1*6, *28 and *37) can be used to optimize an individual&#39;s starting dose thereby preventing carriers from toxicity."</div>
+                
+                
+                <div class="evidence-explanation">Pharmacogenomics guidance supports UGT1A1 variants as actionable irinotecan toxicity risk factors.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Treatments -->
@@ -3867,6 +4945,8 @@
                 
                 <div class="evidence-explanation">The guideline review identifies loperamide as a standard component of CID management.</div>
                 
+                
+                
             </div>
             
             
@@ -3943,6 +5023,8 @@
                 
                 
                 <div class="evidence-explanation">Supports hydration-focused supportive care as a core management step.</div>
+                
+                
                 
             </div>
             
@@ -4021,6 +5103,8 @@
                 
                 <div class="evidence-explanation">The guideline review supports octreotide as escalation management for refractory chemotherapy-induced diarrhea.</div>
                 
+                
+                
             </div>
             
             
@@ -4075,6 +5159,8 @@
                 
                 <div class="evidence-explanation">Human capsule-endoscopy study directly supports fluoropyrimidines as a clinically relevant exposure leading to chemotherapy-related diarrhea.</div>
                 
+                
+                
             </div>
             
             
@@ -4117,6 +5203,8 @@
                 
                 <div class="evidence-explanation">Supports oral fluoropyrimidine delivery as a clinically relevant risk context for more severe mucosal injury.</div>
                 
+                
+                
             </div>
             
             
@@ -4148,7 +5236,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
                 <h2 class="card-title">Experimental Models</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">6</span>
             </div>
             
             <div class="item-box exp-model-box anchor-target" id="experimental-model-primary-human-small-intestinal-monolayer-permeability-model">
@@ -4238,7 +5326,7 @@
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="#pathophysiology-chemotherapy-induced-crypt-and-epithelial-injury">Chemotherapy-induced crypt and epithelial injury</a>
+                            <a href="#pathophysiology-crypt-stem-progenitor-apoptosis-and-epithelial-injury">Crypt stem/progenitor apoptosis and epithelial injury</a>
                             
                             <span class="crosslink-desc">Provides a human epithelial-injury readout in a primary small-intestinal monolayer.</span>
                             
@@ -4296,6 +5384,8 @@
                 
                 <div class="evidence-explanation">Supports the experimental platform in primary human small-intestinal epithelium, although the initiating insult is NSAID exposure rather than chemotherapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4315,6 +5405,8 @@
                 
                 
                 <div class="evidence-explanation">Shows that the system directly measures barrier permeability relevant to treatment-induced diarrhea mechanisms.</div>
+                
+                
                 
             </div>
             
@@ -4354,6 +5446,8 @@
                 
                 
                 <div class="evidence-explanation">Shows that this primary human monolayer can quantify gut-barrier function, while remaining indirect with respect to chemotherapy-specific injury.</div>
+                
+                
                 
             </div>
             
@@ -4451,7 +5545,7 @@
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="#pathophysiology-chemotherapy-induced-crypt-and-epithelial-injury">Chemotherapy-induced crypt and epithelial injury</a>
+                            <a href="#pathophysiology-crypt-stem-progenitor-apoptosis-and-epithelial-injury">Crypt stem/progenitor apoptosis and epithelial injury</a>
                             
                             <span class="crosslink-desc">Measures direct epithelial cytotoxicity after 5-fluorouracil exposure.</span>
                             
@@ -4499,6 +5593,8 @@
                 
                 <div class="evidence-explanation">Establishes the existence of an organoid-based 5-FU injury platform for chemotherapy-induced mucositis.</div>
                 
+                
+                
             </div>
             
             
@@ -4538,6 +5634,861 @@
                 
                 <div class="evidence-explanation">Supports organoid viability as a tractable readout for chemotherapy epithelial injury and rescue.</div>
                 
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-human-intestinal-organoid-5-fluorouracil-multi-omics-toxicity-model">
+                <div class="item-name">
+                    Human intestinal organoid 5-fluorouracil multi-omics toxicity model
+                    
+                    <span class="tag tag-exp-model-type">ORGANOID</span>
+                    
+                    
+                    <span class="tag tag-namo-type">
+                        <a href="https://w3id.org/monarch-initiative/namo/Organoid" target="_blank" style="color: inherit; text-decoration: none;">namo:Organoid ↗</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Three-dimensional human colon and small-intestinal organoids exposed to clinically relevant 5-fluorouracil concentrations to measure epithelial viability, apoptosis, morphology, transcriptomic responses, and metabolomic responses.</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">5-fluorouracil intestinal toxicity</span>
+                    
+                    <span class="tag tag-condition">apoptosis</span>
+                    
+                    <span class="tag tag-condition">transcriptomic response</span>
+                    
+                    <span class="tag tag-condition">metabolomic response</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" style="color: inherit; text-decoration: none;">intestinal epithelial cell ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank">intestine ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Human healthy colon and small-intestine biopsy-derived organoids</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Three-dimensional human intestinal organoids exposed to 5-fluorouracil concentrations informed by PBPK simulation</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/34151400" target="_blank">PMID:34151400 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-cytotoxic-chemotherapy-exposure-and-intestinal-drug-delivery">Cytotoxic chemotherapy exposure and intestinal drug delivery</a>
+                            
+                            <span class="crosslink-desc">Applies clinically relevant 5-fluorouracil exposure concentrations to human intestinal organoids.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-crypt-stem-progenitor-apoptosis-and-epithelial-injury">Crypt stem/progenitor apoptosis and epithelial injury</a>
+                            
+                            <span class="crosslink-desc">Measures epithelial viability, apoptosis, and cell-cycle/apoptosis pathway responses after 5-fluorouracil exposure.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Human colon and small-intestinal organoids capture 5-fluorouracil toxicity mechanisms including cell-cycle, p53, mitochondrial ATP synthesis, and apoptosis responses.</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34151400" target="_blank">PMID:34151400</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In this study, well-established 3D organoid models of human colon and small intestine (SI) were used to characterize 5-FU transcriptomic and metabolomic responses."</div>
+                
+                
+                <div class="evidence-explanation">Establishes the human intestinal organoid platform and the chemotherapy-specific exposure being modeled.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34151400" target="_blank">PMID:34151400</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Based on analysis of the differentially expressed genes, the most prominent molecular pathways affected by 5-FU included cell cycle, p53 signalling, mitochondrial ATP synthesis and apoptosis."</div>
+                
+                
+                <div class="evidence-explanation">Supports the crypt/progenitor injury and apoptosis mechanism captured by the organoid model.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34151400" target="_blank">PMID:34151400</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"These results provide new insights into 5-FU toxicity mechanisms and underline the relevance of human organoid models in the safety assessment in drug development."</div>
+                
+                
+                <div class="evidence-explanation">Supports this human organoid system as a chemotherapy-specific non-animal model for intestinal toxicity mechanisms.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-primary-human-intestinal-stem-cell-2d-diarrhea-prediction-model">
+                <div class="item-name">
+                    Primary human intestinal stem-cell 2D diarrhea-prediction model
+                    
+                    <span class="tag tag-exp-model-type">PRIMARY_CELL_CULTURE</span>
+                    
+                    
+                    <span class="tag tag-namo-type">
+                        <a href="https://w3id.org/monarch-initiative/namo/TwoDCellCulture" target="_blank" style="color: inherit; text-decoration: none;">namo:TwoDCellCulture ↗</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Primary human intestinal stem cell-derived RepliGut Planar cultures in a two-dimensional Transwell format used for high-throughput drug-induced diarrhea risk prediction by measuring proliferation, cell abundance, and transepithelial electrical resistance.</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">drug-induced diarrhea risk</span>
+                    
+                    <span class="tag tag-condition">epithelial proliferation</span>
+                    
+                    <span class="tag tag-condition">barrier formation</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" style="color: inherit; text-decoration: none;">intestinal epithelial cell ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank">intestine ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Primary intestinal stem/progenitor cells derived from human intestinal crypts</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Two-dimensional Transwell RepliGut Planar platform</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/40086646" target="_blank">PMID:40086646 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-crypt-stem-progenitor-apoptosis-and-epithelial-injury">Crypt stem/progenitor apoptosis and epithelial injury</a>
+                            
+                            <span class="crosslink-desc">Measures proliferation and cell abundance in primary proliferative intestinal cells exposed to marketed drugs.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-paracellular-barrier-leak-and-mucosal-break-formation">Paracellular barrier leak and mucosal break formation</a>
+                            
+                            <span class="crosslink-desc">Uses transepithelial electrical resistance as a barrier-formation readout relevant to epithelial barrier disruption.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Primary human intestinal stem-cell derived monolayers can predict clinical diarrhea risk from marketed drugs using proliferation, cell abundance, and barrier readouts.</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40086646" target="_blank">PMID:40086646</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Here, we describe the development of a diarrhea prediction assay utilizing RepliGut® Planar, a primary intestinal stem cell-derived platform."</div>
+                
+                
+                <div class="evidence-explanation">Establishes the specific primary human intestinal stem-cell platform used for diarrhea-risk prediction.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40086646" target="_blank">PMID:40086646</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This model accurately predicted diarrhea potential, achieving an accuracy of 91 % for proliferation, 90 % for abundance, and 88 % for barrier formation."</div>
+                
+                
+                <div class="evidence-explanation">Supports the model as a human in vitro non-animal model for drug-induced diarrhea risk and the relevant epithelial readouts.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40086646" target="_blank">PMID:40086646</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chemotherapeutic agents, known to cause clinical diarrhea, frequently target mitotic cells."</div>
+                
+                
+                <div class="evidence-explanation">Links the proliferative crypt-derived assay rationale to chemotherapy agents that cause clinical diarrhea.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-anaerobic-human-intestine-on-chip-host-microbiome-coculture">
+                <div class="item-name">
+                    Anaerobic human intestine-on-chip host-microbiome coculture
+                    
+                    <span class="tag tag-exp-model-type">ORGAN_ON_CHIP</span>
+                    
+                    
+                    <span class="tag tag-namo-type">
+                        <a href="https://w3id.org/monarch-initiative/namo/OrganOnChip" target="_blank" style="color: inherit; text-decoration: none;">namo:OrganOnChip ↗</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Microfluidic human intestine-on-chip system that sustains complex aerobic and anaerobic human gut microbiota in direct contact with living intestinal epithelium and mucus under a physiologic oxygen gradient.</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">host-microbiome interaction</span>
+                    
+                    <span class="tag tag-condition">microbial community diversity</span>
+                    
+                    <span class="tag tag-condition">intestinal barrier function</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" style="color: inherit; text-decoration: none;">intestinal epithelial cell ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank">intestine ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Human intestinal epithelial cells cocultured with complex human gut microbiota</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Microfluidic intestine-on-chip with transluminal hypoxia gradient</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/31086325" target="_blank">PMID:31086325 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-chemotherapy-associated-gut-microbial-dysbiosis">Chemotherapy-associated gut microbial dysbiosis</a>
+                            
+                            <span class="crosslink-desc">Provides a human host-microbiome coculture platform for modeling microbial community structure and dysbiosis-related perturbations.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-dysbiosis-associated-inflammatory-amplification">Dysbiosis-associated inflammatory amplification</a>
+                            
+                            <span class="crosslink-desc">Represents a tractable host-microbiome interface for testing how microbial communities modulate epithelial barrier and host-response readouts.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-paracellular-barrier-leak-and-mucosal-break-formation">Paracellular barrier leak and mucosal break formation</a>
+                            
+                            <span class="crosslink-desc">Measures epithelial barrier function under host-microbiome coculture conditions.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Anaerobic intestine-on-chip culture sustains complex human gut microbiota with epithelial barrier readouts.</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31086325" target="_blank">PMID:31086325</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Here, we show the extended coculture of living human intestinal epithelium with stable communities of aerobic and anaerobic human gut microbiota, using a microfluidic intestine-on-a-chip that permits the control and real-time assessment of physiologically relevant oxygen gradients."</div>
+                
+                
+                <div class="evidence-explanation">Supports the host-microbiome coculture platform, although it is a general microbiome non-animal model rather than a chemotherapy-specific model.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31086325" target="_blank">PMID:31086325</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The intestine-on-a-chip may serve as a discovery tool for the development of microbiome-related therapeutics, probiotics and nutraceuticals."</div>
+                
+                
+                <div class="evidence-explanation">Supports this chip as a general non-animal model for the microbiome-related process pattern now represented in the CID pathograph.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-microbiota-product-epithelial-apoptosis-iec-6-and-organoid-model">
+                <div class="item-name">
+                    Microbiota-product epithelial apoptosis IEC-6 and organoid model
+                    
+                    <span class="tag tag-exp-model-type">OTHER</span>
+                    
+                    
+                </div>
+                
+                <div class="item-desc">In vitro epithelial cell and intestinal organoid assays used with chemotherapy-induced diarrhea models to test microbiota-derived effects on epithelial integrity, mitochondrial function, organoid development, and apoptotic signaling.</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">microbiota-host interaction</span>
+                    
+                    <span class="tag tag-condition">intestinal epithelial apoptosis</span>
+                    
+                    <span class="tag tag-condition">chemotherapy-induced diarrhea</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" style="color: inherit; text-decoration: none;">intestinal epithelial cell ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank">intestine ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">IEC-6 epithelial cells and intestinal organoids</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Epithelial cell and intestinal organoid assays testing microbiota-derived Bacteroides fragilis components</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/40624638" target="_blank">PMID:40624638 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-crypt-stem-progenitor-apoptosis-and-epithelial-injury">Crypt stem/progenitor apoptosis and epithelial injury</a>
+                            
+                            <span class="crosslink-desc">Assays epithelial apoptosis and organoid development after microbiota product exposure in a chemotherapy-induced diarrhea context.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-dysbiosis-associated-inflammatory-amplification">Dysbiosis-associated inflammatory amplification</a>
+                            
+                            <span class="crosslink-desc">Provides an in vitro microbiota-host interaction assay for testing how dysbiosis-linked microbial products alter epithelial injury responses.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">IEC-6 and intestinal organoid experiments can test microbiota-host interactions affecting epithelial injury in chemotherapy-induced diarrhea.</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40624638" target="_blank">PMID:40624638</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Mechanistic studies were conducted in murine models, complemented by IEC-6 cells and intestinal organoid experiments to elucidate microbiota-host interactions."</div>
+                
+                
+                <div class="evidence-explanation">Establishes the in vitro epithelial and organoid systems used to probe microbiota-host interactions in chemotherapy-induced diarrhea.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40624638" target="_blank">PMID:40624638</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"hk-B. f preserved epithelial integrity, mitochondrial function, and intestinal organoid development (higher budding count and larger organoid surface area)."</div>
+                
+                
+                <div class="evidence-explanation">Supports organoid development and epithelial integrity as assayable readouts for microbiota-mediated epithelial protection in CID models.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40624638" target="_blank">PMID:40624638</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Caspase-3 inhibition or BCL2 silencing abrogated hk-B. f&#39;s anti-apoptotic effects in IEC-6 cells."</div>
+                
+                
+                <div class="evidence-explanation">Supports the IEC-6 component as a tractable epithelial apoptosis model for microbiota-linked injury mechanisms.</div>
+                
+                
+                
             </div>
             
             
@@ -4566,7 +6517,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Chemotherapy-Induced Diarrhea
 creation_date: &#34;2026-04-02T01:07:38Z&#34;
-updated_date: &#34;2026-05-08T18:54:20Z&#34;
+updated_date: &#34;2026-05-13T16:25:49Z&#34;
 category: Complex
 categories:
 - Treatment-Related Disorder
@@ -4655,12 +6606,63 @@ environmental:
       Supports oral fluoropyrimidine delivery as a clinically relevant risk
       context for more severe mucosal injury.
 pathophysiology:
-- name: Chemotherapy-induced crypt and epithelial injury
+- name: Cytotoxic chemotherapy exposure and intestinal drug delivery
+  description: &gt;-
+    Exposure to diarrheagenic antineoplastic agents, especially
+    fluoropyrimidines and irinotecan, initiates intestinal toxicity by delivering
+    cytotoxic drugs and metabolites to the intestinal mucosa and lumen.
+  role: trigger
+  chemical_entities:
+  - preferred_term: 5-fluorouracil
+    term:
+      id: CHEBI:46345
+      label: 5-fluorouracil
+  - preferred_term: irinotecan
+    term:
+      id: CHEBI:80630
+      label: irinotecan
+  evidence:
+  - reference: PMID:30739515
+    reference_title: &#34;Fluoropyrimidine-induced intestinal mucosal injury is associated with the severity of chemotherapy-related diarrhea.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Although the fluoropyrimidines are effective chemotherapeutic agents for
+      malignant gastrointestinal tumors, they sometimes cause enteritis with
+      diarrhea.
+    explanation: &gt;-
+      Human clinical data support fluoropyrimidine exposure as a proximal
+      initiating context for chemotherapy-related enteritis with diarrhea.
+  - reference: PMID:32170007
+    reference_title: &#34;Targeted inhibition of gut bacterial β-glucuronidase activity enhances anticancer drug efficacy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Irinotecan treats a range of solid tumors, but its effectiveness is
+      severely limited by gastrointestinal (GI) tract toxicity caused by gut
+      bacterial β-glucuronidase (GUS) enzymes.
+    explanation: &gt;-
+      Preclinical irinotecan evidence supports the chemotherapy exposure and its
+      luminal microbial-enzyme toxicity context.
+  downstream:
+  - target: Crypt stem/progenitor apoptosis and epithelial injury
+    description: &gt;-
+      Cytotoxic agents injure rapidly proliferating crypt and epithelial cells.
+  - target: Microbial beta-glucuronidase reactivation of irinotecan metabolites
+    description: &gt;-
+      Irinotecan exposure supplies glucuronidated metabolites that can be
+      reactivated by bacterial beta-glucuronidase activity in the gut lumen.
+  - target: Chemotherapy-associated gut microbial dysbiosis
+    description: &gt;-
+      Chemotherapy exposure and mucosal injury alter gut microbial community
+      structure in patients and preclinical models.
+
+- name: Crypt stem/progenitor apoptosis and epithelial injury
   conforms_to: intestinal_barrier_dysfunction#Epithelial Stress and Injury
   description: &gt;-
-    Cytotoxic chemotherapy damages rapidly renewing crypt stem and progenitor
-    cells and surface epithelium, leading to apoptosis, impaired epithelial
-    renewal, and mucositis.
+    Rapidly renewing crypt stem and progenitor cells and surface epithelium are
+    damaged after chemotherapy exposure, leading to apoptosis, impaired
+    epithelial renewal, and mucositis.
   cell_types:
   - preferred_term: intestinal epithelial cell
     term:
@@ -4789,25 +6791,117 @@ pathophysiology:
       Human capsule-endoscopy data show that chemotherapy-related diarrhea is
       commonly accompanied by structural mucosal injury.
   downstream:
-  - target: Dysbiosis and inflammatory amplification
+  - target: Chemotherapy-associated gut microbial dysbiosis
     description: &gt;-
-      Barrier failure permits additional microbiome disturbance and sustains
+      Barrier failure permits additional host-microbiome crosstalk and may
+      reinforce chemotherapy-associated community disruption.
+  - target: Dysbiosis-associated inflammatory amplification
+    description: &gt;-
+      Barrier leak permits microbial products and luminal contents to amplify
       mucosal inflammatory injury.
   - target: Diarrhea
     description: &gt;-
       Paracellular permeability contributes directly to leak-flux fluid loss.
 
-- name: Dysbiosis and inflammatory amplification
+- name: Chemotherapy-associated gut microbial dysbiosis
+  description: &gt;-
+    Chemotherapy and mucosal barrier injury alter gut microbial community
+    structure, with patient studies showing diarrhea-associated diversity and
+    taxonomic shifts and preclinical irinotecan models showing
+    Enterobacteriaceae expansion.
+  role: amplifier
+  evidence:
+  - reference: PMID:37231829
+    reference_title: &#34;Relationship between Chemotherapy-Induced Diarrhea and Intestinal Microbiome Composition.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In 19 patients treated with oral FPs, the α diversity of the microbial
+      community decreased significantly following chemotherapy only in the
+      diarrheal group.
+    explanation: &gt;-
+      Prospective human microbiome data support a chemotherapy-associated
+      dysbiosis node separated from inflammatory amplification.
+  - reference: PMID:32170007
+    reference_title: &#34;Targeted inhibition of gut bacterial β-glucuronidase activity enhances anticancer drug efficacy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Remarkably, GUS inhibitor also effectively blocks the striking
+      irinotecan-induced bloom of Enterobacteriaceae in immune-deficient mice.
+    explanation: &gt;-
+      Mouse irinotecan models support chemotherapy-driven microbial community
+      shifts as a separable mechanism.
+  downstream:
+  - target: Microbial beta-glucuronidase reactivation of irinotecan metabolites
+    description: &gt;-
+      Community composition and bacterial enzyme capacity shape luminal
+      irinotecan metabolite reactivation.
+  - target: Dysbiosis-associated inflammatory amplification
+    description: &gt;-
+      Altered microbial communities can reinforce inflammatory host responses
+      after barrier injury.
+
+- name: Microbial beta-glucuronidase reactivation of irinotecan metabolites
+  description: &gt;-
+    Gut bacterial beta-glucuronidase activity reactivates glucuronidated
+    irinotecan metabolites in the intestinal lumen, increasing local epithelial
+    toxicity and linking drug metabolism to microbiome-dependent injury.
+  role: amplifier
+  biological_processes:
+  - preferred_term: xenobiotic metabolic process
+    term:
+      id: GO:0006805
+      label: xenobiotic metabolic process
+  molecular_functions:
+  - preferred_term: beta-glucuronidase activity
+    term:
+      id: GO:0004566
+      label: beta-glucuronidase activity
+    modifier: INCREASED
+  chemical_entities:
+  - preferred_term: irinotecan
+    term:
+      id: CHEBI:80630
+      label: irinotecan
+  - preferred_term: SN-38
+    term:
+      id: CHEBI:8988
+      label: SN-38
+  evidence:
+  - reference: PMID:32170007
+    reference_title: &#34;Targeted inhibition of gut bacterial β-glucuronidase activity enhances anticancer drug efficacy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      We demonstrate that a single dose of irinotecan increases GI bacterial GUS
+      activity in 1 d and reduces intestinal epithelial cell proliferation in 5
+      d, both blocked by a single dose of a GUS inhibitor.
+    explanation: &gt;-
+      Supports the microbiome-dependent drug-metabolite handling node and links
+      increased bacterial GUS activity to downstream epithelial proliferation
+      loss.
+  downstream:
+  - target: Crypt stem/progenitor apoptosis and epithelial injury
+    description: &gt;-
+      Reactivation of irinotecan metabolites increases local epithelial toxicity
+      and loss of crypt proliferation.
+
+- name: Dysbiosis-associated inflammatory amplification
   conforms_to: intestinal_barrier_dysfunction#Luminal Access and Inflammatory Amplification
   description: &gt;-
-    Barrier injury, luminal drug-metabolite handling by gut bacteria, and
-    altered community structure amplify inflammatory injury, reinforcing
-    epithelial damage and diarrheal severity.
+    Altered microbial communities and barrier leak amplify mucosal inflammatory
+    injury, reinforcing epithelial damage and diarrheal severity.
   biological_processes:
   - preferred_term: inflammatory response
     term:
       id: GO:0006954
       label: inflammatory response
+    modifier: INCREASED
+  - preferred_term: symbiont-mediated perturbation of host process
+    term:
+      id: GO:0044003
+      label: symbiont-mediated perturbation of host process
     modifier: INCREASED
   evidence:
   - reference: PMID:37231829
@@ -4836,6 +6930,10 @@ pathophysiology:
     description: &gt;-
       Persistent mucosal injury and inflammatory remodeling impair net
       absorptive function and increase stool water loss.
+  - target: Crypt stem/progenitor apoptosis and epithelial injury
+    description: &gt;-
+      Inflammatory amplification can reinforce epithelial and crypt damage,
+      creating a feed-forward injury loop.
 
 - name: Enterocyte apoptosis, villus blunting, and surface loss
   conforms_to: intestinal_barrier_dysfunction#Villus Blunting and Surface Loss
@@ -4963,6 +7061,186 @@ phenotypes:
     explanation: &gt;-
       This guideline review directly establishes diarrhea as the central
       treatment-related phenotype.
+- name: Dehydration
+  description: &gt;-
+    Clinically significant fluid loss can occur downstream of chemotherapy-induced
+    diarrhea, making hydration assessment and resuscitation part of CID
+    management.
+  phenotype_term:
+    preferred_term: Dehydration
+    term:
+      id: HP:0001944
+      label: Dehydration
+  evidence:
+  - reference: PMID:35170355
+    reference_title: &#34;Intestinal secretory mechanisms and diarrhea.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      fluid secretion, driven primarily by Cl- secretion, overwhelms absorptive
+      capacity, leading to increased loss of water in the stool.
+    explanation: &gt;-
+      This review explains how secretory diarrhea produces excess stool water
+      loss, supporting dehydration as a downstream CID complication.
+  - reference: PMID:25186048
+    reference_title: &#34;Guidance on the management of diarrhoea during cancer chemotherapy.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Adequate--and, if necessary, repeated--assessment, appropriate use of
+      loperamide, and knowledge of fluid resuscitation requirements of affected
+      patients is the second crucial step.
+    explanation: &gt;-
+      Management guidance highlights fluid resuscitation requirements in
+      chemotherapy-induced diarrhea, consistent with clinically important volume
+      depletion risk.
+- name: Abdominal pain
+  description: &gt;-
+    Abdominal pain can accompany chemotherapy-induced intestinal mucositis and
+    is highlighted in the matching deep-research artifact as a CID-associated
+    clinical feature.
+  phenotype_term:
+    preferred_term: Abdominal pain
+    term:
+      id: HP:0002027
+      label: Abdominal pain
+  evidence:
+  - reference: PMID:34151400
+    reference_title: &#34;New insights into the mechanisms underlying 5-fluorouracil-induced intestinal toxicity based on transcriptomic and metabolomic responses in human intestinal organoids.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Furthermore, intestinal mucositis is usually accompanied by nausea, abdominal pain,
+      vomiting and diarrhoea
+    explanation: &gt;-
+      This review links fluoropyrimidine-associated intestinal mucositis to
+      abdominal pain alongside diarrhea.
+- name: Electrolyte imbalance
+  description: &gt;-
+    CID can disrupt fluid and electrolyte handling. The closest HPO annotation
+    requested by the review is HP:0002900, whose canonical label is
+    hypokalemia.
+  phenotype_term:
+    preferred_term: Electrolyte imbalance with hypokalemia risk
+    term:
+      id: HP:0002900
+      label: Hypokalemia
+  evidence:
+  - reference: PMID:35170355
+    reference_title: &#34;Intestinal secretory mechanisms and diarrhea.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      One of the primary functions of the intestinal epithelium is to transport
+      fluid and electrolytes to and from the luminal contents.
+    explanation: &gt;-
+      The review establishes electrolyte transport as central to intestinal
+      fluid balance; CID-associated diarrhea can therefore present with
+      clinically relevant electrolyte disturbance.
+genetic:
+- name: DPYD pharmacogenomic susceptibility
+  gene_term:
+    preferred_term: DPYD
+    term:
+      id: hgnc:3012
+      label: DPYD
+  association: Germline reduced-function DPYD variants increase fluoropyrimidine toxicity risk
+  relationship_type: RISK_FACTOR
+  variant_origin: GERMLINE
+  notes: &gt;-
+    CID is not Mendelian, but DPYD is a clinically actionable pharmacogenomic
+    risk factor for fluoropyrimidine toxicity. The matching deep-research
+    artifact summarizes diarrhea-specific associations including DPYD*2A carrier
+    diarrhea rates of 12.0%-100% versus 1.4%-27.5% in wild type, DPYD*13 carrier
+    diarrhea rates of 50%-100% versus 5.8%-22% in wild type, and c.2846A&gt;T
+    pooled OR 6.0 for diarrhea.
+  variants:
+  - name: DPYD*2A
+    description: &gt;-
+      Splice variant c.1905+1G&gt;A, repeatedly implicated in severe
+      fluoropyrimidine toxicity and highlighted in the deep-research artifact as
+      a high-effect diarrhea risk allele.
+  - name: DPYD*13
+    description: &gt;-
+      Reduced-function variant c.1679T&gt;G, repeatedly implicated in severe
+      fluoropyrimidine toxicity.
+  - name: DPYD c.2846A&gt;T
+    description: &gt;-
+      Missense variant p.D949V, associated with increased fluoropyrimidine
+      toxicity risk.
+  - name: DPYD HapB3
+    description: &gt;-
+      Reduced-function haplotype, included among the key clinically actionable
+      DPYD variants in pharmacogenomics reviews.
+  evidence:
+  - reference: DOI:10.3390/ph18050727
+    reference_title: &#34;DPYD Genotyping, Fluoropyrimidine Dosage and Toxicity: An Umbrella Review of Systematic Reviews&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Germline variants in the DPYD gene, which encodes the enzyme
+      dihydropyrimidine dehydrogenase (DPD), are known to impair drug metabolism
+      and increase the risk of severe toxicity.
+    explanation: &gt;-
+      The umbrella review establishes germline DPYD variation as a
+      pharmacogenomic risk factor for severe fluoropyrimidine toxicity.
+  - reference: DOI:10.3389/fphar.2025.1645188
+    reference_title: &#34;DPYD-guided fluoropyrimidine dose adjustment in colorectal cancer DPYD carriers: start slower to finish stronger&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In the DA cohort, 12% of patients experienced severe
+      fluoropyrimidines-related adverse events, compared to 50% in the NDA
+      cohort
+    explanation: &gt;-
+      Human implementation data support DPYD-guided dosing as clinically
+      actionable for reducing severe fluoropyrimidine toxicity.
+- name: UGT1A1 pharmacogenomic susceptibility
+  gene_term:
+    preferred_term: UGT1A1
+    term:
+      id: hgnc:12530
+      label: UGT1A1
+  association: Reduced-function UGT1A1 variants increase irinotecan gastrointestinal toxicity risk
+  relationship_type: RISK_FACTOR
+  variant_origin: GERMLINE
+  notes: &gt;-
+    Reduced UGT1A1 activity limits SN-38 glucuronidation after irinotecan
+    exposure. The deep-research artifact identifies UGT1A1, especially high-risk
+    genotypes such as UGT1A1*28, as a clinically actionable risk factor for
+    irinotecan-associated CID.
+  variants:
+  - name: UGT1A1*28
+    description: &gt;-
+      Promoter repeat allele associated with lower SN-38 glucuronidation and
+      increased irinotecan gastrointestinal toxicity susceptibility.
+  - name: UGT1A1*6
+    description: &gt;-
+      Reduced-function allele included in pharmacogenomic irinotecan dosing
+      guidance, especially in Asian ancestry populations.
+  evidence:
+  - reference: PMID:11990381
+    reference_title: &#34;UGT1A1*28 polymorphism as a determinant of irinotecan disposition and toxicity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      screening for UGT1A1*28 polymorphism may identify patients with lower
+      SN-38 glucuronidation rates and greater susceptibility to irinotecan
+      induced gastrointestinal and bone marrow toxicity.
+    explanation: &gt;-
+      Human pharmacokinetic evidence directly links UGT1A1*28 to lower SN-38
+      glucuronidation and increased irinotecan gastrointestinal toxicity risk.
+  - reference: PMID:36443464
+    reference_title: &#34;Dutch pharmacogenetics working group (DPWG) guideline for the gene-drug interaction between UGT1A1 and irinotecan.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Gene variants leading to UGT1A1 enzyme deficiency (e.g. UGT1A1*6, *28 and
+      *37) can be used to optimize an individual&#39;s starting dose thereby
+      preventing carriers from toxicity.
+    explanation: &gt;-
+      Pharmacogenomics guidance supports UGT1A1 variants as actionable
+      irinotecan toxicity risk factors.
 treatments:
 - name: Loperamide
   description: &gt;-
@@ -5056,7 +7334,7 @@ experimental_models:
   culture_system: Polarized two-dimensional monolayer on a permeable support
   publication: PMID:29094594
   modeled_mechanisms:
-  - target: Chemotherapy-induced crypt and epithelial injury
+  - target: Crypt stem/progenitor apoptosis and epithelial injury
     description: Provides a human epithelial-injury readout in a primary small-intestinal monolayer.
   - target: Paracellular barrier leak and mucosal break formation
     description: Measures permeability and luminal-to-basolateral flux relevant to barrier-leak mechanisms.
@@ -5133,7 +7411,7 @@ experimental_models:
   culture_system: Three-dimensional intestinal organoid culture exposed to 5-fluorouracil
   publication: PMID:39226257
   modeled_mechanisms:
-  - target: Chemotherapy-induced crypt and epithelial injury
+  - target: Crypt stem/progenitor apoptosis and epithelial injury
     description: Measures direct epithelial cytotoxicity after 5-fluorouracil exposure.
   findings:
   - statement: 5-fluorouracil exposure reduces epithelial viability in intestinal organoids
@@ -5159,6 +7437,307 @@ experimental_models:
     explanation: &gt;-
       Supports organoid viability as a tractable readout for chemotherapy
       epithelial injury and rescue.
+- name: Human intestinal organoid 5-fluorouracil multi-omics toxicity model
+  description: &gt;-
+    Three-dimensional human colon and small-intestinal organoids exposed to
+    clinically relevant 5-fluorouracil concentrations to measure epithelial
+    viability, apoptosis, morphology, transcriptomic responses, and metabolomic
+    responses.
+  experimental_model_type: ORGANOID
+  namo_type: namo:Organoid
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: intestine
+    term:
+      id: UBERON:0000160
+      label: intestine
+  cell_types:
+  - preferred_term: intestinal epithelial cell
+    term:
+      id: CL:0002563
+      label: intestinal epithelial cell
+  conditions:
+  - 5-fluorouracil intestinal toxicity
+  - apoptosis
+  - transcriptomic response
+  - metabolomic response
+  cell_source: Human healthy colon and small-intestine biopsy-derived organoids
+  culture_system: Three-dimensional human intestinal organoids exposed to 5-fluorouracil concentrations informed by PBPK simulation
+  publication: PMID:34151400
+  modeled_mechanisms:
+  - target: Cytotoxic chemotherapy exposure and intestinal drug delivery
+    description: &gt;-
+      Applies clinically relevant 5-fluorouracil exposure concentrations to
+      human intestinal organoids.
+  - target: Crypt stem/progenitor apoptosis and epithelial injury
+    description: &gt;-
+      Measures epithelial viability, apoptosis, and cell-cycle/apoptosis
+      pathway responses after 5-fluorouracil exposure.
+  findings:
+  - statement: &gt;-
+      Human colon and small-intestinal organoids capture 5-fluorouracil
+      toxicity mechanisms including cell-cycle, p53, mitochondrial ATP
+      synthesis, and apoptosis responses.
+    evidence:
+    - reference: PMID:34151400
+      reference_title: &#34;New insights into the mechanisms underlying 5-fluorouracil-induced intestinal toxicity based on transcriptomic and metabolomic responses in human intestinal organoids.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        In this study, well-established 3D organoid models of human colon and
+        small intestine (SI) were used to characterize 5-FU transcriptomic and
+        metabolomic responses.
+      explanation: &gt;-
+        Establishes the human intestinal organoid platform and the
+        chemotherapy-specific exposure being modeled.
+    - reference: PMID:34151400
+      reference_title: &#34;New insights into the mechanisms underlying 5-fluorouracil-induced intestinal toxicity based on transcriptomic and metabolomic responses in human intestinal organoids.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Based on analysis of the differentially expressed genes, the most
+        prominent molecular pathways affected by 5-FU included cell cycle, p53
+        signalling, mitochondrial ATP synthesis and apoptosis.
+      explanation: &gt;-
+        Supports the crypt/progenitor injury and apoptosis mechanism captured
+        by the organoid model.
+  evidence:
+  - reference: PMID:34151400
+    reference_title: &#34;New insights into the mechanisms underlying 5-fluorouracil-induced intestinal toxicity based on transcriptomic and metabolomic responses in human intestinal organoids.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      These results provide new insights into 5-FU toxicity mechanisms and
+      underline the relevance of human organoid models in the safety assessment
+      in drug development.
+    explanation: &gt;-
+      Supports this human organoid system as a chemotherapy-specific non-animal
+      model for intestinal toxicity mechanisms.
+- name: Primary human intestinal stem-cell 2D diarrhea-prediction model
+  description: &gt;-
+    Primary human intestinal stem cell-derived RepliGut Planar cultures in a
+    two-dimensional Transwell format used for high-throughput drug-induced
+    diarrhea risk prediction by measuring proliferation, cell abundance, and
+    transepithelial electrical resistance.
+  experimental_model_type: PRIMARY_CELL_CULTURE
+  namo_type: namo:TwoDCellCulture
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: intestine
+    term:
+      id: UBERON:0000160
+      label: intestine
+  cell_types:
+  - preferred_term: intestinal epithelial cell
+    term:
+      id: CL:0002563
+      label: intestinal epithelial cell
+  conditions:
+  - drug-induced diarrhea risk
+  - epithelial proliferation
+  - barrier formation
+  cell_source: Primary intestinal stem/progenitor cells derived from human intestinal crypts
+  culture_system: Two-dimensional Transwell RepliGut Planar platform
+  publication: PMID:40086646
+  modeled_mechanisms:
+  - target: Crypt stem/progenitor apoptosis and epithelial injury
+    description: &gt;-
+      Measures proliferation and cell abundance in primary proliferative
+      intestinal cells exposed to marketed drugs.
+  - target: Paracellular barrier leak and mucosal break formation
+    description: &gt;-
+      Uses transepithelial electrical resistance as a barrier-formation readout
+      relevant to epithelial barrier disruption.
+  findings:
+  - statement: &gt;-
+      Primary human intestinal stem-cell derived monolayers can predict clinical
+      diarrhea risk from marketed drugs using proliferation, cell abundance, and
+      barrier readouts.
+    evidence:
+    - reference: PMID:40086646
+      reference_title: &#34;High-throughput assay for predicting diarrhea risk using a 2D human intestinal stem cell-derived model.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Here, we describe the development of a diarrhea prediction assay
+        utilizing RepliGut® Planar, a primary intestinal stem cell-derived
+        platform.
+      explanation: &gt;-
+        Establishes the specific primary human intestinal stem-cell platform
+        used for diarrhea-risk prediction.
+    - reference: PMID:40086646
+      reference_title: &#34;High-throughput assay for predicting diarrhea risk using a 2D human intestinal stem cell-derived model.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        This model accurately predicted diarrhea potential, achieving an
+        accuracy of 91 % for proliferation, 90 % for abundance, and 88 % for
+        barrier formation.
+      explanation: &gt;-
+        Supports the model as a human in vitro non-animal model for
+        drug-induced diarrhea risk and the relevant epithelial readouts.
+  evidence:
+  - reference: PMID:40086646
+    reference_title: &#34;High-throughput assay for predicting diarrhea risk using a 2D human intestinal stem cell-derived model.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Chemotherapeutic agents, known to cause clinical diarrhea, frequently
+      target mitotic cells.
+    explanation: &gt;-
+      Links the proliferative crypt-derived assay rationale to chemotherapy
+      agents that cause clinical diarrhea.
+- name: Anaerobic human intestine-on-chip host-microbiome coculture
+  description: &gt;-
+    Microfluidic human intestine-on-chip system that sustains complex aerobic
+    and anaerobic human gut microbiota in direct contact with living intestinal
+    epithelium and mucus under a physiologic oxygen gradient.
+  experimental_model_type: ORGAN_ON_CHIP
+  namo_type: namo:OrganOnChip
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: intestine
+    term:
+      id: UBERON:0000160
+      label: intestine
+  cell_types:
+  - preferred_term: intestinal epithelial cell
+    term:
+      id: CL:0002563
+      label: intestinal epithelial cell
+  conditions:
+  - host-microbiome interaction
+  - microbial community diversity
+  - intestinal barrier function
+  cell_source: Human intestinal epithelial cells cocultured with complex human gut microbiota
+  culture_system: Microfluidic intestine-on-chip with transluminal hypoxia gradient
+  publication: PMID:31086325
+  modeled_mechanisms:
+  - target: Chemotherapy-associated gut microbial dysbiosis
+    description: &gt;-
+      Provides a human host-microbiome coculture platform for modeling microbial
+      community structure and dysbiosis-related perturbations.
+  - target: Dysbiosis-associated inflammatory amplification
+    description: &gt;-
+      Represents a tractable host-microbiome interface for testing how microbial
+      communities modulate epithelial barrier and host-response readouts.
+  - target: Paracellular barrier leak and mucosal break formation
+    description: &gt;-
+      Measures epithelial barrier function under host-microbiome coculture
+      conditions.
+  findings:
+  - statement: &gt;-
+      Anaerobic intestine-on-chip culture sustains complex human gut microbiota
+      with epithelial barrier readouts.
+    evidence:
+    - reference: PMID:31086325
+      reference_title: &#34;A complex human gut microbiome cultured in an anaerobic intestine-on-a-chip.&#34;
+      supports: PARTIAL
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Here, we show the extended coculture of living human intestinal
+        epithelium with stable communities of aerobic and anaerobic human gut
+        microbiota, using a microfluidic intestine-on-a-chip that permits the
+        control and real-time assessment of physiologically relevant oxygen
+        gradients.
+      explanation: &gt;-
+        Supports the host-microbiome coculture platform, although it is a
+        general microbiome non-animal model rather than a
+        chemotherapy-specific model.
+  evidence:
+  - reference: PMID:31086325
+    reference_title: &#34;A complex human gut microbiome cultured in an anaerobic intestine-on-a-chip.&#34;
+    supports: PARTIAL
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The intestine-on-a-chip may serve as a discovery tool for the development
+      of microbiome-related therapeutics, probiotics and nutraceuticals.
+    explanation: &gt;-
+      Supports this chip as a general non-animal model for the
+      microbiome-related process pattern now represented in the CID pathograph.
+- name: Microbiota-product epithelial apoptosis IEC-6 and organoid model
+  description: &gt;-
+    In vitro epithelial cell and intestinal organoid assays used with
+    chemotherapy-induced diarrhea models to test microbiota-derived effects on
+    epithelial integrity, mitochondrial function, organoid development, and
+    apoptotic signaling.
+  experimental_model_type: OTHER
+  tissue_term:
+    preferred_term: intestine
+    term:
+      id: UBERON:0000160
+      label: intestine
+  cell_types:
+  - preferred_term: intestinal epithelial cell
+    term:
+      id: CL:0002563
+      label: intestinal epithelial cell
+  conditions:
+  - microbiota-host interaction
+  - intestinal epithelial apoptosis
+  - chemotherapy-induced diarrhea
+  cell_source: IEC-6 epithelial cells and intestinal organoids
+  culture_system: Epithelial cell and intestinal organoid assays testing microbiota-derived Bacteroides fragilis components
+  publication: PMID:40624638
+  modeled_mechanisms:
+  - target: Crypt stem/progenitor apoptosis and epithelial injury
+    description: &gt;-
+      Assays epithelial apoptosis and organoid development after microbiota
+      product exposure in a chemotherapy-induced diarrhea context.
+  - target: Dysbiosis-associated inflammatory amplification
+    description: &gt;-
+      Provides an in vitro microbiota-host interaction assay for testing how
+      dysbiosis-linked microbial products alter epithelial injury responses.
+  findings:
+  - statement: &gt;-
+      IEC-6 and intestinal organoid experiments can test microbiota-host
+      interactions affecting epithelial injury in chemotherapy-induced diarrhea.
+    evidence:
+    - reference: PMID:40624638
+      reference_title: &#34;Mitigation of chemotherapy-induced gut dysbiosis and diarrhea by supplementation with heat-killed Bacteroides fragilis.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Mechanistic studies were conducted in murine models, complemented by
+        IEC-6 cells and intestinal organoid experiments to elucidate
+        microbiota-host interactions.
+      explanation: &gt;-
+        Establishes the in vitro epithelial and organoid systems used to probe
+        microbiota-host interactions in chemotherapy-induced diarrhea.
+    - reference: PMID:40624638
+      reference_title: &#34;Mitigation of chemotherapy-induced gut dysbiosis and diarrhea by supplementation with heat-killed Bacteroides fragilis.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        hk-B. f preserved epithelial integrity, mitochondrial function, and
+        intestinal organoid development (higher budding count and larger
+        organoid surface area).
+      explanation: &gt;-
+        Supports organoid development and epithelial integrity as assayable
+        readouts for microbiota-mediated epithelial protection in CID models.
+  evidence:
+  - reference: PMID:40624638
+    reference_title: &#34;Mitigation of chemotherapy-induced gut dysbiosis and diarrhea by supplementation with heat-killed Bacteroides fragilis.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Caspase-3 inhibition or BCL2 silencing abrogated hk-B. f&#39;s anti-apoptotic
+      effects in IEC-6 cells.
+    explanation: &gt;-
+      Supports the IEC-6 component as a tractable epithelial apoptosis model for
+      microbiota-linked injury mechanisms.
 animal_models:
 - species: Mus musculus
   genotype: Wild-type C57BL/6
@@ -5197,6 +7776,34 @@ animal_models:
       Supports a microbiome-dependent irinotecan toxicity model in which
       intestinal injury can be mitigated without compromising antitumor
       efficacy.
+- species: Mus musculus
+  genotype: BALB/c and C57BL/6 wild-type mice treated with 5-fluorouracil or CPT-11
+  description: &gt;-
+    5-FU- and CPT-11-induced mouse chemotherapy-induced diarrhea models used to
+    test gut microbiota alterations and heat-killed Bacteroides fragilis
+    supplementation effects on diarrhea severity, body weight, intestinal
+    permeability, epithelial integrity, and apoptosis.
+  evidence:
+  - reference: PMID:40624638
+    reference_title: &#34;Mitigation of chemotherapy-induced gut dysbiosis and diarrhea by supplementation with heat-killed Bacteroides fragilis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      we utilized 6-8-week-old male BALB/c and C57BL/6 mice in established
+      5-FU- or CPT-11-induced CID models.
+    explanation: &gt;-
+      Establishes the mouse 5-FU/CPT-11 chemotherapy-induced diarrhea models
+      used to study microbiome-mediated mechanisms.
+  - reference: PMID:40624638
+    reference_title: &#34;Mitigation of chemotherapy-induced gut dysbiosis and diarrhea by supplementation with heat-killed Bacteroides fragilis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      in 5-FU/CPT-11-induced CID murine models, oral gavage of heat-killed B. f
+      (hk-B. f) outperformed live bacteria in diarrhea alleviation.
+    explanation: &gt;-
+      Supports a microbiome-intervention animal model for chemotherapy-induced
+      diarrhea severity.
 references:
 - reference: DOI:10.1007/s10735-025-10367-w
   title: &#39;Restore intestinal steady-state: new advances in the clinical management of chemotherapy-associated diarrhea and constipation&#39;
@@ -5352,6 +7959,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Diarrhea.</div>
                 
+                
+                
             </div>
             
             
@@ -5418,6 +8027,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Diarrhea.</div>
+                
+                
                 
             </div>
             
@@ -5486,6 +8097,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Diarrhea.</div>
                 
+                
+                
             </div>
             
             
@@ -5552,6 +8165,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Diarrhea.</div>
+                
+                
                 
             </div>
             
@@ -5620,6 +8235,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Diarrhea.</div>
                 
+                
+                
             </div>
             
             
@@ -5686,6 +8303,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chemotherapy Induced Diarrhea.</div>
+                
+                
                 
             </div>
             
@@ -6634,7 +9253,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chemotherapy-Induced Diarrhea", "mondoId": "MONDO:0001673", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chemotherapy-Induced_Diarrhea", "yamlRevision": "1b2a48be8b62"};
+        const OS_CONFIG = {"diseaseName": "Chemotherapy-Induced Diarrhea", "mondoId": "MONDO:0001673", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chemotherapy-Induced_Diarrhea", "yamlRevision": "f83313a276a2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

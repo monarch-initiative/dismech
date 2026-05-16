@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2919,6 +3110,8 @@
                 
                 <div class="evidence-explanation">The literature indicates that RA can be subdivided into seropositive and seronegative types based on the presence of RF and/or ACPAs in the sera of the patients, which supports the given statement.</div>
                 
+                
+                
             </div>
             
             
@@ -2975,6 +3168,8 @@
                 
                 <div class="evidence-explanation">This study discusses SN-RA as a form characterized by the absence of anti-citrullinated peptide antibody (ACPA) and rheumatoid factor (RF), supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2993,6 +3188,8 @@
                 
                 <div class="evidence-explanation">This study acknowledges the existence of seronegative RA defined by the absence of RF.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3010,6 +3207,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the seronegative classification based on the absence of RF and anti-CCP antibodies but points out the complexity and variability within seronegative RA.</div>
+                
+                
                 
             </div>
             
@@ -3069,6 +3268,8 @@
                 
                 <div class="evidence-explanation">The literature specifies that JIA is defined as arthritis lasting for more than 6 weeks with onset before 16 years, aligning with the statement. However, JIA is not a subtype of Rheumatoid Arthritis but rather a distinct condition.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3087,6 +3288,8 @@
                 
                 <div class="evidence-explanation">The study focuses on Juvenile Rheumatoid Arthritis (JRA), a term which is sometimes used synonymously with Juvenile Idiopathic Arthritis (JIA) but does not explicitly define it as a subtype of Rheumatoid Arthritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3104,6 +3307,8 @@
                 
                 
                 <div class="evidence-explanation">This literature mentions that RF-positive juvenile idiopathic arthritis is a type of JIA sharing features with adult RA. It confirms that JIA has clinical overlap with RA but does not support that JIA is a subtype of RA.</div>
+                
+                
                 
             </div>
             
@@ -3239,6 +3444,8 @@
                 
                 <div class="evidence-explanation">This reference supports the statement that Th17 cells are involved in the autoimmune response in RA, particularly affecting the joints.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3257,6 +3464,8 @@
                 
                 <div class="evidence-explanation">The cited literature indicates that Th17 cells play a significant role in the autoimmune response and inflammation characteristic of RA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3274,6 +3483,8 @@
                 
                 
                 <div class="evidence-explanation">This reference corroborates that RA is an autoimmune disease affecting the synovium, aligning with the statement.</div>
+                
+                
                 
             </div>
             
@@ -3358,6 +3569,8 @@
                 
                 <div class="evidence-explanation">The abstract explicitly states that RA leads to progressive joint damage and inflammation, which aligns with the statement that overproduction of inflammatory cytokines leads to joint inflammation and damage.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3376,6 +3589,8 @@
                 
                 <div class="evidence-explanation">IL-6 is mentioned as a key factor in the pathogenesis of RA, supporting the notion that overproduction of inflammatory cytokines like IL-6 contributes to RA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3393,6 +3608,8 @@
                 
                 
                 <div class="evidence-explanation">The abstract clearly states that pro-inflammatory mediators direct the development of RA, which supports the statement about the role of cytokines like TNF-α, IL-1, and IL-6 in joint inflammation and damage.</div>
+                
+                
                 
             </div>
             
@@ -3513,6 +3730,8 @@
                 
                 <div class="evidence-explanation">The literature describes that fibroblast-like synoviocytes and macrophages play a key role in the inflammation and invasion of cartilage and bone in RA, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3531,6 +3750,8 @@
                 
                 <div class="evidence-explanation">This source confirms the role of synovial fibroblasts and macrophages in the inflammatory process associated with synovial hyperplasia in RA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3548,6 +3769,8 @@
                 
                 
                 <div class="evidence-explanation">The source supports the role of fibroblast-like synoviocytes in the hyperplasia of the synovium and formation of pannus tissue in RA.</div>
+                
+                
                 
             </div>
             
@@ -3613,6 +3836,8 @@
                 <div class="evidence-snippet">"Structural damage of cartilage and bone tissue is a hallmark of rheumatoid arthritis (RA). The resulting joint destruction constitutes one of the major disease consequences for patients... These factors result in an inflammatory milieu in the affected joints which leads to an increased..."</div>
                 
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3629,6 +3854,8 @@
                 <div class="evidence-snippet">"Chronic inflammatory arthritis not only leads to inflammatory bone loss but it also involves local erosion of articular bone. This osteo-destructive feature of chronic inflammatory arthritis is a major cause of disability in patients with rheumatoid arthritis."</div>
                 
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3643,6 +3870,8 @@
                 </div>
                 
                 <div class="evidence-snippet">"Rheumatoid arthritis (RA) is a chronic inflammatory disease characterised by joint swelling, joint tenderness and destruction of synovial joints, leading to severe disability."</div>
+                
+                
                 
                 
             </div>
@@ -3773,6 +4002,8 @@
                 
                 
                 <div class="evidence-explanation">This review demonstrates that JAK-STAT signaling is central to IL-6 mediated pathogenesis in rheumatoid arthritis, and that JAK inhibitors are clinically effective in treating RA by abrogating this signaling pathway.</div>
+                
+                
                 
             </div>
             
@@ -4337,6 +4568,8 @@
                 
                 <div class="evidence-explanation">Systematic review reports 33-60% prevalence of anemia in RA, establishing it as a frequent comorbidity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4354,6 +4587,8 @@
                 
                 
                 <div class="evidence-explanation">Review establishes rheumatoid anemia as the prototypical anemia of chronic disease, mediated by IL-6 and hepcidin.</div>
+                
+                
                 
             </div>
             
@@ -4420,6 +4655,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that pericarditis can be present in systemic inflammatory rheumatic diseases, including rheumatoid arthritis, indicating it can occur as a cardiovascular manifestation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4437,6 +4674,8 @@
                 
                 
                 <div class="evidence-explanation">This reference directly states that pericardial effusion, which is indicative of pericarditis, is common in rheumatoid arthritis patients, supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -4493,6 +4732,8 @@
                 
                 
                 <div class="evidence-explanation">Small vessel vasculitis is recognized as a cause of neurological and other extra-articular manifestations in RA.</div>
+                
+                
                 
             </div>
             
@@ -4615,6 +4856,8 @@
                 
                 <div class="evidence-explanation">This reference indicates that scleritis is part of the spectrum of eye involvement in rheumatoid arthritis, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4633,6 +4876,8 @@
                 
                 <div class="evidence-explanation">This reference supports that scleritis is associated with rheumatoid arthritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4650,6 +4895,8 @@
                 
                 
                 <div class="evidence-explanation">This reference confirms that rheumatoid arthritis is a common systemic association with scleritis.</div>
+                
+                
                 
             </div>
             
@@ -4774,6 +5021,8 @@
                 
                 <div class="evidence-explanation">Pleural involvement is explicitly listed among the respiratory manifestations of RA.</div>
                 
+                
+                
             </div>
             
             
@@ -4846,6 +5095,8 @@
                 
                 <div class="evidence-explanation">This supports the association between polyarthritis and joint deformity, but it is specific to Juvenile Idiopathic Arthritis (JIA) and does not fully address symmetric polyarthritis in RA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4864,6 +5115,8 @@
                 
                 <div class="evidence-explanation">This literature clearly supports that RA often presents as symmetric arthritis, aligning with the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4881,6 +5134,8 @@
                 
                 
                 <div class="evidence-explanation">This reference reinforces that symmetric polyarthritis is characteristic of RA, supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -4938,6 +5193,8 @@
                 
                 <div class="evidence-explanation">The literature states that morning stiffness is a significant symptom in rheumatoid arthritis (RA) and is commonly associated with functional disability and pain. This supports the statement that morning stiffness is a common phenotype in RA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4956,6 +5213,8 @@
                 
                 <div class="evidence-explanation">This excerpt confirms that morning stiffness is a frequent and notable symptom in rheumatoid arthritis, aligning with the frequency and naming attributes in the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4971,6 +5230,8 @@
                 
                 
                 <div class="evidence-explanation">The reference does not provide relevant information regarding morning stiffness as a phenotype or its commonality in rheumatoid arthritis.</div>
+                
+                
                 
             </div>
             
@@ -5112,6 +5373,8 @@
                 
                 <div class="evidence-explanation">Systematic review demonstrates high prevalence of cervical spine involvement in RA, with atlantoaxial subluxation being the most common form.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5129,6 +5392,8 @@
                 
                 
                 <div class="evidence-explanation">Atlantoaxial instability is listed as a screening target in RA management, confirming its clinical significance.</div>
+                
+                
                 
             </div>
             
@@ -5213,6 +5478,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms that RA patients face osteoporosis from both systemic inflammation and corticosteroid therapy.</div>
+                
+                
                 
             </div>
             
@@ -5305,6 +5572,8 @@
                 
                 <div class="evidence-explanation">Vasculitic neuropathies are explicitly noted in RA as secondary vasculitis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5322,6 +5591,8 @@
                 
                 
                 <div class="evidence-explanation">Peripheral nervous system involvement in RA is attributed to vasculitis and structural damage.</div>
+                
+                
                 
             </div>
             
@@ -5386,6 +5657,8 @@
                 
                 <div class="evidence-explanation">The literature supports that fatigue is a common symptom experienced by people with rheumatoid arthritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5404,6 +5677,8 @@
                 
                 <div class="evidence-explanation">This supports the notion that fatigue is a common systemic phenotype in rheumatoid arthritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5421,6 +5696,8 @@
                 
                 
                 <div class="evidence-explanation">This study highlights the high burden of fatigue among patients with RA, supporting fatigue as a common systemic phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5478,6 +5755,8 @@
                 
                 <div class="evidence-explanation">The abstract mentions that extra-articular manifestations are not uncommon in RA, suggesting that these phenotypes occur occasionally.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5496,6 +5775,8 @@
                 
                 <div class="evidence-explanation">Rheumatoid nodules are identified as the most common extra-articular manifestation, reinforcing their occurrence in RA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5513,6 +5794,8 @@
                 
                 
                 <div class="evidence-explanation">The abstract indicates that rheumatoid nodules are among the most frequent extra-articular manifestations, supporting their occasional presence as noted in the given statement.</div>
+                
+                
                 
             </div>
             
@@ -5563,6 +5846,8 @@
                 
                 <div class="evidence-explanation">The reference confirms that extra-articular manifestations in RA are common, but does not specifically address the frequency of interstitial lung disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5581,6 +5866,8 @@
                 
                 <div class="evidence-explanation">The reference confirms RA-ILD as a significant extra-articular manifestation, but it does not detail its specific frequency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5598,6 +5885,8 @@
                 
                 
                 <div class="evidence-explanation">The reference indicates that interstitial lung disease is a common pulmonary manifestation of RA, but does not quantify how often it occurs.</div>
+                
+                
                 
             </div>
             
@@ -5648,6 +5937,8 @@
                 
                 <div class="evidence-explanation">The reference describes the occurrence of boutonniere deformity in the context of rheumatoid arthritis, supporting the statement that it is a frequent musculoskeletal issue associated with this condition.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5666,6 +5957,8 @@
                 
                 <div class="evidence-explanation">The study indicates that bone erosions, including those leading to deformities like boutonniere, are common in rheumatoid arthritis patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5683,6 +5976,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses the prevalence of hand deformities in rheumatoid arthritis, indicating that such deformities, including boutonniere, significantly impact the working space of the hand.</div>
+                
+                
                 
             </div>
             
@@ -5733,6 +6028,8 @@
                 
                 <div class="evidence-explanation">The reference discusses the evaluation and treatment of swan-neck deformity in the context of rheumatoid arthritis, supporting the association between rheumatoid arthritis and swan-neck deformity.</div>
                 
+                
+                
             </div>
             
             
@@ -5782,6 +6079,8 @@
                 
                 <div class="evidence-explanation">The statement claims that Sicca Syndrome (secondary Sjogren&#39;s syndrome) is an occasional extra-articular manifestation of Rheumatoid Arthritis. However, the literature indicates that it occurs in almost 10% of RA patients, suggesting it is not merely occasional but more common.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5799,6 +6098,8 @@
                 
                 
                 <div class="evidence-explanation">The study found that secondary Sjogren&#39;s syndrome (sSS) has a prevalence of 5.9% among RA patients, and 27.7% of RA patients reported sicca symptoms. This indicates that sSS is not just an occasional manifestation but occurs with a higher frequency.</div>
+                
+                
                 
             </div>
             
@@ -5849,6 +6150,8 @@
                 
                 <div class="evidence-explanation">The literature confirms that Felty&#39;s Syndrome is a hematologic condition associated with rheumatoid arthritis, occurring occasionally (approximately 1% of patients with RA).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5867,6 +6170,8 @@
                 
                 <div class="evidence-explanation">The literature supports that Felty&#39;s Syndrome is a hematologic manifestation of rheumatoid arthritis, occurring occasionally.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5884,6 +6189,8 @@
                 
                 
                 <div class="evidence-explanation">The literature supports that Felty&#39;s Syndrome is associated with rheumatoid arthritis, even in the absence of splenomegaly, indicating it as a hematologic condition.</div>
+                
+                
                 
             </div>
             
@@ -5941,6 +6248,8 @@
                 
                 <div class="evidence-explanation">Study demonstrates tenosynovitis is independently associated with RA development (OR 7.5), confirming it as a key early feature.</div>
                 
+                
+                
             </div>
             
             
@@ -5997,6 +6306,8 @@
                 
                 <div class="evidence-explanation">Mendelian randomization confirms causal relationship between RA and increased carpal tunnel syndrome risk.</div>
                 
+                
+                
             </div>
             
             
@@ -6052,6 +6363,8 @@
                 
                 
                 <div class="evidence-explanation">Review quantifies the excess cardiovascular risk in RA as 2-fold for MI and 50% increased CV mortality.</div>
+                
+                
                 
             </div>
             
@@ -6136,6 +6449,8 @@
                 
                 <div class="evidence-explanation">The study shows an increased frequency of HLA-DRB1*04 and HLA-DRB1*04:05 in the RA group, indicating an association with increased risk.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6154,6 +6469,8 @@
                 
                 <div class="evidence-explanation">The review discusses the significant role of HLA-DRB1 in RA susceptibility.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6171,6 +6488,8 @@
                 
                 
                 <div class="evidence-explanation">HLA-DR4, a subtype of HLA-DRB1, is associated with an increased risk of developing RA.</div>
+                
+                
                 
             </div>
             
@@ -6215,6 +6534,8 @@
                 
                 <div class="evidence-explanation">The study found significant positive associations between PTPN22 genetic variations and increased risk of rheumatoid arthritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6233,6 +6554,8 @@
                 
                 <div class="evidence-explanation">The variant R620W of PTPN22 is associated with a significantly increased risk of rheumatoid arthritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6250,6 +6573,8 @@
                 
                 
                 <div class="evidence-explanation">The PTPN22 polymorphism has been identified as a genetic risk factor for rheumatoid arthritis.</div>
+                
+                
                 
             </div>
             
@@ -6292,6 +6617,8 @@
                 
                 <div class="evidence-explanation">The study found a significant positive association between the STAT4 gene rs7574865 SNP and the risk of rheumatoid arthritis (RA).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6309,6 +6636,8 @@
                 
                 
                 <div class="evidence-explanation">The literature supports an association between the STAT4 gene and increased risk of rheumatoid arthritis.</div>
+                
+                
                 
             </div>
             
@@ -6351,6 +6680,8 @@
                 
                 <div class="evidence-explanation">The meta-analysis provides evidence that CTLA-4 gene polymorphisms are associated with an increased risk of rheumatoid arthritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6369,6 +6700,8 @@
                 
                 <div class="evidence-explanation">The study found significantly higher expression of CTLA-4 in RA patients, supporting the association of CTLA-4 with increased RA risk.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6386,6 +6719,8 @@
                 
                 
                 <div class="evidence-explanation">The article discusses CTLA4 as a candidate gene for susceptibility to autoimmune diseases, including rheumatoid arthritis.</div>
+                
+                
                 
             </div>
             
@@ -6427,6 +6762,8 @@
                 
                 
                 <div class="evidence-explanation">This review identifies PADI4 as a key non-HLA genetic susceptibility factor for RA, demonstrating the link between citrullination of proteins and generation of autoantigens targeted by anti-citrullinated protein antibodies.</div>
+                
+                
                 
             </div>
             
@@ -6749,6 +7086,8 @@
                 
                 <div class="evidence-explanation">The provided literature indicates that NSAIDs are used in the treatment of rheumatoid arthritis (RA) and can help alleviate pain, despite some potential side effects, thus supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6767,6 +7106,8 @@
                 
                 <div class="evidence-explanation">This reference mentions the effectiveness of NSAIDs in pain management, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6784,6 +7125,8 @@
                 
                 
                 <div class="evidence-explanation">This indicates that NSAIDs are effective in reducing pain and inflammation in conditions similar to RA, thus supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -6862,6 +7205,8 @@
                 
                 <div class="evidence-explanation">This statement directly supports the idea that DMARDs slow disease progression and prevent joint damage.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6880,6 +7225,8 @@
                 
                 <div class="evidence-explanation">This excerpt indicates methotrexate&#39;s mechanisms in treating RA, affirming its role in slowing disease progression and preventing joint damage.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6897,6 +7244,8 @@
                 
                 
                 <div class="evidence-explanation">This confirms methotrexate&#39;s effectiveness as a primary treatment in managing RA, thus supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -6977,6 +7326,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that biologics used in the treatment of RA target specific components of the immune system, including cytokines like TNF-α.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6995,6 +7346,8 @@
                 
                 <div class="evidence-explanation">The reference highlights that anticytokine therapies, including TNF inhibitors, are used in RA treatment, thus supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7012,6 +7365,8 @@
                 
                 
                 <div class="evidence-explanation">The reference supports that biologics used for RA treatment include TNF-α inhibitors and IL-6 inhibitors, which target specific components of the immune system.</div>
+                
+                
                 
             </div>
             
@@ -7090,6 +7445,8 @@
                 
                 <div class="evidence-explanation">The literature supports the use of glucocorticoids for the treatment of rheumatoid arthritis, highlighting their efficacy. However, it does not specify that they are used for short-term control of flares or as bridge therapy, thus only partially supporting the precise conditions mentioned in the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7108,6 +7465,8 @@
                 
                 <div class="evidence-explanation">This reference mentions the management and use of various therapies for rheumatoid arthritis, but it does not explicitly discuss the short-term use or glucocorticoids as bridge therapy, providing only partial support.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7125,6 +7484,8 @@
                 
                 
                 <div class="evidence-explanation">This literature confirms the use of corticosteroids (which include glucocorticoids) in treating RA but does not specify their role as short-term or bridge therapy, thereby partially supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -7201,6 +7562,8 @@
                 
                 <div class="evidence-explanation">The literature supports the effectiveness of physiotherapy in managing RA, including maintaining joint mobility and reducing disabilities.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7219,6 +7582,8 @@
                 
                 <div class="evidence-explanation">The results indicate that exercise programmes included in physical therapy can be effective in maintaining joint function and strengthening muscles in RA patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7236,6 +7601,8 @@
                 
                 
                 <div class="evidence-explanation">Dynamic exercise therapy, a component of physical therapy, has been shown to improve muscle strength and maintain physical capacity in RA patients.</div>
+                
+                
                 
             </div>
             
@@ -7302,6 +7669,8 @@
                 
                 <div class="evidence-explanation">The literature indicates that smoking increases the risk of developing seropositive RA and may lead to more severe disease outcomes, which aligns with the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7320,6 +7689,8 @@
                 
                 <div class="evidence-explanation">This reference indicates smoking as a significant predictor of severe extra-articular manifestations in RA, supporting the statement about severity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7337,6 +7708,8 @@
                 
                 
                 <div class="evidence-explanation">Smoking is listed as a risk factor for RA and its associated complications, such as interstitial lung disease.</div>
+                
+                
                 
             </div>
             
@@ -7391,6 +7764,8 @@
                 
                 <div class="evidence-explanation">This reference supports the role of infections, specifically microbial factors, as potential environmental triggers for the onset of rheumatoid arthritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7409,6 +7784,8 @@
                 
                 <div class="evidence-explanation">This reference provides multiple lines of evidence suggesting that infections, specifically from various microbial taxa, are potential contributors to the onset of rheumatoid arthritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7426,6 +7803,8 @@
                 
                 
                 <div class="evidence-explanation">This reference explicitly includes infections among the environmental factors that may contribute to the onset of RA.</div>
+                
+                
                 
             </div>
             
@@ -7457,6 +7836,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -7480,6 +7860,8 @@
                 
                 <div class="evidence-explanation">The article indicates that RF is a significant element in the pathogenesis of rheumatoid arthritis, supporting its presence as a positive biochemical marker in seropositive RA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7497,6 +7879,8 @@
                 
                 
                 <div class="evidence-explanation">The presence of RF is a defining characteristic for distinguishing seropositive RA from seronegative RA.</div>
+                
+                
                 
             </div>
             
@@ -7516,6 +7900,8 @@
                 
                 <div class="evidence-explanation">RF&#39;s sensitivity and specificity in diagnosing RA support the statement about its presence being positive in seropositive RA.</div>
                 
+                
+                
             </div>
             
             
@@ -7534,6 +7920,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
                     
                 </div>
+                
                 
                 
     
@@ -7559,6 +7946,8 @@
                 
                 <div class="evidence-explanation">This study indicates that anti-CCP antibodies are present in patients with RA and correlate with worse joint involvement, supporting the presence of anti-CCP antibodies in seropositive RA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7576,6 +7965,8 @@
                 
                 
                 <div class="evidence-explanation">This study defines seropositive RA as having positive rheumatoid factor and/or anti-citrullinated protein antibodies (ACPA), thus supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -7595,6 +7986,8 @@
                 
                 <div class="evidence-explanation">While this study confirms that anti-CCP antibodies can be present in some PsA patients, it does not primarily focus on RA, thus providing partial support for the statement.</div>
                 
+                
+                
             </div>
             
             
@@ -7613,6 +8006,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
                     
                 </div>
+                
                 
                 
     
@@ -7638,6 +8032,8 @@
                 
                 <div class="evidence-explanation">The study provides evidence that ESR levels are elevated in patients with rheumatoid arthritis, particularly before heart failure onset.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7655,6 +8051,8 @@
                 
                 
                 <div class="evidence-explanation">The study highlights that ESR is significantly elevated in patients with rheumatoid arthritis compared to the control group.</div>
+                
+                
                 
             </div>
             
@@ -7674,6 +8072,8 @@
                 
                 <div class="evidence-explanation">The study indicates that ESR, as a marker of disease activity, is elevated in patients with rheumatoid arthritis.</div>
                 
+                
+                
             </div>
             
             
@@ -7692,6 +8092,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
                     
                 </div>
+                
                 
                 
     
@@ -7717,6 +8118,8 @@
                 
                 <div class="evidence-explanation">The reference denotes CRP as an inflammatory marker in rheumatoid arthritis, indicating elevated levels.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7735,6 +8138,8 @@
                 
                 <div class="evidence-explanation">The reference confirms that CRP levels are significant indicators of disease activity in RA, suggesting they are elevated in such conditions.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7752,6 +8157,8 @@
                 
                 
                 <div class="evidence-explanation">The study found a significant difference in CRP levels between RA patients and healthy controls, supporting the statement that CRP is elevated in RA.</div>
+                
+                
                 
             </div>
             

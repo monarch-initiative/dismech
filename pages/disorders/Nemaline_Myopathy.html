@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2799,6 +2990,8 @@
                 
                 <div class="evidence-explanation">Supports early-onset weakness/hypotonia as core clinical defining characteristics.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2819,6 +3012,8 @@
                 
                 <div class="evidence-explanation">Confirms nemaline rods on histology/ultrastructure as the defining diagnostic lesion.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2838,6 +3033,8 @@
                 
                 
                 <div class="evidence-explanation">Supports molecular confirmation via sequencing as part of modern case definition practice.</div>
+                
+                
                 
             </div>
             
@@ -2919,6 +3116,8 @@
                 
                 <div class="evidence-explanation">Confirms that recessive NEB mutations are the most common cause of nemaline myopathy.</div>
                 
+                
+                
             </div>
             
             
@@ -2986,6 +3185,8 @@
                 
                 <div class="evidence-explanation">Supports ACTA1 as a significant genetic cause; ACTA1 mutations can be autosomal dominant.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3005,6 +3206,8 @@
                 
                 
                 <div class="evidence-explanation">Authoritative review confirming de novo, dominant, and recessive inheritance patterns across NM genes.</div>
+                
+                
                 
             </div>
             
@@ -3130,6 +3333,8 @@
                 
                 <div class="evidence-explanation">Case report of severe congenital nemaline myopathy with hallmark features of the subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3150,6 +3355,8 @@
                 
                 <div class="evidence-explanation">Cohort of 10 severe ACTA1-NM families documenting the fatal neonatal course.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3169,6 +3376,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes ACTA1 as the predominant cause of severe congenital NM.</div>
+                
+                
                 
             </div>
             
@@ -3231,6 +3440,8 @@
                 
                 <div class="evidence-explanation">Systematic review of pediatric NM describes the spectrum of presentations including the typical congenital form.</div>
                 
+                
+                
             </div>
             
             
@@ -3291,6 +3502,8 @@
                 
                 
                 <div class="evidence-explanation">Supports childhood-onset presentation as a recognized nemaline myopathy subtype.</div>
+                
+                
                 
             </div>
             
@@ -3353,6 +3566,8 @@
                 
                 <div class="evidence-explanation">Describes sporadic late-onset nemaline myopathy as a distinct entity from inherited forms, amenable to therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3373,6 +3588,8 @@
                 
                 <div class="evidence-explanation">Defines the adult-onset variant criteria and notes association with inflammatory and immunologic components.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3392,6 +3609,8 @@
                 
                 
                 <div class="evidence-explanation">Documents that adult-onset NM can present with isolated respiratory failure as the sole manifestation.</div>
+                
+                
                 
             </div>
             
@@ -3840,6 +4059,8 @@
                 
                 <div class="evidence-explanation">Establishes the role of nebulin in thin filament function and the consequence of its disruption.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3859,6 +4080,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms ACTA1-related NM is an actin-based thin filament disease with impaired muscle function.</div>
+                
+                
                 
             </div>
             
@@ -3984,6 +4207,8 @@
                 
                 <div class="evidence-explanation">Documents the distinct distribution pattern of nemaline rods in inherited vs acquired forms.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4004,6 +4229,8 @@
                 
                 <div class="evidence-explanation">Confirms nemaline rods as a pathognomonic feature identified on muscle biopsy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4023,6 +4250,8 @@
                 
                 
                 <div class="evidence-explanation">Authoritative review establishing rod origin from Z-discs, gene-specific rod morphology, and lack of correlation between rod burden and clinical severity.</div>
+                
+                
                 
             </div>
             
@@ -4119,6 +4348,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that both shortened and elongated thin filaments from NEB variants impair force generation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4138,6 +4369,8 @@
                 
                 
                 <div class="evidence-explanation">Proposes that thin filament length dysregulation in both directions is a key disease mechanism.</div>
+                
+                
                 
             </div>
             
@@ -4239,6 +4472,8 @@
                 
                 <div class="evidence-explanation">Demonstrates reduced contractile tension in patient muscle fibers with pathogenic NEB variants.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4258,6 +4493,8 @@
                 
                 
                 <div class="evidence-explanation">Rescue of contractile capacity in ACTA1-NM model supports baseline sarcomeric tension deficits.</div>
+                
+                
                 
             </div>
             
@@ -4401,6 +4638,8 @@
                 
                 <div class="evidence-explanation">Establishes that KLHL40 deficiency causes NM through disrupted ubiquitin-regulated vesicle trafficking.</div>
                 
+                
+                
             </div>
             
             
@@ -4512,6 +4751,8 @@
                 
                 <div class="evidence-explanation">Identifies perinuclear space enlargement as a novel ultrastructural hallmark of severe ACTA1-NM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4531,6 +4772,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates disruption of nuclear envelope components in ACTA1-NM, linking actin mutations to nuclear biology.</div>
+                
+                
                 
             </div>
             
@@ -4674,6 +4917,8 @@
                 
                 <div class="evidence-explanation">Identifies NRAP as a disease modifier in NEB-related NM with therapeutic targeting potential.</div>
                 
+                
+                
             </div>
             
             
@@ -4732,6 +4977,8 @@
                 
                 <div class="evidence-explanation">Establishes the canonical biopsy finding used to diagnose nemaline myopathy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4751,6 +4998,8 @@
                 
                 
                 <div class="evidence-explanation">Independent adult case confirms the same pathognomonic rod morphology across staining and EM.</div>
+                
+                
                 
             </div>
             
@@ -4798,6 +5047,8 @@
                 
                 <div class="evidence-explanation">Defines the characteristic inherited-NM rod-distribution pattern on muscle histology.</div>
                 
+                
+                
             </div>
             
             
@@ -4843,6 +5094,8 @@
                 
                 
                 <div class="evidence-explanation">Supports diffuse rod distribution as a biopsy feature of sporadic late-onset cases.</div>
+                
+                
                 
             </div>
             
@@ -4890,6 +5143,8 @@
                 
                 <div class="evidence-explanation">Documents the severe ACTA1-NM ultrastructural and architectural biopsy signature.</div>
                 
+                
+                
             </div>
             
             
@@ -4935,6 +5190,8 @@
                 
                 
                 <div class="evidence-explanation">Supports that rods may coexist with additional structural biopsy abnormalities in nemaline myopathy.</div>
+                
+                
                 
             </div>
             
@@ -5049,6 +5306,8 @@
                 
                 <div class="evidence-explanation">Documents feeding difficulties requiring gastrostomy in a neonate with NM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5068,6 +5327,8 @@
                 
                 
                 <div class="evidence-explanation">Quantifies the frequency of gastrostomy tube use in NEB-NM patients.</div>
+                
+                
                 
             </div>
             
@@ -5134,6 +5395,8 @@
                 
                 <div class="evidence-explanation">Identifies a novel facial/bulbar finding in NEB-NM patients associated with dysphagia.</div>
                 
+                
+                
             </div>
             
             
@@ -5189,6 +5452,8 @@
                 
                 
                 <div class="evidence-explanation">Documents high-arched palate as part of nemaline myopathy craniofacial phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5255,6 +5520,8 @@
                 
                 <div class="evidence-explanation">Confirms muscle weakness as a cardinal feature of NEB-based nemaline myopathy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5274,6 +5541,8 @@
                 
                 
                 <div class="evidence-explanation">Documents generalized weakness across the spectrum of NEB-NM in a 33-patient cohort.</div>
+                
+                
                 
             </div>
             
@@ -5331,6 +5600,8 @@
                 
                 <div class="evidence-explanation">Case report demonstrating severe hypotonia as a presenting feature in neonatal NM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5351,6 +5622,8 @@
                 
                 <div class="evidence-explanation">Establishes hypotonia as a defining feature of nemaline myopathy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5370,6 +5643,8 @@
                 
                 
                 <div class="evidence-explanation">Indian cohort confirming generalized hypotonia as a universal presenting feature in childhood-onset NM.</div>
+                
+                
                 
             </div>
             
@@ -5427,6 +5702,8 @@
                 
                 <div class="evidence-explanation">Documents that 55% of NEB-NM patients required ventilatory support.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5447,6 +5724,8 @@
                 
                 <div class="evidence-explanation">Shows progressive respiratory involvement in NEB-NM patients over time.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5466,6 +5745,8 @@
                 
                 
                 <div class="evidence-explanation">Documents that NM can present with isolated respiratory failure from diaphragm weakness, highlighting the importance of considering neuromuscular causes.</div>
+                
+                
                 
             </div>
             
@@ -5523,6 +5804,8 @@
                 
                 <div class="evidence-explanation">Documents association of scoliosis with disease severity in NEB-NM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5542,6 +5825,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates progressive scoliosis with increasing age in NEB-NM.</div>
+                
+                
                 
             </div>
             
@@ -5599,6 +5884,8 @@
                 
                 <div class="evidence-explanation">Documents slowness of movements as a near-universal symptom in NEM6 patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5618,6 +5905,8 @@
                 
                 
                 <div class="evidence-explanation">Links the slowness of movements phenotype to the delayed muscle relaxation kinetics measured in NEM6 patients.</div>
+                
+                
                 
             </div>
             
@@ -5684,6 +5973,8 @@
                 
                 <div class="evidence-explanation">Confirms nemaline rod accumulation as the defining feature across NM subtypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5704,6 +5995,8 @@
                 
                 <div class="evidence-explanation">Classic description of nemaline rod morphology on trichrome stain and electron microscopy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5723,6 +6016,8 @@
                 
                 
                 <div class="evidence-explanation">Recent case confirming characteristic trichrome and ultrastructural appearance of nemaline rods.</div>
+                
+                
                 
             </div>
             
@@ -5809,6 +6104,8 @@
                 
                 <div class="evidence-explanation">Establishes NEB as the most common causative gene in NM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5829,6 +6126,8 @@
                 
                 <div class="evidence-explanation">Confirms NEB variants as causative for NEM2.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5848,6 +6147,8 @@
                 
                 
                 <div class="evidence-explanation">Authoritative 2019 review confirming NEB and ACTA1 as the two most common causative genes.</div>
+                
+                
                 
             </div>
             
@@ -5892,6 +6193,8 @@
                 
                 <div class="evidence-explanation">Establishes ACTA1 as the second most common cause of NM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5912,6 +6215,8 @@
                 
                 <div class="evidence-explanation">Case report of a novel ACTA1 variant causing NM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5931,6 +6236,8 @@
                 
                 
                 <div class="evidence-explanation">Describes ACTA1 function and confirms its role in severe NM with characteristic intranuclear rods and perinuclear space abnormalities.</div>
+                
+                
                 
             </div>
             
@@ -5977,6 +6284,8 @@
                 
                 <div class="evidence-explanation">Establishes KBTBD13-NEM6 as a significant form of NM.</div>
                 
+                
+                
             </div>
             
             
@@ -6019,6 +6328,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms KLHL40 mutations as causative for severe congenital NM.</div>
+                
+                
                 
             </div>
             
@@ -6063,6 +6374,8 @@
                 
                 <div class="evidence-explanation">Directly supports TPM3 as a causative gene for NEM1 nemaline myopathy.</div>
                 
+                
+                
             </div>
             
             
@@ -6105,6 +6418,8 @@
                 
                 
                 <div class="evidence-explanation">Family-based human data support TPM2 as a causative gene in nemaline myopathy.</div>
+                
+                
                 
             </div>
             
@@ -6149,6 +6464,8 @@
                 
                 <div class="evidence-explanation">Cohort natural-history data establish pathogenic TNNT1 variants as causative in Amish nemaline myopathy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6168,6 +6485,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the TNNT1-nemaline myopathy gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6212,6 +6531,8 @@
                 
                 <div class="evidence-explanation">Human sibling data identify CFL2 as a causative gene for congenital nemaline myopathy.</div>
                 
+                
+                
             </div>
             
             
@@ -6254,6 +6575,8 @@
                 
                 
                 <div class="evidence-explanation">Supports biallelic LMOD3 mutations as causative for NEM10.</div>
+                
+                
                 
             </div>
             
@@ -6298,6 +6621,8 @@
                 
                 <div class="evidence-explanation">Whole-exome sequencing and follow-up cohort data support KLHL41 as a causative nemaline myopathy gene.</div>
                 
+                
+                
             </div>
             
             
@@ -6340,6 +6665,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the TNNT3-nemaline myopathy gene-disease relationship as limited with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6443,6 +6770,8 @@
                 
                 <div class="evidence-explanation">Documents that the majority of NEB-NM patients require ventilatory support.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6462,6 +6791,8 @@
                 
                 
                 <div class="evidence-explanation">Supports longitudinal need for respiratory support as disease progresses.</div>
+                
+                
                 
             </div>
             
@@ -6560,6 +6891,8 @@
                 
                 <div class="evidence-explanation">Supports ongoing rehabilitative, mobility-preserving symptomatic care as standard management.</div>
                 
+                
+                
             </div>
             
             
@@ -6650,6 +6983,8 @@
                 
                 <div class="evidence-explanation">Quantifies the need for gastrostomy in NEB-NM patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6669,6 +7004,8 @@
                 
                 
                 <div class="evidence-explanation">Supports gastrostomy as a practical intervention for severe neonatal bulbar dysfunction.</div>
+                
+                
                 
             </div>
             
@@ -6760,6 +7097,8 @@
                 
                 <div class="evidence-explanation">Progressive scoliosis supports need for structured orthopedic surveillance and intervention.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6779,6 +7118,8 @@
                 
                 
                 <div class="evidence-explanation">Supports symptom-directed orthopedic and mobility-preserving management as part of standard care.</div>
+                
+                
                 
             </div>
             
@@ -6857,6 +7198,8 @@
                 
                 
                 <div class="evidence-explanation">Highlights counseling consequences of diagnostic misclassification, supporting formal counseling in NM care pathways.</div>
+                
+                
                 
             </div>
             
@@ -6945,6 +7288,8 @@
                 
                 <div class="evidence-explanation">Directly links troponin activator action to the thin-filament disease mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -6987,6 +7332,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates restoration of force-generation deficits downstream of sarcomeric tension loss.</div>
+                
+                
                 
             </div>
             
@@ -7046,6 +7393,8 @@
                 
                 <div class="evidence-explanation">Demonstrates tirasemtiv efficacy in a mouse model of ACTA1-related NM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7065,6 +7414,8 @@
                 
                 
                 <div class="evidence-explanation">Shows improved respiratory efficiency with troponin activator treatment.</div>
+                
+                
                 
             </div>
             
@@ -7153,6 +7504,8 @@
                 
                 <div class="evidence-explanation">Ex vivo human fiber experiments support direct restoration of reduced sarcomeric tension.</div>
                 
+                
+                
             </div>
             
             
@@ -7203,6 +7556,8 @@
                 
                 
                 <div class="evidence-explanation">Ex vivo human muscle fiber data showing omecamtiv mecarbil increases force production in NEB-NM.</div>
+                
+                
                 
             </div>
             
@@ -7297,6 +7652,8 @@
                 
                 <div class="evidence-explanation">Directly identifies inflammatory myopathy as an important differential diagnosis.</div>
                 
+                
+                
             </div>
             
             
@@ -7369,6 +7726,8 @@
                 
                 <div class="evidence-explanation">Demonstrates direct diagnostic overlap and the need to distinguish NM from metabolic myopathy.</div>
                 
+                
+                
             </div>
             
             
@@ -7439,6 +7798,8 @@
                 
                 
                 <div class="evidence-explanation">Review evidence supports substantial overlap between rod and core congenital myopathy pathology.</div>
+                
+                
                 
             </div>
             
@@ -7532,6 +7893,8 @@
                 
                 <div class="evidence-explanation">Captures age-stratified progression signal relevant for longitudinal NM phenotyping.</div>
                 
+                
+                
             </div>
             
             
@@ -7575,6 +7938,8 @@
                 
                 
                 <div class="evidence-explanation">Supports this publication as a reusable human clinical-genetic cohort dataset for NM-NEB.</div>
+                
+                
                 
             </div>
             
@@ -7656,6 +8021,8 @@
                 
                 <div class="evidence-explanation">Summarizes severe respiratory natural history and survival outcomes in the TNNT1 cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -7699,6 +8066,8 @@
                 
                 
                 <div class="evidence-explanation">Defines a substantial disease-specific longitudinal dataset for TNNT1 nemaline myopathy.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2725,6 +2916,8 @@
                 
                 <div class="evidence-explanation">This linkage study confirmed the autosomal dominant inheritance pattern of SEDC in a 4-generation family.</div>
                 
+                
+                
             </div>
             
             
@@ -2929,6 +3122,8 @@
                 
                 <div class="evidence-explanation">This comprehensive mutation update of over 700 patients documents that glycine substitutions in the Gly-X-Y repeats are the predominant dominant-negative mechanism in type II collagenopathies including SEDC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2949,6 +3144,8 @@
                 
                 <div class="evidence-explanation">In vitro study demonstrating that C-terminal arginine-to-cysteine mutations in collagen II cause ER retention, ER stress, and apoptosis, with a position-dependent gradient of severity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2968,6 +3165,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirming that glycine substitution missense mutations are the most common COL2A1 mutation type and act via dominant-negative effect.</div>
+                
+                
                 
             </div>
             
@@ -3146,6 +3345,8 @@
                 
                 <div class="evidence-explanation">This col2a1 p.Gly1170Ser mouse model directly demonstrates that ER stress-UPR-apoptosis is the chief mechanism of chondrodysplasia caused by COL2A1 mutations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3165,6 +3366,8 @@
                 
                 
                 <div class="evidence-explanation">Review summarizing that transgenic mouse models show ER retention of procollagen leading to ER stress and reduced proliferation in growth plates.</div>
+                
+                
                 
             </div>
             
@@ -3293,6 +3496,8 @@
                 
                 <div class="evidence-explanation">The Longpockets (Lpk) ENU mouse model with Col2a1 Ser1386Pro mutation shows growth plate disorganization and reduced collagen II in the ECM, directly demonstrating the mechanism of growth plate disruption.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3312,6 +3517,8 @@
                 
                 
                 <div class="evidence-explanation">Review of transgenic mouse models demonstrating the characteristic growth plate disorganization in COL2A1 mutants.</div>
+                
+                
                 
             </div>
             
@@ -3388,6 +3595,8 @@
                 
                 <div class="evidence-explanation">This ophthalmic case series of 18 SEDC patients systematically documents the vitreoretinal abnormalities including universal vitreous syneresis, high myopia, and vitreoretinal degeneration.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3407,6 +3616,8 @@
                 
                 
                 <div class="evidence-explanation">This study documents that vitreous humor abnormalities are a feature of COL2A1-related chondrodysplasias due to type II collagen being a major component of the vitreous.</div>
+                
+                
                 
             </div>
             
@@ -3555,6 +3766,8 @@
                 
                 <div class="evidence-explanation">The heterozygous sedc mouse develops premature OA despite normal skeletal morphology, demonstrating that abnormal collagen II directly predisposes to cartilage degeneration.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3575,6 +3788,8 @@
                 
                 <div class="evidence-explanation">Col2a1 heterozygous mice show skeletal deterioration with osteopenia that precedes the onset of osteoarthritis, supporting a primary bone defect contributing to secondary OA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3594,6 +3809,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical data from a mother-son pair with COL2A1 mutation showing severe skeletal deterioration, with trabecular osteopenia in the child progressing over time.</div>
+                
+                
                 
             </div>
             
@@ -3717,6 +3934,8 @@
                 
                 <div class="evidence-explanation">Case report and literature review showing that hearing loss is a known SEDC manifestation and that it need not be purely sensorineural.</div>
                 
+                
+                
             </div>
             
             
@@ -3781,6 +4000,8 @@
                 
                 
                 <div class="evidence-explanation">Exact hearing-loss frequency and assistive-hearing burden in the largest available molecularly confirmed cohort.</div>
+                
+                
                 
             </div>
             
@@ -3847,6 +4068,8 @@
                 
                 <div class="evidence-explanation">Ophthalmic study of 18 SEDC patients documenting high myopia and universal vitreous syneresis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3866,6 +4089,8 @@
                 
                 
                 <div class="evidence-explanation">Review providing frequency data for myopia in SEDC.</div>
+                
+                
                 
             </div>
             
@@ -3930,6 +4155,8 @@
                 
                 <div class="evidence-explanation">Exact frequency estimate for myopia in the largest available molecularly confirmed SEDC-spectrum cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -3985,6 +4212,8 @@
                 
                 
                 <div class="evidence-explanation">Histopathologic eye study showing a structural basis for retinal detachment risk in SEDC.</div>
+                
+                
                 
             </div>
             
@@ -4057,6 +4286,8 @@
                 
                 <div class="evidence-explanation">Exact frequency and earliest reported age of retinal detachment in the largest available molecularly confirmed cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -4122,6 +4353,8 @@
                 
                 <div class="evidence-explanation">Review documenting flat face as a characteristic feature of SEDC adults.</div>
                 
+                
+                
             </div>
             
             
@@ -4176,6 +4409,8 @@
                 
                 <div class="evidence-explanation">Case series documenting cleft palate as a common feature of SEDC and noting that submucous cleft palate may be more common than previously appreciated.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4195,6 +4430,8 @@
                 
                 
                 <div class="evidence-explanation">Recent series confirming cleft palate among the extraskeletal features of SEDC.</div>
+                
+                
                 
             </div>
             
@@ -4259,6 +4496,8 @@
                 
                 <div class="evidence-explanation">Observational SEDC study directly identifying coxa vara as a typical hip deformity.</div>
                 
+                
+                
             </div>
             
             
@@ -4312,6 +4551,8 @@
                 
                 
                 <div class="evidence-explanation">Observational SEDC series explicitly naming genu valgum among the lower limb deformities.</div>
+                
+                
                 
             </div>
             
@@ -4376,6 +4617,8 @@
                 
                 <div class="evidence-explanation">Flattened vertebral bodies (platyspondyly) is identified as a defining characteristic of SEDC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4395,6 +4638,8 @@
                 
                 
                 <div class="evidence-explanation">Recent family-based report directly documenting flattened vertebral bodies in molecularly confirmed SEDC.</div>
+                
+                
                 
             </div>
             
@@ -4450,6 +4695,8 @@
                 
                 <div class="evidence-explanation">Observational SEDC study documenting delayed epiphyseal ossification, especially at the femoral heads.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4469,6 +4716,8 @@
                 
                 
                 <div class="evidence-explanation">Review summarizing the characteristic neonatal pattern of delayed ossification in SEDC.</div>
+                
+                
                 
             </div>
             
@@ -4524,6 +4773,8 @@
                 
                 <div class="evidence-explanation">Family-based molecularly confirmed SEDC report documenting low bone mineral density in both probands.</div>
                 
+                
+                
             </div>
             
             
@@ -4578,6 +4829,8 @@
                 
                 <div class="evidence-explanation">Large COL2A1 cohort showing that odontoid hypoplasia is common and clinically important in SEDC-spectrum disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4597,6 +4850,8 @@
                 
                 
                 <div class="evidence-explanation">SEDC cervical-spine series linking odontoid hypoplasia directly to radiographic instability.</div>
+                
+                
                 
             </div>
             
@@ -4661,6 +4916,8 @@
                 
                 <div class="evidence-explanation">Exact frequency estimate reported in the largest available molecularly confirmed cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -4717,6 +4974,8 @@
                 
                 <div class="evidence-explanation">Cohort evidence showing that atlantoaxial instability is a recurrent cervical complication when dynamic imaging is performed.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4736,6 +4995,8 @@
                 
                 
                 <div class="evidence-explanation">Dedicated cervical-spine case series confirming atlantoaxial instability as a central SEDC complication.</div>
+                
+                
                 
             </div>
             
@@ -4800,6 +5061,8 @@
                 
                 <div class="evidence-explanation">Exact instability frequency reported for the dynamically imaged subgroup.</div>
                 
+                
+                
             </div>
             
             
@@ -4856,6 +5119,8 @@
                 
                 <div class="evidence-explanation">Observational SEDC series documenting barrel-shaped chest among the characteristic skeletal findings.</div>
                 
+                
+                
             </div>
             
             
@@ -4909,6 +5174,8 @@
                 
                 
                 <div class="evidence-explanation">Review documenting progressive kyphoscoliosis as a consequence of platyspondyly in SEDC.</div>
+                
+                
                 
             </div>
             
@@ -4964,6 +5231,8 @@
                 
                 <div class="evidence-explanation">Recent molecularly confirmed SEDC report directly documenting lumbar lordosis in both probands.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4983,6 +5252,8 @@
                 
                 
                 <div class="evidence-explanation">Observational series describing lumbar lordosis as a characteristic SEDC spinal finding.</div>
+                
+                
                 
             </div>
             
@@ -5047,6 +5318,8 @@
                 
                 <div class="evidence-explanation">Surgical cervical-spine series showing that clinically significant myelopathy occurs in a substantial subset of severely affected children.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5066,6 +5339,8 @@
                 
                 
                 <div class="evidence-explanation">Additional SEDC cervical-instability report underscoring myelopathy as a major neurologic consequence of craniocervical disease.</div>
+                
+                
                 
             </div>
             
@@ -5130,6 +5405,8 @@
                 
                 <div class="evidence-explanation">Exact frequency reported in a selected cervical-pathology cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -5185,6 +5462,8 @@
                 
                 
                 <div class="evidence-explanation">Observational SEDC study directly linking coxa vara to waddling gait.</div>
+                
+                
                 
             </div>
             
@@ -5249,6 +5528,8 @@
                 
                 <div class="evidence-explanation">Direct neonatal case report showing that SEDC can present with respiratory distress immediately after birth.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5268,6 +5549,8 @@
                 
                 
                 <div class="evidence-explanation">Cervical-spine series linking respiratory compromise to thoracic and craniocervical disease in infantile SEDC.</div>
+                
+                
                 
             </div>
             
@@ -5332,6 +5615,8 @@
                 
                 <div class="evidence-explanation">Disproportionate short-trunk short stature is a defining diagnostic criterion for SEDC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5351,6 +5636,8 @@
                 
                 
                 <div class="evidence-explanation">Provides quantitative birth length data for SEDC.</div>
+                
+                
                 
             </div>
             
@@ -5416,6 +5703,8 @@
                 
                 
                 <div class="evidence-explanation">Large molecularly confirmed COL2A1 cohort showing that short stature is very common across SEDC and its closest related phenotypes.</div>
+                
+                
                 
             </div>
             
@@ -5504,6 +5793,8 @@
                 
                 <div class="evidence-explanation">Landmark linkage study establishing that SEDC is caused by mutations in or near the COL2A1 gene, with a highly significant LOD score.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5524,6 +5815,8 @@
                 
                 <div class="evidence-explanation">Comprehensive mutation database establishing the mutational spectrum of COL2A1, with dominant-negative glycine substitutions being the most common mechanism in severe phenotypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5543,6 +5836,8 @@
                 
                 
                 <div class="evidence-explanation">Review detailing the mutational spectrum specific to SEDC, documenting that glycine and arginine-to-cysteine substitutions in the triple helix account for the vast majority of mutations.</div>
+                
+                
                 
             </div>
             
@@ -5638,6 +5933,8 @@
                 
                 <div class="evidence-explanation">Review highlighting peri-intubation and perioperative spinal cord risk from atlantoaxial instability, supporting preprocedure cervical assessment in SEDC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5657,6 +5954,8 @@
                 
                 
                 <div class="evidence-explanation">Observational SEDC cohort directly describing fusion-based surgical management for clinically significant cervical instability.</div>
+                
+                
                 
             </div>
             
@@ -5738,6 +6037,8 @@
                 
                 <div class="evidence-explanation">Large COL2A1 skeletal dysplasia cohort including SEDC patients directly documenting common orthopedic operations for progressive spinal and hip disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5818,6 +6119,8 @@
                 
                 <div class="evidence-explanation">COL2A1 cohort including SEDC patients documents substantial early ocular morbidity, supporting longitudinal ophthalmologic follow-up.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5837,6 +6140,8 @@
                 
                 
                 <div class="evidence-explanation">Type II collagenopathy paper directly recommending regular ophthalmologic examination; the same surveillance logic applies to SEDC.</div>
+                
+                
                 
             </div>
             
@@ -5918,6 +6223,8 @@
                 
                 <div class="evidence-explanation">COL2A1 cohort including SEDC patients documents both frequent hearing loss and downstream hearing-aid use, supporting ongoing audiologic monitoring and management.</div>
                 
+                
+                
             </div>
             
             
@@ -5998,6 +6305,8 @@
                 
                 <div class="evidence-explanation">Study emphasizing the importance of genetic testing and counseling for SEDC families to enable early intervention for extraskeletal complications.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6017,6 +6326,8 @@
                 
                 
                 <div class="evidence-explanation">Landmark study confirming autosomal dominant inheritance, which is fundamental information for genetic counseling of affected families.</div>
+                
+                
                 
             </div>
             
@@ -6098,6 +6409,8 @@
                 
                 <div class="evidence-explanation">Review documenting the need for respiratory support in severe neonatal SEDC cases, noting that ventilatory support is essential for survival.</div>
                 
+                
+                
             </div>
             
             
@@ -6177,6 +6490,8 @@
                 
                 
                 <div class="evidence-explanation">First reported evaluation of GH therapy in SEDC patients, showing modest height gains in two children with COL2A1 mutations.</div>
+                
+                
                 
             </div>
             

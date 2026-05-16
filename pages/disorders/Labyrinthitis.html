@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2735,6 +2926,8 @@
                 
                 <div class="evidence-explanation">Case of bilateral labyrinthitis secondary to meningitis with fluctuating cochlear and vestibular symptoms over more than a decade, illustrating the long-term consequences of infectious labyrinthitis.</div>
                 
+                
+                
             </div>
             
             
@@ -2796,6 +2989,8 @@
                 
                 <div class="evidence-explanation">Case of advanced labyrinthitis ossificans resulting from recurrent childhood ear infections, demonstrating the progression from bacterial labyrinthitis to end-stage ossification.</div>
                 
+                
+                
             </div>
             
             
@@ -2856,6 +3051,8 @@
                 
                 
                 <div class="evidence-explanation">Case documenting serous labyrinthitis complicating acute otitis media, with progressive vestibular dysfunction as a key feature.</div>
+                
+                
                 
             </div>
             
@@ -2954,6 +3151,8 @@
                 
                 <div class="evidence-explanation">Case of serous labyrinthitis complicating AOM documenting the tympanogenic route where toxic and inflammatory mediators cross from the middle ear into the inner ear.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2974,6 +3173,8 @@
                 
                 <div class="evidence-explanation">Case of direct bacterial invasion of the labyrinth from acute otitis media, demonstrating the suppurative tympanogenic route of pathogen entry.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2993,6 +3194,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse model of pneumococcal meningitis demonstrating the meningitic route of labyrinthine infection via CSF-inner ear communication pathways.</div>
+                
+                
                 
             </div>
             
@@ -3137,6 +3340,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse meningitis model demonstrating that the innate immune response to bacterial infection involves all three cochlear scalae, reflecting widespread immune activation throughout the labyrinth.</div>
+                
+                
                 
             </div>
             
@@ -3294,6 +3499,8 @@
                 
                 <div class="evidence-explanation">Mouse meningitis model showing robust recruitment of CCR2 and CX3CR1 mononuclear phagocytes into the cochlea, with CCR2 knockout mice experiencing more severe hearing loss and ossification, indicating a protective role for innate immune trafficking.</div>
                 
+                
+                
             </div>
             
             
@@ -3445,6 +3652,8 @@
                 
                 <div class="evidence-explanation">Mouse meningitis model quantifying the temporal dynamics of blood-labyrinth barrier disruption, with breach at 3 days and restoration by 7 days post-infection.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3464,6 +3673,8 @@
                 
                 
                 <div class="evidence-explanation">Review detailing how pericyte dysfunction contributes to blood-labyrinth barrier breakdown, increased permeability, and impaired neurovascular coupling in inner ear disorders.</div>
+                
+                
                 
             </div>
             
@@ -3578,6 +3789,8 @@
                 
                 
                 <div class="evidence-explanation">Study of 27 labyrinthitis patients demonstrating vestibular dysfunction across all three semicircular canals, with posterior canal most severely affected.</div>
+                
+                
                 
             </div>
             
@@ -3729,6 +3942,8 @@
                 
                 <div class="evidence-explanation">Study of 27 patients with vertigo and sudden sensorineural hearing loss showing combined cochlear and vestibular involvement, with 23 diagnosed as labyrinthitis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3748,6 +3963,8 @@
                 
                 
                 <div class="evidence-explanation">Review highlighting pericyte dysfunction in the stria vascularis as contributing to blood-labyrinth barrier breakdown and cochlear injury in inner ear inflammatory disorders.</div>
+                
+                
                 
             </div>
             
@@ -3863,6 +4080,8 @@
                 
                 <div class="evidence-explanation">Mouse meningitis model documenting spiral ganglion neuron loss as a common consequence of meningitic labyrinthitis, with distortion of cochlear architecture.</div>
                 
+                
+                
             </div>
             
             
@@ -3913,6 +4132,8 @@
                 
                 
                 <div class="evidence-explanation">Review establishing inflammatory insults as a recognized cause of secondary endolymphatic hydrops, supporting the post-labyrinthitis mechanism.</div>
+                
+                
                 
             </div>
             
@@ -4021,6 +4242,8 @@
                 
                 <div class="evidence-explanation">Review documenting immune-mediated mechanisms of inner ear damage, including autoantibody-mediated and T cell-mediated inflammation affecting auditory structures.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4040,6 +4263,8 @@
                 
                 
                 <div class="evidence-explanation">Case report and review documenting the relapsing nature of autoimmune inner ear disease and partial corticosteroid responsiveness.</div>
+                
+                
                 
             </div>
             
@@ -4167,6 +4392,8 @@
                 
                 <div class="evidence-explanation">Mouse meningitis model showing fibroblast-driven tissue remodeling as the earliest reparative response, detectable within 4 days post-infection.</div>
                 
+                
+                
             </div>
             
             
@@ -4269,6 +4496,8 @@
                 
                 <div class="evidence-explanation">Mouse meningitis model documenting distortion of inner ear architecture by fibrotic soft tissue deposited within the cochlear scalae.</div>
                 
+                
+                
             </div>
             
             
@@ -4366,6 +4595,8 @@
                 
                 <div class="evidence-explanation">Review establishing that labyrinthitis leads to labyrinthitis ossificans through progressive calcification of the membranous labyrinth.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4385,6 +4616,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse meningitis model documenting neo-ossification visible by 14 days post-infection as the terminal stage of post-inflammatory cochlear remodeling.</div>
+                
+                
                 
             </div>
             
@@ -4420,7 +4653,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoimmune-mediated inner ear damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In some cases, the initial infectious trigger provokes an autoimmune response against inner ear antigens, perpetuating inflammation beyond the acute infection. Cross-reactive antibodies against inner ear proteins (including cochlin and heat shock proteins) and T cell- mediated inflammation may drive ongoing damage. This mechanism may explain bilateral, relapsing, or progressively worsening presentations that continue after clearance of the initial pathogen.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Immune response\"], \"locations\": [\"Internal ear\"]}}, {\"id\": \"Blood-labyrinth barrier disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The blood-labyrinth barrier (BLB), a specialized non-fenestrated microvascular barrier of the stria vascularis and cochlear capillaries, is disrupted by the inflammatory response. Pericyte and endothelial cell dysfunction under inflammatory and oxidative stress increases permeability, permitting serum proteins and leukocytes into cochlear fluids. In experimental meningitis, barrier disruption is detectable by 3 days post-infection and may restore by 7 days, but the transient breach amplifies inflammatory injury and impairs strial ion homeostasis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Pericyte\", \"Endothelial cell\"], \"biological_processes\": [\"Regulation of vascular permeability\"], \"locations\": [\"Stria vascularis of cochlear duct\"]}}, {\"id\": \"Cochlear hair cell injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory mediators, leukocyte infiltration, and oxidative stress damage hair cells in the organ of Corti. Both inner and outer hair cells undergo apoptosis, and ribbon synapses between inner hair cells and spiral ganglion neuron dendrites are disrupted, producing sensorineural hearing loss. Damage to the stria vascularis disrupts the endocochlear potential required for hair cell mechanotransduction, further impairing auditory function. Cochlear involvement distinguishes labyrinthitis from vestibular neuritis, which spares hearing.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Auditory hair cell\"], \"biological_processes\": [\"Apoptotic process\", \"Sensory perception of sound\"], \"locations\": [\"Spiral organ of cochlea\"]}}, {\"id\": \"Cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For patients with profound sensorineural hearing loss following labyrinthitis, cochlear implantation may restore auditory function. Early implantation is important because labyrinthitis ossificans can obliterate the cochlear lumen, making electrode insertion difficult or impossible.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic corticosteroids (oral or intravenous) may be used in the acute phase to reduce inner ear inflammation and potentially improve hearing outcomes. Intratympanic steroid injection is an alternative route of administration. The evidence for efficacy is stronger for hearing recovery than for vestibular recovery.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Endolymphatic hydrops\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-inflammatory disruption of endolymph homeostasis can lead to endolymphatic hydrops. Damage to the stria vascularis impairs potassium recycling and the endocochlear potential, while injury to the endolymphatic sac or duct reduces endolymph reabsorption. The resulting fluid accumulation contributes to fluctuating hearing loss, tinnitus, and episodic vertigo in some patients during recovery or as a long-term sequela.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fibroblast proliferation in the labyrinth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following acute inflammation, fibroblasts proliferate within the perilymphatic spaces of the labyrinth. Inflammatory cytokines and growth factors released during the immune response stimulate fibroblast activation and expansion. The severity of fibroblast proliferation is modulated by chemokine-controlled myeloid cell trafficking, particularly through CCR2 and CX3CR1 pathways.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"Fibroblast proliferation\"], \"locations\": [\"Scala tympani\"]}}, {\"id\": \"Innate immune activation and cytokine release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following pathogen entry, resident macrophages in the labyrinth transition to proinflammatory states and secrete tumor necrosis factor-alpha (TNF-alpha), interleukin-1 beta (IL-1beta), and interleukin-6 (IL-6). These cytokines drive endothelial activation and initiate the inflammatory cascade. In viral labyrinthitis, the NLRP3 inflammasome is activated, promoting IL-1beta maturation through caspase-1 and triggering reactive oxygen species production, which contributes to oxidative stress in cochlear and vestibular structures.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Innate immune response\", \"Cytokine production\"]}}, {\"id\": \"Labyrinthine fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated fibroblasts deposit extracellular matrix proteins including collagen within the perilymphatic spaces, producing fibrotic tissue that replaces normal labyrinthine structures. Fibrosis is most prominent in the scala tympani basal turn and distorts inner ear architecture, contributing to permanent sensorineural hearing loss. This fibrous stage precedes and provides the scaffold for subsequent neo-ossification.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Extracellular matrix organization\"], \"locations\": [\"Scala tympani\"]}}, {\"id\": \"Labyrinthitis ossificans\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the most severe cases, labyrinthine fibrosis progresses to neo-ossification, with new bone formation visible by 14 days post-infection. Osteoblast-like cells deposit mineralized tissue within the perilymphatic spaces, progressively obliterating the cochlear lumen. This labyrinthitis ossificans is most prominent in the scala tympani basal turn and causes permanent profound sensorineural hearing loss. The obliteration of cochlear architecture can prevent or severely complicate cochlear implantation, making early diagnosis and intervention critical.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Ossification\"], \"locations\": [\"Scala tympani\", \"Membranous labyrinth\"]}}, {\"id\": \"Leukocyte recruitment and infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytokine and chemokine signaling drives sequential recruitment of leukocytes into the perilymphatic spaces. Neutrophils are the first to arrive, peaking at approximately day 1. CCR2-positive monocytes and macrophages follow, with CX3CR1-positive resident macrophages also expanding. Lymphocytes increase subacutely by days 4-7, and the myeloid infiltrate peaks around day 14 in experimental models. Both CCR2 and CX3CR1 chemokine receptor pathways modulate the severity of cochlear inflammation and subsequent tissue remodeling.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neutrophil\", \"Macrophage\"], \"biological_processes\": [\"Leukocyte migration\"], \"locations\": [\"Scala tympani\"]}}, {\"id\": \"Nausea and vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe nausea and vomiting during the acute phase due to vestibular autonomic reflexes triggered by the sudden vestibular asymmetry.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002017\"}}, {\"id\": \"Pathogen entry into the inner ear\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infectious agents reach the labyrinth through three main routes: (1) tympanogenic spread from the middle ear, where bacterial toxins or organisms cross the round or oval window membrane during otitis media; (2) meningitic spread via the cochlear aqueduct during bacterial meningitis; and (3) hematogenous or neurogenic spread, particularly for viral agents such as herpes simplex virus. In serous labyrinthitis, only toxins and inflammatory mediators cross the round window membrane without direct bacterial invasion, producing reversible dysfunction. In suppurative labyrinthitis, bacteria directly invade the perilymphatic space, causing severe purulent inflammation.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"Round window of inner ear\", \"Membranous labyrinth\"]}}, {\"id\": \"Postural imbalance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unsteadiness and difficulty walking, particularly with eyes closed or in darkness, persisting for weeks to months after acute vertigo resolves as central vestibular compensation develops.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002141\"}}, {\"id\": \"Sensorineural hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unilateral sensorineural hearing loss distinguishing labyrinthitis from vestibular neuritis. May range from mild high-frequency loss to profound deafness. Hearing loss may be transient in serous forms but is often permanent in suppurative labyrinthitis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Spiral ganglion neuron degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spiral ganglion neurons in Rosenthal\u0027s canal degenerate as a consequence of direct inflammatory damage, loss of neurotrophic support from damaged hair cells, and disruption of the cochlear microenvironment. Spiral ganglion neuron loss is a major determinant of permanent sensorineural hearing loss and limits the efficacy of cochlear implantation, as the implant relies on surviving neurons for electrical stimulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Spiral ganglion neuron\"], \"biological_processes\": [\"Neuron apoptotic process\"], \"locations\": [\"Cochlea\"]}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute onset of severe rotational vertigo lasting days to weeks, often accompanied by nausea and vomiting. The vertigo results from sudden unilateral vestibular loss creating an asymmetry in tonic vestibular input. Typically most severe in the first 24-72 hours with gradual improvement over weeks as central vestibular compensation occurs.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"Vestibular neuroepithelial damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory mediators, leukocyte infiltration, and oxidative stress damage the vestibular sensory epithelium. Hair cells in the cristae ampullares and maculae undergo injury and apoptosis, producing acute unilateral vestibular loss. The resulting vestibular tone asymmetry generates the characteristic acute vestibular syndrome with severe vertigo, spontaneous nystagmus, and postural imbalance.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vestibular hair cell\"], \"biological_processes\": [\"Inflammatory response\"], \"locations\": [\"Vestibular labyrinth\"]}}, {\"id\": \"Vestibular rehabilitation therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured exercise program to promote central vestibular compensation after the acute phase. Includes gaze stabilization exercises, habituation exercises, and balance training. Early initiation (once acute symptoms subside) improves outcomes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vestibular suppressants\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Short-term use of vestibular suppressants (benzodiazepines, antihistamines such as meclizine or dimenhydrinate, anticholinergics) to control acute vertigo, nausea, and vomiting. Should be limited to the first 48-72 hours to avoid delaying central vestibular compensation.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Pathogen entry into the inner ear\", \"target\": \"Innate immune activation and cytokine release\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Innate immune activation and cytokine release\", \"target\": \"Leukocyte recruitment and infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Innate immune activation and cytokine release\", \"target\": \"Blood-labyrinth barrier disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leukocyte recruitment and infiltration\", \"target\": \"Vestibular neuroepithelial damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leukocyte recruitment and infiltration\", \"target\": \"Cochlear hair cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leukocyte recruitment and infiltration\", \"target\": \"Fibroblast proliferation in the labyrinth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-labyrinth barrier disruption\", \"target\": \"Cochlear hair cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-labyrinth barrier disruption\", \"target\": \"Endolymphatic hydrops\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cochlear hair cell injury\", \"target\": \"Spiral ganglion neuron degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autoimmune-mediated inner ear damage\", \"target\": \"Cochlear hair cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autoimmune-mediated inner ear damage\", \"target\": \"Vestibular neuroepithelial damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast proliferation in the labyrinth\", \"target\": \"Labyrinthine fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Labyrinthine fibrosis\", \"target\": \"Labyrinthitis ossificans\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vestibular suppressants\", \"target\": \"Vertigo\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vestibular suppressants\", \"target\": \"Nausea and vomiting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Corticosteroids\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vestibular rehabilitation therapy\", \"target\": \"Vertigo\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vestibular rehabilitation therapy\", \"target\": \"Postural imbalance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoimmune-mediated inner ear damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In some cases, the initial infectious trigger provokes an autoimmune response against inner ear antigens, perpetuating inflammation beyond the acute infection. Cross-reactive antibodies against inner ear proteins (including cochlin and heat shock proteins) and T cell- mediated inflammation may drive ongoing damage. This mechanism may explain bilateral, relapsing, or progressively worsening presentations that continue after clearance of the initial pathogen.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Immune response\"], \"locations\": [\"Internal ear\"]}}, {\"id\": \"Blood-labyrinth barrier disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The blood-labyrinth barrier (BLB), a specialized non-fenestrated microvascular barrier of the stria vascularis and cochlear capillaries, is disrupted by the inflammatory response. Pericyte and endothelial cell dysfunction under inflammatory and oxidative stress increases permeability, permitting serum proteins and leukocytes into cochlear fluids. In experimental meningitis, barrier disruption is detectable by 3 days post-infection and may restore by 7 days, but the transient breach amplifies inflammatory injury and impairs strial ion homeostasis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Pericyte\", \"Endothelial cell\"], \"biological_processes\": [\"Regulation of vascular permeability\"], \"locations\": [\"Stria vascularis of cochlear duct\"]}}, {\"id\": \"Cochlear hair cell injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory mediators, leukocyte infiltration, and oxidative stress damage hair cells in the organ of Corti. Both inner and outer hair cells undergo apoptosis, and ribbon synapses between inner hair cells and spiral ganglion neuron dendrites are disrupted, producing sensorineural hearing loss. Damage to the stria vascularis disrupts the endocochlear potential required for hair cell mechanotransduction, further impairing auditory function. Cochlear involvement distinguishes labyrinthitis from vestibular neuritis, which spares hearing.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Auditory hair cell\"], \"biological_processes\": [\"Apoptotic process\", \"Sensory perception of sound\"], \"locations\": [\"Spiral organ of cochlea\"]}}, {\"id\": \"Cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For patients with profound sensorineural hearing loss following labyrinthitis, cochlear implantation may restore auditory function. Early implantation is important because labyrinthitis ossificans can obliterate the cochlear lumen, making electrode insertion difficult or impossible.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic corticosteroids (oral or intravenous) may be used in the acute phase to reduce inner ear inflammation and potentially improve hearing outcomes. Intratympanic steroid injection is an alternative route of administration. The evidence for efficacy is stronger for hearing recovery than for vestibular recovery.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"prednisolone\", \"dexamethasone\"]}}, {\"id\": \"Endolymphatic hydrops\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-inflammatory disruption of endolymph homeostasis can lead to endolymphatic hydrops. Damage to the stria vascularis impairs potassium recycling and the endocochlear potential, while injury to the endolymphatic sac or duct reduces endolymph reabsorption. The resulting fluid accumulation contributes to fluctuating hearing loss, tinnitus, and episodic vertigo in some patients during recovery or as a long-term sequela.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fibroblast proliferation in the labyrinth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following acute inflammation, fibroblasts proliferate within the perilymphatic spaces of the labyrinth. Inflammatory cytokines and growth factors released during the immune response stimulate fibroblast activation and expansion. The severity of fibroblast proliferation is modulated by chemokine-controlled myeloid cell trafficking, particularly through CCR2 and CX3CR1 pathways.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"Fibroblast proliferation\"], \"locations\": [\"Scala tympani\"]}}, {\"id\": \"Innate immune activation and cytokine release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following pathogen entry, resident macrophages in the labyrinth transition to proinflammatory states and secrete tumor necrosis factor-alpha (TNF-alpha), interleukin-1 beta (IL-1beta), and interleukin-6 (IL-6). These cytokines drive endothelial activation and initiate the inflammatory cascade. In viral labyrinthitis, the NLRP3 inflammasome is activated, promoting IL-1beta maturation through caspase-1 and triggering reactive oxygen species production, which contributes to oxidative stress in cochlear and vestibular structures.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Innate immune response\", \"Cytokine production\"]}}, {\"id\": \"Labyrinthine fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated fibroblasts deposit extracellular matrix proteins including collagen within the perilymphatic spaces, producing fibrotic tissue that replaces normal labyrinthine structures. Fibrosis is most prominent in the scala tympani basal turn and distorts inner ear architecture, contributing to permanent sensorineural hearing loss. This fibrous stage precedes and provides the scaffold for subsequent neo-ossification.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Extracellular matrix organization\"], \"locations\": [\"Scala tympani\"]}}, {\"id\": \"Labyrinthitis ossificans\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the most severe cases, labyrinthine fibrosis progresses to neo-ossification, with new bone formation visible by 14 days post-infection. Osteoblast-like cells deposit mineralized tissue within the perilymphatic spaces, progressively obliterating the cochlear lumen. This labyrinthitis ossificans is most prominent in the scala tympani basal turn and causes permanent profound sensorineural hearing loss. The obliteration of cochlear architecture can prevent or severely complicate cochlear implantation, making early diagnosis and intervention critical.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Ossification\"], \"locations\": [\"Scala tympani\", \"Membranous labyrinth\"]}}, {\"id\": \"Leukocyte recruitment and infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytokine and chemokine signaling drives sequential recruitment of leukocytes into the perilymphatic spaces. Neutrophils are the first to arrive, peaking at approximately day 1. CCR2-positive monocytes and macrophages follow, with CX3CR1-positive resident macrophages also expanding. Lymphocytes increase subacutely by days 4-7, and the myeloid infiltrate peaks around day 14 in experimental models. Both CCR2 and CX3CR1 chemokine receptor pathways modulate the severity of cochlear inflammation and subsequent tissue remodeling.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neutrophil\", \"Macrophage\"], \"biological_processes\": [\"Leukocyte migration\"], \"locations\": [\"Scala tympani\"]}}, {\"id\": \"Nausea and vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe nausea and vomiting during the acute phase due to vestibular autonomic reflexes triggered by the sudden vestibular asymmetry.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002017\"}}, {\"id\": \"Pathogen entry into the inner ear\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infectious agents reach the labyrinth through three main routes: (1) tympanogenic spread from the middle ear, where bacterial toxins or organisms cross the round or oval window membrane during otitis media; (2) meningitic spread via the cochlear aqueduct during bacterial meningitis; and (3) hematogenous or neurogenic spread, particularly for viral agents such as herpes simplex virus. In serous labyrinthitis, only toxins and inflammatory mediators cross the round window membrane without direct bacterial invasion, producing reversible dysfunction. In suppurative labyrinthitis, bacteria directly invade the perilymphatic space, causing severe purulent inflammation.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"Round window of inner ear\", \"Membranous labyrinth\"]}}, {\"id\": \"Postural imbalance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unsteadiness and difficulty walking, particularly with eyes closed or in darkness, persisting for weeks to months after acute vertigo resolves as central vestibular compensation develops.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002141\"}}, {\"id\": \"Sensorineural hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unilateral sensorineural hearing loss distinguishing labyrinthitis from vestibular neuritis. May range from mild high-frequency loss to profound deafness. Hearing loss may be transient in serous forms but is often permanent in suppurative labyrinthitis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Spiral ganglion neuron degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spiral ganglion neurons in Rosenthal\u0027s canal degenerate as a consequence of direct inflammatory damage, loss of neurotrophic support from damaged hair cells, and disruption of the cochlear microenvironment. Spiral ganglion neuron loss is a major determinant of permanent sensorineural hearing loss and limits the efficacy of cochlear implantation, as the implant relies on surviving neurons for electrical stimulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Spiral ganglion neuron\"], \"biological_processes\": [\"Neuron apoptotic process\"], \"locations\": [\"Cochlea\"]}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute onset of severe rotational vertigo lasting days to weeks, often accompanied by nausea and vomiting. The vertigo results from sudden unilateral vestibular loss creating an asymmetry in tonic vestibular input. Typically most severe in the first 24-72 hours with gradual improvement over weeks as central vestibular compensation occurs.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"Vestibular neuroepithelial damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory mediators, leukocyte infiltration, and oxidative stress damage the vestibular sensory epithelium. Hair cells in the cristae ampullares and maculae undergo injury and apoptosis, producing acute unilateral vestibular loss. The resulting vestibular tone asymmetry generates the characteristic acute vestibular syndrome with severe vertigo, spontaneous nystagmus, and postural imbalance.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vestibular hair cell\"], \"biological_processes\": [\"Inflammatory response\"], \"locations\": [\"Vestibular labyrinth\"]}}, {\"id\": \"Vestibular rehabilitation therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured exercise program to promote central vestibular compensation after the acute phase. Includes gaze stabilization exercises, habituation exercises, and balance training. Early initiation (once acute symptoms subside) improves outcomes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vestibular suppressants\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Short-term use of vestibular suppressants (benzodiazepines, antihistamines such as meclizine or dimenhydrinate, anticholinergics) to control acute vertigo, nausea, and vomiting. Should be limited to the first 48-72 hours to avoid delaying central vestibular compensation.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"meclizine\", \"dimenhydrinate\", \"diazepam\"]}}], \"edges\": [{\"source\": \"Pathogen entry into the inner ear\", \"target\": \"Innate immune activation and cytokine release\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Innate immune activation and cytokine release\", \"target\": \"Leukocyte recruitment and infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Innate immune activation and cytokine release\", \"target\": \"Blood-labyrinth barrier disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leukocyte recruitment and infiltration\", \"target\": \"Vestibular neuroepithelial damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leukocyte recruitment and infiltration\", \"target\": \"Cochlear hair cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leukocyte recruitment and infiltration\", \"target\": \"Fibroblast proliferation in the labyrinth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-labyrinth barrier disruption\", \"target\": \"Cochlear hair cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-labyrinth barrier disruption\", \"target\": \"Endolymphatic hydrops\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cochlear hair cell injury\", \"target\": \"Spiral ganglion neuron degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autoimmune-mediated inner ear damage\", \"target\": \"Cochlear hair cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autoimmune-mediated inner ear damage\", \"target\": \"Vestibular neuroepithelial damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast proliferation in the labyrinth\", \"target\": \"Labyrinthine fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Labyrinthine fibrosis\", \"target\": \"Labyrinthitis ossificans\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vestibular suppressants\", \"target\": \"Vertigo\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vestibular suppressants\", \"target\": \"Nausea and vomiting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Corticosteroids\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vestibular rehabilitation therapy\", \"target\": \"Vertigo\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vestibular rehabilitation therapy\", \"target\": \"Postural imbalance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4502,6 +4735,8 @@
                 
                 <div class="evidence-explanation">Review listing vomiting as one of the cardinal clinical manifestations of labyrinthitis ossificans, reflecting the vestibular component of labyrinthitis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4521,6 +4756,8 @@
                 
                 
                 <div class="evidence-explanation">Case of bacterial labyrinthitis documenting vomiting as a presenting symptom alongside vertigo, hearing loss, and tinnitus.</div>
+                
+                
                 
             </div>
             
@@ -4587,6 +4824,8 @@
                 
                 <div class="evidence-explanation">Study of 21 viral labyrinthitis patients documenting severe vertigo with spontaneous nystagmus as a cardinal feature.</div>
                 
+                
+                
             </div>
             
             
@@ -4643,6 +4882,8 @@
                 
                 <div class="evidence-explanation">Study demonstrating that sensorineural hearing loss on audiometry is the key distinguishing feature between labyrinthitis and vestibular neuritis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4662,6 +4903,8 @@
                 
                 
                 <div class="evidence-explanation">Case of bacterial labyrinthitis documenting sensorineural hearing loss confirmed on audiometry, with deafness persisting despite treatment.</div>
+                
+                
                 
             </div>
             
@@ -4718,6 +4961,8 @@
                 
                 
                 <div class="evidence-explanation">Case of bacterial labyrinthitis presenting with tinnitus as part of the acute symptom complex.</div>
+                
+                
                 
             </div>
             
@@ -4784,6 +5029,8 @@
                 
                 <div class="evidence-explanation">Study documenting spontaneous nystagmus as a defining feature of both vestibular neuritis and viral labyrinthitis.</div>
                 
+                
+                
             </div>
             
             
@@ -4849,6 +5096,8 @@
                 
                 <div class="evidence-explanation">Case of COVID-19-induced labyrinthitis documenting imbalance as a presenting feature alongside vertigo and hearing loss.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4868,6 +5117,8 @@
                 
                 
                 <div class="evidence-explanation">Review establishing imbalance as a cardinal symptom of inner ear disorders including labyrinthitis.</div>
+                
+                
                 
             </div>
             
@@ -4978,6 +5229,32 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        meclizine
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_6709" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        dimenhydrinate
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_4604" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        diazepam
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_49575" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Short-term use of vestibular suppressants (benzodiazepines, antihistamines such as meclizine or dimenhydrinate, anticholinergics) to control acute vertigo, nausea, and vomiting. Should be limited to the first 48-72 hours to avoid delaying central vestibular compensation.
@@ -5031,6 +5308,8 @@
                 
                 <div class="evidence-explanation">Review cataloging the major classes of vestibular suppressants used for symptomatic management of acute unilateral vestibulopathy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5050,6 +5329,8 @@
                 
                 
                 <div class="evidence-explanation">Review establishing vestibular suppressants and antiemetics as the standard symptomatic therapy for acute vestibular neuritis, applicable to labyrinthitis management.</div>
+                
+                
                 
             </div>
             
@@ -5097,6 +5378,25 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        prednisolone
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_8378" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        dexamethasone
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_41879" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Systemic corticosteroids (oral or intravenous) may be used in the acute phase to reduce inner ear inflammation and potentially improve hearing outcomes. Intratympanic steroid injection is an alternative route of administration. The evidence for efficacy is stronger for hearing recovery than for vestibular recovery.
@@ -5143,6 +5443,8 @@
                 
                 <div class="evidence-explanation">Case of COVID-19-induced acute labyrinthitis in a teenager showing improvement with corticosteroid treatment and vestibular rehabilitation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5163,6 +5465,8 @@
                 
                 <div class="evidence-explanation">Review establishing corticosteroids as first-line therapy for autoimmune inner ear disease, though with variable responses.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5182,6 +5486,8 @@
                 
                 
                 <div class="evidence-explanation">Case demonstrating complete audiometric and vestibular recovery within one week with early combination IV dexamethasone and antibiotic therapy for serous labyrinthitis.</div>
+                
+                
                 
             </div>
             
@@ -5231,6 +5537,25 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        acyclovir
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_2453" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        valacyclovir
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_35854" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Antiviral medications (acyclovir, valacyclovir) may be considered when viral etiology is suspected, particularly herpes simplex or varicella-zoster virus. Often combined with corticosteroids. The evidence for efficacy as monotherapy is limited.
@@ -5265,6 +5590,8 @@
                 
                 <div class="evidence-explanation">Landmark NEJM RCT of 141 patients with acute vestibular neuritis demonstrating that valacyclovir had no significant effect on vestibular recovery, refuting antiviral efficacy for this indication.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5284,6 +5611,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirming that antiviral therapy remains controversial and unsupported by robust evidence for acute unilateral vestibulopathy.</div>
+                
+                
                 
             </div>
             
@@ -5331,6 +5660,25 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        cefotaxime
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_204928" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        vancomycin
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_28001" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Systemic antibiotics are essential for bacterial labyrinthitis. Broad-spectrum intravenous antibiotics with good CNS and inner ear penetration are required. Surgical drainage may be necessary for suppurative labyrinthitis complicating otitis media or cholesteatoma.
@@ -5364,6 +5712,8 @@
                 
                 
                 <div class="evidence-explanation">Case demonstrating prolonged IV antibiotic therapy (25 days) required for bacterial labyrinthitis complicating otitis media.</div>
+                
+                
                 
             </div>
             
@@ -5462,6 +5812,8 @@
                 
                 <div class="evidence-explanation">Case report demonstrating improvement with vestibular rehabilitation therapy in COVID-19-induced acute labyrinthitis.</div>
                 
+                
+                
             </div>
             
             
@@ -5552,6 +5904,8 @@
                 
                 <div class="evidence-explanation">Study of 39 children with post-meningitic hearing loss showing labyrinthitis ossificans negatively impacts cochlear implant outcomes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5572,6 +5926,8 @@
                 
                 <div class="evidence-explanation">Review emphasizing the importance of early cochlear implantation before labyrinthitis ossificans obliterates the cochlear lumen.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5591,6 +5947,8 @@
                 
                 
                 <div class="evidence-explanation">Case of advanced LO demonstrating that cochlear implantation feasibility depends on ossification stage, with a small residual basal turn segment being the only remaining option in advanced cases.</div>
+                
+                
                 
             </div>
             
@@ -5647,6 +6005,8 @@
                 
                 <div class="evidence-explanation">Case report documenting SARS-CoV-2 viral infection as a trigger for acute labyrinthitis, illustrating the viral etiology pathway.</div>
                 
+                
+                
             </div>
             
             
@@ -5690,6 +6050,8 @@
                 
                 <div class="evidence-explanation">Case report documenting bacterial labyrinthitis developing as a complication of acute otitis media, with Pseudomonas crossing from the middle ear.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5709,6 +6071,8 @@
                 
                 
                 <div class="evidence-explanation">Additional case of serous labyrinthitis complicating acute otitis media with progressive vestibular dysfunction, reinforcing AOM as a causative factor.</div>
+                
+                
                 
             </div>
             
@@ -5753,6 +6117,8 @@
                 
                 <div class="evidence-explanation">Large series documenting the connection between bacterial meningitis and hearing loss requiring cochlear implantation, often via meningogenic labyrinthitis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5772,6 +6138,8 @@
                 
                 
                 <div class="evidence-explanation">Case of bilateral labyrinthitis ossificans secondary to meningitis at 8 months of age, with progressive hearing loss culminating in cochlear implantation over a decade later.</div>
+                
+                
                 
             </div>
             
@@ -5815,6 +6183,8 @@
                 
                 
                 <div class="evidence-explanation">Case of a 22-year-old male who developed progressive SNHL after a motor vehicle accident, with imaging confirming post-traumatic labyrinthitis ossificans.</div>
+                
+                
                 
             </div>
             
@@ -5893,6 +6263,8 @@
                 
                 <div class="evidence-explanation">Study demonstrating distinct patterns of semicircular canal involvement between vestibular neuritis and labyrinthitis on video head impulse testing.</div>
                 
+                
+                
             </div>
             
             
@@ -5950,6 +6322,8 @@
                 
                 
                 <div class="evidence-explanation">Review listing Meniere disease as an important differential diagnosis for inner ear vertigo, distinguished by its episodic nature.</div>
+                
+                
                 
             </div>
             
@@ -6009,6 +6383,8 @@
                 
                 <div class="evidence-explanation">Review listing acoustic neuroma as a differential diagnosis for vertigo, distinguishable from labyrinthitis by its progressive course and MRI findings.</div>
                 
+                
+                
             </div>
             
             
@@ -6060,6 +6436,8 @@
                 
                 
                 <div class="evidence-explanation">Case report of multiple sclerosis mimicking labyrinthitis, with demyelinating lesions causing acute vestibular syndrome and hearing loss.</div>
+                
+                
                 
             </div>
             
@@ -6325,6 +6703,8 @@
                 
                 <div class="evidence-explanation">Phase IV RCT directly testing corticosteroid treatment for acute vestibulopathy, the condition category encompassing viral labyrinthitis.</div>
                 
+                
+                
             </div>
             
             
@@ -6384,6 +6764,8 @@
                 
                 
                 <div class="evidence-explanation">Phase III trial evaluating intratympanic corticosteroid delivery for sudden SNHL, a treatment approach applicable to labyrinthitis-associated hearing loss when systemic therapy fails.</div>
+                
+                
                 
             </div>
             
@@ -6452,6 +6834,8 @@
                 
                 <div class="evidence-explanation">Trial comparing corticosteroids versus vestibular exercises for acute vestibular dysfunction, findings applicable to labyrinthitis management.</div>
                 
+                
+                
             </div>
             
             
@@ -6483,7 +6867,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Labyrinthitis
 creation_date: &#39;2026-02-08T18:27:49Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
+updated_date: &#39;2026-05-13T00:00:00Z&#39;
 category: Complex
 disease_term:
   preferred_term: labyrinthitis
@@ -7253,37 +7637,19 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: meclizine
-        term:
-          id: NCIT:C61610
-          label: Meclizine
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: dimenhydrinate
-        term:
-          id: NCIT:C28992
-          label: Dimenhydrinate
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: diazepam
-        term:
-          id: NCIT:C28982
-          label: Diazepam
+    therapeutic_agent:
+    - preferred_term: meclizine
+      term:
+        id: CHEBI:6709
+        label: Meclizine
+    - preferred_term: dimenhydrinate
+      term:
+        id: CHEBI:4604
+        label: dimenhydrinate
+    - preferred_term: diazepam
+      term:
+        id: CHEBI:49575
+        label: diazepam
   target_phenotypes:
   - preferred_term: Vertigo
     term:
@@ -7319,27 +7685,15 @@ treatments:
     term:
       id: NCIT:C122080
       label: Systemic Corticosteroid Therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: prednisolone
-        term:
-          id: NCIT:C769
-          label: Prednisolone
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: dexamethasone
-        term:
-          id: NCIT:C422
-          label: Dexamethasone
+    therapeutic_agent:
+    - preferred_term: prednisolone
+      term:
+        id: CHEBI:8378
+        label: prednisolone
+    - preferred_term: dexamethasone
+      term:
+        id: CHEBI:41879
+        label: dexamethasone
   target_phenotypes:
   - preferred_term: Sensorineural hearing impairment
     term:
@@ -7380,27 +7734,15 @@ treatments:
     term:
       id: MAXO:0000168
       label: antiviral agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: acyclovir
-        term:
-          id: NCIT:C205
-          label: Acyclovir
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: valacyclovir
-        term:
-          id: NCIT:C28235
-          label: Valacyclovir
+    therapeutic_agent:
+    - preferred_term: acyclovir
+      term:
+        id: CHEBI:2453
+        label: acyclovir
+    - preferred_term: valacyclovir
+      term:
+        id: CHEBI:35854
+        label: valacyclovir
   evidence:
   - reference: PMID:15269315
     reference_title: &#34;Methylprednisolone, valacyclovir, or the combination for vestibular neuritis.&#34;
@@ -7427,27 +7769,15 @@ treatments:
     term:
       id: NCIT:C15620
       label: Antibiotic Therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: cefotaxime
-        term:
-          id: NCIT:C354
-          label: Cefotaxime
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: vancomycin
-        term:
-          id: NCIT:C925
-          label: Vancomycin
+    therapeutic_agent:
+    - preferred_term: cefotaxime
+      term:
+        id: CHEBI:204928
+        label: cefotaxime
+    - preferred_term: vancomycin
+      term:
+        id: CHEBI:28001
+        label: vancomycin
   evidence:
   - reference: PMID:39540706
     reference_title: &#34;Pseudomonas Labyrinthitis Complicating Acute Otitis Media: Case Report.&#34;
@@ -8097,7 +8427,7 @@ Labyrinthitis pathophysiology reflects convergent inflammatory and vascular–ba
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Labyrinthitis", "mondoId": "MONDO:0002008", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Labyrinthitis", "yamlRevision": "03f0bf1024f7"};
+        const OS_CONFIG = {"diseaseName": "Labyrinthitis", "mondoId": "MONDO:0002008", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Labyrinthitis", "yamlRevision": "c3e2a906efcf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

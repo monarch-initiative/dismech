@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2724,6 +2915,8 @@
                 
                 <div class="evidence-explanation">Orphanet records inheritance as not applicable for SLE, consistent with its complex multifactorial etiology.</div>
                 
+                
+                
             </div>
             
             
@@ -2811,6 +3004,8 @@
                 
                 <div class="evidence-explanation">Discoid Lupus Erythematosus (DLE) is a chronic cutaneous form of lupus erythematosus primarily affecting the skin.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2829,6 +3024,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that Discoid Lupus Erythematosus primarily affects the skin.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2846,6 +3043,8 @@
                 
                 
                 <div class="evidence-explanation">This reference confirms the primary cutaneous impact of Discoid Lupus Erythematosus.</div>
+                
+                
                 
             </div>
             
@@ -2903,6 +3102,8 @@
                 
                 <div class="evidence-explanation">This describes neonatal lupus erythematosus as a subtype of lupus erythematosus affecting newborns due to the transplacental transfer of maternal autoantibodies.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2921,6 +3122,8 @@
                 
                 <div class="evidence-explanation">The reference notes that neonatal lupus is mediated by maternal autoantibodies, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2938,6 +3141,8 @@
                 
                 
                 <div class="evidence-explanation">This confirms that neonatal lupus is a result of the transplacental transfer of maternal antibodies.</div>
+                
+                
                 
             </div>
             
@@ -2997,6 +3202,8 @@
                 
                 <div class="evidence-explanation">This indicates that there is a distinct subtype of SLE induced by medications.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3015,6 +3222,8 @@
                 
                 <div class="evidence-explanation">This explicitly states that drug-induced lupus erythematosus (DILE) is caused by certain medications and is usually reversible after discontinuation of the drug.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3032,6 +3241,8 @@
                 
                 
                 <div class="evidence-explanation">This literature mentions that certain drugs are associated with drug-related lupus, providing further support to the statement.</div>
+                
+                
                 
             </div>
             
@@ -3225,6 +3436,8 @@
                 
                 <div class="evidence-explanation">The reference discusses the altered metabolic patterns of B cells, CD4(+) T cells, and myeloid cells (which include macrophages) and their contribution to lupus, which indirectly supports the involvement of these cell types in lupus mechanisms, but it does not specifically address immune complex formation directly.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3243,6 +3456,8 @@
                 
                 <div class="evidence-explanation">This reference demonstrates the role of specific plasma cells in the development of lupus nephritis, implying their role in immune complex-related pathology, but does not detail the direct involvement of B cells or macrophages in immune complex formation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3260,6 +3475,8 @@
                 
                 
                 <div class="evidence-explanation">The reference highlights the crucial role of B cells in the pathogenesis of SLE through mechanisms such as autoantibody production, which is critical for immune complex formation. However, it does not explicitly discuss the role of plasma cells or macrophages in the context given.</div>
+                
+                
                 
             </div>
             
@@ -3361,6 +3578,8 @@
                 
                 <div class="evidence-explanation">The literature supports the deposition of immune complexes in kidney glomeruli but does not cover skeletal joints, skin, heart, or lung in this context.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3378,6 +3597,8 @@
                 
                 
                 <div class="evidence-explanation">This confirms immune complex deposition in kidneys.</div>
+                
+                
                 
             </div>
             
@@ -3463,6 +3684,8 @@
                 
                 <div class="evidence-explanation">This paper directly establishes that autoantibodies form immune complexes which cause inflammatory damage to multiple organs in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3480,6 +3703,8 @@
                 
                 
                 <div class="evidence-explanation">The literature confirms the deposition of immune complexes in kidneys, joints, and skin, but does not mention the heart and lung specifically in this context.</div>
+                
+                
                 
             </div>
             
@@ -3565,6 +3790,8 @@
                 
                 <div class="evidence-explanation">The literature confirms the deposition of immune complexes in kidneys, joints, and skin, but does not mention the heart and lung specifically in this context.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3583,6 +3810,8 @@
                 
                 <div class="evidence-explanation">This confirms immune complex deposition in the heart.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3600,6 +3829,8 @@
                 
                 
                 <div class="evidence-explanation">This reference does not mention the deposition of immune complexes in skeletal joints.</div>
+                
+                
                 
             </div>
             
@@ -3649,6 +3880,8 @@
                 
                 <div class="evidence-explanation">The article describes inflammation and immune complex deposition as mechanisms leading to tissue damage in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3667,6 +3900,8 @@
                 
                 <div class="evidence-explanation">The literature explains that inflammation and tissue damage are core mechanisms in the pathology of SLE due to immune system disturbances.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3684,6 +3919,8 @@
                 
                 
                 <div class="evidence-explanation">This article outlines inflammation as part of the immune dysregulation in SLE, leading to tissue damage in multiple organs.</div>
+                
+                
                 
             </div>
             
@@ -3733,6 +3970,8 @@
                 
                 <div class="evidence-explanation">The abstract confirms that inflammation is a key aspect of systemic lupus erythematosus pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3751,6 +3990,8 @@
                 
                 <div class="evidence-explanation">The abstract clearly mentions inflammation as a characteristic feature of SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3768,6 +4009,8 @@
                 
                 
                 <div class="evidence-explanation">The literature describes SLE as a chronic autoimmune disease affecting various organs, implying sustained inflammation over time.</div>
+                
+                
                 
             </div>
             
@@ -3819,6 +4062,8 @@
                 
                 <div class="evidence-explanation">This reference mentions the potential triggers for lupus flares, which include UV light (sunlight) and infections.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3837,6 +4082,8 @@
                 
                 <div class="evidence-explanation">This reference specifically states that stress and infections can trigger lupus flares.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3854,6 +4101,8 @@
                 
                 
                 <div class="evidence-explanation">This reference confirms that sunlight exposure can trigger lupus flares.</div>
+                
+                
                 
             </div>
             
@@ -3992,6 +4241,8 @@
                 
                 
                 <div class="evidence-explanation">This review describes the type I interferon gene signature in SLE, supporting chronic activation of the type I interferon pathway.</div>
+                
+                
                 
             </div>
             
@@ -4784,6 +5035,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies leukopenia (decreased total leukocyte count) as frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4802,6 +5055,8 @@
                 
                 <div class="evidence-explanation">The study reports that leukopenia is prevalent in 22-41.8% of SLE cases, indicating that leukopenia is a frequent hematologic abnormality in SLE patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4819,6 +5074,8 @@
                 
                 
                 <div class="evidence-explanation">Although thrombocytopenia was the most prevalent, leukopenia was still present in 14% of the cases, supporting the statement that leukopenia is a frequent hematologic abnormality in SLE patients.</div>
+                
+                
                 
             </div>
             
@@ -4880,6 +5137,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies thrombocytopenia as occasional in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4900,6 +5159,8 @@
                 
                 <div class="evidence-explanation">Euro-Lupus cohort found thrombocytopenia in 13.4% of 1,000 SLE patients over 10 years.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4917,6 +5178,8 @@
                 
                 
                 <div class="evidence-explanation">The study shows that thrombocytopenia is a common occurrence in SLE patients, with a significant portion experiencing various degrees of thrombocytopenia.</div>
+                
+                
                 
             </div>
             
@@ -4978,6 +5241,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies hemolytic anemia as occasional in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4996,6 +5261,8 @@
                 
                 <div class="evidence-explanation">The abstract mentions that autoimmune hemolytic anemia is one of the types of anemia in SLE but does not provide information about its frequency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5013,6 +5280,8 @@
                 
                 
                 <div class="evidence-explanation">This reference confirms that hemolytic anemia is one of the complications of SLE.</div>
+                
+                
                 
             </div>
             
@@ -5081,6 +5350,8 @@
                 
                 <div class="evidence-explanation">The literature states that pericarditis is the most common cardiac abnormality in SLE patients, not occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5099,6 +5370,8 @@
                 
                 <div class="evidence-explanation">The literature indicates that systemic lupus erythematosus is frequently associated with pericarditis, not occasionally.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5116,6 +5389,8 @@
                 
                 
                 <div class="evidence-explanation">The literature suggests that pericarditis can commonly be present in systemic inflammatory rheumatic diseases, including SLE.</div>
+                
+                
                 
             </div>
             
@@ -5173,6 +5448,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies Raynaud phenomenon as frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5192,6 +5469,8 @@
                 
                 
                 <div class="evidence-explanation">Euro-Lupus cohort found Raynaud phenomenon in 16.3%, below the Frequent (30-79%) band; supports association but not the frequency classification.</div>
+                
+                
                 
             </div>
             
@@ -5249,6 +5528,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies hypertension as frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5268,6 +5549,8 @@
                 
                 
                 <div class="evidence-explanation">Euro-Lupus cohort found hypertension in 16.9%, below the Frequent (30-79%) band; supports association but not the frequency classification.</div>
+                
+                
                 
             </div>
             
@@ -5324,6 +5607,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies lymphadenopathy as occasional in SLE.</div>
+                
+                
                 
             </div>
             
@@ -5390,6 +5675,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies anorexia (decreased appetite) as very frequent in SLE.</div>
                 
+                
+                
             </div>
             
             
@@ -5454,6 +5741,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies retinopathy as very rare in SLE.</div>
+                
+                
                 
             </div>
             
@@ -5522,6 +5811,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies lupus nephritis as frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5542,6 +5833,8 @@
                 
                 <div class="evidence-explanation">Euro-Lupus cohort found active nephropathy in 27.9% of 1,000 SLE patients over 10 years.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5559,6 +5852,8 @@
                 
                 
                 <div class="evidence-explanation">The reference confirms that lupus nephritis is a serious and frequent manifestation of systemic lupus erythematosus (SLE).</div>
+                
+                
                 
             </div>
             
@@ -5618,6 +5913,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies proteinuria as very frequent in SLE.</div>
                 
+                
+                
             </div>
             
             
@@ -5673,6 +5970,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies hematuria as frequent in SLE.</div>
+                
+                
                 
             </div>
             
@@ -5739,6 +6038,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies oral ulcers as occasional in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5758,6 +6059,8 @@
                 
                 
                 <div class="evidence-explanation">Malaysian cohort reports oral ulcers in 51%, which exceeds the Occasional (5-29%) band; supports association but not the frequency classification.</div>
+                
+                
                 
             </div>
             
@@ -5824,6 +6127,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies malar rash as frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5844,6 +6149,8 @@
                 
                 <div class="evidence-explanation">Euro-Lupus cohort of 1,000 patients found malar rash in 31.1% over 10 years.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5863,6 +6170,8 @@
                 
                 
                 <div class="evidence-explanation">Malaysian multi-ethnic cohort reports malar rash in 61.3% of SLE patients.</div>
+                
+                
                 
             </div>
             
@@ -5929,6 +6238,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies cutaneous photosensitivity as occasional in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5949,6 +6260,8 @@
                 
                 <div class="evidence-explanation">Photosensitivity is recognized as a common manifestation in lupus erythematosus.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5968,6 +6281,8 @@
                 
                 
                 <div class="evidence-explanation">Oman cohort reports photosensitivity at initial presentation in 35.1%, which exceeds the Occasional (5-29%) band; supports association but not the frequency classification.</div>
+                
+                
                 
             </div>
             
@@ -6025,6 +6340,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies alopecia as frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6044,6 +6361,8 @@
                 
                 
                 <div class="evidence-explanation">Oman cohort reports hair loss at initial presentation in 39.29% of SLE patients.</div>
+                
+                
                 
             </div>
             
@@ -6110,6 +6429,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies fever as very frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6129,6 +6450,8 @@
                 
                 
                 <div class="evidence-explanation">Euro-Lupus cohort found fever in 16.6% over 10-year follow-up, well below the Very Frequent (80-99%) band; supports association but not the frequency classification.</div>
+                
+                
                 
             </div>
             
@@ -6195,6 +6518,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies arthritis as frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6215,6 +6540,8 @@
                 
                 <div class="evidence-explanation">Euro-Lupus cohort found arthritis in 48.1% of 1,000 SLE patients over 10 years.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6234,6 +6561,8 @@
                 
                 
                 <div class="evidence-explanation">This reference explicitly states that arthritis is one of the most common disease manifestations in patients with SLE.</div>
+                
+                
                 
             </div>
             
@@ -6302,6 +6631,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies seizures as occasional in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6320,6 +6651,8 @@
                 
                 <div class="evidence-explanation">The prevalence range of 2 to 8% suggests that seizures are not very common but occur at a noticeable rate, which could be interpreted as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6337,6 +6670,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the idea that seizures are a recognized neuropsychiatric manifestation of SLE, implying they occur with some regularity.</div>
+                
+                
                 
             </div>
             
@@ -6392,6 +6727,8 @@
                 
                 <div class="evidence-explanation">The study indicates that psychosis is an infrequent manifestation of neuropsychiatric systemic lupus erythematosus (NPSLE), which suggests it is not common but does occur occasionally. This partially supports the statement that psychosis is an &#39;occasional&#39; manifestation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6409,6 +6746,8 @@
                 
                 
                 <div class="evidence-explanation">This case report describes psychosis as a rare manifestation of NPSLE, occurring in 21% of cases at the onset of SLE. While &#39;rare&#39; and &#39;occasional&#39; are not identical, they both imply infrequency, partially supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -6466,6 +6805,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies depression as occasional in SLE.</div>
                 
+                
+                
             </div>
             
             
@@ -6521,6 +6862,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies chorea as very rare in SLE.</div>
+                
+                
                 
             </div>
             
@@ -6587,6 +6930,8 @@
                 
                 <div class="evidence-explanation">The article explicitly lists pleuritis as one of the pleuropulmonary manifestations of SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6605,6 +6950,8 @@
                 
                 <div class="evidence-explanation">The prospective analysis found lupus pleuritis in SLE patients, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6622,6 +6969,8 @@
                 
                 
                 <div class="evidence-explanation">The article confirms that pleuritis occurs in SLE patients.</div>
+                
+                
                 
             </div>
             
@@ -6688,6 +7037,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies fatigue as very frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6707,6 +7058,8 @@
                 
                 
                 <div class="evidence-explanation">Oman cohort reports fatigue at initial presentation in 35.22%, below the Very Frequent (80-99%) band; supports association but not the frequency classification.</div>
+                
+                
                 
             </div>
             
@@ -6763,6 +7116,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies malaise as very frequent in SLE.</div>
+                
+                
                 
             </div>
             
@@ -6829,6 +7184,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies weight loss as very frequent in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6848,6 +7205,8 @@
                 
                 
                 <div class="evidence-explanation">Oman cohort reports weight changes at 13.43%, well below the Very Frequent (80-99%) band, and the term is imprecise (weight changes vs weight loss); supports association but not the frequency classification.</div>
+                
+                
                 
             </div>
             
@@ -6903,6 +7262,8 @@
                 
                 <div class="evidence-explanation">The study indicates that a significant portion of patients with Systemic Lupus Erythematosus (SLE) exhibit kidney involvement in the form of lupus nephritis (LN).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6921,6 +7282,8 @@
                 
                 <div class="evidence-explanation">The classification of pathologic abnormalities in SLE patients includes various forms of lupus nephritis, which confirms kidney involvement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6938,6 +7301,8 @@
                 
                 
                 <div class="evidence-explanation">This study highlights that childhood-onset SLE has a high risk of developing nephritis, underlining kidney involvement as a significant phenotype.</div>
+                
+                
                 
             </div>
             
@@ -6995,6 +7360,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies discoid lupus rash as occasional in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7014,6 +7381,8 @@
                 
                 
                 <div class="evidence-explanation">Oman cohort reports discoid lupus at initial presentation in 17.63% of SLE patients.</div>
+                
+                
                 
             </div>
             
@@ -7071,6 +7440,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies cheilitis as occasional in SLE.</div>
                 
+                
+                
             </div>
             
             
@@ -7126,6 +7497,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies pyuria as frequent in SLE.</div>
+                
+                
                 
             </div>
             
@@ -7183,6 +7556,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table classifies serositis as occasional in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7202,6 +7577,8 @@
                 
                 
                 <div class="evidence-explanation">Euro-Lupus cohort found serositis in 16.0% of patients over 10-year follow-up.</div>
+                
+                
                 
             </div>
             
@@ -7284,6 +7661,8 @@
                 
                 <div class="evidence-explanation">The study indicates that HLA-DR2 is associated with an increased susceptibility to SLE in the Taiwanese population.</div>
                 
+                
+                
             </div>
             
             
@@ -7323,6 +7702,8 @@
                 
                 <div class="evidence-explanation">The study finds a significant association between HLA-DR3 and the presence of anti-Ro/La antibodies in SLE patients, though it does not establish that HLA-DR3 alone is a genetic risk factor for SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7340,6 +7721,8 @@
                 
                 
                 <div class="evidence-explanation">This study highlights differences in HLA-DR distribution between drug-induced SLE and idiopathic SLE, but it does not specifically address the genetic contribution of HLA-DR3 to idiopathic SLE.</div>
+                
+                
                 
             </div>
             
@@ -7382,6 +7765,8 @@
                 
                 <div class="evidence-explanation">The study indicates that certain polymorphisms in the PTPN22 gene are associated with pediatric systemic lupus erythematosus (PSLE), supporting the genetic association between PTPN22 and SLE.</div>
                 
+                
+                
             </div>
             
             
@@ -7423,6 +7808,8 @@
                 
                 <div class="evidence-explanation">The study found a significant association between the STAT4 gene (specifically rs7574865) and susceptibility to SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7441,6 +7828,8 @@
                 
                 <div class="evidence-explanation">This study identified STAT4 as one of the candidate genes associated with SLE through transcriptomic data analysis and pathway analysis of GWAS data.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7458,6 +7847,8 @@
                 
                 
                 <div class="evidence-explanation">The study aimed to evaluate the association between STAT4 polymorphisms and the presence of Jaccoud Arthropathy in individuals with SLE, implying an association between STAT4 and SLE.</div>
+                
+                
                 
             </div>
             
@@ -7500,6 +7891,8 @@
                 
                 <div class="evidence-explanation">The study clearly identifies IRF5 as one of the genetic risk factors associated with SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7518,6 +7911,8 @@
                 
                 <div class="evidence-explanation">The meta-analysis confirms the association of IRF5 polymorphism with SLE in multiple populations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7535,6 +7930,8 @@
                 
                 
                 <div class="evidence-explanation">The paper discusses the role of IRF5 in SLE pathogenesis and confirms its genetic association with the disease.</div>
+                
+                
                 
             </div>
             
@@ -7815,6 +8212,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the DNASE1-systemic lupus erythematosus gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7858,6 +8257,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PRKCD-systemic lupus erythematosus gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7900,6 +8301,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the UNC93B1-systemic lupus erythematosus gene-disease relationship as moderate with semidominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -8001,6 +8404,8 @@
                 
                 
                 <div class="evidence-explanation">This phase IIb trial demonstrated that anifrolumab significantly reduced SLE disease activity, with greater efficacy in patients with high interferon gene signatures.</div>
+                
+                
                 
             </div>
             
@@ -8135,6 +8540,8 @@
                 
                 
                 <div class="evidence-explanation">This phase III BLISS-76 trial demonstrated that belimumab significantly improved SLE outcomes compared to placebo.</div>
+                
+                
                 
             </div>
             
@@ -8297,6 +8704,8 @@
                 
                 <div class="evidence-explanation">The literature clearly states that UV radiation exposure may exacerbate pre-existing lupus, which supports the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8314,6 +8723,8 @@
                 
                 
                 <div class="evidence-explanation">The study investigates the seasonal variation in lupus flares and correlates increased flares with increased temperature and sunshine, supporting the statement that UV exposure exacerbates disease activity.</div>
+                
+                
                 
             </div>
             
@@ -8368,6 +8779,8 @@
                 
                 <div class="evidence-explanation">The paper identifies infections as one of the environmental factors potentially associated with the risk of SLE, thereby supporting the statement that infections can trigger or worsen disease symptoms in SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8386,6 +8799,8 @@
                 
                 <div class="evidence-explanation">This review mentions infections, specifically Epstein-Barr virus, as triggers for autoimmunity, which supports the notion that infections can influence SLE disease activity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8403,6 +8818,8 @@
                 
                 
                 <div class="evidence-explanation">This study supports the connection between infections (specifically EBV) and SLE, further establishing that infections can trigger or worsen SLE symptoms.</div>
+                
+                
                 
             </div>
             
@@ -8455,6 +8872,8 @@
                 
                 <div class="evidence-explanation">This reference discusses various environmental factors that can trigger SLE flares, which supports the notion that stress, as an environmental factor, can do so as well.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8473,6 +8892,8 @@
                 
                 <div class="evidence-explanation">This reference directly supports the statement that psychological stress can trigger and worsen SLE flares.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8490,6 +8911,8 @@
                 
                 
                 <div class="evidence-explanation">This reference indicates a link between stress-related disorders and the development or worsening of SLE.</div>
+                
+                
                 
             </div>
             
@@ -8521,6 +8944,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -8544,6 +8968,8 @@
                 
                 <div class="evidence-explanation">While ANAs are indeed characteristic of SLE, the specific frequency (98%) mentioned in the statement is not detailed in the provided literature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8561,6 +8987,8 @@
                 
                 
                 <div class="evidence-explanation">The criteria confirm the importance of ANA for SLE diagnosis, but do not explicitly confirm a 98% frequency rate.</div>
+                
+                
                 
             </div>
             
@@ -8580,6 +9008,8 @@
                 
                 <div class="evidence-explanation">This report lists a frequency different from 98%, but supports the general relevance of ANA in SLE.</div>
                 
+                
+                
             </div>
             
             
@@ -8598,6 +9028,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
                     
                 </div>
+                
                 
                 
     
@@ -8623,6 +9054,8 @@
                 
                 <div class="evidence-explanation">This supports the presence of anti-dsDNA antibodies in patients with SLE.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8640,6 +9073,8 @@
                 
                 
                 <div class="evidence-explanation">This confirms the involvement of autoantibodies, including anti-dsDNA, in SLE and specifically lupus nephritis.</div>
+                
+                
                 
             </div>
             
@@ -8659,6 +9094,8 @@
                 
                 <div class="evidence-explanation">This directly supports the presence and diagnostic role of anti-dsDNA antibodies in SLE.</div>
                 
+                
+                
             </div>
             
             
@@ -8677,6 +9114,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
                     
                 </div>
+                
                 
                 
     
@@ -8702,6 +9140,8 @@
                 
                 <div class="evidence-explanation">The Smith antigen is a specific target in SLE, and the presence of anti-Smith antibodies (Sm) is marked, indicating high specificity.</div>
                 
+                
+                
             </div>
             
             
@@ -8718,6 +9158,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
                     
                 </div>
+                
                 
                 
     
@@ -8743,6 +9184,8 @@
                 
                 <div class="evidence-explanation">The literature specifically mentions the presence of anti-histone antibodies in systemic lupus erythematosus and drug-induced lupus erythematosus.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8760,6 +9203,8 @@
                 
                 
                 <div class="evidence-explanation">While anti-histone antibodies are present in drug-induced lupus, their prevalence is reducing with the use of modern biological agents.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2697,6 +2888,8 @@
                 
                 <div class="evidence-explanation">This reference directly states that peroxisome biogenesis disorders are autosomal recessive.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2714,6 +2907,8 @@
                 
                 
                 <div class="evidence-explanation">This reference also confirms the autosomal recessive inheritance of peroxisomal diseases, including PBDs.</div>
+                
+                
                 
             </div>
             
@@ -2894,6 +3089,8 @@
                 
                 <div class="evidence-explanation">This reference highlights that mutations affecting peroxisome biogenesis lead to dysfunction of peroxisomes and consequently to metabolic impairments.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2912,6 +3109,8 @@
                 
                 <div class="evidence-explanation">Defective peroxisome biogenesis due to mutations in PEX genes supports the statement about peroxisomal disorders and impaired metabolic processes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2929,6 +3128,8 @@
                 
                 
                 <div class="evidence-explanation">The reference details how mutations in PEX10 affect peroxisomal import, aligning with the statement&#39;s assertion about disrupted peroxisome function.</div>
+                
+                
                 
             </div>
             
@@ -3055,6 +3256,8 @@
                 
                 <div class="evidence-explanation">The reference supports the accumulation of VLCFAs as part of the pathophysiology of Peroxisome Biogenesis Disorders but does not mention bile acid intermediates or phytanic acid.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3073,6 +3276,8 @@
                 
                 <div class="evidence-explanation">This reference supports the accumulation of VLCFAs and phytanic acid in peroxisomal disorders but does not mention bile acid intermediates.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3090,6 +3295,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the accumulation of bile acid intermediates in peroxisomal disorders but does not mention VLCFAs or phytanic acid.</div>
+                
+                
                 
             </div>
             
@@ -3216,6 +3423,8 @@
                 
                 <div class="evidence-explanation">The literature indicates that plasmalogen biosynthesis is significantly affected in patients with peroxisome biogenesis disorders, which supports the statement regarding impaired synthesis of plasmalogens disrupting normal cellular functions.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3234,6 +3443,8 @@
                 
                 <div class="evidence-explanation">This study reinforces that impaired peroxisome function, including the biosynthesis of plasmalogens, leads to a broad spectrum of cellular dysfunctions.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3251,6 +3462,8 @@
                 
                 
                 <div class="evidence-explanation">The abstract confirms that peroxisomes are crucial for the synthesis of plasmalogens and that their dysfunction could disrupt normal cellular functions.</div>
+                
+                
                 
             </div>
             
@@ -3362,6 +3575,8 @@
                 
                 <div class="evidence-explanation">The reference specifies that a lack of functional peroxisomes leads to severe neurological dysfunction, including demyelination and defects in neuronal migration, which aligns with the statement&#39;s content.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3380,6 +3595,8 @@
                 
                 <div class="evidence-explanation">This reference describes PBDs leading to significant neurodegeneration and psychomotor dysfunction, consistent with the statement on neurological dysfunction due to the disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3397,6 +3614,8 @@
                 
                 
                 <div class="evidence-explanation">While this reference supports the role of toxic metabolites, it focuses on liver pathology rather than CNS-specific features like demyelination and neuronal migration defects.</div>
+                
+                
                 
             </div>
             
@@ -3507,6 +3726,8 @@
                 
                 <div class="evidence-explanation">The study mentions liver disease as a common symptom of peroxisome biogenesis disorder (PBD), supporting hepatic dysfunction.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3525,6 +3746,8 @@
                 
                 <div class="evidence-explanation">This reference supports the accumulation of bile acid intermediates causing liver pathology in PBDs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3542,6 +3765,8 @@
                 
                 
                 <div class="evidence-explanation">This reference indirectly supports the statement by discussing the lethal and severe impact of PBDs, including liver dysfunction.</div>
+                
+                
                 
             </div>
             
@@ -3630,6 +3855,8 @@
                 
                 <div class="evidence-explanation">The context indicates that rhizomelic chondrodysplasia punctata (a type of peroxisome biogenesis disorder) results from peroxisomal dysfunction, supporting the connection between plasmalogen deficiency and skeletal abnormalities, including rhizomelic shortening of limbs and chondrodysplasia punctata.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3648,6 +3875,8 @@
                 
                 <div class="evidence-explanation">The document discusses a case where plasmalogen biosynthesis deficiency leads to rhizomelic chondrodysplasia punctata, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3665,6 +3894,8 @@
                 
                 
                 <div class="evidence-explanation">The paper supports the importance of peroxisomes in lipid synthesis, including plasmalogens, which are associated with diseases like rhizomelic chondrodysplasia punctata that impact bone and cartilage formation.</div>
+                
+                
                 
             </div>
             
@@ -3758,6 +3989,8 @@
                 
                 <div class="evidence-explanation">This statement supports the pervasive nature of peroxisomal dysfunction affecting multiple organ systems, leading to a range of clinical manifestations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3776,6 +4009,8 @@
                 
                 <div class="evidence-explanation">This statement aligns with the notion that peroxisomal dysfunction affects multiple organ systems.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3793,6 +4028,8 @@
                 
                 
                 <div class="evidence-explanation">This reference details the involvement of multiple cellular compartments and metabolic pathways, illustrating multisystem impact.</div>
+                
+                
                 
             </div>
             
@@ -4148,7 +4385,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Toxic Metabolites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The inability to break down very long-chain fatty acids (VLCFAs) and other compounds leads to their accumulation in tissues.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"fatty acid beta-oxidation\", \"very long-chain fatty acid metabolic process\"]}}, {\"id\": \"Adrenal Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000846\"}}, {\"id\": \"Bile Acid Intermediates\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001396\"}}, {\"id\": \"Chondrodysplasia Punctata\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Deficiency of Essential Compounds\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired synthesis of plasmalogens and other essential compounds disrupts normal cellular functions.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"ether lipid biosynthetic process\", \"bile acid biosynthetic process\"]}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Hepatic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of bile acid intermediates and VLCFAs, along with oxidative stress, cause hepatomegaly, fibrosis, and liver failure.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Peroxisome Biogenesis and Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in PEX genes disrupt the peroxisomal protein import machinery, including PEX5/PEX7 receptors, the PEX13/PEX14 docking complex, and the PEX1-PEX6 AAA+ ATPase export complex, preventing proper assembly and function of peroxisomes.\", \"meta\": {\"biological_processes\": [\"protein import into peroxisome matrix\", \"peroxisome organization\"]}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002415\"}}, {\"id\": \"Liver Transplant\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered in severe cases with significant liver dysfunction.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Microglial Dysfunction and Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peroxisomal defects in microglial cells induce a disease-associated microglial (DAM) signature with altered lipid metabolism, lipid droplet accumulation, and impaired autophagy, contributing to neurodegeneration.\", \"meta\": {\"cell_types\": [\"microglial cell\"], \"locations\": [\"central nervous system\"]}}, {\"id\": \"Multisystem Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pervasive nature of peroxisomal dysfunction affects multiple organ systems, resulting in a wide range of clinical manifestations.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Neurological Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of toxic metabolites and deficiency of essential compounds lead to demyelination, neuronal migration defects, and neurodegeneration.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"oligodendrocyte\"], \"locations\": [\"central nervous system\"]}}, {\"id\": \"Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Specialized diet and supplements to manage biochemical abnormalities.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"PEX1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PEX1\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX10\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX12\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX13\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX13\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX2\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX26\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX26\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX5\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"PEX6\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX7\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Peroxisome Biogenesis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in PEX genes disrupt the assembly and function of peroxisomes, leading to impaired metabolic processes.\", \"meta\": {\"evidence_count\": 6, \"genes\": [\"PEX1\", \"PEX6\", \"PEX13\", \"PEX26\", \"PEX2\", \"PEX10\", \"PEX12\", \"PEX5\", \"PEX7\"]}}, {\"id\": \"Peroxisome-Organelle Crosstalk Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of peroxisome-ER-mitochondria interactions impairs lipid trafficking and metabolic coordination, particularly affecting VLCFA and ether-lipid flux between organelles.\"}, {\"id\": \"Plasmalogens\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Renal Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Retinal Pigment Epithelium Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In peroxisome biogenesis disorders, retinal pigment epithelium shows progressive lipid remodeling with decreased plasmalogens and increased very-long-chain lysophosphatidylcholines, leading to structural degeneration and vision loss.\", \"meta\": {\"cell_types\": [\"retinal pigment epithelial cell\", \"photoreceptor cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Skeletal Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasmalogen deficiency disrupts normal bone formation, leading to rhizomelic shortening of limbs and chondrodysplasia punctata.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"bones\", \"cartilage\"]}}, {\"id\": \"Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care addressing specific symptoms such as physical therapy for hypotonia and seizure management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Very Long Chain Fatty Acids (VLCFA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}], \"edges\": [{\"source\": \"Peroxisome Biogenesis Defect\", \"target\": \"Impaired Peroxisome Biogenesis and Import\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome Biogenesis Defect\", \"target\": \"Peroxisome-Organelle Crosstalk Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome Biogenesis Defect\", \"target\": \"Microglial Dysfunction and Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome Biogenesis Defect\", \"target\": \"Multisystem Involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Accumulation of Toxic Metabolites\", \"target\": \"Very Long Chain Fatty Acids (VLCFA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Accumulation of Toxic Metabolites\", \"target\": \"Bile Acid Intermediates\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Accumulation of Toxic Metabolites\", \"target\": \"Hepatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Accumulation of Toxic Metabolites\", \"target\": \"Neurological Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficiency of Essential Compounds\", \"target\": \"Plasmalogens\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficiency of Essential Compounds\", \"target\": \"Neurological Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficiency of Essential Compounds\", \"target\": \"Skeletal Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficiency of Essential Compounds\", \"target\": \"Retinal Pigment Epithelium Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological Dysfunction\", \"target\": \"Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological Dysfunction\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological Dysfunction\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Dysfunction\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Dysfunction\", \"target\": \"Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Dysfunction\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Abnormalities\", \"target\": \"Chondrodysplasia Punctata\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Abnormalities\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Renal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Adrenal Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Microglial Dysfunction and Neuroinflammation\", \"target\": \"Neurological Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome-Organelle Crosstalk Disruption\", \"target\": \"Accumulation of Toxic Metabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome-Organelle Crosstalk Disruption\", \"target\": \"Deficiency of Essential Compounds\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal Pigment Epithelium Dysfunction\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Peroxisome Biogenesis and Import\", \"target\": \"Accumulation of Toxic Metabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Peroxisome Biogenesis and Import\", \"target\": \"Deficiency of Essential Compounds\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiomyopathy\", \"target\": \"Heart Failure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Symptomatic Management\", \"target\": \"Neurological Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional Support\", \"target\": \"Accumulation of Toxic Metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional Support\", \"target\": \"Deficiency of Essential Compounds\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplant\", \"target\": \"Hepatic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PEX1\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX6\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX13\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX26\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX2\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX10\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX12\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX5\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX7\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Toxic Metabolites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The inability to break down very long-chain fatty acids (VLCFAs) and other compounds leads to their accumulation in tissues.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"fatty acid beta-oxidation\", \"very long-chain fatty acid metabolic process\"]}}, {\"id\": \"Adrenal Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000846\"}}, {\"id\": \"Bile Acid Intermediates\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"presence\": \"Elevated\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001396\"}}, {\"id\": \"Chondrodysplasia Punctata\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Deficiency of Essential Compounds\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired synthesis of plasmalogens and other essential compounds disrupts normal cellular functions.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"ether lipid biosynthetic process\", \"bile acid biosynthetic process\"]}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Hepatic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of bile acid intermediates and VLCFAs, along with oxidative stress, cause hepatomegaly, fibrosis, and liver failure.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Peroxisome Biogenesis and Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in PEX genes disrupt the peroxisomal protein import machinery, including PEX5/PEX7 receptors, the PEX13/PEX14 docking complex, and the PEX1-PEX6 AAA+ ATPase export complex, preventing proper assembly and function of peroxisomes.\", \"meta\": {\"biological_processes\": [\"protein import into peroxisome matrix\", \"peroxisome organization\"]}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002415\"}}, {\"id\": \"Liver Transplant\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered in severe cases with significant liver dysfunction.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Microglial Dysfunction and Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peroxisomal defects in microglial cells induce a disease-associated microglial (DAM) signature with altered lipid metabolism, lipid droplet accumulation, and impaired autophagy, contributing to neurodegeneration.\", \"meta\": {\"cell_types\": [\"microglial cell\"], \"locations\": [\"central nervous system\"]}}, {\"id\": \"Multisystem Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pervasive nature of peroxisomal dysfunction affects multiple organ systems, resulting in a wide range of clinical manifestations.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Neurological Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of toxic metabolites and deficiency of essential compounds lead to demyelination, neuronal migration defects, and neurodegeneration.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"oligodendrocyte\"], \"locations\": [\"central nervous system\"]}}, {\"id\": \"Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Specialized diet and supplements to manage biochemical abnormalities.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"PEX1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PEX1\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX10\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX12\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX13\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX13\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX2\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX26\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX26\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX5\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"PEX6\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PEX7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PEX7\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Peroxisome Biogenesis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in PEX genes disrupt the assembly and function of peroxisomes, leading to impaired metabolic processes.\", \"meta\": {\"evidence_count\": 6, \"genes\": [\"PEX1\", \"PEX6\", \"PEX13\", \"PEX26\", \"PEX2\", \"PEX10\", \"PEX12\", \"PEX5\", \"PEX7\"]}}, {\"id\": \"Peroxisome-Organelle Crosstalk Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of peroxisome-ER-mitochondria interactions impairs lipid trafficking and metabolic coordination, particularly affecting VLCFA and ether-lipid flux between organelles.\"}, {\"id\": \"Plasmalogens\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"presence\": \"Decreased\"}}, {\"id\": \"Renal Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Retinal Pigment Epithelium Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In peroxisome biogenesis disorders, retinal pigment epithelium shows progressive lipid remodeling with decreased plasmalogens and increased very-long-chain lysophosphatidylcholines, leading to structural degeneration and vision loss.\", \"meta\": {\"cell_types\": [\"retinal pigment epithelial cell\", \"photoreceptor cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Skeletal Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasmalogen deficiency disrupts normal bone formation, leading to rhizomelic shortening of limbs and chondrodysplasia punctata.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"bones\", \"cartilage\"]}}, {\"id\": \"Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care addressing specific symptoms such as physical therapy for hypotonia and seizure management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Very Long Chain Fatty Acids (VLCFA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"presence\": \"Elevated\"}}], \"edges\": [{\"source\": \"Peroxisome Biogenesis Defect\", \"target\": \"Impaired Peroxisome Biogenesis and Import\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome Biogenesis Defect\", \"target\": \"Peroxisome-Organelle Crosstalk Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome Biogenesis Defect\", \"target\": \"Microglial Dysfunction and Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome Biogenesis Defect\", \"target\": \"Multisystem Involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Accumulation of Toxic Metabolites\", \"target\": \"Very Long Chain Fatty Acids (VLCFA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Accumulation of Toxic Metabolites\", \"target\": \"Bile Acid Intermediates\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Accumulation of Toxic Metabolites\", \"target\": \"Hepatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Accumulation of Toxic Metabolites\", \"target\": \"Neurological Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficiency of Essential Compounds\", \"target\": \"Plasmalogens\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficiency of Essential Compounds\", \"target\": \"Neurological Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficiency of Essential Compounds\", \"target\": \"Skeletal Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficiency of Essential Compounds\", \"target\": \"Retinal Pigment Epithelium Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological Dysfunction\", \"target\": \"Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological Dysfunction\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological Dysfunction\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Dysfunction\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Dysfunction\", \"target\": \"Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Dysfunction\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Abnormalities\", \"target\": \"Chondrodysplasia Punctata\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Abnormalities\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Renal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Adrenal Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multisystem Involvement\", \"target\": \"Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Microglial Dysfunction and Neuroinflammation\", \"target\": \"Neurological Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome-Organelle Crosstalk Disruption\", \"target\": \"Accumulation of Toxic Metabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peroxisome-Organelle Crosstalk Disruption\", \"target\": \"Deficiency of Essential Compounds\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal Pigment Epithelium Dysfunction\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Peroxisome Biogenesis and Import\", \"target\": \"Accumulation of Toxic Metabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Peroxisome Biogenesis and Import\", \"target\": \"Deficiency of Essential Compounds\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiomyopathy\", \"target\": \"Heart Failure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Symptomatic Management\", \"target\": \"Neurological Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional Support\", \"target\": \"Accumulation of Toxic Metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional Support\", \"target\": \"Deficiency of Essential Compounds\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplant\", \"target\": \"Hepatic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PEX1\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX6\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX13\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX26\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX2\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX10\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX12\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX5\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PEX7\", \"target\": \"Peroxisome Biogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4242,6 +4479,8 @@
                 
                 <div class="evidence-explanation">The provided literature does not mention thrombocytopenia or any hematologic symptoms in relation to Peroxisome Biogenesis Disorders.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4259,6 +4498,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses peroxisomal disorders but does not mention thrombocytopenia or other hematologic conditions.</div>
+                
+                
                 
             </div>
             
@@ -4330,6 +4571,8 @@
                 
                 <div class="evidence-explanation">The literature confirms that cardiomyopathy and heart failure are associated with mitochondrial disorders (MIDs), which are a type of metabolic disorder. However, it does not specifically mention peroxisome biogenesis disorders (PBDs) in this context.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4347,6 +4590,8 @@
                 
                 
                 <div class="evidence-explanation">This reference provides an overview of pediatric cardiomyopathies but does not specifically mention peroxisome biogenesis disorders (PBDs) as a cause.</div>
+                
+                
                 
             </div>
             
@@ -4437,6 +4682,8 @@
                 
                 <div class="evidence-explanation">The reference states that inherited metabolic diseases, which include peroxisome biogenesis disorders, account for a substantial portion of pediatric hepatomegaly cases but does not specify the frequency as &#39;frequent.&#39;</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4455,6 +4702,8 @@
                 
                 <div class="evidence-explanation">The reference mentions liver pathology as frequent but does not specifically state hepatomegaly.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4472,6 +4721,8 @@
                 
                 
                 <div class="evidence-explanation">The reference discusses organ involvement including hepatic involvement but does not specify hepatomegaly as frequent.</div>
+                
+                
                 
             </div>
             
@@ -4564,6 +4815,8 @@
                 
                 <div class="evidence-explanation">This study characterizes hearing loss as a common phenotype in patients with Peroxisome Biogenesis Disorder within the Zellweger Spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4582,6 +4835,8 @@
                 
                 <div class="evidence-explanation">This study also confirms hearing impairment as a frequent phenotype in Peroxisome Biogenesis Disorders, further supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4599,6 +4854,8 @@
                 
                 
                 <div class="evidence-explanation">Heimler syndrome, a less severe form of peroxisome biogenesis disorders, frequently presents with sensorineural hearing loss, further supporting the frequent association of hearing loss with these disorders.</div>
+                
+                
                 
             </div>
             
@@ -4665,6 +4922,8 @@
                 
                 <div class="evidence-explanation">The study indicates that primary adrenal insufficiency is frequent in patients with peroxisomal disorders, specifically those with PEX1 pathogenic variants.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4682,6 +4941,8 @@
                 
                 
                 <div class="evidence-explanation">The study highlights a high prevalence of primary adrenal insufficiency in patients with Zellweger spectrum disorders, which are a type of peroxisome biogenesis disorder.</div>
+                
+                
                 
             </div>
             
@@ -4746,6 +5007,8 @@
                 
                 <div class="evidence-explanation">The study states that retinopathy is a recurrent feature in patients with peroxisomal disorders, supporting the statement that visual phenotypes, specifically retinopathy, are frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4764,6 +5027,8 @@
                 
                 <div class="evidence-explanation">The study indicates that retinopathy is common in peroxisome biogenesis disorders like Zellweger syndrome, neonatal adrenoleukodystrophy, and infantile Refsum disease, supporting the frequent occurrence of retinopathy as a visual phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4781,6 +5046,8 @@
                 
                 
                 <div class="evidence-explanation">The study states that retinal degeneration is the most frequent ocular phenotype observed in inherited metabolic disorders, which includes peroxisome biogenesis disorders, thereby supporting the frequent occurrence of retinopathy.</div>
+                
+                
                 
             </div>
             
@@ -4884,6 +5151,8 @@
                 
                 <div class="evidence-explanation">The reference mentions hypotonia as a significant clinical feature in peroxisomal disorders.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4902,6 +5171,8 @@
                 
                 <div class="evidence-explanation">While the reference primarily discusses cerebellar involvement, it indirectly supports the statement by implicating neurological systems in PEX10-related peroxisome biogenesis disorders.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4919,6 +5190,8 @@
                 
                 
                 <div class="evidence-explanation">The reference directly supports the very frequent occurrence of hypotonia in infants with peroxisomal disorders.</div>
+                
+                
                 
             </div>
             
@@ -4985,6 +5258,8 @@
                 
                 <div class="evidence-explanation">The literature indicates that peroxisomal disorders, which include Peroxisome Biogenesis Disorders (PBDs), frequently present with progressive psychomotor dysfunction, supporting the statement that developmental delay is a very frequent neurologic phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5003,6 +5278,8 @@
                 
                 <div class="evidence-explanation">Although this does not explicitly mention developmental delay, the overall description implies a frequent occurrence of neurologic dysfunction, which is often tied to developmental delays.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5020,6 +5297,8 @@
                 
                 
                 <div class="evidence-explanation">The article describes neurologic deficits appearing early in life, which aligns with developmental delays being a very frequent phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5135,6 +5414,8 @@
                 
                 <div class="evidence-explanation">Distinctive facial stigmata can be considered a form of craniofacial dysmorphism, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5152,6 +5433,8 @@
                 
                 
                 <div class="evidence-explanation">While the text does not explicitly mention craniofacial dysmorphism, the severity of symptoms and multisystem involvement suggest potential craniofacial manifestations.</div>
+                
+                
                 
             </div>
             
@@ -5202,6 +5485,8 @@
                 
                 <div class="evidence-explanation">Rhizomelic chondrodysplasia punctata is a type of peroxisome biogenesis disorder, supporting the statement that chondrodysplasia punctata falls under the category of musculoskeletal issues associated with peroxisome biogenesis disorders.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5220,6 +5505,8 @@
                 
                 <div class="evidence-explanation">This study supports the statement by indicating that epiphyseal stippling (chondrodysplasia punctata) is a characteristic feature in Zellweger syndrome, a type of peroxisome biogenesis disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5237,6 +5524,8 @@
                 
                 
                 <div class="evidence-explanation">Rhizomelic chondrodysplasia punctata is characterized by punctuate calcifications of the epiphyses, supporting the statement that this condition is associated with peroxisome biogenesis disorders and involves stippling of epiphyses.</div>
+                
+                
                 
             </div>
             
@@ -5321,6 +5610,8 @@
                 
                 <div class="evidence-explanation">The statement is supported as it mentions that mutations in the PEX1 gene are among the most prevalent causes of Zellweger syndrome, which is a type of PBD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5340,6 +5631,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX1-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5382,6 +5675,8 @@
                 
                 <div class="evidence-explanation">This statement indicates that mutations in PEX genes, including PEX6, are foundational to the development of peroxisome biogenesis disorders.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5400,6 +5695,8 @@
                 
                 <div class="evidence-explanation">This paper discusses PEX26 in detail but also underscores the critical function of PEX6 in peroxisome biogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5417,6 +5714,8 @@
                 
                 
                 <div class="evidence-explanation">This case report directly links pathogenic variants in PEX6 to a specific case of peroxisome biogenesis disorder.</div>
+                
+                
                 
             </div>
             
@@ -5463,6 +5762,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX13-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -5505,6 +5806,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX26-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5549,6 +5852,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX2-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -5591,6 +5896,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX10-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5635,6 +5942,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX12-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -5677,6 +5986,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX5-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5721,6 +6032,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX7-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -5762,6 +6075,8 @@
                 
                 <div class="evidence-explanation">This reference indicates that pathogenic variants in other PEX genes are associated with Peroxisome Biogenesis Disorder (PBD).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5780,6 +6095,8 @@
                 
                 <div class="evidence-explanation">Although this reference primarily discusses Perrault syndrome, it confirms that variants in PEX genes such as PEX6 are associated with peroxisomal biogenesis disorders.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5797,6 +6114,8 @@
                 
                 
                 <div class="evidence-explanation">This reference highlights PEX26 gene variants contributing to peroxisomal disorders which fall under the broader category of peroxisome biogenesis disorders.</div>
+                
+                
                 
             </div>
             
@@ -5843,6 +6162,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX11B-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -5885,6 +6206,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX14-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5929,6 +6252,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX16-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -5972,6 +6297,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX19-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -6014,6 +6341,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the PEX3-peroxisome biogenesis disorder gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6120,6 +6449,8 @@
                 
                 <div class="evidence-explanation">The statement about supportive care and symptomatic therapy is accurate but does not explicitly mention physical therapy for hypotonia and seizure management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6137,6 +6468,8 @@
                 
                 
                 <div class="evidence-explanation">The statement supports symptomatic care but does not detail specific treatments such as physical therapy for hypotonia or seizure management.</div>
+                
+                
                 
             </div>
             
@@ -6244,6 +6577,8 @@
                 
                 <div class="evidence-explanation">This snippet indicates that dietary supplementation and/or modification has been evaluated to manage biochemical abnormalities in PBD patients, supporting the statement that specialized diet and supplements can be a treatment strategy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6262,6 +6597,8 @@
                 
                 <div class="evidence-explanation">This reference discusses the use of diet as a measure to manage biochemical abnormalities in metabolic disorders, including peroxisomal diseases, which supports the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6279,6 +6616,8 @@
                 
                 
                 <div class="evidence-explanation">While this reference discusses a specific bile-acid therapy, it does not provide evidence about dietary or supplemental approaches for managing biochemical abnormalities in PBDs.</div>
+                
+                
                 
             </div>
             
@@ -6373,6 +6712,8 @@
                 
                 <div class="evidence-explanation">The reference indicates that liver transplantation is the standard of care for congenital inherited hepatic disorders, which includes peroxisomal disorders like Peroxisome Biogenesis Disorder (PBD), supporting that liver transplant is considered in severe cases with significant liver dysfunction.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6391,6 +6732,8 @@
                 
                 <div class="evidence-explanation">While this reference confirms liver involvement in Peroxisome Biogenesis Disorders such as Zellweger Syndrome, it does not specifically mention liver transplantation as a treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6408,6 +6751,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the use of liver transplantation in severe liver conditions, though it does not directly mention Peroxisome Biogenesis Disorder.</div>
+                
+                
                 
             </div>
             
@@ -6484,6 +6829,8 @@
                 
                 <div class="evidence-explanation">The literature describes genetic counseling as a discipline developed to educate patients, families, and professionals about genetic mechanisms and their application in healthcare, which supports the statement about providing information and support to families regarding inheritance and implications.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6501,6 +6848,8 @@
                 
                 
                 <div class="evidence-explanation">The literature discusses the importance of providing disease information and genetic counseling to families, supporting the statement about providing information and support to families regarding inheritance and implications in the context of peroxisomal diseases.</div>
+                
+                
                 
             </div>
             
@@ -6552,6 +6901,8 @@
                 
                 <div class="evidence-explanation">The literature discusses the interplay of genetic, epigenetic, and environmental factors in peroxisome biogenesis and function but does not describe peroxisome biogenesis disorders as purely environmental.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6569,6 +6920,8 @@
                 
                 
                 <div class="evidence-explanation">The literature explains that peroxisome biogenesis disorders are due to genetic mutations, not environmental factors.</div>
+                
+                
                 
             </div>
             
@@ -6602,6 +6955,7 @@
                 <div class="item-desc">Context: Diagnostic marker</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6625,6 +6979,8 @@
                 
                 <div class="evidence-explanation">This reference indicates that elevated VLCFA levels are a feature in nine peroxisomal disorders but does not specify peroxisome biogenesis disorders (PBD) exclusively.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6643,6 +6999,8 @@
                 
                 <div class="evidence-explanation">The abstract does not mention VLCFA levels in the context of PBD diagnosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6660,6 +7018,8 @@
                 
                 
                 <div class="evidence-explanation">This study identifies elevated levels of very long chain dicarboxylic acylcarnitines (a type of VLCFA) in patients with PBD.</div>
+                
+                
                 
             </div>
             
@@ -6681,6 +7041,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Diagnostic marker</div>
+                
                 
                 
     
@@ -6706,6 +7067,8 @@
                 
                 <div class="evidence-explanation">The literature clearly states that decreased levels of plasmalogens are a characteristic feature of peroxisome biogenesis disorders.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6724,6 +7087,8 @@
                 
                 <div class="evidence-explanation">The study mentions that impaired plasmalogen synthesis is one of the biochemical markers analyzed in PBD patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6741,6 +7106,8 @@
                 
                 
                 <div class="evidence-explanation">The literature shows that peroxisomes play an essential role in plasmalogen biosynthesis, indicating that their dysfunction leads to decreased plasmalogen levels.</div>
+                
+                
                 
             </div>
             
@@ -6762,6 +7129,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Diagnostic marker</div>
+                
                 
                 
     
@@ -6787,6 +7155,8 @@
                 
                 <div class="evidence-explanation">“The study states that disease-specific bile acids (BAs) can be measured as markers for peroxisome biogenesis disorders (PBDs) via a dried blood spot-based screening method.”</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6805,6 +7175,8 @@
                 
                 <div class="evidence-explanation">The study mentions the accumulation of C27-bile acids (a type of bile acid intermediate) in the plasma of patients with Zellweger syndrome, a type of peroxisome biogenesis disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6822,6 +7194,8 @@
                 
                 
                 <div class="evidence-explanation">The study supports the concept that certain biochemical markers, including bile acid intermediates, are elevated due to the metabolic process impairments in peroxisome biogenesis disorders.</div>
+                
+                
                 
             </div>
             

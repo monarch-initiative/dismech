@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2732,6 +2923,8 @@
                 
                 <div class="evidence-explanation">This directly supports type A as a recognized biochemical and clinical subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -2792,6 +2985,8 @@
                 
                 <div class="evidence-explanation">This directly supports type B as a severe neonatal biochemical subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -2851,6 +3046,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports type C as the attenuated pyruvate carboxylase deficiency subtype.</div>
+                
+                
                 
             </div>
             
@@ -2996,6 +3193,8 @@
                 
                 <div class="evidence-explanation">This directly supports pyruvate carboxylase deficiency as the proximal molecular lesion.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3015,6 +3214,8 @@
                 
                 
                 <div class="evidence-explanation">This review summarizes the proximal biochemical function of PC and supports the decreased pyruvate carboxylase activity annotation.</div>
+                
+                
                 
             </div>
             
@@ -3118,6 +3319,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports gluconeogenesis as a pyruvate carboxylase-dependent process disrupted by deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3236,6 +3439,8 @@
                 
                 <div class="evidence-explanation">This directly supports impaired gluconeogenesis and anaplerosis as the central metabolic mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -3341,6 +3546,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports lactic acidosis and systemic metabolic injury as dominant disease consequences.</div>
+                
+                
                 
             </div>
             
@@ -3448,6 +3655,8 @@
                 
                 <div class="evidence-explanation">This directly supports lactic acidosis as a downstream biochemical consequence of PC deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3546,6 +3755,8 @@
                 
                 
                 <div class="evidence-explanation">This supports secondary nitrogen-disposal abnormalities in severe neonatal pyruvate carboxylase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3671,6 +3882,8 @@
                 
                 <div class="evidence-explanation">This directly supports developmental and neuroimaging evidence of CNS involvement downstream of the metabolic lesion.</div>
                 
+                
+                
             </div>
             
             
@@ -3705,7 +3918,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Movements\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-amplitude tremor, hypokinesia, and bizarre ocular behavior are the most common neurologic findings reported in severe neonatal type B disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100022\"}}, {\"id\": \"Delayed Myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed cerebral myelination has been reported in attenuated type C pyruvate carboxylase deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type C\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012448\"}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurodevelopmental delay ranges from speech delay in type C to severe encephalopathy in types A and B.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth and nutritional instability are common manifestations of the chronic metabolic deficit.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemia may occur in severe pyruvate carboxylase deficiency through secondary urea-cycle perturbation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypercitrullinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type B\"]}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia occurs in some patients, especially in the attenuated but still metabolically unstable type C presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a frequent early neurologic sign, especially in the more severe infantile and neonatal presentations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Anaplerosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase replenishes oxaloacetate and other TCA-cycle intermediates, so deficiency impairs anaplerotic mitochondrial flux.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tricarboxylic acid cycle\"], \"genes\": [\"PC\"]}}, {\"id\": \"Impaired Gluconeogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase normally supports gluconeogenesis, so deficiency impairs glucose production during metabolic stress.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"gluconeogenesis\"], \"genes\": [\"PC\"]}}, {\"id\": \"Ketonuria\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lactate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lactate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase deficiency causes recurrent or persistent lactate accumulation as a dominant biochemical disease feature.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell redox homeostasis\"]}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent or persistent lactic acidosis is the dominant biochemical abnormality across pyruvate carboxylase deficiency phenotypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Mitochondrial Energy Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of pyruvate carboxylase-dependent metabolism produces systemic energy deficit that contributes to growth failure and neurologic dysfunction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell redox homeostasis\"]}}, {\"id\": \"Neurologic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase deficiency disrupts brain energy metabolism and myelination, producing developmental and structural neurologic abnormalities.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brain\"]}}, {\"id\": \"PC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PC\"], \"association\": \"Causal biallelic variant\"}}, {\"id\": \"Periventricular Leukomalacia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystic periventricular leukomalacia is the predominant brain MRI finding in severe neonatal type B pyruvate carboxylase deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006970\"}}, {\"id\": \"Pyruvate Carboxylase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PC dysfunction impairs the mitochondrial pyruvate carboxylase complex, reducing the conversion of pyruvate to oxaloacetate.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"pyruvate carboxylase activity\"], \"genes\": [\"PC\"]}}, {\"id\": \"Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neonatal pyruvate carboxylase deficiency may present with respiratory distress in the first hours of life.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002098\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in severe pyruvate carboxylase deficiency as part of the neurometabolic encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Triheptanoin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Triheptanoin is used as an anaplerotic odd-chain triglyceride therapy, with mixed overall results but apparent benefit in some type C patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Type A Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Life-limiting encephalopathy is a dominant clinical feature of the severe infantile type A form of pyruvate carboxylase deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type A\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Type B Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Life-limiting encephalopathy is a dominant clinical feature of the severe neonatal type B form of pyruvate carboxylase deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type B\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Urea Cycle Perturbation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe pyruvate carboxylase deficiency can perturb mitochondrial nitrogen handling, contributing to hyperammonemia in some presentations.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}], \"edges\": [{\"source\": \"Pyruvate Carboxylase Deficiency\", \"target\": \"Impaired Gluconeogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pyruvate Carboxylase Deficiency\", \"target\": \"Impaired Anaplerosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pyruvate Carboxylase Deficiency\", \"target\": \"Lactate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Gluconeogenesis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Anaplerosis\", \"target\": \"Mitochondrial Energy Deficit\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Anaplerosis\", \"target\": \"Neurologic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Anaplerosis\", \"target\": \"Urea Cycle Perturbation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Energy Deficit\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Energy Deficit\", \"target\": \"Neurologic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Energy Deficit\", \"target\": \"Ketonuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate Accumulation\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate Accumulation\", \"target\": \"Lactate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate Accumulation\", \"target\": \"Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urea Cycle Perturbation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urea Cycle Perturbation\", \"target\": \"Hypercitrullinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Abnormal Movements\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Type A Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Type B Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Periventricular Leukomalacia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Delayed Myelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Triheptanoin supplementation\", \"target\": \"Impaired Anaplerosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin supplementation\", \"target\": \"Lactate Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin supplementation\", \"target\": \"Mitochondrial Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PC\", \"target\": \"Impaired Anaplerosis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PC\", \"target\": \"Impaired Gluconeogenesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PC\", \"target\": \"Pyruvate Carboxylase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Movements\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-amplitude tremor, hypokinesia, and bizarre ocular behavior are the most common neurologic findings reported in severe neonatal type B disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100022\"}}, {\"id\": \"Delayed Myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed cerebral myelination has been reported in attenuated type C pyruvate carboxylase deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type C\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012448\"}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurodevelopmental delay ranges from speech delay in type C to severe encephalopathy in types A and B.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth and nutritional instability are common manifestations of the chronic metabolic deficit.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemia may occur in severe pyruvate carboxylase deficiency through secondary urea-cycle perturbation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypercitrullinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type B\"], \"presence\": \"INCREASED\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia occurs in some patients, especially in the attenuated but still metabolically unstable type C presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a frequent early neurologic sign, especially in the more severe infantile and neonatal presentations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Anaplerosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase replenishes oxaloacetate and other TCA-cycle intermediates, so deficiency impairs anaplerotic mitochondrial flux.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tricarboxylic acid cycle\"], \"genes\": [\"PC\"]}}, {\"id\": \"Impaired Gluconeogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase normally supports gluconeogenesis, so deficiency impairs glucose production during metabolic stress.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"gluconeogenesis\"], \"genes\": [\"PC\"]}}, {\"id\": \"Ketonuria\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Lactate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Lactate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase deficiency causes recurrent or persistent lactate accumulation as a dominant biochemical disease feature.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell redox homeostasis\"]}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent or persistent lactic acidosis is the dominant biochemical abnormality across pyruvate carboxylase deficiency phenotypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Mitochondrial Energy Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of pyruvate carboxylase-dependent metabolism produces systemic energy deficit that contributes to growth failure and neurologic dysfunction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell redox homeostasis\"]}}, {\"id\": \"Neurologic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase deficiency disrupts brain energy metabolism and myelination, producing developmental and structural neurologic abnormalities.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brain\"]}}, {\"id\": \"PC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PC\"], \"association\": \"Causal biallelic variant\"}}, {\"id\": \"Periventricular Leukomalacia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystic periventricular leukomalacia is the predominant brain MRI finding in severe neonatal type B pyruvate carboxylase deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006970\"}}, {\"id\": \"Pyruvate Carboxylase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PC dysfunction impairs the mitochondrial pyruvate carboxylase complex, reducing the conversion of pyruvate to oxaloacetate.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"pyruvate carboxylase activity\"], \"genes\": [\"PC\"]}}, {\"id\": \"Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neonatal pyruvate carboxylase deficiency may present with respiratory distress in the first hours of life.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002098\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in severe pyruvate carboxylase deficiency as part of the neurometabolic encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Triheptanoin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Triheptanoin is used as an anaplerotic odd-chain triglyceride therapy, with mixed overall results but apparent benefit in some type C patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Type A Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Life-limiting encephalopathy is a dominant clinical feature of the severe infantile type A form of pyruvate carboxylase deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type A\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Type B Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Life-limiting encephalopathy is a dominant clinical feature of the severe neonatal type B form of pyruvate carboxylase deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Type B\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Urea Cycle Perturbation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe pyruvate carboxylase deficiency can perturb mitochondrial nitrogen handling, contributing to hyperammonemia in some presentations.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}], \"edges\": [{\"source\": \"Pyruvate Carboxylase Deficiency\", \"target\": \"Impaired Gluconeogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pyruvate Carboxylase Deficiency\", \"target\": \"Impaired Anaplerosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pyruvate Carboxylase Deficiency\", \"target\": \"Lactate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Gluconeogenesis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Anaplerosis\", \"target\": \"Mitochondrial Energy Deficit\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Anaplerosis\", \"target\": \"Neurologic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Anaplerosis\", \"target\": \"Urea Cycle Perturbation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Energy Deficit\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Energy Deficit\", \"target\": \"Neurologic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Energy Deficit\", \"target\": \"Ketonuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate Accumulation\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate Accumulation\", \"target\": \"Lactate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate Accumulation\", \"target\": \"Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urea Cycle Perturbation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urea Cycle Perturbation\", \"target\": \"Hypercitrullinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Abnormal Movements\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Type A Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Type B Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Periventricular Leukomalacia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic Dysfunction\", \"target\": \"Delayed Myelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Triheptanoin supplementation\", \"target\": \"Impaired Anaplerosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin supplementation\", \"target\": \"Lactate Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin supplementation\", \"target\": \"Mitochondrial Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PC\", \"target\": \"Impaired Anaplerosis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PC\", \"target\": \"Impaired Gluconeogenesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PC\", \"target\": \"Pyruvate Carboxylase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3791,6 +4004,8 @@
                 
                 <div class="evidence-explanation">This directly supports lactic acidosis as a hallmark phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -3847,6 +4062,8 @@
                 
                 <div class="evidence-explanation">This directly supports hypoglycemia as part of the type C metabolic phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -3902,6 +4119,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports hyperammonemia in severe neonatal pyruvate carboxylase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3968,6 +4187,8 @@
                 
                 <div class="evidence-explanation">This supports major neurologic involvement; hypotonia is a frequent component of the encephalopathic presentation in PCD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3987,6 +4208,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports hypotonia in the severe neonatal pyruvate carboxylase deficiency series.</div>
+                
+                
                 
             </div>
             
@@ -4053,6 +4276,8 @@
                 
                 <div class="evidence-explanation">This supports seizures/epilepsy as an occasional neurologic phenotype in severe pyruvate carboxylase deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4108,6 +4333,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports abnormal movements as a frequent type B neurologic phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4165,6 +4392,8 @@
                 
                 <div class="evidence-explanation">This supports encephalopathy as a defining severe-form phenotype for type A disease.</div>
                 
+                
+                
             </div>
             
             
@@ -4220,6 +4449,8 @@
                 
                 
                 <div class="evidence-explanation">This supports encephalopathy as a defining severe-form phenotype for type B disease.</div>
+                
+                
                 
             </div>
             
@@ -4277,6 +4508,8 @@
                 
                 <div class="evidence-explanation">This directly supports developmental delay in the attenuated type C spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -4332,6 +4565,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports delayed myelination as a type C neuroimaging phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4398,6 +4633,8 @@
                 
                 <div class="evidence-explanation">This directly supports neonatal respiratory distress in the reported pyruvate carboxylase deficiency cases.</div>
                 
+                
+                
             </div>
             
             
@@ -4463,6 +4700,8 @@
                 
                 <div class="evidence-explanation">This directly supports failure to thrive as a major clinical feature.</div>
                 
+                
+                
             </div>
             
             
@@ -4527,6 +4766,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports periventricular leukomalacia as the predominant type B neuroimaging phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4612,6 +4853,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports PC as the causal gene in molecularly confirmed disease.</div>
+                
+                
                 
             </div>
             
@@ -4711,6 +4954,8 @@
                 
                 <div class="evidence-explanation">The type C case report explicitly frames triheptanoin as an anaplerotic therapy that can replenish TCA intermediates.</div>
                 
+                
+                
             </div>
             
             
@@ -4754,6 +4999,8 @@
                 
                 <div class="evidence-explanation">The treated type C patient had resolution of post-exertional hyperlactatemia, supporting modulation of lactate accumulation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4773,6 +5020,8 @@
                 
                 
                 <div class="evidence-explanation">The larger cohort supports a possible lactate-lowering effect but also documents substantial inter-individual variability.</div>
+                
+                
                 
             </div>
             
@@ -4817,6 +5066,8 @@
                 
                 <div class="evidence-explanation">The type C report supports modulation of the energy-deficit branch and downstream myelin synthesis.</div>
                 
+                
+                
             </div>
             
             
@@ -4856,6 +5107,8 @@
                 
                 <div class="evidence-explanation">This directly supports disease-specific use of triheptanoin in the clinical literature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4875,6 +5128,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports clinical benefit from triheptanoin in at least one type C patient.</div>
+                
+                
                 
             </div>
             
@@ -4911,6 +5166,7 @@
                 <div class="item-desc">Context: High blood lactate is a core laboratory hallmark across pyruvate carboxylase deficiency subtypes.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4936,6 +5192,8 @@
                 
                 <div class="evidence-explanation">This directly supports lactic acidosis/elevated lactate as a core biochemical disease finding.</div>
                 
+                
+                
             </div>
             
             
@@ -4954,6 +5212,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Ketonuria is part of the recurrent biochemical signature of pyruvate carboxylase deficiency.</div>
+                
                 
                 
     
@@ -4981,6 +5240,8 @@
                 
                 <div class="evidence-explanation">This directly supports ketonuria as a characteristic biochemical abnormality.</div>
                 
+                
+                
             </div>
             
             
@@ -4999,6 +5260,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Elevated plasma citrulline can occur in severe neonatal type B disease as part of the secondary metabolic and nitrogen-disposal abnormalities reported in this presentation.</div>
+                
                 
                 
     
@@ -5025,6 +5287,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports hypercitrullinemia as a severe neonatal biochemical abnormality.</div>
+                
+                
                 
             </div>
             

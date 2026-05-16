@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2722,6 +2913,8 @@
                 
                 <div class="evidence-explanation">Confirms autosomal recessive inheritance pattern for Lafora disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2741,6 +2934,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms EPM2A and EPM2B as the two causative genes accounting for the vast majority of cases. This paper is a mouse knockout study of Epm2b.</div>
+                
+                
                 
             </div>
             
@@ -2839,6 +3034,8 @@
                 
                 <div class="evidence-explanation">Confirms EPM2A as a major causative gene. Note this early estimate of 80% was prior to NHLRC1 discovery.</div>
                 
+                
+                
             </div>
             
             
@@ -2908,6 +3105,8 @@
                 
                 
                 <div class="evidence-explanation">Original discovery of NHLRC1/EPM2B as the second Lafora disease gene.</div>
+                
+                
                 
             </div>
             
@@ -3067,6 +3266,8 @@
                 
                 <div class="evidence-explanation">Directly links loss of laforin/malin to hyperphosphorylated, poorly branched glycogen that forms Lafora bodies.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3087,6 +3288,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that laforin&#39;s primary functional role is malin-dependent control of glycogen chain length.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3106,6 +3309,8 @@
                 
                 
                 <div class="evidence-explanation">Shows that laforin recruits malin to glycogen, so loss of laforin uncouples malin from its glycogen substrate.</div>
+                
+                
                 
             </div>
             
@@ -3269,6 +3474,8 @@
                 
                 <div class="evidence-explanation">Establishes malin as an E3 ubiquitin ligase operating with laforin to prevent polyglucosan accumulation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3289,6 +3496,8 @@
                 
                 <div class="evidence-explanation">Demonstrates malin&#39;s role in maintaining laforin function and how its absence leads to functional inactivation of laforin.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3308,6 +3517,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms the functional interaction between laforin and malin in regulating glycogen structure.</div>
+                
+                
                 
             </div>
             
@@ -3445,6 +3656,8 @@
                 
                 <div class="evidence-explanation">Genetic PTG depletion in malin-deficient mice eliminates Lafora bodies and rescues neurological phenotypes, identifying PTG-driven glycogen synthesis as the critical drivable node.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3465,6 +3678,8 @@
                 
                 <div class="evidence-explanation">Confirms that PTG-driven GYS1 activity, not phosphate, generates polyglucosans and that the resulting Lafora bodies drive neuroinflammation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3484,6 +3699,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that overactive GYS1 (a small pool) is sufficient to drive glycogen insolubility in Lafora disease.</div>
+                
+                
                 
             </div>
             
@@ -3621,6 +3838,8 @@
                 
                 <div class="evidence-explanation">Confirms that the aberrant glycogen physically precipitates and aggregates as Lafora bodies.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3641,6 +3860,8 @@
                 
                 <div class="evidence-explanation">Confirms the plant-starch-like (insoluble polyglucosan) nature of the inclusions.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3660,6 +3881,8 @@
                 
                 
                 <div class="evidence-explanation">Defines the molecular nature of polyglucosans as overlong, hyperphosphorylated glycogen chains.</div>
+                
+                
                 
             </div>
             
@@ -3839,6 +4062,8 @@
                 
                 <div class="evidence-explanation">Establishes astrocytes as the primary cell type harboring Lafora bodies and as contributors to disease pathology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3859,6 +4084,8 @@
                 
                 <div class="evidence-explanation">Confirms Lafora bodies are not bystander inclusions but principal drivers of neurodegeneration.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3878,6 +4105,8 @@
                 
                 
                 <div class="evidence-explanation">Genetic rescue (malin-knockout x glycogen-synthesis-impaired) demonstrates that glycogen accumulation is the proximal cause of neurodegeneration and autophagy impairment.</div>
+                
+                
                 
             </div>
             
@@ -4049,6 +4278,8 @@
                 
                 <div class="evidence-explanation">Defines reactive glia-derived neuroinflammation as a novel, age-progressive hallmark of Lafora disease in two independent mouse models.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4069,6 +4300,8 @@
                 
                 <div class="evidence-explanation">Identifies TNF and IL-6/JAK2 as the dominant inflammatory pathways in Lafora disease, plus inflammasome activation and peripheral immune cell infiltration.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4088,6 +4321,8 @@
                 
                 
                 <div class="evidence-explanation">Pharmacologic targeting of S1P signaling reduces reactive astrogliosis and T-cell infiltration with behavioral benefit, supporting causal role of neuroinflammation.</div>
+                
+                
                 
             </div>
             
@@ -4222,6 +4457,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes oxidative stress and proteostasis impairment as recognized molecular features in both EPM2A and NHLRC1 mouse models.</div>
+                
+                
                 
             </div>
             
@@ -4377,6 +4614,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that autophagy impairment is downstream of glycogen accumulation, since reducing glycogen synthesis rescues it.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4396,6 +4635,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates a partial mitophagy defect in Lafora disease patient fibroblasts at the level of the autophagic response.</div>
+                
+                
                 
             </div>
             
@@ -4619,6 +4860,8 @@
                 
                 <div class="evidence-explanation">Direct human electrophysiologic evidence that Lafora body disease features sustained cortical hyperexcitability with impaired inhibition.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4639,6 +4882,8 @@
                 
                 <div class="evidence-explanation">Genetic rescue of glycogen synthesis in malin-knockout mice restores hippocampal synaptic electrophysiology and abolishes kainate-induced seizure susceptibility, linking glycogen-driven synaptic dysfunction to epileptogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4658,6 +4903,8 @@
                 
                 
                 <div class="evidence-explanation">Polyglucosan-induced neuroinflammation is implicated in the network excitability changes that drive seizures.</div>
+                
+                
                 
             </div>
             
@@ -4861,6 +5108,8 @@
                 
                 <div class="evidence-explanation">Establishes Lafora bodies as the principal upstream driver of neurodegeneration in genetic mouse models.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4880,6 +5129,8 @@
                 
                 
                 <div class="evidence-explanation">Genetic ablation of glycogen synthesis rescues neurodegeneration in malin knockout mice, establishing glycogen accumulation as proximal to neurodegeneration.</div>
+                
+                
                 
             </div>
             
@@ -5000,6 +5251,8 @@
                 
                 <div class="evidence-explanation">GeneReviews recommends gastrostomy in advanced disease to address dysphagia-related aspiration pneumonia risk.</div>
                 
+                
+                
             </div>
             
             
@@ -5067,6 +5320,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms cortical blindness as a characteristic late feature of Lafora disease.</div>
+                
+                
                 
             </div>
             
@@ -5136,6 +5391,8 @@
                 
                 <div class="evidence-explanation">Confirms myoclonus as a characteristic and intractable feature of Lafora disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5195,6 +5452,8 @@
                 
                 <div class="evidence-explanation">Confirms seizures as one of the three cardinal features of Lafora disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5251,6 +5510,8 @@
                 
                 <div class="evidence-explanation">Confirms generalized tonic-clonic seizures as a presenting feature.</div>
                 
+                
+                
             </div>
             
             
@@ -5306,6 +5567,8 @@
                 
                 
                 <div class="evidence-explanation">Describes the progression of absence seizures becoming constant and severely disabling.</div>
+                
+                
                 
             </div>
             
@@ -5366,6 +5629,8 @@
                 
                 <div class="evidence-explanation">Confirms visual hallucinations from occipital seizures as a characteristic feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5385,6 +5650,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms visual hallucinations as a common feature with both epileptic and psychotic components.</div>
+                
+                
                 
             </div>
             
@@ -5445,6 +5712,8 @@
                 
                 <div class="evidence-explanation">Confirms progressive cognitive decline leading to dementia as a cardinal feature with a 10-year disease course.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5464,6 +5733,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms rapid progression to dementia with fatal outcome within 5-10 years.</div>
+                
+                
                 
             </div>
             
@@ -5524,6 +5795,8 @@
                 
                 <div class="evidence-explanation">Describes the progressive neurological deterioration culminating in a vegetative state.</div>
                 
+                
+                
             </div>
             
             
@@ -5580,6 +5853,8 @@
                 
                 <div class="evidence-explanation">Confirms ataxia as a characteristic feature of Lafora disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5635,6 +5910,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms apraxia as a characteristic feature of Lafora disease.</div>
+                
+                
                 
             </div>
             
@@ -5695,6 +5972,8 @@
                 
                 <div class="evidence-explanation">Supports the neurodegenerative basis of cerebral atrophy seen in advancing disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5753,6 +6032,8 @@
                 
                 
                 <div class="evidence-explanation">Indirect support; cerebellar atrophy is part of widespread Lafora-body-driven neurodegeneration.</div>
+                
+                
                 
             </div>
             
@@ -5813,6 +6094,8 @@
                 
                 <div class="evidence-explanation">GeneReviews entry for Lafora disease explicitly lists dysarthria as an early feature alongside ataxia.</div>
                 
+                
+                
             </div>
             
             
@@ -5872,6 +6155,8 @@
                 
                 <div class="evidence-explanation">Confirms neuropsychiatric symptoms as a characteristic feature of Lafora disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5891,6 +6176,8 @@
                 
                 
                 <div class="evidence-explanation">Documents disinhibited dementia as the typical neuropsychiatric phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5960,6 +6247,8 @@
                 
                 <div class="evidence-explanation">Confirms photosensitive seizures as a characteristic feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5979,6 +6268,8 @@
                 
                 
                 <div class="evidence-explanation">Describes photoconvulsions as part of the characteristic occipital seizure phenotype.</div>
+                
+                
                 
             </div>
             
@@ -6039,6 +6330,8 @@
                 
                 <div class="evidence-explanation">Documents status epilepticus as a frequent terminal event in Lafora disease.</div>
                 
+                
+                
             </div>
             
             
@@ -6098,6 +6391,8 @@
                 
                 <div class="evidence-explanation">Documents the loss of ambulation due to myoclonic and atonic attacks.</div>
                 
+                
+                
             </div>
             
             
@@ -6156,6 +6451,8 @@
                 
                 
                 <div class="evidence-explanation">Documents progression to a vegetative state as the natural end-stage of disease.</div>
+                
+                
                 
             </div>
             
@@ -6242,6 +6539,8 @@
                 
                 <div class="evidence-explanation">Patient-level meta-analysis quantifying the relative contribution of EPM2A vs NHLRC1 in Lafora disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6261,6 +6560,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the EPM2A-Lafora disease gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6305,6 +6606,8 @@
                 
                 <div class="evidence-explanation">Establishes that the functional impact of NHLRC1/EPM2A variants is prognostically informative in Lafora disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6325,6 +6628,8 @@
                 
                 <div class="evidence-explanation">Identifies homozygous NHLRC1 p.Asp146Asn as a favorable-prognosis genotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6344,6 +6649,8 @@
                 
                 
                 <div class="evidence-explanation">Authors interpret the worse prognosis with truncating NHLRC1 variants as evidence for malin&#39;s pivotal pathogenic role.</div>
+                
+                
                 
             </div>
             
@@ -6439,6 +6746,8 @@
                 
                 <div class="evidence-explanation">Documents that sodium channel blockers worsen myoclonus while being useful for status epilepticus.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6458,6 +6767,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms progressive drug resistance as a hallmark of the disease course.</div>
+                
+                
                 
             </div>
             
@@ -6568,6 +6879,8 @@
                 
                 <div class="evidence-explanation">Documents the human Lafora disease cohort used to compare metformin-treated and untreated patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6587,6 +6900,8 @@
                 
                 
                 <div class="evidence-explanation">Supports slower clinical progression in metformin-treated patients in the human follow-up cohort.</div>
+                
+                
                 
             </div>
             
@@ -6668,6 +6983,8 @@
                 
                 <div class="evidence-explanation">Confirms palliative and supportive care as the mainstay of management.</div>
                 
+                
+                
             </div>
             
             
@@ -6748,6 +7065,8 @@
                 
                 <div class="evidence-explanation">Establishes the autosomal recessive inheritance pattern that drives the 25% per-pregnancy recurrence risk and motivates genetic counseling for carrier couples.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6767,6 +7086,8 @@
                 
                 
                 <div class="evidence-explanation">Justifies adding genotype-based prognostic counseling alongside standard recurrence-risk counseling.</div>
+                
+                
                 
             </div>
             
@@ -6858,6 +7179,8 @@
                 
                 <div class="evidence-explanation">Establishes that the ASO mechanism is direct knockdown of GYS1, the overactive glycogen synthase node in the pathograph.</div>
                 
+                
+                
             </div>
             
             
@@ -6897,6 +7220,8 @@
                 
                 <div class="evidence-explanation">Preclinical demonstration that Gys1-ASO reduces glycogen aggregation and epileptiform discharges in malin-deficient mice.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6916,6 +7241,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes proof of concept that GYS1-ASO halts disease progression, supporting the rationale for ION283 clinical translation.</div>
+                
+                
                 
             </div>
             
@@ -7007,6 +7334,8 @@
                 
                 <div class="evidence-explanation">Reports case-series effectiveness of perampanel in Lafora disease patients.</div>
                 
+                
+                
             </div>
             
             
@@ -7084,6 +7413,8 @@
                 
                 
                 <div class="evidence-explanation">Documents the historical trial of ketogenic diet without disease-modifying success in advanced Lafora disease.</div>
+                
+                
                 
             </div>
             
@@ -7176,6 +7507,8 @@
                 
                 <div class="evidence-explanation">First-in-human disease-modifying trial in Lafora disease using intrathecal ASO targeting glycogen synthesis.</div>
                 
+                
+                
             </div>
             
             
@@ -7222,6 +7555,8 @@
                 
                 <div class="evidence-explanation">Defines outcome measures and biomarkers for the field, supporting design of subsequent disease-modifying trials.</div>
                 
+                
+                
             </div>
             
             
@@ -7267,6 +7602,8 @@
                 
                 
                 <div class="evidence-explanation">NIH-sponsored trial of ketogenic diet in advanced Lafora disease.</div>
+                
+                
                 
             </div>
             

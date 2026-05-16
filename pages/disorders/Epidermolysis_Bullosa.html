@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2854,6 +3045,8 @@
                 
                 <div class="evidence-explanation">Confirms that EB includes both autosomal dominant and autosomal recessive forms depending on the type and subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -2899,6 +3092,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms autosomal recessive inheritance in multiple EB types including junctional EB, recessive dystrophic EB, and Kindler EB.</div>
+                
+                
                 
             </div>
             
@@ -2994,6 +3189,8 @@
                 
                 <div class="evidence-explanation">Supports the defining intraepidermal cleavage plane of EB simplex.</div>
                 
+                
+                
             </div>
             
             
@@ -3052,6 +3249,8 @@
                 
                 
                 <div class="evidence-explanation">Supports junctional epidermolysis bullosa as a major EB subtype with severe and intermediate generalized forms.</div>
+                
+                
                 
             </div>
             
@@ -3112,6 +3311,8 @@
                 
                 <div class="evidence-explanation">Supports dystrophic epidermolysis bullosa as a major EB category with dominant and recessive forms.</div>
                 
+                
+                
             </div>
             
             
@@ -3170,6 +3371,8 @@
                 
                 
                 <div class="evidence-explanation">Supports Kindler EB as a recognized subtype within the inherited EB spectrum.</div>
+                
+                
                 
             </div>
             
@@ -3423,6 +3626,8 @@
                 
                 <div class="evidence-explanation">Confirms that mutations in at least 16 genes encoding structural and adhesion proteins underlie all forms of EB.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3442,6 +3647,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that EB is the prototypical genetic disorder with skin fragility resulting from structural protein defects.</div>
+                
+                
                 
             </div>
             
@@ -3569,6 +3776,8 @@
                 
                 <div class="evidence-explanation">Confirms that the cardinal feature of EB is blister formation triggered by minimal trauma due to mucocutaneous fragility.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3588,6 +3797,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that blistering is triggered by minor trauma or friction in EB.</div>
+                
+                
                 
             </div>
             
@@ -3707,6 +3918,8 @@
                 
                 <div class="evidence-explanation">Confirms that chronic wound complications including squamous cell carcinoma are major concerns in EB management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3726,6 +3939,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that ulceration and impaired wound healing are significant complications requiring specialized management.</div>
+                
+                
                 
             </div>
             
@@ -3854,6 +4069,8 @@
                 
                 <div class="evidence-explanation">Confirms that EB has severe extracutaneous complications contributing to morbidity and mortality.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3873,6 +4090,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms the broad range of secondary complications including internal organ involvement.</div>
+                
+                
                 
             </div>
             
@@ -3994,6 +4213,8 @@
                 
                 <div class="evidence-explanation">GeneReviews confirms anemia as a recognized complication of DEB requiring treatment with iron supplementation and transfusions.</div>
                 
+                
+                
             </div>
             
             
@@ -4061,6 +4282,8 @@
                 
                 <div class="evidence-explanation">Confirms oral cavity involvement as part of the generalized disease spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4080,6 +4303,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms extracutaneous mucosal involvement across multiple organ systems.</div>
+                
+                
                 
             </div>
             
@@ -4146,6 +4371,8 @@
                 
                 <div class="evidence-explanation">Confirms skin fragility and blister formation as the defining feature of EB.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4165,6 +4392,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms recurrent blistering due to structural skin fragility across all EB types.</div>
+                
+                
                 
             </div>
             
@@ -4222,6 +4451,8 @@
                 
                 <div class="evidence-explanation">JEB GeneReviews confirms nail dystrophy as a shared feature across all major forms of EB.</div>
                 
+                
+                
             </div>
             
             
@@ -4277,6 +4508,8 @@
                 
                 
                 <div class="evidence-explanation">Supports milia as a characteristic healing outcome in dystrophic epidermolysis bullosa.</div>
+                
+                
                 
             </div>
             
@@ -4343,6 +4576,8 @@
                 
                 <div class="evidence-explanation">GeneReviews confirms that blisters in DEB heal with scarring, a key distinguishing feature of dystrophic forms.</div>
                 
+                
+                
             </div>
             
             
@@ -4408,6 +4643,8 @@
                 
                 <div class="evidence-explanation">Confirms pain as a cardinal symptom associated with blistering in EB.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4427,6 +4664,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms pain management as a major component of EB care.</div>
+                
+                
                 
             </div>
             
@@ -4493,6 +4732,8 @@
                 
                 <div class="evidence-explanation">The need for aggressive nutritional support as a core management pillar implies significant growth and nutritional challenges in severe EB.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4512,6 +4753,8 @@
                 
                 
                 <div class="evidence-explanation">Nutritional support as a core management pillar confirms failure to thrive as a significant clinical issue.</div>
+                
+                
                 
             </div>
             
@@ -4604,6 +4847,8 @@
                 
                 <div class="evidence-explanation">Confirms that genes encoding structural proteins including keratins are causative of EB.</div>
                 
+                
+                
             </div>
             
             
@@ -4652,6 +4897,8 @@
                 
                 
                 <div class="evidence-explanation">Supports KRT14 as a causative EB simplex gene in the clinical diagnostic framework.</div>
+                
+                
                 
             </div>
             
@@ -4704,6 +4951,8 @@
                 
                 <div class="evidence-explanation">Confirms that specific molecular abnormalities including collagen VII defects determine EB subtypes.</div>
                 
+                
+                
             </div>
             
             
@@ -4752,6 +5001,8 @@
                 
                 
                 <div class="evidence-explanation">Supports LAMB3 as one of the established causative genes for junctional epidermolysis bullosa.</div>
+                
+                
                 
             </div>
             
@@ -4802,6 +5053,8 @@
                 
                 <div class="evidence-explanation">Supports LAMA3 as a causative laminin-332 chain gene in junctional epidermolysis bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -4850,6 +5103,8 @@
                 
                 
                 <div class="evidence-explanation">Supports LAMC2 as a causative laminin-332 chain gene in junctional epidermolysis bullosa.</div>
+                
+                
                 
             </div>
             
@@ -4900,6 +5155,8 @@
                 
                 <div class="evidence-explanation">Supports COL17A1 as one of the established causative genes for junctional epidermolysis bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -4948,6 +5205,8 @@
                 
                 
                 <div class="evidence-explanation">Supports ITGA6 as part of the adhesion-gene set underlying EB, consistent with its role in JEB with pyloric atresia.</div>
+                
+                
                 
             </div>
             
@@ -4998,6 +5257,8 @@
                 
                 <div class="evidence-explanation">Supports ITGB4 as one of the established causative genes for junctional epidermolysis bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -5046,6 +5307,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms Kindler EB as one of the four major EB categories in the consensus classification.</div>
+                
+                
                 
             </div>
             
@@ -5139,6 +5402,8 @@
                 
                 <div class="evidence-explanation">Confirms specialized wound care dressings as a key management strategy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5159,6 +5424,8 @@
                 
                 <div class="evidence-explanation">Confirms wound care as a core pillar of EB management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5178,6 +5445,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms wound care as central to EB patient management.</div>
+                
+                
                 
             </div>
             
@@ -5259,6 +5528,8 @@
                 
                 <div class="evidence-explanation">Confirms pain control as a core component of EB management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5278,6 +5549,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms pain and itch management as key aspects of EB care.</div>
+                
+                
                 
             </div>
             
@@ -5359,6 +5632,8 @@
                 
                 <div class="evidence-explanation">Confirms aggressive nutritional support as essential in EB management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5378,6 +5653,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms nutritional support as a core management component.</div>
+                
+                
                 
             </div>
             
@@ -5459,6 +5736,8 @@
                 
                 <div class="evidence-explanation">Confirms infection control as a core pillar of EB management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5478,6 +5757,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms infection prevention as key in EB wound management.</div>
+                
+                
                 
             </div>
             
@@ -5556,6 +5837,8 @@
                 
                 
                 <div class="evidence-explanation">The role of genetic testing in diagnosis underscores the importance of genetic counseling for families.</div>
+                
+                
                 
             </div>
             
@@ -5637,6 +5920,8 @@
                 
                 <div class="evidence-explanation">Phase 3 NEJM trial demonstrating significant wound healing benefit of beremagene geperpavec over placebo in dystrophic EB.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5656,6 +5941,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms FDA approval in May 2023 as the first topical gene therapy for dystrophic EB.</div>
+                
+                
                 
             </div>
             
@@ -5737,6 +6024,8 @@
                 
                 <div class="evidence-explanation">Phase 3 EASE trial demonstrating Oleogel-S10 as the first therapy to show accelerated wound healing in EB.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5756,6 +6045,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms FDA approval of Filsuvez for treatment of EB wounds in pediatric and adult patients.</div>
+                
+                
                 
             </div>
             
@@ -5837,6 +6128,8 @@
                 
                 <div class="evidence-explanation">Confirms FDA approval of prademagene zamikeracel as the first cell-based gene therapy for RDEB.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5856,6 +6149,8 @@
                 
                 
                 <div class="evidence-explanation">Phase 1/2a trial demonstrating significant wound healing with gene-corrected autologous cell therapy in RDEB patients.</div>
+                
+                
                 
             </div>
             
@@ -5892,6 +6187,7 @@
                 <div class="item-desc">Context: Reduced or absent in dystrophic EB due to COL7A1 mutations; assessed by immunofluorescence mapping</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5917,6 +6213,8 @@
                 
                 <div class="evidence-explanation">Supports decreased or abnormal type VII collagen in dystrophic EB caused by COL7A1 mutations.</div>
                 
+                
+                
             </div>
             
             
@@ -5935,6 +6233,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Reduced or absent in junctional EB due to LAMA3, LAMB3, or LAMC2 mutations</div>
+                
                 
                 
     
@@ -5962,6 +6261,8 @@
                 
                 <div class="evidence-explanation">Supports absent laminin-332 as a defining molecular abnormality in severe junctional epidermolysis bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -5980,6 +6281,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Abnormal intermediate filament network in EB simplex due to KRT5 or KRT14 mutations</div>
+                
                 
                 
     
@@ -6006,6 +6308,8 @@
                 
                 
                 <div class="evidence-explanation">Supports keratin 5 and keratin 14 as the intermediate filament proteins disrupted in EB simplex.</div>
+                
+                
                 
             </div>
             
@@ -6106,6 +6410,8 @@
                 
                 <div class="evidence-explanation">Supports the Dutch EB Registry as a substantial national phenotype resource spanning the major EB subtypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6125,6 +6431,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms the registry&#39;s longitudinal national scope and direct relevance as an EB-wide clinical dataset.</div>
+                
+                
                 
             </div>
             
@@ -6199,6 +6507,8 @@
                 
                 <div class="evidence-explanation">This ClinicalTrials.gov record supports a completed multi-subtype EB trial evaluating topical cannabinol cream for symptom control and wound healing.</div>
                 
+                
+                
             </div>
             
             
@@ -6259,6 +6569,8 @@
                 
                 
                 <div class="evidence-explanation">This ClinicalTrials.gov record supports a completed wound-healing trial that enrolled multiple major EB subtypes under the umbrella diagnosis.</div>
+                
+                
                 
             </div>
             
@@ -7882,6 +8194,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -7986,6 +8300,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -8052,6 +8368,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+                
                 
             </div>
             
@@ -8120,6 +8438,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -8186,6 +8506,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+                
                 
             </div>
             
@@ -8254,6 +8576,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -8320,6 +8644,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+                
                 
             </div>
             
@@ -8388,6 +8714,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -8455,6 +8783,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
                 
+                
+                
             </div>
             
             
@@ -8521,6 +8851,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Epidermolysis Bullosa.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2739,6 +2930,8 @@
                 
                 <div class="evidence-explanation">This review explicitly identifies hyperkeratinization of the pilosebaceous follicles as a key factor in acne pathogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -2822,6 +3015,8 @@
                 
                 
                 <div class="evidence-explanation">Follicular hyperkeratinization is the initiating event that drives microcomedone formation in acne.</div>
+                
+                
                 
             </div>
             
@@ -2920,6 +3115,8 @@
                 
                 <div class="evidence-explanation">This review links sebaceous gland hyperproliferation and lipid synthesis to acne pathogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -3017,6 +3214,8 @@
                 
                 <div class="evidence-explanation">This review highlights altered sebum fatty acid composition as a pathophysiologic feature of acne.</div>
                 
+                
+                
             </div>
             
             
@@ -3100,6 +3299,8 @@
                 
                 
                 <div class="evidence-explanation">This review describes C. acnes colonization and its role in lesion progression.</div>
+                
+                
                 
             </div>
             
@@ -3198,6 +3399,8 @@
                 
                 <div class="evidence-explanation">This review explains inflammasome activation, a key mechanism implicated in acne inflammation.</div>
                 
+                
+                
             </div>
             
             
@@ -3295,6 +3498,8 @@
                 
                 <div class="evidence-explanation">Inflammasome activation supports downstream cytokine-mediated inflammation in acne lesions.</div>
                 
+                
+                
             </div>
             
             
@@ -3380,6 +3585,8 @@
                 
                 <div class="evidence-explanation">This review discusses the role of comedones as a key lesion type in acne pathogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -3432,6 +3639,8 @@
                 
                 <div class="evidence-explanation">This review identifies pustular eruptions on the face as a characteristic feature of acne vulgaris.</div>
                 
+                
+                
             </div>
             
             
@@ -3483,6 +3692,8 @@
                 
                 
                 <div class="evidence-explanation">This review defines severe nodular acne as characterized by nodules and cysts with associated inflammation and scarring potential.</div>
+                
+                
                 
             </div>
             
@@ -3545,6 +3756,8 @@
                 
                 <div class="evidence-explanation">This review describes the progression from comedones to inflammatory papules in acne lesion development.</div>
                 
+                
+                
             </div>
             
             
@@ -3597,6 +3810,8 @@
                 
                 <div class="evidence-explanation">This paper specifically describes the pathogenesis of acne-induced post-inflammatory hyperpigmentation through excess melanin production.</div>
                 
+                
+                
             </div>
             
             
@@ -3648,6 +3863,8 @@
                 
                 
                 <div class="evidence-explanation">This review confirms atrophic scars as the most common type of acne scarring.</div>
+                
+                
                 
             </div>
             
@@ -3732,6 +3949,8 @@
                 
                 <div class="evidence-explanation">This review explicitly identifies genetic factors as one of the key influences on acne pathophysiology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3749,6 +3968,8 @@
                 
                 
                 <div class="evidence-explanation">This genetics review connects GWAS and monogenic findings to core biological processes underlying acne susceptibility.</div>
+                
+                
                 
             </div>
             
@@ -3791,6 +4012,8 @@
                 
                 <div class="evidence-explanation">This review summarizes multiple gene families repeatedly implicated in acne susceptibility and outcomes.</div>
                 
+                
+                
             </div>
             
             
@@ -3832,6 +4055,8 @@
                 
                 <div class="evidence-explanation">This study reports RETN-420 and IL6-572 risk alleles associated with acne susceptibility.</div>
                 
+                
+                
             </div>
             
             
@@ -3872,6 +4097,8 @@
                 
                 
                 <div class="evidence-explanation">This study links TNFR2 and TLR2 risk alleles to acne susceptibility in a Chinese Han cohort.</div>
+                
+                
                 
             </div>
             
@@ -3929,6 +4156,18 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        retinoid
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_26537" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">First-line treatment that normalizes follicular keratinization, reduces comedone formation, and has anti-inflammatory effects. Examples include tretinoin, adapalene, and tazarotene.
@@ -3960,6 +4199,8 @@
                 
                 
                 <div class="evidence-explanation">This systematic review confirms the safety and efficacy of topical retinoids for acne treatment.</div>
+                
+                
                 
             </div>
             
@@ -4005,6 +4246,18 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        trifarotene
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C118577" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Topical retinoid selective for retinoic acid receptor gamma with evidence for reducing comedonal and inflammatory lesions, including truncal acne.
@@ -4036,6 +4289,8 @@
                 
                 
                 <div class="evidence-explanation">This review summarizes randomized trials showing trifarotene efficacy across comedonal and inflammatory acne lesions.</div>
+                
+                
                 
             </div>
             
@@ -4081,6 +4336,18 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        benzoyl peroxide
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C47411" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Antimicrobial agent that kills C. acnes through oxidative damage without promoting antibiotic resistance. Also has mild comedolytic activity.
@@ -4112,6 +4379,8 @@
                 
                 
                 <div class="evidence-explanation">This review establishes benzoyl peroxide as an important first-line treatment for acne that does not promote bacterial resistance.</div>
+                
+                
                 
             </div>
             
@@ -4157,6 +4426,18 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        antibiotic
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C258" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Clindamycin and erythromycin reduce C. acnes populations and have anti-inflammatory effects. Should be combined with benzoyl peroxide to prevent resistance.
@@ -4188,6 +4469,8 @@
                 
                 
                 <div class="evidence-explanation">This systematic review confirms topical antibiotics as a cornerstone treatment for acne.</div>
+                
+                
                 
             </div>
             
@@ -4233,6 +4516,32 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        clindamycin phosphate
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C47978" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        adapalene
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C28989" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        benzoyl peroxide
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C47411" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Triple-combination topical therapy for moderate to severe acne, combining clindamycin phosphate, adapalene, and benzoyl peroxide for long-term use.
@@ -4264,6 +4573,8 @@
                 
                 
                 <div class="evidence-explanation">This pooled analysis supports long-term efficacy of the triple-combination gel.</div>
+                
+                
                 
             </div>
             
@@ -4309,6 +4620,18 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        tetracycline antibiotic
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C1595" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Tetracyclines (doxycycline, minocycline) are used for moderate-to-severe inflammatory acne. Have both antimicrobial and anti-inflammatory effects, but prolonged use contributes to antimicrobial resistance and requires stewardship.
@@ -4341,6 +4664,8 @@
                 
                 <div class="evidence-explanation">This systematic review confirms oral antibiotics as an established comparator treatment for acne in clinical trials.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4358,6 +4683,8 @@
                 
                 
                 <div class="evidence-explanation">This review documents antibiotic resistance concerns tied to prolonged acne antibiotic use, supporting stewardship in treatment.</div>
+                
+                
                 
             </div>
             
@@ -4403,6 +4730,18 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        isotretinoin
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C603" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Systemic retinoid reserved for severe, recalcitrant acne. Addresses all four pathogenic factors but requires careful monitoring due to teratogenicity and other adverse effects.
@@ -4434,6 +4773,8 @@
                 
                 
                 <div class="evidence-explanation">This systematic review confirms oral isotretinoin as the most effective treatment for moderate to severe acne.</div>
+                
+                
                 
             </div>
             
@@ -4479,6 +4820,25 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        oral contraceptive
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C389" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        spironolactone
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C840" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Combined oral contraceptives and spironolactone reduce androgen effects on sebaceous glands. Used in female patients with hormonal acne patterns.
@@ -4510,6 +4870,8 @@
                 
                 
                 <div class="evidence-explanation">This systematic review confirms the efficacy of hormonal therapies including oral contraceptives and spironolactone for treating acne in women.</div>
+                
+                
                 
             </div>
             
@@ -4587,6 +4949,8 @@
                 
                 <div class="evidence-explanation">This review supports organic acid chemical peels as effective and safe adjuncts for acne-prone skin.</div>
                 
+                
+                
             </div>
             
             
@@ -4662,6 +5026,8 @@
                 
                 
                 <div class="evidence-explanation">This study reports acne lesion reduction and sebum normalization with 30% azelaic acid peels.</div>
+                
+                
                 
             </div>
             
@@ -4739,6 +5105,8 @@
                 
                 <div class="evidence-explanation">This split-face study supports TCA peels for improving acne scarring.</div>
                 
+                
+                
             </div>
             
             
@@ -4815,6 +5183,8 @@
                 
                 <div class="evidence-explanation">This trial background notes efficacy of CO2 laser for acne scars with notable side effects.</div>
                 
+                
+                
             </div>
             
             
@@ -4859,6 +5229,25 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        vitamin C
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_29073" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        topical vitamin E
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C67081" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Topical antioxidant serum with vitamins C and E (with ferulic acid) is used after ablative laser procedures to support skin recovery.
@@ -4890,6 +5279,8 @@
                 
                 
                 <div class="evidence-explanation">This split-face trial supports antioxidant serum use after CO2 laser for acne scars.</div>
+                
+                
                 
             </div>
             
@@ -4967,6 +5358,8 @@
                 
                 <div class="evidence-explanation">This systematic review reports clinical improvement in acne with blue light phototherapy.</div>
                 
+                
+                
             </div>
             
             
@@ -5042,6 +5435,8 @@
                 
                 
                 <div class="evidence-explanation">This systematic review summarizes lesion improvement across visible light studies in acne.</div>
+                
+                
                 
             </div>
             
@@ -5119,6 +5514,8 @@
                 
                 <div class="evidence-explanation">This review identifies acne as an emerging indication for photodynamic therapy with supportive evidence.</div>
                 
+                
+                
             </div>
             
             
@@ -5194,6 +5591,8 @@
                 
                 
                 <div class="evidence-explanation">This randomized split-face study supports Nd:YAG laser and PRP injections for inflammatory acne vulgaris.</div>
+                
+                
                 
             </div>
             
@@ -5271,6 +5670,8 @@
                 
                 <div class="evidence-explanation">This review highlights 1726 nm lasers as a sebaceous gland-targeted treatment approach for acne.</div>
                 
+                
+                
             </div>
             
             
@@ -5324,6 +5725,8 @@
                 
                 <div class="evidence-explanation">This review provides evidence for the association between high glycemic load diets and acne severity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5341,6 +5744,8 @@
                 
                 
                 <div class="evidence-explanation">The paper describes the mechanism by which dairy consumption may influence acne through insulinotropic effects.</div>
+                
+                
                 
             </div>
             
@@ -5383,6 +5788,8 @@
                 
                 <div class="evidence-explanation">This review examines the link between psychological stress and acne exacerbation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5400,6 +5807,8 @@
                 
                 
                 <div class="evidence-explanation">The paper describes neurogenic mechanisms linking stress to acne pathogenesis.</div>
+                
+                
                 
             </div>
             
@@ -5442,6 +5851,8 @@
                 
                 <div class="evidence-explanation">This review links acne vulgaris with pollutant exposure among climate-sensitive skin conditions.</div>
                 
+                
+                
             </div>
             
             
@@ -5472,6 +5883,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5495,6 +5907,8 @@
                 
                 <div class="evidence-explanation">This paper directly links androgen hormones to excess sebum production in acne pathogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -5511,6 +5925,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Altered)</span>
                     
                 </div>
+                
                 
                 
     
@@ -5536,6 +5951,8 @@
                 
                 <div class="evidence-explanation">This review describes alterations in sebum fatty acid composition as a key feature in acne pathogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -5552,6 +5969,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Decreased)</span>
                     
                 </div>
+                
                 
                 
     
@@ -5576,6 +5994,8 @@
                 
                 
                 <div class="evidence-explanation">This study reports decreased serum IL-17 in acne vulgaris compared with controls.</div>
+                
+                
                 
             </div>
             
@@ -5662,6 +6082,8 @@
                 
                 <div class="evidence-explanation">This case report defines PAPASH syndrome as a syndromic condition including acne and related inflammatory diseases.</div>
                 
+                
+                
             </div>
             
             
@@ -5731,6 +6153,8 @@
                 
                 <div class="evidence-explanation">The abstract lists rosacea alongside acne as a facial pustular eruption, underscoring the need for clinical differentiation.</div>
                 
+                
+                
             </div>
             
             
@@ -5799,6 +6223,8 @@
                 
                 
                 <div class="evidence-explanation">The abstract notes folliculitis presents with pustular eruptions on the trunk or extremities, highlighting its overlap with acneiform lesions.</div>
+                
+                
                 
             </div>
             
@@ -6017,6 +6443,8 @@
                 
                 <div class="evidence-explanation">The trial evaluates a combination topical therapy specifically in participants with acne vulgaris.</div>
                 
+                
+                
             </div>
             
             
@@ -6083,6 +6511,8 @@
                 
                 <div class="evidence-explanation">This study explicitly enrolls participants with acne vulgaris and evaluates topical tretinoin treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -6114,7 +6544,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acne Vulgaris
 creation_date: &#39;2026-01-23T23:13:39Z&#39;
-updated_date: &#39;2026-02-16T20:19:38Z&#39;
+updated_date: &#39;2026-05-14T14:00:00Z&#39;
 category: Complex
 disease_term:
   preferred_term: acne vulgaris
@@ -6578,17 +7008,11 @@ treatments:
     term:
       id: MAXO:0000237
       label: retinoid agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: retinoid
-        term:
-          id: NCIT:C68299
-          label: Retinoid
+    therapeutic_agent:
+    - preferred_term: retinoid
+      term:
+        id: CHEBI:26537
+        label: retinoid
   evidence:
   - reference: PMID:30674002
     reference_title: &#34;Topical Retinoids in Acne Vulgaris: A Systematic Review.&#34;
@@ -6604,17 +7028,11 @@ treatments:
     term:
       id: MAXO:0000237
       label: retinoid agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: trifarotene
-        term:
-          id: NCIT:C118577
-          label: Trifarotene
+    therapeutic_agent:
+    - preferred_term: trifarotene
+      term:
+        id: NCIT:C118577
+        label: Trifarotene
   evidence:
   - reference: PMID:36927117
     reference_title: &#34;Management of Acne Vulgaris With Trifarotene.&#34;
@@ -6630,17 +7048,11 @@ treatments:
     term:
       id: MAXO:0001021
       label: antimicrobial agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: benzoyl peroxide
-        term:
-          id: NCIT:C47411
-          label: Benzoyl Peroxide
+    therapeutic_agent:
+    - preferred_term: benzoyl peroxide
+      term:
+        id: NCIT:C47411
+        label: Benzoyl Peroxide
   evidence:
   - reference: PMID:19761357
     reference_title: &#34;Benzoyl peroxide: a review of its current use in the treatment of acne vulgaris.&#34;
@@ -6657,17 +7069,11 @@ treatments:
     term:
       id: MAXO:0000061
       label: antibacterial agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: antibiotic
-        term:
-          id: NCIT:C258
-          label: Antibiotic
+    therapeutic_agent:
+    - preferred_term: antibiotic
+      term:
+        id: NCIT:C258
+        label: Antibiotic
   evidence:
   - reference: PMID:16086756
     reference_title: &#34;Treatment of acne with topical antibiotics: lessons from clinical studies.&#34;
@@ -6683,37 +7089,19 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: clindamycin phosphate
-        term:
-          id: NCIT:C47978
-          label: Clindamycin Phosphate
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: adapalene
-        term:
-          id: NCIT:C28989
-          label: Adapalene
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: benzoyl peroxide
-        term:
-          id: NCIT:C47411
-          label: Benzoyl Peroxide
+    therapeutic_agent:
+    - preferred_term: clindamycin phosphate
+      term:
+        id: NCIT:C47978
+        label: Clindamycin Phosphate
+    - preferred_term: adapalene
+      term:
+        id: NCIT:C28989
+        label: Adapalene
+    - preferred_term: benzoyl peroxide
+      term:
+        id: NCIT:C47411
+        label: Benzoyl Peroxide
   evidence:
   - reference: PMID:41552868
     reference_title: &#34;Long-term efficacy and tolerability of clindamycin phosphate 1.2%/adapalene 0.15%/benzoyl peroxide 3.1% gel for acne: pooled results from two 6-month studies.&#34;
@@ -6731,17 +7119,11 @@ treatments:
     term:
       id: MAXO:0000061
       label: antibacterial agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: tetracycline antibiotic
-        term:
-          id: NCIT:C1595
-          label: Tetracycline Antibiotic
+    therapeutic_agent:
+    - preferred_term: tetracycline antibiotic
+      term:
+        id: NCIT:C1595
+        label: Tetracycline Antibiotic
   evidence:
   - reference: PMID:28542914
     reference_title: &#34;Efficacy and adverse events of oral isotretinoin for acne: a systematic review.&#34;
@@ -6763,17 +7145,11 @@ treatments:
     term:
       id: MAXO:0000237
       label: retinoid agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: isotretinoin
-        term:
-          id: NCIT:C603
-          label: Isotretinoin
+    therapeutic_agent:
+    - preferred_term: isotretinoin
+      term:
+        id: NCIT:C603
+        label: Isotretinoin
   evidence:
   - reference: PMID:33085149
     reference_title: &#34;Systematic review of low-dose isotretinoin for treatment of acne vulgaris: Focus on indication, dosage, regimen, efficacy, safety, satisfaction, and follow up, based on clinical studies.&#34;
@@ -6789,27 +7165,15 @@ treatments:
     term:
       id: MAXO:0000283
       label: hormone modifying therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: oral contraceptive
-        term:
-          id: NCIT:C389
-          label: Oral Contraceptive
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: spironolactone
-        term:
-          id: NCIT:C840
-          label: Spironolactone
+    therapeutic_agent:
+    - preferred_term: oral contraceptive
+      term:
+        id: NCIT:C389
+        label: Oral Contraceptive
+    - preferred_term: spironolactone
+      term:
+        id: NCIT:C840
+        label: Spironolactone
   evidence:
   - reference: PMID:28492054
     reference_title: &#34;A Review of hormone-based therapies to treat adult acne vulgaris in women.&#34;
@@ -6959,27 +7323,15 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: vitamin C
-        term:
-          id: NCIT:C68507
-          label: Vitamin C
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: topical vitamin E
-        term:
-          id: NCIT:C67081
-          label: Topical Vitamin E
+    therapeutic_agent:
+    - preferred_term: vitamin C
+      term:
+        id: CHEBI:29073
+        label: L-ascorbic acid
+    - preferred_term: topical vitamin E
+      term:
+        id: NCIT:C67081
+        label: Topical Vitamin E
   evidence:
   - reference: PMID:41521693
     reference_title: &#34;Reparative Effects of a Topical Antioxidant Serum Containing Vitamin C, Vitamin E, and Ferulic Acid After Ablative Fractional CO(2) Laser Treatment for Atrophic Acne Scars: A Randomized, Investigator-Blinded, Split-Face, Controlled Trial.&#34;
@@ -7525,7 +7877,7 @@ differential_diagnoses:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acne Vulgaris", "mondoId": "MONDO:0011438", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acne_Vulgaris", "yamlRevision": "d182b22e9e80"};
+        const OS_CONFIG = {"diseaseName": "Acne Vulgaris", "mondoId": "MONDO:0011438", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acne_Vulgaris", "yamlRevision": "86db3112d0e8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

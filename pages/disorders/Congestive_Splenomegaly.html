@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2726,6 +2917,8 @@
                 
                 <div class="evidence-explanation">Hepatic congestive splenomegaly arises from progressive intrahepatic vascular resistance in liver disease, which transmits elevated pressure to the splenic vein.</div>
                 
+                
+                
             </div>
             
             
@@ -2782,6 +2975,8 @@
                 
                 
                 <div class="evidence-explanation">Extrahepatic causes of portal hypertension, including portal vein obstruction, produce splenomegaly through venous outflow impedance independent of hepatic pathology.</div>
+                
+                
                 
             </div>
             
@@ -2911,6 +3106,8 @@
                 
                 <div class="evidence-explanation">This review establishes the hemodynamic basis of congestive splenomegaly through the backward and forward flow theories of portal hypertension and the selective elevation of splenic artery resistance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2929,6 +3126,8 @@
                 
                 <div class="evidence-explanation">This review explains that increased intrahepatic resistance combined with splanchnic vasodilation and increased portal blood flow drives portal hypertension and consequent splenic congestion.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2946,6 +3145,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that splenomegaly itself contributes to portal hypertension through increased splenic blood flow, creating a positive feedback loop of congestion.</div>
+                
+                
                 
             </div>
             
@@ -3081,6 +3282,8 @@
                 
                 <div class="evidence-explanation">This experimental model of congestive splenomegaly directly demonstrates the sequence of pathological changes from red pulp congestion through macrophage activation to diffuse fibrosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3099,6 +3302,8 @@
                 
                 <div class="evidence-explanation">Human histological study confirming that splenic fibrosis in portal hypertension progresses in the red pulp and directly correlates with clinical severity of cytopenias and spleen size.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3116,6 +3321,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies the cellular mechanism of splenic fibrosis through myofibroblastic transformation of cytoglobin-expressing cells in the splenic cords.</div>
+                
+                
                 
             </div>
             
@@ -3256,6 +3463,8 @@
                 
                 <div class="evidence-explanation">Directly establishes the mechanism of hypersplenism in congestive splenomegaly with platelet sequestration and destruction.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3274,6 +3483,8 @@
                 
                 <div class="evidence-explanation">Describes the classic hypersplenism mechanism affecting all blood cell lines, with platelets being predominantly affected.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3291,6 +3502,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies the additional mechanism of decreased hepatic thrombopoietin production contributing to thrombocytopenia beyond splenic sequestration.</div>
+                
+                
                 
             </div>
             
@@ -3417,6 +3630,8 @@
                 
                 <div class="evidence-explanation">Confirms thrombocytopenia as a common and multifactorial complication in the setting of chronic liver disease and portal hypertension.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3434,6 +3649,8 @@
                 
                 
                 <div class="evidence-explanation">Recent review confirming the high prevalence of thrombocytopenia in portal hypertension and its multifactorial pathogenesis.</div>
+                
+                
                 
             </div>
             
@@ -3491,6 +3708,8 @@
                 
                 <div class="evidence-explanation">Establishes the high prevalence of anemia in chronic liver disease and identifies splenomegaly from portal hypertension as one of the key contributing factors.</div>
                 
+                
+                
             </div>
             
             
@@ -3546,6 +3765,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that hypersplenism causes sequestration of all blood cell elements including leukocytes, not just platelets.</div>
+                
+                
                 
             </div>
             
@@ -3603,6 +3824,8 @@
                 
                 <div class="evidence-explanation">Hypersplenism causes sequestration of all blood cell lines, which when severe leads to pancytopenia.</div>
                 
+                
+                
             </div>
             
             
@@ -3658,6 +3881,8 @@
                 
                 
                 <div class="evidence-explanation">Portal hypertension drives collateral vessel formation and esophageal varices, which can cause gastrointestinal hemorrhage.</div>
+                
+                
                 
             </div>
             
@@ -3733,6 +3958,8 @@
                 
                 <div class="evidence-explanation">Establishes splenomegaly as a hallmark feature of portal hypertension with prognostic significance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3750,6 +3977,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that splenomegaly in portal hypertension involves loss of normal rhythmic splenic contraction, contributing to persistent enlargement.</div>
+                
+                
                 
             </div>
             
@@ -3816,6 +4045,8 @@
                 
                 <div class="evidence-explanation">Significant splenomegaly from portal hypertension can compress adjacent structures including the stomach, causing early satiety.</div>
                 
+                
+                
             </div>
             
             
@@ -3881,6 +4112,8 @@
                 
                 <div class="evidence-explanation">Splenomegaly from portal hypertension causes capsule distension leading to left upper quadrant pain and discomfort.</div>
                 
+                
+                
             </div>
             
             
@@ -3936,6 +4169,8 @@
                 
                 
                 <div class="evidence-explanation">Fatigue in congestive splenomegaly is primarily driven by the high prevalence of anemia in chronic liver disease and its multifactorial causes including splenic sequestration.</div>
+                
+                
                 
             </div>
             
@@ -4058,6 +4293,8 @@
                 
                 <div class="evidence-explanation">Addressing the underlying cause of liver injury is essential because persistent hepatic damage drives fibrosis and portal hypertension, which in turn causes congestive splenomegaly.</div>
                 
+                
+                
             </div>
             
             
@@ -4133,6 +4370,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes non-selective beta blockers as the standard pharmacological treatment for clinically significant portal hypertension.</div>
+                
+                
                 
             </div>
             
@@ -4210,6 +4449,8 @@
                 
                 <div class="evidence-explanation">This review discusses splenectomy and other therapeutic strategies for managing splenic abnormalities in the context of liver cirrhosis and portal hypertension.</div>
                 
+                
+                
             </div>
             
             
@@ -4285,6 +4526,8 @@
                 
                 
                 <div class="evidence-explanation">Notes that splenic artery embolization produces only minor and transient platelet recovery, suggesting that hypersplenism is not the sole mechanism of thrombocytopenia and that embolization has limited efficacy.</div>
+                
+                
                 
             </div>
             
@@ -4362,6 +4605,8 @@
                 
                 <div class="evidence-explanation">Establishes the clinical indications for TIPS in the management of portal hypertension complications.</div>
                 
+                
+                
             </div>
             
             
@@ -4417,6 +4662,8 @@
                 
                 <div class="evidence-explanation">Alcohol is identified as a major cause of chronic liver disease that additionally contributes to hematologic complications through direct bone marrow toxicity.</div>
                 
+                
+                
             </div>
             
             
@@ -4459,6 +4706,8 @@
                 
                 
                 <div class="evidence-explanation">Hepatitis C infection is a recognized cause of chronic liver disease contributing to portal hypertension and congestive splenomegaly.</div>
+                
+                
                 
             </div>
             
@@ -4507,6 +4756,7 @@
                 <div class="item-desc">Context: Due to splenic pooling and destruction; often first laboratory abnormality</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4530,6 +4780,8 @@
                 
                 <div class="evidence-explanation">Decreased platelet count is a clinically significant marker in portal hypertension and is used as a predictor of disease severity.</div>
                 
+                
+                
             </div>
             
             
@@ -4548,6 +4800,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Due to splenic sequestration and destruction of red blood cells</div>
+                
                 
                 
     
@@ -4573,6 +4826,8 @@
                 
                 <div class="evidence-explanation">Decreased hemoglobin in chronic liver disease results from both splenic sequestration and cytokine-mediated suppression of erythropoiesis.</div>
                 
+                
+                
             </div>
             
             
@@ -4591,6 +4846,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Sequestration of leukocytes in the enlarged spleen</div>
+                
                 
                 
     
@@ -4615,6 +4871,8 @@
                 
                 
                 <div class="evidence-explanation">Hypersplenism causes sequestration of all blood cell elements including leukocytes, resulting in decreased white blood cell counts.</div>
+                
+                
                 
             </div>
             

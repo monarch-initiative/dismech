@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04164901
+reference_id: "clinicaltrials:NCT04164901"
 title: "A Phase 3, Multicenter, Randomized, Double-blind, Placebo-Controlled Study of AG-881 in Subjects With Residual or Recurrent Grade 2 Glioma With an IDH1 or IDH2 Mutation"
 content_type: summary
 ---

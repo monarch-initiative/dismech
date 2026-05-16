@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2796,6 +2987,8 @@
                 
                 <div class="evidence-explanation">Comprehensive review establishing follicular keratinization as a key pathogenic event in HS, whether as primary occlusion or secondary to inflammation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2815,6 +3008,8 @@
                 
                 
                 <div class="evidence-explanation">This landmark paper identifies HS as a disease of hair follicles, consistent with follicular occlusion as the primary pathological event.</div>
+                
+                
                 
             </div>
             
@@ -2883,6 +3078,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes follicular rupture as a key pathogenic event in HS, releasing keratin and DAMPs into the dermis.</div>
+                
+                
                 
             </div>
             
@@ -3048,6 +3245,8 @@
                 
                 <div class="evidence-explanation">Directly supports the sequential innate-then-adaptive immune dysregulation model in HS pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3067,6 +3266,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates TLR/IL-1R-driven innate immune activation as central to HS pathophysiology.</div>
+                
+                
                 
             </div>
             
@@ -3173,6 +3374,8 @@
                 
                 
                 <div class="evidence-explanation">Abscess formation is a cardinal diagnostic feature of HS, part of the defining lesion morphology.</div>
+                
+                
                 
             </div>
             
@@ -3289,6 +3492,8 @@
                 
                 <div class="evidence-explanation">Confirms the key cytokines involved in HS immune dysregulation including the IL-17 axis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3308,6 +3513,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms IL-17A+ pathogenic T cells as key components of the HS inflammatory infiltrate.</div>
+                
+                
                 
             </div>
             
@@ -3426,6 +3633,8 @@
                 
                 <div class="evidence-explanation">Directly demonstrates epigenetic reprogramming of basal progenitors giving rise to pathogenic keratinocyte clones in HS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3445,6 +3654,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies the specific pathogenic keratinocyte population and the inflammatory cascades it drives.</div>
+                
+                
                 
             </div>
             
@@ -3581,6 +3792,8 @@
                 
                 <div class="evidence-explanation">Directly demonstrates TLS formation near tunnels with clonal plasma cell expansion and anti-keratinocyte autoantibodies.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3600,6 +3813,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates the fibroblast-mediated chemokine feedback loops driving TLS formation and the therapeutic window for TNF-alpha blockade.</div>
+                
+                
                 
             </div>
             
@@ -3678,6 +3893,8 @@
                 
                 <div class="evidence-explanation">Confirms the characteristic tunnel/sinus tract formation in HS as a defining feature.</div>
                 
+                
+                
             </div>
             
             
@@ -3742,6 +3959,8 @@
                 
                 
                 <div class="evidence-explanation">Chronic inflammation in HS leads to progressive tissue destruction and scarring.</div>
+                
+                
                 
             </div>
             
@@ -3859,6 +4078,8 @@
                 
                 <div class="evidence-explanation">Recurrent abscesses in characteristic intertriginous locations are a defining diagnostic criterion for HS.</div>
                 
+                
+                
             </div>
             
             
@@ -3915,6 +4136,8 @@
                 
                 <div class="evidence-explanation">Folliculitis is a frequent comorbidity/manifestation in HS patients, reflecting shared follicular pathology.</div>
                 
+                
+                
             </div>
             
             
@@ -3970,6 +4193,8 @@
                 
                 
                 <div class="evidence-explanation">The suppurative (pus-forming) nature is a cardinal feature of HS, directly supporting purulent drainage as a core phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4036,6 +4261,8 @@
                 
                 <div class="evidence-explanation">Tunnels (sinus tracts) are a defining pathological feature of HS.</div>
                 
+                
+                
             </div>
             
             
@@ -4092,6 +4319,8 @@
                 
                 <div class="evidence-explanation">Scarring is a well-established consequence of chronic inflammation and tissue destruction in HS.</div>
                 
+                
+                
             </div>
             
             
@@ -4147,6 +4376,8 @@
                 
                 
                 <div class="evidence-explanation">Inflammatory nodules are one of the defining lesion types in the diagnostic criteria for HS.</div>
+                
+                
                 
             </div>
             
@@ -4213,6 +4444,8 @@
                 
                 <div class="evidence-explanation">Large claims data study showing 1.69-fold higher prevalence of depression in HS patients compared to matched non-HS controls.</div>
                 
+                
+                
             </div>
             
             
@@ -4278,6 +4511,8 @@
                 
                 <div class="evidence-explanation">Pain and reduced quality of life are hallmark features of HS.</div>
                 
+                
+                
             </div>
             
             
@@ -4334,6 +4569,8 @@
                 
                 <div class="evidence-explanation">Review article explicitly highlighting the major negative impact on quality of life as a defining characteristic of HS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4353,6 +4590,8 @@
                 
                 
                 <div class="evidence-explanation">JAMA review confirming significant disability associated with HS.</div>
+                
+                
                 
             </div>
             
@@ -4445,6 +4684,8 @@
                 
                 <div class="evidence-explanation">Landmark paper identifying gamma-secretase mutations including NCSTN in familial HS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4464,6 +4705,8 @@
                 
                 
                 <div class="evidence-explanation">Additional NCSTN mutations identified in familial HS cases.</div>
+                
+                
                 
             </div>
             
@@ -4514,6 +4757,8 @@
                 
                 <div class="evidence-explanation">PSEN1 identified as one of the gamma-secretase genes mutated in familial HS.</div>
                 
+                
+                
             </div>
             
             
@@ -4562,6 +4807,8 @@
                 
                 
                 <div class="evidence-explanation">PSENEN identified as one of the gamma-secretase genes mutated in familial HS.</div>
+                
+                
                 
             </div>
             
@@ -4675,6 +4922,8 @@
                 
                 <div class="evidence-explanation">Clinical efficacy of TNF-alpha neutralization supports its role in inhibiting innate immune hyperactivation.</div>
                 
+                
+                
             </div>
             
             
@@ -4718,6 +4967,8 @@
                 
                 <div class="evidence-explanation">Direct experimental evidence that TNF-alpha blockade prevents TLS formation.</div>
                 
+                
+                
             </div>
             
             
@@ -4757,6 +5008,8 @@
                 
                 <div class="evidence-explanation">Pivotal phase III trials demonstrating adalimumab efficacy in moderate-to-severe HS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4776,6 +5029,8 @@
                 
                 
                 <div class="evidence-explanation">Provides mechanistic support for anti-TNF therapy by demonstrating that early TNF-alpha blockade prevents TLS aggregate formation.</div>
+                
+                
                 
             </div>
             
@@ -4877,6 +5132,8 @@
                 
                 <div class="evidence-explanation">Clinical efficacy of IL-17A neutralization confirms the role of Th17-driven inflammation in HS.</div>
                 
+                
+                
             </div>
             
             
@@ -4916,6 +5173,8 @@
                 
                 <div class="evidence-explanation">Phase III trial data confirming secukinumab efficacy in HS through 52 weeks.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4935,6 +5194,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms anti-IL-17 therapy as an emerging treatment approach for HS.</div>
+                
+                
                 
             </div>
             
@@ -5036,6 +5297,8 @@
                 
                 <div class="evidence-explanation">Dual IL-17A/F inhibition targets the Th17 inflammatory axis more broadly than single-cytokine blockade.</div>
                 
+                
+                
             </div>
             
             
@@ -5074,6 +5337,8 @@
                 
                 
                 <div class="evidence-explanation">Phase III trial data from BE HEARD I and II demonstrating bimekizumab efficacy and tolerability in moderate-to-severe HS.</div>
+                
+                
                 
             </div>
             
@@ -5163,6 +5428,8 @@
                 
                 <div class="evidence-explanation">IRAK4&#39;s role in TLR/IL-1R signaling directly supports its degradation as a mechanism to inhibit innate immune hyperactivation.</div>
                 
+                
+                
             </div>
             
             
@@ -5201,6 +5468,8 @@
                 
                 
                 <div class="evidence-explanation">Phase 1 clinical trial demonstrating proof of concept for IRAK4 degradation in HS.</div>
+                
+                
                 
             </div>
             
@@ -5293,6 +5562,8 @@
                 
                 <div class="evidence-explanation">Review discusses antibiotic and anti-inflammatory treatment approaches for HS management.</div>
                 
+                
+                
             </div>
             
             
@@ -5379,6 +5650,8 @@
                 
                 <div class="evidence-explanation">Wide excision directly removes sinus tracts, bypassing the need for medical resolution.</div>
                 
+                
+                
             </div>
             
             
@@ -5417,6 +5690,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms wide surgical excision as standard treatment for advanced HS.</div>
+                
+                
                 
             </div>
             
@@ -5518,6 +5793,8 @@
                 
                 <div class="evidence-explanation">Skin occlusion and hormonal influences on follicular plugging support anti-androgen modulation of follicular hyperkeratosis.</div>
                 
+                
+                
             </div>
             
             
@@ -5556,6 +5833,8 @@
                 
                 
                 <div class="evidence-explanation">Skin occlusion and hormonal factors are recognized contributors to HS pathogenesis, supporting hormonal therapy as adjunctive treatment.</div>
+                
+                
                 
             </div>
             
@@ -5605,6 +5884,8 @@
                 
                 
                 <div class="evidence-explanation">Higher BMI reduces adalimumab efficacy, supporting weight loss as an adjunctive measure.</div>
+                
+                
                 
             </div>
             
@@ -5673,6 +5954,8 @@
                 
                 <div class="evidence-explanation">Confirms smoking as one of the key environmental risk factors for HS.</div>
                 
+                
+                
             </div>
             
             
@@ -5715,6 +5998,8 @@
                 
                 <div class="evidence-explanation">Confirms obesity as a key environmental contributor to HS pathogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -5745,6 +6030,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5770,6 +6056,8 @@
                 
                 <div class="evidence-explanation">Confirms TNF-alpha as a key dysregulated cytokine in HS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5790,6 +6078,8 @@
                 
                 <div class="evidence-explanation">Demonstrates TNF-alpha&#39;s functional role in driving TLS formation via fibroblast chemokine feedback loops.</div>
                 
+                
+                
             </div>
             
             
@@ -5806,6 +6096,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
                     
                 </div>
+                
                 
                 
     
@@ -5833,6 +6124,8 @@
                 
                 <div class="evidence-explanation">Confirms IL-17 as a key dysregulated immune mediator in HS.</div>
                 
+                
+                
             </div>
             
             
@@ -5849,6 +6142,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
                     
                 </div>
+                
                 
                 
     
@@ -5876,6 +6170,8 @@
                 
                 <div class="evidence-explanation">IRAK4 degradation led to reduction of disease-relevant inflammatory biomarkers including IL-1beta in HS patients.</div>
                 
+                
+                
             </div>
             
             
@@ -5892,6 +6188,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
                     
                 </div>
+                
                 
                 
     
@@ -5918,6 +6215,8 @@
                 
                 
                 <div class="evidence-explanation">CXCL13 expression by HS fibroblasts is a key mechanism driving TLS formation.</div>
+                
+                
                 
             </div>
             
@@ -6008,6 +6307,8 @@
                 
                 <div class="evidence-explanation">Large multidisciplinary survey directly quantifying furunculosis as one of the most frequent misdiagnoses for HS, particularly at early Hurley stages.</div>
                 
+                
+                
             </div>
             
             
@@ -6082,6 +6383,8 @@
                 
                 <div class="evidence-explanation">Dedicated review on the differential diagnosis between HS and Crohn disease, emphasizing the challenge of perianal presentations and the possibility of coexistence.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6101,6 +6404,8 @@
                 
                 
                 <div class="evidence-explanation">Case series identifying key histopathological and anatomical features that distinguish perianal Crohn disease from perianal HS: granulomas present in CD but absent in HS, and anal canal extension in CD versus superficial bilateral gluteal abscesses in HS.</div>
+                
+                
                 
             </div>
             
@@ -6174,6 +6479,8 @@
                 
                 
                 <div class="evidence-explanation">Large cohort study showing pilonidal sinus disease is present in nearly one-third of HS patients and is associated with more severe HS, highlighting the clinical overlap and the importance of screening for HS in pilonidal sinus patients.</div>
+                
+                
                 
             </div>
             
@@ -6250,6 +6557,8 @@
                 
                 <div class="evidence-explanation">Venereal granuloma (including lymphogranuloma venereum) was the third most common misdiagnosis for genital HS lesions, demonstrating that inguinal and genital HS is frequently confused with sexually transmitted infections.</div>
                 
+                
+                
             </div>
             
             
@@ -6324,6 +6633,8 @@
                 
                 <div class="evidence-explanation">Primary care review emphasizing that HS must be differentiated from acne vulgaris because it does not respond to standard acne therapy and requires distinct management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6343,6 +6654,8 @@
                 
                 
                 <div class="evidence-explanation">While both acne vulgaris and HS (acne inversa) involve follicular pathology, HS is characterized by abscess and fistula formation in intertriginous areas rather than the comedonal lesions of acne vulgaris.</div>
+                
+                
                 
             </div>
             
@@ -6647,6 +6960,8 @@
                 
                 <div class="evidence-explanation">Phase III trial demonstrating secukinumab efficacy in moderate-to-severe HS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6666,6 +6981,8 @@
                 
                 
                 <div class="evidence-explanation">Long-term extension data confirming sustained secukinumab efficacy through 104 weeks.</div>
+                
+                
                 
             </div>
             
@@ -6725,6 +7042,8 @@
                 
                 
                 <div class="evidence-explanation">Extension trial assessing long-term secukinumab maintenance therapy.</div>
+                
+                
                 
             </div>
             

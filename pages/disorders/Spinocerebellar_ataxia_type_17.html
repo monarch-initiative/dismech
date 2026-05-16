@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2874,6 +3065,8 @@
                 
                 <div class="evidence-explanation">Establishes SCA17 as an autosomal dominant TBP repeat-expansion disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2893,6 +3086,8 @@
                 
                 
                 <div class="evidence-explanation">Supports reduced penetrance for lower expanded alleles within an autosomal dominant pedigree context.</div>
+                
+                
                 
             </div>
             
@@ -3046,6 +3241,8 @@
                 
                 <div class="evidence-explanation">Establishes TBP repeat expansion as the initiating molecular lesion.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3066,6 +3263,8 @@
                 
                 <div class="evidence-explanation">Directly shows transcriptional consequences of mutant TBP in cellular models.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3085,6 +3284,8 @@
                 
                 
                 <div class="evidence-explanation">Provides a mechanistic explanation for transcriptional dysregulation caused by mutant TBP.</div>
+                
+                
                 
             </div>
             
@@ -3229,6 +3430,8 @@
                 
                 <div class="evidence-explanation">Demonstrates regional cerebellar vulnerability to mutant TBP in vivo.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3249,6 +3452,8 @@
                 
                 <div class="evidence-explanation">Links mutant TBP to cerebellum-specific loss of INPP5A expression.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3268,6 +3473,8 @@
                 
                 
                 <div class="evidence-explanation">Shows that INPP5A loss is mechanistically sufficient and therapeutically reversible in vivo.</div>
+                
+                
                 
             </div>
             
@@ -3481,6 +3688,8 @@
                 
                 <div class="evidence-explanation">Supports a synergistic neuron-glia mechanism rather than purely cell-autonomous neuronal toxicity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3500,6 +3709,8 @@
                 
                 
                 <div class="evidence-explanation">Directly implicates astrocytic inflammatory signaling as a modifiable contributor to SCA17 neurodegeneration.</div>
+                
+                
                 
             </div>
             
@@ -3589,6 +3800,8 @@
                 
                 <div class="evidence-explanation">Shows that proteolytic TBP fragmentation is a direct molecular event in SCA17 models.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3608,6 +3821,8 @@
                 
                 
                 <div class="evidence-explanation">Shows that blocking calpain activity reduces TBP cleavage and its toxic consequences.</div>
+                
+                
                 
             </div>
             
@@ -3737,6 +3952,8 @@
                 
                 <div class="evidence-explanation">Supports mutant TBP aggregation as a measurable downstream toxic event that can be reduced when upstream fragment generation is limited.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3756,6 +3973,8 @@
                 
                 
                 <div class="evidence-explanation">Supports impaired proteostasis as a therapeutically relevant mechanism in vivo.</div>
+                
+                
                 
             </div>
             
@@ -3909,6 +4128,8 @@
                 
                 <div class="evidence-explanation">Establishes mutant TBP-NFY interference as the molecular cause of chaperone-response failure in SCA17 neurons.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3928,6 +4149,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates the temporal sequence in which compensatory HSPA5/chaperone activation precedes aggregation and is then lost as NFYA function collapses.</div>
+                
+                
                 
             </div>
             
@@ -4072,6 +4295,8 @@
                 
                 <div class="evidence-explanation">Establishes the TBP-XBP1s-MANF axis as a distinct transcriptional consequence of mutant TBP, separate from the TBP-NFY chaperone arm.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4091,6 +4316,8 @@
                 
                 
                 <div class="evidence-explanation">Supports an age-dependent component in which declining Hsc70 chaperone activity further disrupts the TBP-XBP1s interaction and accelerates Purkinje cell loss.</div>
+                
+                
                 
             </div>
             
@@ -4241,6 +4468,8 @@
                 
                 <div class="evidence-explanation">Confirms cerebellar neuronal loss as the convergent neuropathologic endpoint in a SCA17 animal model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4261,6 +4490,8 @@
                 
                 <div class="evidence-explanation">Documents Purkinje cell loss together with reactive gliosis as the shared cerebellar pathology underlying ataxic phenotypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4280,6 +4511,8 @@
                 
                 
                 <div class="evidence-explanation">Human imaging confirms cerebellar atrophy as the structural correlate of the cerebellar Purkinje degeneration described in animal models.</div>
+                
+                
                 
             </div>
             
@@ -4417,6 +4650,8 @@
                 
                 <div class="evidence-explanation">Demonstrates postsynaptic striatal dopaminergic dysfunction (a marker of medium spiny neuron compromise) even before symptom onset.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4436,6 +4671,8 @@
                 
                 
                 <div class="evidence-explanation">Supports striatal hypometabolism as the functional correlate of caudate-putamen degeneration.</div>
+                
+                
                 
             </div>
             
@@ -4471,7 +4708,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Astrocytic mutant TBP contributes non-cell-autonomously to neuronal loss. Severe degeneration requires mutant TBP in both neurons and glia, and inflammatory signaling in astrocytes, particularly NF-kappaB pathway activation, augments neurotoxicity. In SCA17 transgenic cerebellum, activation of MAPK/ERK in astrocytes and Bergmann glia precedes Purkinje cell loss, indicating that gliosis-driven signaling is an upstream contributor to neuronal apoptosis rather than a late reactive response.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"astrocyte\", \"Bergmann glial cell\", \"neuron\"], \"biological_processes\": [\"inflammatory response\", \"canonical NF-kappaB signal transduction\", \"cytokine production\", \"ERK1/ERK2 cascade activation in glia\"]}}, {\"id\": \"Calpain-mediated TBP fragmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcium-dependent calpain proteolysis cleaves expanded TBP, generating C-terminal fragments that mislocalize to the cytoplasm and create aggregation-prone TBP species.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"proteolysis\"]}}, {\"id\": \"Cerebellar INPP5A loss drives Purkinje cell vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebellar neurons are particularly vulnerable to mutant TBP. In the cerebellum, mutant TBP suppresses SP1-dependent INPP5A expression, perturbing IP3-linked calcium signaling in a region enriched for INPP5A and promoting Purkinje cell degeneration.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"intracellular calcium ion homeostasis\", \"IP3-linked calcium signaling\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Cerebellar Purkinje cell degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent target of the cerebellar arm of SCA17 pathophysiology. Selective loss of cerebellar Purkinje cells, with accompanying basket and stellate cell pathology and granule layer thinning, produces the cerebellar atrophy seen on imaging and the cerebellar motor syndrome of SCA17 (gait ataxia, appendicular ataxia, and cerebellar dysarthria). Multiple upstream mechanisms - INPP5A loss, MANF/chaperone deficit, glial inflammatory signaling, and impaired proteostasis - converge on intrinsic apoptotic death of Purkinje neurons. Restoring any one upstream node (Inpp5a, chaperone activity, MANF, or NF-kappaB blockade) is partially protective.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"apoptotic process\", \"intrinsic apoptotic signaling pathway\", \"neuron apoptotic process\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebellar speech impairment is a typical feature of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Granulocyte-colony stimulating factor (preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical disease-modifying candidate that improved neurologic function and reduced Purkinje cell pathology in transgenic SCA17 mice. This remains experimental and has not been established as human therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"filgrastim\"]}}, {\"id\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Limited chaperone and autophagy capacity permits accumulation of aggregation-prone mutant TBP species, whereas boosting proteostasis pathways enhances aggregate clearance and improves survival.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inclusion body assembly\", \"autophagy\", \"protein folding\"]}}, {\"id\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expanded CAG/CAA repeats in exon 3 of TBP lengthen the polyglutamine tract of a general transcription factor. Mutant TBP remains nuclear and perturbs gene expression through abnormal interactions with other transcriptional regulators, linking a ubiquitously expressed protein to selective neuronal dysfunction.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"genes\": [\"TBP\"]}}, {\"id\": \"Progressive gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait and balance impairment is the core clinical feature and may be slowly progressive over years, although more rapid decline can occur in some patients with lower expanded alleles.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Striatal and caudate degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parallel to the cerebellar arm, mutant TBP also drives degeneration of the caudate-putamen circuit, which underlies the extrapyramidal and cognitive components of SCA17 (chorea, dystonia, parkinsonism, dementia). Striatal medium spiny neurons show postsynaptic dopaminergic dysfunction with reduced D2 receptor binding and decreased striatal glucose metabolism, and these abnormalities are detectable in presymptomatic mutation carriers, indicating that striatal vulnerability is an early and intrinsic feature rather than a late consequence of cerebellar disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"medium spiny neuron\"], \"biological_processes\": [\"dopamine receptor signaling\", \"neuron apoptotic process\"], \"locations\": [\"striatum\", \"caudate nucleus\"]}}, {\"id\": \"Supportive and rehabilitative care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multidisciplinary symptomatic management with physical therapy, speech therapy, mobility aids, swallow support, and psychiatric/cognitive care remains the standard of care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TBP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"TBP\"], \"association\": \"CAG/CAA polyglutamine repeat expansion\"}}, {\"id\": \"TBP-NFY interference impairs chaperone expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant TBP binds the CCAAT-binding transcription factor NFY more tightly, sequestering NFYA into mutant TBP aggregates and blocking NFY occupancy of chaperone gene promoters. The result is reduced Hsp70, Hsp25, and HspA5 expression and a blunted heat shock / unfolded protein response. With age, a constitutive decline in Hsc70 chaperone activity compounds this deficit and contributes to late-onset selective neuronal vulnerability.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chaperone-mediated protein folding\", \"response to unfolded protein\", \"regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"TBP-XBP1s interference reduces MANF expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant TBP shows decreased association with the unfolded protein response transcription factor XBP1s, reducing transcription of the Purkinje-enriched neurotrophic factor MANF. Loss of this cell-type-specific neuroprotective signal contributes directly to the selective vulnerability of cerebellar Purkinje cells; restoring chaperone (Hsc70) activity or overexpressing MANF rescues Purkinje cell degeneration via PKC-dependent signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\", \"regulation of transcription by RNA polymerase II\"], \"locations\": [\"cerebellum\"]}}], \"edges\": [{\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"Cerebellar INPP5A loss drives Purkinje cell vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"TBP-NFY interference impairs chaperone expression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"TBP-XBP1s interference reduces MANF expression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"Calpain-mediated TBP fragmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"Striatal and caudate degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebellar INPP5A loss drives Purkinje cell vulnerability\", \"target\": \"Cerebellar Purkinje cell degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury\", \"target\": \"Cerebellar Purkinje cell degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calpain-mediated TBP fragmentation\", \"target\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"target\": \"Cerebellar Purkinje cell degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBP-NFY interference impairs chaperone expression\", \"target\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBP-XBP1s interference reduces MANF expression\", \"target\": \"Cerebellar Purkinje cell degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Progressive gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Granulocyte-colony stimulating factor (preclinical)\", \"target\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TBP\", \"target\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Astrocytic mutant TBP contributes non-cell-autonomously to neuronal loss. Severe degeneration requires mutant TBP in both neurons and glia, and inflammatory signaling in astrocytes, particularly NF-kappaB pathway activation, augments neurotoxicity. In SCA17 transgenic cerebellum, activation of MAPK/ERK in astrocytes and Bergmann glia precedes Purkinje cell loss, indicating that gliosis-driven signaling is an upstream contributor to neuronal apoptosis rather than a late reactive response.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"astrocyte\", \"Bergmann glial cell\", \"neuron\"], \"biological_processes\": [\"inflammatory response\", \"canonical NF-kappaB signal transduction\", \"cytokine production\", \"ERK1/ERK2 cascade activation in glia\"]}}, {\"id\": \"Calpain-mediated TBP fragmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcium-dependent calpain proteolysis cleaves expanded TBP, generating C-terminal fragments that mislocalize to the cytoplasm and create aggregation-prone TBP species.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"proteolysis\"]}}, {\"id\": \"Cerebellar INPP5A loss drives Purkinje cell vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebellar neurons are particularly vulnerable to mutant TBP. In the cerebellum, mutant TBP suppresses SP1-dependent INPP5A expression, perturbing IP3-linked calcium signaling in a region enriched for INPP5A and promoting Purkinje cell degeneration.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"intracellular calcium ion homeostasis\", \"IP3-linked calcium signaling\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Cerebellar Purkinje cell degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent target of the cerebellar arm of SCA17 pathophysiology. Selective loss of cerebellar Purkinje cells, with accompanying basket and stellate cell pathology and granule layer thinning, produces the cerebellar atrophy seen on imaging and the cerebellar motor syndrome of SCA17 (gait ataxia, appendicular ataxia, and cerebellar dysarthria). Multiple upstream mechanisms - INPP5A loss, MANF/chaperone deficit, glial inflammatory signaling, and impaired proteostasis - converge on intrinsic apoptotic death of Purkinje neurons. Restoring any one upstream node (Inpp5a, chaperone activity, MANF, or NF-kappaB blockade) is partially protective.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"apoptotic process\", \"intrinsic apoptotic signaling pathway\", \"neuron apoptotic process\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebellar speech impairment is a typical feature of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Granulocyte-colony stimulating factor (preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical disease-modifying candidate that improved neurologic function and reduced Purkinje cell pathology in transgenic SCA17 mice. This remains experimental and has not been established as human therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"filgrastim\"]}}, {\"id\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Limited chaperone and autophagy capacity permits accumulation of aggregation-prone mutant TBP species, whereas boosting proteostasis pathways enhances aggregate clearance and improves survival.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inclusion body assembly\", \"autophagy\", \"protein folding\"]}}, {\"id\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expanded CAG/CAA repeats in exon 3 of TBP lengthen the polyglutamine tract of a general transcription factor. Mutant TBP remains nuclear and perturbs gene expression through abnormal interactions with other transcriptional regulators, linking a ubiquitously expressed protein to selective neuronal dysfunction.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"genes\": [\"TBP\"]}}, {\"id\": \"Progressive gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait and balance impairment is the core clinical feature and may be slowly progressive over years, although more rapid decline can occur in some patients with lower expanded alleles.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Striatal and caudate degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parallel to the cerebellar arm, mutant TBP also drives degeneration of the caudate-putamen circuit, which underlies the extrapyramidal and cognitive components of SCA17 (chorea, dystonia, parkinsonism, dementia). Striatal medium spiny neurons show postsynaptic dopaminergic dysfunction with reduced D2 receptor binding and decreased striatal glucose metabolism, and these abnormalities are detectable in presymptomatic mutation carriers, indicating that striatal vulnerability is an early and intrinsic feature rather than a late consequence of cerebellar disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"medium spiny neuron\"], \"biological_processes\": [\"dopamine receptor signaling\", \"neuron apoptotic process\"], \"locations\": [\"striatum\", \"caudate nucleus\"]}}, {\"id\": \"Supportive and rehabilitative care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multidisciplinary symptomatic management with physical therapy, speech therapy, mobility aids, swallow support, and psychiatric/cognitive care remains the standard of care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TBP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"TBP\"], \"presence\": \"Positive\", \"association\": \"CAG/CAA polyglutamine repeat expansion\"}}, {\"id\": \"TBP-NFY interference impairs chaperone expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant TBP binds the CCAAT-binding transcription factor NFY more tightly, sequestering NFYA into mutant TBP aggregates and blocking NFY occupancy of chaperone gene promoters. The result is reduced Hsp70, Hsp25, and HspA5 expression and a blunted heat shock / unfolded protein response. With age, a constitutive decline in Hsc70 chaperone activity compounds this deficit and contributes to late-onset selective neuronal vulnerability.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chaperone-mediated protein folding\", \"response to unfolded protein\", \"regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"TBP-XBP1s interference reduces MANF expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant TBP shows decreased association with the unfolded protein response transcription factor XBP1s, reducing transcription of the Purkinje-enriched neurotrophic factor MANF. Loss of this cell-type-specific neuroprotective signal contributes directly to the selective vulnerability of cerebellar Purkinje cells; restoring chaperone (Hsc70) activity or overexpressing MANF rescues Purkinje cell degeneration via PKC-dependent signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\", \"regulation of transcription by RNA polymerase II\"], \"locations\": [\"cerebellum\"]}}], \"edges\": [{\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"Cerebellar INPP5A loss drives Purkinje cell vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"TBP-NFY interference impairs chaperone expression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"TBP-XBP1s interference reduces MANF expression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"Calpain-mediated TBP fragmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"target\": \"Striatal and caudate degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebellar INPP5A loss drives Purkinje cell vulnerability\", \"target\": \"Cerebellar Purkinje cell degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury\", \"target\": \"Cerebellar Purkinje cell degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calpain-mediated TBP fragmentation\", \"target\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"target\": \"Cerebellar Purkinje cell degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBP-NFY interference impairs chaperone expression\", \"target\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBP-XBP1s interference reduces MANF expression\", \"target\": \"Cerebellar Purkinje cell degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Progressive gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Granulocyte-colony stimulating factor (preclinical)\", \"target\": \"Impaired proteostasis promotes mutant TBP aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TBP\", \"target\": \"Polyglutamine-expanded TBP disrupts transcriptional programs\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4535,6 +4772,8 @@
                 
                 <div class="evidence-explanation">Cohort data support ataxia as the dominant and near-universal phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4554,6 +4793,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms slowly evolving ataxia as a typical presentation.</div>
+                
+                
                 
             </div>
             
@@ -4611,6 +4852,8 @@
                 
                 <div class="evidence-explanation">Supports cognitive impairment as a common core feature of the clinical phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -4666,6 +4909,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies dementia as a distinctive feature of SCA17.</div>
+                
+                
                 
             </div>
             
@@ -4723,6 +4968,8 @@
                 
                 <div class="evidence-explanation">Supports chorea as a characteristic component of the movement disorder spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -4778,6 +5025,8 @@
                 
                 
                 <div class="evidence-explanation">Supports dystonia as part of the typical variable phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4835,6 +5084,8 @@
                 
                 <div class="evidence-explanation">Establishes parkinsonism within the core SCA17 movement phenotype spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -4890,6 +5141,8 @@
                 
                 
                 <div class="evidence-explanation">Explicitly names dysarthria among typical SCA17 manifestations.</div>
+                
+                
                 
             </div>
             
@@ -4947,6 +5200,8 @@
                 
                 <div class="evidence-explanation">Supports depression as part of the typical neuropsychiatric presentation.</div>
                 
+                
+                
             </div>
             
             
@@ -5002,6 +5257,8 @@
                 
                 
                 <div class="evidence-explanation">Explicitly identifies psychosis as part of the SCA17 phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5060,6 +5317,8 @@
                 
                 
                 <div class="evidence-explanation">Explicitly identifies seizures as part of the SCA17 phenotype spectrum.</div>
+                
+                
                 
             </div>
             
@@ -5120,6 +5379,8 @@
                 
                 <div class="evidence-explanation">Supports genotype-phenotype correlation between total repeat length and age at onset.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5140,6 +5401,8 @@
                 
                 <div class="evidence-explanation">Defines the lower pathogenic range and reduced penetrance interval.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5159,6 +5422,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that even 49-repeat alleles can remain nonpenetrant late in life.</div>
+                
+                
                 
             </div>
             
@@ -5270,6 +5535,8 @@
                 
                 <div class="evidence-explanation">Supports supportive care as the current management paradigm in the absence of disease-modifying therapy.</div>
                 
+                
+                
             </div>
             
             
@@ -5370,6 +5637,8 @@
                 
                 <div class="evidence-explanation">Connects G-CSF to proteostasis restoration in vivo.</div>
                 
+                
+                
             </div>
             
             
@@ -5409,6 +5678,8 @@
                 
                 <div class="evidence-explanation">Demonstrates preclinical neuroprotective benefit of G-CSF in an SCA17 mouse model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5428,6 +5699,8 @@
                 
                 
                 <div class="evidence-explanation">Supports improved motor function and reduced Purkinje pathology with preclinical G-CSF treatment.</div>
+                
+                
                 
             </div>
             

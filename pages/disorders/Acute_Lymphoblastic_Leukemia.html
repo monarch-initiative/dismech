@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2630,7 +2821,7 @@
             
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -2853,6 +3044,8 @@
                 
                 <div class="evidence-explanation">This abstract directly defines the Ph+ ALL subtype as B-ALL bearing the BCR-ABL1 fusion from t(9;22), matching the subtype description.</div>
                 
+                
+                
             </div>
             
             
@@ -2911,6 +3104,8 @@
                 
                 <div class="evidence-explanation">This Lancet review establishes the BCR-ABL1-like (Ph-like) subtype as a B-ALL with a Ph+-like expression signature, frequent IKZF1 alteration, and poor outcome, matching the subtype description.</div>
                 
+                
+                
             </div>
             
             
@@ -2968,6 +3163,8 @@
                 
                 
                 <div class="evidence-explanation">This Science paper establishes the high frequency of NOTCH1 activating mutations in T-ALL, supporting the molecular description of this subtype.</div>
+                
+                
                 
             </div>
             
@@ -3073,6 +3270,8 @@
                 
                 <div class="evidence-explanation">This Lancet review establishes that genome-wide profiling has identified recurrent genetic lesions that contribute to ALL leukemogenesis and define disease subtypes, supporting the founding-lesion model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3092,6 +3291,8 @@
                 
                 
                 <div class="evidence-explanation">This Lancet review states that ALL initiation usually occurs in utero, with covert evolution to overt disease, supporting the prenatal-origin model for many B-ALL subtypes.</div>
+                
+                
                 
             </div>
             
@@ -3278,6 +3479,8 @@
                 
                 <div class="evidence-explanation">This Lancet review documents that more than two-thirds of B-ALL cases harbor alterations in transcriptional regulators of B-lymphoid development (PAX5, IKZF1, EBF1), supporting the differentiation-block mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -3393,6 +3596,8 @@
                 
                 
                 <div class="evidence-explanation">This landmark paper establishes that activating NOTCH1 mutations are present in more than half of T-ALL cases, supporting the role of NOTCH-driven proliferative signaling in T-ALL.</div>
+                
+                
                 
             </div>
             
@@ -3558,6 +3763,8 @@
                 
                 
                 <div class="evidence-explanation">This Lancet review states that effective induction therapy must eradicate the leukaemic burden in the marrow and restore normal haematopoiesis, indicating that lymphoblast accumulation in marrow has displaced normal hematopoiesis prior to treatment (i.e., bone marrow failure).</div>
+                
+                
                 
             </div>
             
@@ -4200,6 +4407,8 @@
                 
                 <div class="evidence-explanation">This NEJM study established that IKZF1 deletion is an independent predictor of poor outcome in B-cell ALL, supporting its role as an adverse cooperating lesion.</div>
                 
+                
+                
             </div>
             
             
@@ -4743,6 +4952,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -4752,6 +4962,7 @@
                     Immunophenotyping
                     
                 </div>
+                
                 
                 
     
@@ -4765,6 +4976,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -4774,6 +4986,7 @@
                     Minimal Residual Disease (MRD)
                     
                 </div>
+                
                 
                 
     
@@ -5469,7 +5682,437 @@ classifications:
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+                        
+                        <div class="report-meta">
+                            
+                            <div class="report-subtitle">1. Disease Information</div>
+                            
+                            
+                            <span class="report-badge">Edison Scientific Literature</span>
+                            
+                            
+                            <span class="report-badge">58 citations</span>
+                            
+                            
+                            <span class="report-meta-text">2026-05-12T14:54:12.027090</span>
+                            
+                        </div>
+                        
+                        <div class="report-content">
+                            <h2>1. Disease Information</h2>
+<h3>1.1 Concise overview</h3>
+<p>Acute lymphoblastic leukemia/lymphoma (ALL) is an aggressive neoplasm of <strong>precursor B‑ or precursor T‑lymphoid cells</strong> (B‑ALL and T‑ALL) that typically arises in the bone marrow but can involve extramedullary sites. (duffield2023internationalconsensusclassification pages 1-3, kansal2023diagnosisandmolecular pages 1-2)</p>
+<p><strong>Modern classification is genetics-forward.</strong> WHO 2022 (WHO‑HAEM5) and the International Consensus Classification (ICC) incorporate molecular/cytogenetic entities and transcriptome-defined subgroups to refine diagnosis and risk stratification. (kansal2023diagnosisandmolecular pages 5-7, duffield2023internationalconsensusclassification pages 1-3, yoon2024diagnosticandtherapeutic pages 1-2)</p>
+<h3>1.2 Synonyms / alternative names</h3>
+<ul>
+<li>Acute lymphocytic leukemia (older/common)</li>
+<li>B‑lymphoblastic leukemia/lymphoma (B‑ALL/LBL)</li>
+<li>T‑lymphoblastic leukemia/lymphoma (T‑ALL/LBL)</li>
+<li>“Precursor B/T lymphoblastic leukemia/lymphoma” (older WHO terminology) (kansal2023diagnosisandmolecular pages 5-7, kansal2023diagnosisandmolecular pages 4-5)</li>
+</ul>
+<h3>1.3 Evidence provenance</h3>
+<p>The report primarily synthesizes <strong>aggregated disease-level resources</strong> (2024 ELN recommendations; 2024 NCCN guideline excerpt; 2023 ICC classification paper; 2024 population studies and clinical trials) plus selected <strong>human cohort/clinical trial primary studies</strong> (SEER analyses; prospective phase 2; JCO trial update). (gokbuget2024managementofall pages 1-2, shah2024acutelymphoblasticleukemia pages 1-2, duffield2023internationalconsensusclassification pages 1-3, liu2024epidemiologicalcharacteristicsand pages 1-3, lu2024reduceddosechemotherapyand pages 1-2, kantarjian2024resultsofthe pages 1-3)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors (current understanding)</h3>
+<p>ALL is initiated and driven by <strong>acquired genetic lesions</strong> in lymphoid precursors (e.g., chromosomal rearrangements creating oncogenic fusions; aneuploidy; activating kinase lesions), with additional cooperating mutations and epigenetic remodeling. WHO‑HAEM5/ICC increasingly define ALL entities by such genomic features, including transcriptome-defined classes for previously “B‑other” cases. (kansal2023diagnosisandmolecular pages 5-7, duffield2023internationalconsensusclassification pages 1-3)</p>
+<h3>2.2 Risk factors</h3>
+<h4>Genetic susceptibility / predisposition</h4>
+<p>A 2023 pediatric-focused review summarizes that germline susceptibility includes common loci (e.g., <strong>ARID5B, CEBPE, BMI1, CDKN2A/2B</strong>) and rare inherited mutations in hematopoietic genes (<strong>ETV6, PAX5, IKZF1</strong>). It reports <strong>~4.4%</strong> of children/adolescents with ALL carry pathogenic germline mutations in known cancer genes, and that <strong>Down syndrome confers ~20‑fold increased risk</strong>. (ekpa2023areviewof pages 2-3)</p>
+<h4>Environmental and demographic risk factors</h4>
+<ul>
+<li><strong>Ionizing radiation, male sex, high birth weight</strong> are cited as recognized/established risk factors in a 2024 SEER-based ecological analysis context. (little2024solarultravioletradiation pages 1-2)</li>
+<li><strong>Ambient solar ultraviolet radiation (UVR):</strong> A 2024 SEER-based population study reported a statistically significant association between higher ambient UVR irradiance and childhood ALL incidence (<strong>RR = 1.200 per mW/cm²; p = 0.004</strong>), and a borderline trend for cumulative radiant exposure (<strong>RR = 1.444 per MJ/cm²; p = 0.0865</strong>), with stronger effects in ages <strong>0–3</strong> and among <strong>Hispanic</strong> children. The authors conclude the finding “is not clear-cut, and in need of replication.” (little2024solarultravioletradiation pages 1-2, little2024solarultravioletradiation pages 8-9)</li>
+</ul>
+<p><strong>Visual evidence (RR vs UVR):</strong> Figure showing the RR relationship used in this analysis is provided in (little2024solarultravioletradiation media 5ae23b8e).</p>
+<ul>
+<li><strong>Obesity (prognostic/biologic determinant in adults):</strong> A 2024 adult cohort study found higher BMI at diagnosis was independently associated with worse overall survival (OS) (HR <strong>10.3</strong>, 95% CI 2.56–41.5), and was associated with higher frequency of BCR::ABL1 (Ph+) (OR <strong>7.64</strong>, 95% CI 1.17–49.9). (johnston2024socioeconomicdeterminantsof pages 1-2)</li>
+</ul>
+<h3>2.3 Protective factors</h3>
+<p>No specific protective genetic variants or protective exposures were directly extractable from the retrieved evidence set. The UVR literature is mixed (some prior work suggests protection with higher solar exposure, but the 2024 US SEER ecological study reported the opposite direction for ALL). (little2024solarultravioletradiation pages 8-9)</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>Direct GxE analyses were not present in the retrieved corpus. However, a 2023 pediatric review highlights <strong>maternal exposures (tobacco smoke, air pollution, BMI)</strong> being associated with neonatal DNA methylation changes, suggesting a plausible epigenetic mediation pathway for environmental effects on leukemia risk. (ekpa2023areviewof pages 2-3)</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Common presenting symptoms/signs (human clinical)</h3>
+<p>A 223-case pediatric clinicopathological series provides concrete presentation frequencies:
+- <strong>Pallor/anemia:</strong> 93.3% (208/223)
+- <strong>Fever:</strong> 89.7% (200/223)
+- <strong>Hepatomegaly:</strong> 89.2% (199/223)
+- <strong>Splenomegaly:</strong> 74.9% (167/223)
+- <strong>Lymphadenopathy:</strong> 63.7% (142/223)
+- <strong>Bony tenderness/bone pain:</strong> 50.7% (113/223)
+- <strong>Bleeding manifestations:</strong> 35.9%
+- <strong>Joint involvement/arthritis-like:</strong> 25.6%
+- <strong>CNS involvement at diagnosis:</strong> ~1.3%
+- <strong>Testicular enlargement:</strong> ~0.44% (karim2023diagnosticclueof pages 2-4)</p>
+<p>A 2024 musculoskeletal-mimic report/review context also emphasizes that <strong>15–30%</strong> of ALL cases may present with isolated, persistent osteo‑articular complaints that can delay diagnosis and can be masked by corticosteroids. (talukder2024acutelymphoblasticleukemia pages 1-3, karim2023diagnosticclueof pages 5-6)</p>
+<h3>3.2 Laboratory abnormalities (human clinical)</h3>
+<p>From the same 223-case series:
+- <strong>Leukocytosis:</strong> 49.4% (including WBC &gt;50,000/µL in 24.2%; WBC &gt;100,000/µL in 15.2%)
+- <strong>Leukopenia:</strong> 18.8%
+- <strong>Pancytopenia at diagnosis:</strong> 18.8%
+- <strong>Decreased age-adjusted neutrophil percentage:</strong> 93.7% (karim2023diagnosticclueof pages 2-4, karim2023diagnosticclueof pages 1-2)</p>
+<h3>3.3 Suggested HPO terms (examples)</h3>
+<p>(Provide as starting points; exact mapping may be adjusted during ontology curation.)
+- Fever <strong>HP:0001945</strong>
+- Pallor <strong>HP:0000980</strong>
+- Anemia <strong>HP:0001903</strong>
+- Thrombocytopenia <strong>HP:0001873</strong>; Bleeding tendency <strong>HP:0001892</strong>
+- Neutropenia <strong>HP:0001875</strong>; Leukocytosis <strong>HP:0001974</strong>; Leukopenia <strong>HP:0001882</strong>; Pancytopenia <strong>HP:0001876</strong>
+- Hepatomegaly <strong>HP:0002240</strong>; Splenomegaly <strong>HP:0001744</strong>
+- Lymphadenopathy <strong>HP:0002716</strong>
+- Bone pain <strong>HP:0002653</strong>; Bone tenderness <strong>HP:0030830</strong>
+- Arthritis/Joint pain <strong>HP:0001369</strong>
+- CNS involvement can manifest as headache <strong>HP:0002315</strong>, cranial nerve palsy <strong>HP:0001291</strong> (clinical term selection depends on documentation). (karim2023diagnosticclueof pages 2-4)</p>
+<h3>3.4 Quality of life impact</h3>
+<p>While the retrieved evidence set did not include formal QoL instrument outcomes, the phenotype spectrum above implies substantial functional impact via fatigue, pain, infection risk, and bleeding risk, and treatment is associated with significant toxicity; ELN 2024 explicitly includes supportive care and late effects in its scope. (gokbuget2024managementofall pages 1-2)</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Core disease genes and recurrent abnormalities (somatic)</h3>
+<p>WHO‑HAEM5/ICC classify many ALL entities by recurrent genetic lesions. Examples explicitly discussed in the retrieved evidence include:
+- <strong>BCR::ABL1 (Philadelphia chromosome) / Ph+ ALL</strong> and BCR::ABL1‑like (“Ph‑like”) (yoon2024diagnosticandtherapeutic pages 1-2, kansal2023diagnosisandmolecular pages 5-7)
+- <strong>ETV6::RUNX1</strong>, <strong>TCF3::PBX1</strong>, <strong>KMT2A (MLL) rearrangements</strong>, aneuploidy classes (<strong>high hyperdiploidy</strong>, <strong>hypodiploidy</strong>), and newer entities derived from genomic/transcriptome profiling previously within “B‑other”. (kansal2023diagnosisandmolecular pages 5-7, kansal2023diagnosisandmolecular pages 4-5)</p>
+<p>The ICC 2022 framework further subdivides BCR::ABL1+ cases (lymphoid-only vs multilineage) and introduces multiple new genetic categories and provisional gene-expression-defined entities. (duffield2023internationalconsensusclassification pages 1-3)</p>
+<h3>4.2 Germline predisposition genes (examples)</h3>
+<ul>
+<li><strong>ETV6, PAX5, IKZF1</strong> (rare inherited mutations) and common susceptibility loci (e.g., <strong>ARID5B</strong>) are summarized in the 2023 pediatric review. (ekpa2023areviewof pages 2-3)</li>
+</ul>
+<h3>4.3 Epigenetics</h3>
+<p>The 2023 pediatric review highlights epigenome-wide associations of maternal exposures (e.g., smoking) with neonatal methylation changes (e.g., AHRR CpG cg05575921), consistent with epigenetic mediation hypotheses for leukemia risk. (ekpa2023areviewof pages 2-3)</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>5.1 Environmental factors</h3>
+<ul>
+<li><strong>Ionizing radiation</strong> is cited as a recognized risk factor in recent epidemiology context. (little2024solarultravioletradiation pages 1-2)</li>
+<li><strong>Ambient UVR</strong> is under active investigation; a large 2024 ecological analysis suggests increased childhood ALL risk with higher ambient UVR (RR effect sizes above). (little2024solarultravioletradiation pages 1-2, little2024solarultravioletradiation media 5ae23b8e)</li>
+</ul>
+<h3>5.2 Lifestyle factors</h3>
+<ul>
+<li><strong>Obesity</strong> emerges as a prognostic/biologic determinant of adverse OS in adults with ALL in a 2024 center cohort. (johnston2024socioeconomicdeterminantsof pages 1-2)</li>
+</ul>
+<h3>5.3 Infectious agents</h3>
+<p>Direct pathogen causation is not established for ALL in general; infection-related hypotheses (population mixing/delayed infection) are discussed as etiologic theories in pediatric literature. (ekpa2023areviewof pages 2-3, little2024solarultravioletradiation pages 11-11)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Causal chain (high-level)</h3>
+<p>1) <strong>Initiating lesions</strong> (chromosomal rearrangements/aneuploidy/kinase activation) occur in developing lymphoid precursors. (kansal2023diagnosisandmolecular pages 5-7, duffield2023internationalconsensusclassification pages 1-3)
+2) <strong>Differentiation arrest</strong> and <strong>uncontrolled proliferation</strong> yield expanding lymphoblast clones in marrow and/or extramedullary sites. A 2024 adult review describes ALL as “marked by abnormal clones with arrested differentiation and uncontrolled proliferation in bone marrow and extramedullary sites.” (yoon2024diagnosticandtherapeutic pages 1-2)
+3) <strong>Marrow failure</strong> causes cytopenias (anemia → pallor/fatigue; thrombocytopenia → bleeding; neutropenia → infection/fever) and may coexist with leukocytosis and circulating blasts. (karim2023diagnosticclueof pages 2-4)
+4) <strong>Tissue infiltration</strong> produces hepatosplenomegaly, lymphadenopathy, bone pain/periosteal involvement, and less commonly CNS/testicular disease. (karim2023diagnosticclueof pages 2-4)</p>
+<h3>6.2 Pathway-level themes (from subtype concepts)</h3>
+<p>The retrieved WHO‑HAEM5/ICC sources emphasize that subtypes are increasingly organized around:
+- <strong>Kinase signaling activation</strong> (e.g., BCR::ABL1 and Ph‑like lesions), affecting therapy selection (TKIs; immunotherapy-based regimens) and risk. (yoon2024diagnosticandtherapeutic pages 1-2, kantarjian2024ponatinib‐reviewofhistorical pages 10-11)
+- <strong>Transcription factor and developmental programs</strong> identified by gene-expression clustering (ICC) that refine biologic taxonomy beyond classical cytogenetics. (duffield2023internationalconsensusclassification pages 1-3)</p>
+<h3>6.3 Suggested GO / CL terms (examples)</h3>
+<ul>
+<li>GO biological processes: </li>
+<li><strong>GO:0007049</strong> cell cycle; <strong>GO:0008283</strong> cell population proliferation; <strong>GO:0006915</strong> apoptotic process; <strong>GO:0042127</strong> regulation of cell population proliferation.</li>
+<li>CL cell types:</li>
+<li><strong>CL:0000816</strong> B cell; <strong>CL:0000542</strong> lymphocyte; <strong>CL:0000792</strong> T cell.</li>
+<li>For leukemia blasts: “lymphoblast” is not always a CL term; practical annotation may use precursor B/T cell terms plus “neoplastic cell”.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ/tissue level</h3>
+<p>Primary site is the <strong>bone marrow</strong> with systemic hematopoietic involvement; common secondary involvement includes <strong>liver, spleen, lymph nodes</strong>, and <strong>bone</strong> (pain/tenderness). Less commonly at diagnosis: <strong>CNS</strong> and <strong>testis</strong>. (karim2023diagnosticclueof pages 2-4)</p>
+<h3>7.2 Suggested UBERON terms (examples)</h3>
+<ul>
+<li>Bone marrow <strong>UBERON:0002371</strong></li>
+<li>Liver <strong>UBERON:0002107</strong></li>
+<li>Spleen <strong>UBERON:0002106</strong></li>
+<li>Lymph node <strong>UBERON:0000029</strong></li>
+<li>Central nervous system <strong>UBERON:0001016</strong></li>
+<li>Testis <strong>UBERON:0000473</strong> (karim2023diagnosticclueof pages 2-4)</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset</h3>
+<p>ALL has a strong pediatric incidence peak but occurs across the lifespan. Median age at diagnosis in the US is <strong>17 years</strong>, with <strong>53.5%</strong> diagnosed before age 20. (shah2024acutelymphoblasticleukemia pages 1-2)</p>
+<h3>8.2 Progression and course</h3>
+<p>Clinically acute presentation is typical; untreated disease progresses rapidly with complications from cytopenias and infiltration. Response and relapse risk are strongly influenced by molecular subtype and depth of remission measured by MRD. (gokbuget2024managementofall pages 6-6)</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology (recent statistics)</h3>
+<ul>
+<li><strong>US incidence:</strong> age-adjusted incidence <strong>1.8 per 100,000 per year</strong>; estimated <strong>6,550</strong> new cases and <strong>1,330</strong> deaths in 2024 (NCCN excerpt). (shah2024acutelymphoblasticleukemia pages 1-2)</li>
+<li><strong>Age distribution:</strong> 53.5% diagnosed &lt;20; 29.6% ≥45; 13.7% ≥65. (shah2024acutelymphoblasticleukemia pages 1-2)</li>
+<li><strong>SEER trend analysis:</strong> From 2000–2016, childhood/adolescent ALL incidence APC <strong>1.5%</strong> (95% CI 1.1–1.8); adult ALL incidence APC <strong>2.5%</strong> (95% CI 2.0–3.1). (liu2024epidemiologicalcharacteristicsand pages 1-3)</li>
+</ul>
+<h3>9.2 Heritability/inheritance</h3>
+<p>Most ALL is sporadic (somatic). A minority reflects germline predisposition syndromes/variants (e.g., Down syndrome and inherited variants in ETV6/PAX5/IKZF1). (ekpa2023areviewof pages 2-3)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Core diagnostic modalities</h3>
+<ul>
+<li><strong>Morphology plus immunophenotyping</strong> (flow cytometry or immunohistochemistry) to establish lymphoblastic lineage. (kansal2023diagnosisandmolecular pages 4-5)</li>
+<li><strong>Cytogenetic and molecular profiling</strong> to assign WHO‑HAEM5/ICC genetic subtype (e.g., BCR::ABL1, aneuploidy classes, fusion-defined entities; transcriptome-defined subtypes). (kansal2023diagnosisandmolecular pages 5-7, duffield2023internationalconsensusclassification pages 1-3)</li>
+</ul>
+<h3>10.2 MRD (measurable/minimal residual disease): methods, thresholds, timing</h3>
+<p>MRD is central to prognosis and therapeutic decision-making in adult ALL.
+- <strong>Threshold commonly used:</strong> <strong>0.01% (10−4)</strong>, aligned to typical assay sensitivity; ELN notes each log increase in MRD shortens time to hematologic relapse. (gokbuget2024managementofall pages 6-6)
+- <strong>Method performance:</strong> 
+  - Expert review: RQ‑PCR sensitivity ~10−5; multiparametric flow cytometry ~10−4; PCR/HTS may reach ~10−6 depending on input. (sebastian2024howitreat pages 1-2, yoon2024diagnosticandtherapeutic pages 6-8)
+- <strong>Timing:</strong> ELN emphasizes early vs later MRD timepoints (often ~2–3 months) to guide escalation/de‑escalation. (gokbuget2024managementofall pages 6-6)</p>
+<h3>10.3 Guideline risk criteria examples</h3>
+<p>NCCN excerpt includes traditional high-risk features in one trial framework: age ≥35 years, time to CR &gt;4 weeks, or high WBC (&gt;30×10^9/L for B-lineage; &gt;100×10^9/L for T-lineage). (shah2024acutelymphoblasticleukemia pages 3-5)</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Survival highlights (recent/referenced)</h3>
+<ul>
+<li>Pediatric outcomes are substantially better than adult outcomes overall. A 2024 SEER-based analysis states pediatric survival is ~90% while older adult survival (55–70 years) is ~30–40% (contextual summary). (ghosh2024incidenceandsurvivability pages 1-3)</li>
+<li>ELN/MRD: MRD-positive status is associated with markedly higher relapse risk; one 2024 review reports 5‑year hematologic relapse 56–100% if MRD+ vs 18–33% if MRD−. (stelljes2024ph−allimmunotherapy pages 1-2)</li>
+</ul>
+<h3>11.2 Prognostic factors (examples)</h3>
+<ul>
+<li><strong>MRD level and kinetics</strong> are among the strongest predictors and guide allo-HCT selection. (gokbuget2024managementofall pages 6-6)</li>
+<li><strong>Age and obesity</strong> are independent adverse predictors of OS in an adult cohort; higher BMI also associated with BCR::ABL1 positivity. (johnston2024socioeconomicdeterminantsof pages 1-2)</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Current applications and real-world implementation (2024 consensus)</h3>
+<p>The 2024 European LeukemiaNet (ELN) recommendations emphasize <strong>risk-adapted adult ALL management</strong> driven by baseline prognostic factors and <strong>MRD</strong> to determine intensity, incorporation of immunotherapies, and transplant indications. (gokbuget2024managementofall pages 1-2)</p>
+<h3>12.2 Key modalities, evidence, and 2024 trial statistics</h3>
+<table>
+<thead>
+<tr>
+<th>Modality/agent</th>
+<th>Target or mechanism</th>
+<th>Key use-case</th>
+<th>Selected 2024 efficacy/statistics</th>
+<th>Key toxicities / implementation notes</th>
+<th>Key 2024 sources with URL and pub month/year</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pediatric-inspired multi-agent chemotherapy (adult AYA/fit adults); e.g., pediatric-inspired regimens, Hyper-CVAD variants</td>
+<td>Multi-agent cytotoxic therapy targeting proliferating lymphoblasts; often includes asparaginase, vincristine, steroids, anthracycline, methotrexate/6-MP phases</td>
+<td>Standard frontline backbone for Ph-negative ALL in younger/fit adults; adapted intensity by age/fitness</td>
+<td>ELN 2024: pediatric-based regimens are standard up to ~45–55 years and adult Ph-negative ALL CR rates are ~90% in many groups; expert review notes ~20% 5-year OS benefit in AYA with pediatric-inspired regimens vs traditional adult regimens (gokbuget2024managementofall pages 1-2, sebastian2024howitreat pages 1-2)</td>
+<td>Age/fitness constrained; asparaginase toxicity, infections, hepatic/pancreatic toxicity, thrombosis; obesity adversely affects OS in adults and may shape supportive-care intensity (sebastian2024howitreat pages 1-2, johnston2024socioeconomicdeterminantsof pages 1-2)</td>
+<td>Gökbuget et al., <em>Blood</em> (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 1-2); Sebastian, <em>Clin Hematol Int</em> (May 2024) https://doi.org/10.46989/001c.117026 (sebastian2024howitreat pages 1-2); Johnston et al., <em>Blood Adv</em> (Dec 2024) https://doi.org/10.1182/bloodadvances.2023011862 (johnston2024socioeconomicdeterminantsof pages 1-2)</td>
+</tr>
+<tr>
+<td>TKIs for Ph+ ALL (imatinib, dasatinib, ponatinib)</td>
+<td>Inhibit BCR::ABL1 kinase signaling; ponatinib active against T315I and other resistant mutants</td>
+<td>Frontline Ph+ ALL; often with reduced-intensity chemo or with blinatumomab; salvage/bridge contexts also used</td>
+<td>Ponatinib review: PONALFIL post-induction CMR 47% rising to 71% in consolidation; 3-year OS 97%, EFS 70%; PhALLCON MRD-negative CR 34.4% with ponatinib vs 16.7% imatinib, and in age ≥60 years 40.0% vs 10.3%, median PFS 22.5 vs 8.3 months (kantarjian2024ponatinib‐reviewofhistorical pages 10-11)</td>
+<td>Cardiovascular/arterial occlusive risk with ponatinib; pancreatitis reported; TKI selection depends on mutation profile, age, comorbidities, CNS strategy, transplant plan (kantarjian2024ponatinib‐reviewofhistorical pages 10-11, sebastian2024howitreat pages 5-7)</td>
+<td>Kantarjian et al., <em>Am J Hematol</em> (May 2024) https://doi.org/10.1002/ajh.27355 (kantarjian2024ponatinib‐reviewofhistorical pages 10-11); Sebastian, <em>Clin Hematol Int</em> (May 2024) https://doi.org/10.46989/001c.117026 (sebastian2024howitreat pages 5-7)</td>
+</tr>
+<tr>
+<td>Blinatumomab</td>
+<td>CD19xCD3 bispecific T-cell engager; redirects T cells to lyse CD19+ B-ALL cells</td>
+<td>MRD-positive B-ALL; R/R B-ALL; increasingly frontline consolidation/low-intensity induction component in Ph-negative and Ph+ disease</td>
+<td>Frontline Ph-negative phase 2 (reduced-dose chemo → blinatumomab): CRc 94% after 2 weeks blina, MRD-negative 86%; with up to 4 weeks, CR 100% and MRD-negative 89%; 1-year OS 97.1%, PFS 82.2% (NCT05557110) (lu2024reduceddosechemotherapyand pages 1-2). Review/guideline: MRD response ~80% and hematologic relapse-free survival 61% in MRD-directed setting; survival benefit also emerging in MRD-negative frontline consolidation (stelljes2024ph−allimmunotherapy pages 1-2)</td>
+<td>Continuous IV infusion standard; CRS and neurotoxicity/ICANS require monitoring; in Lu 2024 ICANS 14% (all grade 1), grade ≥3 CRS 9% (lu2024reduceddosechemotherapyand pages 1-2)</td>
+<td>Lu et al., <em>J Hematol Oncol</em> (Sep 2024) https://doi.org/10.1186/s13045-024-01597-8 (lu2024reduceddosechemotherapyand pages 1-2); Stelljes, <em>Hematology</em> (Dec 2024) https://doi.org/10.1182/hematology.2024000531 (stelljes2024ph−allimmunotherapy pages 1-2); Gökbuget et al., <em>Blood</em> (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 1-2)</td>
+</tr>
+<tr>
+<td>Inotuzumab ozogamicin</td>
+<td>Anti-CD22 antibody-drug conjugate delivering calicheamicin</td>
+<td>Approved for R/R CD22+ B-ALL; increasingly used in frontline low-intensity regimens in older/unfit adults; MRD eradication / bridge to HSCT / sequencing with CAR-T</td>
+<td>2024 reviews summarize strong efficacy in R/R disease and promising frontline combinations with low-intensity chemotherapy or blinatumomab; used to eliminate MRD and bridge to HSCT/CAR-T, but article excerpt does not provide one uniform 2024 pooled ORR/OS estimate across settings (kantarjian2024inotuzumabozogamicinin pages 15-17, gokbuget2024managementofall pages 21-22)</td>
+<td>Key risk is veno-occlusive disease/sinusoidal obstruction syndrome, especially pre-HSCT; fractionated dosing and transplant timing matter (kantarjian2024inotuzumabozogamicinin pages 15-17)</td>
+<td>Kantarjian et al., <em>Cancer</em> (Aug 2024) https://doi.org/10.1002/cncr.35505 (kantarjian2024inotuzumabozogamicinin pages 15-17); Gökbuget et al., <em>Blood</em> (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 21-22)</td>
+</tr>
+<tr>
+<td>Chemo-free / near chemo-free TKI + blinatumomab for Ph+ ALL (e.g., ponatinib + blinatumomab; dasatinib + blinatumomab)</td>
+<td>Dual targeting of BCR::ABL1 signaling plus CD19-directed T-cell cytotoxicity</td>
+<td>Frontline Ph+ ALL; increasingly used to reduce/avoid conventional chemotherapy and sometimes HSCT</td>
+<td>Ponatinib + blinatumomab (JCO 2024): CMR 83% overall (67% after course 1), NGS-MRD negativity 98%, only 2/60 underwent HSCT, 3-year OS 91%, EFS 77%, median follow-up 24 months (kantarjian2024resultsofthe pages 1-3, kantarjian2024resultsofthe pages 3-4). D-ALBA long-term: 4-year/approximately 53-month DFS 75.8%, OS 80.7%, early molecular responders had no events (kantarjian2024ponatinib‐reviewofhistorical pages 10-11)</td>
+<td>CNS relapse remains an issue in chemo-free Ph+ regimens; ponatinib vascular toxicities; blinatumomab CRS/neurotoxicity; transplant role becoming more selective (kantarjian2024resultsofthe pages 3-4, kantarjian2024ponatinib‐reviewofhistorical pages 10-11)</td>
+<td>Kantarjian et al., <em>J Clin Oncol</em> (Dec 2024) https://doi.org/10.1200/jco.24.00272 (kantarjian2024resultsofthe pages 1-3); Foà et al., <em>J Clin Oncol</em> (Mar 2024) https://doi.org/10.1200/jco.23.01075 (kantarjian2024ponatinib‐reviewofhistorical pages 10-11)</td>
+</tr>
+<tr>
+<td>CAR-T cell therapy (CD19-directed; pediatric and adult B-ALL)</td>
+<td>Autologous engineered T cells targeting CD19 on B lymphoblasts</td>
+<td>Standard for selected R/R B-ALL; bridge or alternative to HSCT; pediatric/young adult use especially established</td>
+<td>2024 treatment reviews state CAR-T is standard in R/R BCP-ALL and has demonstrated major efficacy, but the provided contexts here do not include a single 2024 trial with reportable ORR/OS figures for inclusion (stelljes2024ph−allimmunotherapy pages 1-2, kantarjian2024inotuzumabozogamicinin pages 15-17)</td>
+<td>CRS, ICANS, prolonged cytopenias, hypogammaglobulinemia; manufacturing/access/logistics and disease burden at infusion are major real-world constraints; often sequenced with blinatumomab/inotuzumab/HSCT (kantarjian2024inotuzumabozogamicinin pages 15-17, stelljes2024ph−allimmunotherapy pages 1-2)</td>
+<td>Stelljes, <em>Hematology</em> (Dec 2024) https://doi.org/10.1182/hematology.2024000531 (stelljes2024ph−allimmunotherapy pages 1-2); Kantarjian et al., <em>Cancer</em> (Aug 2024) https://doi.org/10.1002/cncr.35505 (kantarjian2024inotuzumabozogamicinin pages 15-17)</td>
+</tr>
+<tr>
+<td>Allogeneic hematopoietic cell transplantation (allo-HCT)</td>
+<td>Graft-versus-leukemia effect after myeloablative or reduced-intensity conditioning</td>
+<td>Consolidation for high-risk disease, persistent/recurrent MRD, poor-risk genomics, or selected R/R patients in remission</td>
+<td>ELN/expert reviews: MRD is central to transplant selection; poor MRD response supports SCT, whereas deeper MRD responses with TKI/blinatumomab regimens are reducing HSCT use in some Ph+ patients. In ponatinib+blinatumomab 2024 study, only 2 patients underwent HSCT despite 3-year OS 91% (gokbuget2024managementofall pages 6-6, kantarjian2024resultsofthe pages 3-4, gokbuget2024managementofall pages 1-2)</td>
+<td>Transplant-related mortality, GVHD, infection, conditioning toxicity; pre-HSCT MRD level strongly predicts relapse; post-inotuzumab VOD/SOS risk requires mitigation (gokbuget2024managementofall pages 6-6, kantarjian2024inotuzumabozogamicinin pages 15-17)</td>
+<td>Gökbuget et al., <em>Blood</em> (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 6-6); Kantarjian et al., <em>J Clin Oncol</em> (Dec 2024) https://doi.org/10.1200/jco.24.00272 (kantarjian2024resultsofthe pages 3-4)</td>
+</tr>
+<tr>
+<td>MRD-directed therapy / response-adapted management</td>
+<td>Uses highly sensitive residual leukemia detection (MFC, PCR, NGS) to escalate/de-escalate therapy and determine HSCT need</td>
+<td>Cross-cutting strategy in frontline, MRD+, pre-/post-HSCT, and salvage settings</td>
+<td>ELN 2024: threshold commonly 0.01% (10^-4); each log MRD increase worsens relapse risk; persistent/recurrent MRD should trigger therapy change; blinatumomab is the pivotal MRD-clearing agent. Review: MFC sensitivity ~10^-5; PCR/HTS up to 10^-6; key timepoints often 6–8 and 10–12 weeks (gokbuget2024managementofall pages 6-6, yoon2024diagnosticandtherapeutic pages 6-8)</td>
+<td>Requires experienced reference labs; assay choice affects classification; marrow regeneration can confound flow; MRD does not capture extramedullary disease; low-level MRD may be intermediate-risk and still actionable (gokbuget2024managementofall pages 6-6, yoon2024diagnosticandtherapeutic pages 6-8)</td>
+<td>Gökbuget et al., <em>Blood</em> (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 6-6); Yoon &amp; Lee, <em>Korean J Intern Med</em> (Jan 2024) https://doi.org/10.3904/kjim.2023.407 (yoon2024diagnosticandtherapeutic pages 6-8)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: This table summarizes major modern treatment modalities for acute lymphoblastic leukemia, including frontline, MRD-directed, relapsed/refractory, and transplant strategies. It highlights 2024 efficacy data, implementation considerations, and key sources for rapid evidence-based comparison.</em></p>
+<h4>Chemo-free Ph+ ALL: ponatinib + blinatumomab (JCO 2024)</h4>
+<p>A 2024 JCO trial update reports deep molecular responses with minimal HSCT use:
+- CMR by RT‑PCR <strong>83%</strong> overall; MRD negativity by clono‑sequencing <strong>98%</strong> overall; <strong>3‑year OS 91%</strong> and EFS <strong>77%</strong>; only <strong>2</strong> patients underwent HSCT; median follow-up <strong>24 months</strong>. (kantarjian2024resultsofthe pages 1-3, kantarjian2024resultsofthe pages 3-4)</p>
+<p><strong>Direct abstract quote:</strong> “At a median follow-up of 24 months, the complete molecular response rate … was 83% … and the rate of measurable residual disease negativity … was 98% … The estimated 3-year overall survival rate was 91% and event-free survival rate was 77%.” (kantarjian2024resultsofthe pages 3-4)</p>
+<h4>Reduced-intensity induction for Ph-negative BCP‑ALL: reduced-dose chemotherapy + blinatumomab (J Hematol Oncol 2024)</h4>
+<p>Prospective multicenter phase 2 (NCT05557110) results:
+- After 2 weeks of blinatumomab: CRc <strong>94%</strong>, MRD-negative <strong>86%</strong>.
+- With up to 4 weeks: CR <strong>100%</strong>, MRD-negative <strong>89%</strong>.
+- 1‑year OS <strong>97.1%</strong>, 1‑year PFS <strong>82.2%</strong>; follow-up 11.5 months. (lu2024reduceddosechemotherapyand pages 1-2)</p>
+<p><strong>Direct abstract quote:</strong> “From September 2022 to December 2023, we conducted … (NCT05557110) … 33 (94%) achieved CRc … 30 (86%) achieving measurable residual disease (MRD) negativity … estimated 1-year overall survival and 1-year progression-free survival rates were 97.1% and 82.2%.” (lu2024reduceddosechemotherapyand pages 1-2)</p>
+<h3>12.3 MRD-directed therapy</h3>
+<p>ELN 2024 notes persistent/recurrent MRD should prompt therapy change; <strong>blinatumomab</strong> is highlighted as the pivotal agent tested in a major MRD trial, often converting to molecular remission; many groups use MRD to decide on allo‑HCT. (gokbuget2024managementofall pages 6-6)</p>
+<h3>12.4 Pharmacogenomics (implementation-relevant)</h3>
+<p>A 2024 pharmacogenetics review lists key genotype-toxicity associations:
+- For <strong>6‑mercaptopurine (6‑MP)</strong>: TPMT (e.g., <strong>TPMT<em>2 238G&gt;C; TPMT</em>3B 460G&gt;A; TPMT*3C 719A&gt;G</strong>), <strong>NUDT15 c.415C&gt;T</strong>, and <strong>ITPA</strong> (94C&gt;A; IVS2+21A&gt;C). (graiqevciuka2024implementationofpharmacogenetics pages 5-7, graiqevciuka2024implementationofpharmacogenetics pages 1-3)
+- For <strong>methotrexate (MTX)</strong>: <strong>MTHFR C677T</strong> and <strong>A1298C</strong> variants are discussed, though the review notes evidence for some MTX markers is inconsistent and highlights <strong>SLCO1B1</strong> as a more reliable MTX handling gene in cited literature. (graiqevciuka2024implementationofpharmacogenetics pages 5-7)</p>
+<h3>12.5 Suggested MAXO terms (examples)</h3>
+<ul>
+<li>Antineoplastic chemotherapy <strong>MAXO:0000746</strong> (approximate; verify exact MAXO ID)</li>
+<li>Allogeneic hematopoietic stem cell transplantation <strong>MAXO:0000748</strong> (verify)</li>
+<li>CAR T-cell therapy <strong>MAXO:0001097</strong> (verify)</li>
+<li>Targeted therapy / tyrosine kinase inhibitor therapy (verify appropriate MAXO term)</li>
+<li>MRD monitoring (diagnostic procedure; may map better to OBI rather than MAXO). (gokbuget2024managementofall pages 6-6)</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>13.1 Primary prevention</h3>
+<p>Because most ALL risk is not attributable to modifiable exposures, there is no established population-level primary prevention strategy. Nevertheless, risk literature motivates research into prenatal/early-life exposures and broader public health reduction of known hazards (e.g., ionizing radiation). (little2024solarultravioletradiation pages 1-2, ekpa2023areviewof pages 2-3)</p>
+<h3>13.2 Secondary prevention</h3>
+<p>No general population screening is established. High-risk groups (e.g., strong germline predisposition syndromes) may benefit from specialist surveillance in genetic counseling frameworks; specifics require syndrome-level guidelines (not present in retrieved corpus). (ekpa2023areviewof pages 2-3)</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Not assessed in the retrieved evidence set.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>Not assessed in the retrieved evidence set.</p>
+<hr />
+<h2>Recent developments and expert analysis (2023–2024)</h2>
+<p>1) <strong>Classification shift to genomics/transcriptomics:</strong> ICC and WHO‑HAEM5 explicitly expand genetically and expression-defined entities (including formerly “B‑other”) to improve risk stratification and treatment selection. (duffield2023internationalconsensusclassification pages 1-3, kansal2023diagnosisandmolecular pages 5-7)</p>
+<p>2) <strong>MRD as a decision engine:</strong> ELN 2024 formalizes MRD timing and threshold concepts (commonly 10−4) and embeds MRD into transplant and immunotherapy decisions. (gokbuget2024managementofall pages 6-6, gokbuget2024managementofall pages 1-2)</p>
+<p>3) <strong>Frontline immunotherapy integration and chemotherapy de-escalation:</strong> 2024 trials and reviews show movement of blinatumomab into upfront settings and successful chemo-free Ph+ strategies with high molecular response rates and reduced HSCT utilization. (lu2024reduceddosechemotherapyand pages 1-2, kantarjian2024resultsofthe pages 1-3, sebastian2024howitreat pages 1-2)</p>
+<hr />
+<h2>Key figure supporting environmental-risk discussion</h2>
+<p>The relationship between UVR and ALL incidence reported in the 2024 British Journal of Cancer SEER ecological analysis is visually summarized in the retrieved figure. (little2024solarultravioletradiation media 5ae23b8e)</p>
+<p>References</p>
+<ol>
+<li>
+<p>(shah2024acutelymphoblasticleukemia pages 1-2): Bijal Shah, Ryan J. Mattison, Ramzi Abboud, Peter Abdelmessieh, Ibrahim Aldoss, Patrick W. Burke, Daniel J. DeAngelo, Shira Dinner, Amir T. Fathi, Jordan Gauthier, Michael Haddadin, Nitin Jain, Brian Jonas, Suzanne Kirby, Michaela Liedtke, Mark Litzow, Aaron Logan, Meixiao Long, Selina Luger, James K. Mangan, Stephanie Massaro, William May, Olalekan Oluwole, Jae Park, Amanda Przespolewski, Sravanti Rangaraju, Caner Saygin, Marc Schwartz, Paul Shami, Benjamin Tomlinson, Jonathan Webster, Ajibola Awotiwon, and Katie Stehman. Acute lymphoblastic leukemia, version 2.2024, nccn clinical practice guidelines in oncology. Journal of the National Comprehensive Cancer Network : JNCCN, 22 8:563-576, Oct 2024. URL: https://doi.org/10.6004/jnccn.2024.0051, doi:10.6004/jnccn.2024.0051. This article has 75 citations.</p>
+</li>
+<li>
+<p>(duffield2023internationalconsensusclassification pages 1-3): Amy S. Duffield, Charles G. Mullighan, and Michael J. Borowitz. International consensus classification of acute lymphoblastic leukemia/lymphoma. Virchows Archiv, 482:11-26, Nov 2023. URL: https://doi.org/10.1007/s00428-022-03448-8, doi:10.1007/s00428-022-03448-8. This article has 226 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kansal2023diagnosisandmolecular pages 1-2): Rina Kansal. Diagnosis and molecular pathology of lymphoblastic leukemias and lymphomas in the era of genomics and precision medicine: historical evolution and current concepts—part 2: b-/t-cell acute lymphoblastic leukemias. Lymphatics, 1:118-154, Jul 2023. URL: https://doi.org/10.3390/lymphatics1020011, doi:10.3390/lymphatics1020011. This article has 12 citations.</p>
+</li>
+<li>
+<p>(kansal2023diagnosisandmolecular pages 5-7): Rina Kansal. Diagnosis and molecular pathology of lymphoblastic leukemias and lymphomas in the era of genomics and precision medicine: historical evolution and current concepts—part 2: b-/t-cell acute lymphoblastic leukemias. Lymphatics, 1:118-154, Jul 2023. URL: https://doi.org/10.3390/lymphatics1020011, doi:10.3390/lymphatics1020011. This article has 12 citations.</p>
+</li>
+<li>
+<p>(yoon2024diagnosticandtherapeutic pages 1-2): Jae-Ho Yoon and Seok Lee. Diagnostic and therapeutic advances in adults with acute lymphoblastic leukemia in the era of gene analysis and targeted immunotherapy. The Korean Journal of Internal Medicine, 39:34-56, Jan 2024. URL: https://doi.org/10.3904/kjim.2023.407, doi:10.3904/kjim.2023.407. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kansal2023diagnosisandmolecular pages 4-5): Rina Kansal. Diagnosis and molecular pathology of lymphoblastic leukemias and lymphomas in the era of genomics and precision medicine: historical evolution and current concepts—part 2: b-/t-cell acute lymphoblastic leukemias. Lymphatics, 1:118-154, Jul 2023. URL: https://doi.org/10.3390/lymphatics1020011, doi:10.3390/lymphatics1020011. This article has 12 citations.</p>
+</li>
+<li>
+<p>(gokbuget2024managementofall pages 1-2): Nicola Gökbuget, Nicolas Boissel, Sabina Chiaretti, Hervé Dombret, Michael Doubek, Adele Fielding, Robin Foà, Sebastian Giebel, Dieter Hoelzer, Mathilde Hunault, David I. Marks, Giovanni Martinelli, Oliver Ottmann, Anita Rijneveld, Philippe Rousselot, Josep Ribera, and Renato Bassan. Management of all in adults: 2024 eln recommendations from a european expert panel. Blood, 143:1903-1930, May 2024. URL: https://doi.org/10.1182/blood.2023023568, doi:10.1182/blood.2023023568. This article has 133 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(liu2024epidemiologicalcharacteristicsand pages 1-3): Shuojie Liu, Bin Hu, and Jiaqin Zhang. Epidemiological characteristics and influencing factors of acute leukemia in children and adolescents and adults: a large population-based study. Hematology, Apr 2024. URL: https://doi.org/10.1080/16078454.2024.2327916, doi:10.1080/16078454.2024.2327916. This article has 19 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(lu2024reduceddosechemotherapyand pages 1-2): Jing Lu, Huiying Qiu, Ying Wang, Xin Zhou, Haiping Dai, Xuzhang Lu, Xiaofei Yang, Bin Gu, Ming Hong, Miao Miao, Ruinan Lu, Jun Wang, Qian Wu, Mengxing Xue, Yun Wang, Ailing Deng, Yaoyao Shen, Yin Liu, Xueqing Dou, Yutian Lei, Depei Wu, Yu Zhu, and Suning Chen. Reduced-dose chemotherapy and blinatumomab as induction treatment for newly diagnosed ph-negative b-cell precursor acute lymphoblastic leukemia: a phase 2 trial. Journal of Hematology &amp; Oncology, Sep 2024. URL: https://doi.org/10.1186/s13045-024-01597-8, doi:10.1186/s13045-024-01597-8. This article has 17 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kantarjian2024resultsofthe pages 1-3): Hagop Kantarjian, Nicholas J. Short, Fadi G. Haddad, Nitin Jain, Xuelin Huang, Guillermo Montalban-Bravo, Rashmi Kanagal-Shamanna, Tapan M. Kadia, Naval Daver, Kelly Chien, Yesid Alvarado, Guillermo Garcia-Manero, Ghayas C. Issa, Rebecca Garris, Cedric Nasnas, Lewis Nasr, Farhad Ravandi, and Elias Jabbour. Results of the simultaneous combination of ponatinib and blinatumomab in philadelphia chromosome-positive all. Journal of Clinical Oncology, 42:4246-4251, Dec 2024. URL: https://doi.org/10.1200/jco.24.00272, doi:10.1200/jco.24.00272. This article has 80 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(ekpa2023areviewof pages 2-3): Queen L Ekpa, Prince C Akahara, Alexis M Anderson, Omowunmi O Adekoya, Olamide O Ajayi, Peace O Alabi, Okelue E Okobi, Oluwadamilola Jaiyeola, and Medara S Ekanem. A review of acute lymphocytic leukemia (all) in the pediatric population: evaluating current trends and changes in guidelines in the past decade. Cureus, Dec 2023. URL: https://doi.org/10.7759/cureus.49930, doi:10.7759/cureus.49930. This article has 49 citations.</p>
+</li>
+<li>
+<p>(little2024solarultravioletradiation pages 1-2): Mark P. Little, Jim Z. Mai, Michelle Fang, Pavel Chernyavskiy, Victoria Kennerley, Elizabeth K. Cahoon, Myles G. Cockburn, Gerald M. Kendall, and Michael G. Kimlin. Solar ultraviolet radiation exposure, and incidence of childhood acute lymphocytic leukaemia and non-hodgkin lymphoma in a us population-based dataset. British Journal of Cancer, 130:1441-1452, Feb 2024. URL: https://doi.org/10.1038/s41416-024-02629-3, doi:10.1038/s41416-024-02629-3. This article has 15 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(little2024solarultravioletradiation pages 8-9): Mark P. Little, Jim Z. Mai, Michelle Fang, Pavel Chernyavskiy, Victoria Kennerley, Elizabeth K. Cahoon, Myles G. Cockburn, Gerald M. Kendall, and Michael G. Kimlin. Solar ultraviolet radiation exposure, and incidence of childhood acute lymphocytic leukaemia and non-hodgkin lymphoma in a us population-based dataset. British Journal of Cancer, 130:1441-1452, Feb 2024. URL: https://doi.org/10.1038/s41416-024-02629-3, doi:10.1038/s41416-024-02629-3. This article has 15 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(little2024solarultravioletradiation media 5ae23b8e): Mark P. Little, Jim Z. Mai, Michelle Fang, Pavel Chernyavskiy, Victoria Kennerley, Elizabeth K. Cahoon, Myles G. Cockburn, Gerald M. Kendall, and Michael G. Kimlin. Solar ultraviolet radiation exposure, and incidence of childhood acute lymphocytic leukaemia and non-hodgkin lymphoma in a us population-based dataset. British Journal of Cancer, 130:1441-1452, Feb 2024. URL: https://doi.org/10.1038/s41416-024-02629-3, doi:10.1038/s41416-024-02629-3. This article has 15 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(johnston2024socioeconomicdeterminantsof pages 1-2): Hannah Johnston, Hamed Rahmani Youshanlouei, Clinton Osei, Anand A. Patel, Adam DuVall, Peng Wang, Pankhuri Wanjari, Jeremy Segal, Girish Venkataraman, Jason X. Cheng, Sandeep Gurbuxani, Angela Lager, Carrie Fitzpatrick, Michael Thirman, Mariam Nawas, Hongtao Liu, Michael Drazer, Olatoyosi Odenike, Richard Larson, Wendy Stock, and Caner Saygin. Socioeconomic determinants of the biology and outcomes of acute lymphoblastic leukemia in adults. Blood Advances, 8:164-171, Dec 2024. URL: https://doi.org/10.1182/bloodadvances.2023011862, doi:10.1182/bloodadvances.2023011862. This article has 11 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(karim2023diagnosticclueof pages 2-4): MA Karim, N Yesmin, and M Begum. Diagnostic clue of acute lymphoblastic leukemia for frontline clinicians from clinicopathological features: study of 223 cases of in a tertiary care hospital from …. Unknown journal, 2023.</p>
+</li>
+<li>
+<p>(talukder2024acutelymphoblasticleukemia pages 1-3): Manik Kumar Talukder, Kamrul Laila, Md. Arif Hossain, Md. Shafiqul Islam, Md. Zahidul Islam, Kalyan Benjamin Gomes, Mujammel Haque, Md. Mahbubul Islam, and Md. Imnul Islam. Acute lymphoblastic leukemia presenting as systemic juvenile idiopathic arthritis: experience from bangladesh. Open Journal of Rheumatology and Autoimmune Diseases, 14:1-12, Jan 2024. URL: https://doi.org/10.4236/ojra.2024.141001, doi:10.4236/ojra.2024.141001. This article has 1 citations.</p>
+</li>
+<li>
+<p>(karim2023diagnosticclueof pages 5-6): MA Karim, N Yesmin, and M Begum. Diagnostic clue of acute lymphoblastic leukemia for frontline clinicians from clinicopathological features: study of 223 cases of in a tertiary care hospital from …. Unknown journal, 2023.</p>
+</li>
+<li>
+<p>(karim2023diagnosticclueof pages 1-2): MA Karim, N Yesmin, and M Begum. Diagnostic clue of acute lymphoblastic leukemia for frontline clinicians from clinicopathological features: study of 223 cases of in a tertiary care hospital from …. Unknown journal, 2023.</p>
+</li>
+<li>
+<p>(little2024solarultravioletradiation pages 11-11): Mark P. Little, Jim Z. Mai, Michelle Fang, Pavel Chernyavskiy, Victoria Kennerley, Elizabeth K. Cahoon, Myles G. Cockburn, Gerald M. Kendall, and Michael G. Kimlin. Solar ultraviolet radiation exposure, and incidence of childhood acute lymphocytic leukaemia and non-hodgkin lymphoma in a us population-based dataset. British Journal of Cancer, 130:1441-1452, Feb 2024. URL: https://doi.org/10.1038/s41416-024-02629-3, doi:10.1038/s41416-024-02629-3. This article has 15 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kantarjian2024ponatinib‐reviewofhistorical pages 10-11): Hagop M. Kantarjian, Helen T. Chifotides, Fadi G. Haddad, Nicholas J. Short, Sanam Loghavi, and Elias Jabbour. Ponatinib‐review of historical development, current status, and future research. American Journal of Hematology, 99:1576-1585, May 2024. URL: https://doi.org/10.1002/ajh.27355, doi:10.1002/ajh.27355. This article has 25 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(gokbuget2024managementofall pages 6-6): Nicola Gökbuget, Nicolas Boissel, Sabina Chiaretti, Hervé Dombret, Michael Doubek, Adele Fielding, Robin Foà, Sebastian Giebel, Dieter Hoelzer, Mathilde Hunault, David I. Marks, Giovanni Martinelli, Oliver Ottmann, Anita Rijneveld, Philippe Rousselot, Josep Ribera, and Renato Bassan. Management of all in adults: 2024 eln recommendations from a european expert panel. Blood, 143:1903-1930, May 2024. URL: https://doi.org/10.1182/blood.2023023568, doi:10.1182/blood.2023023568. This article has 133 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(sebastian2024howitreat pages 1-2): Giebel Sebastian. How i treat newly diagnosed acute lymphoblastic leukemia. Clinical Hematology International, 6:51-61, May 2024. URL: https://doi.org/10.46989/001c.117026, doi:10.46989/001c.117026. This article has 8 citations.</p>
+</li>
+<li>
+<p>(yoon2024diagnosticandtherapeutic pages 6-8): Jae-Ho Yoon and Seok Lee. Diagnostic and therapeutic advances in adults with acute lymphoblastic leukemia in the era of gene analysis and targeted immunotherapy. The Korean Journal of Internal Medicine, 39:34-56, Jan 2024. URL: https://doi.org/10.3904/kjim.2023.407, doi:10.3904/kjim.2023.407. This article has 12 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(shah2024acutelymphoblasticleukemia pages 3-5): Bijal Shah, Ryan J. Mattison, Ramzi Abboud, Peter Abdelmessieh, Ibrahim Aldoss, Patrick W. Burke, Daniel J. DeAngelo, Shira Dinner, Amir T. Fathi, Jordan Gauthier, Michael Haddadin, Nitin Jain, Brian Jonas, Suzanne Kirby, Michaela Liedtke, Mark Litzow, Aaron Logan, Meixiao Long, Selina Luger, James K. Mangan, Stephanie Massaro, William May, Olalekan Oluwole, Jae Park, Amanda Przespolewski, Sravanti Rangaraju, Caner Saygin, Marc Schwartz, Paul Shami, Benjamin Tomlinson, Jonathan Webster, Ajibola Awotiwon, and Katie Stehman. Acute lymphoblastic leukemia, version 2.2024, nccn clinical practice guidelines in oncology. Journal of the National Comprehensive Cancer Network : JNCCN, 22 8:563-576, Oct 2024. URL: https://doi.org/10.6004/jnccn.2024.0051, doi:10.6004/jnccn.2024.0051. This article has 75 citations.</p>
+</li>
+<li>
+<p>(ghosh2024incidenceandsurvivability pages 1-3): Ishan Ghosh and Sudipto Mukherjee. Incidence and survivability of acute lymphocytic leukemia patients in the united states: analysis of seer data set from 2000-2019. Journal of Cancer Therapy, 15:141-163, Jan 2024. URL: https://doi.org/10.4236/jct.2024.154014, doi:10.4236/jct.2024.154014. This article has 0 citations.</p>
+</li>
+<li>
+<p>(stelljes2024ph−allimmunotherapy pages 1-2): Matthias Stelljes. Ph− all: immunotherapy in upfront treatment. Hematology, 2024:86-92, Dec 2024. URL: https://doi.org/10.1182/hematology.2024000531, doi:10.1182/hematology.2024000531. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(sebastian2024howitreat pages 5-7): Giebel Sebastian. How i treat newly diagnosed acute lymphoblastic leukemia. Clinical Hematology International, 6:51-61, May 2024. URL: https://doi.org/10.46989/001c.117026, doi:10.46989/001c.117026. This article has 8 citations.</p>
+</li>
+<li>
+<p>(kantarjian2024inotuzumabozogamicinin pages 15-17): Hagop M. Kantarjian, Nicolas Boissel, Cristina Papayannidis, Marlise R. Luskin, Matthias Stelljes, Anjali S. Advani, Elias J. Jabbour, Josep‐Maria Ribera, and David I. Marks. Inotuzumab ozogamicin in adult acute lymphoblastic leukemia: development, current status, and future directions. Cancer, 130:3631-3646, Aug 2024. URL: https://doi.org/10.1002/cncr.35505, doi:10.1002/cncr.35505. This article has 16 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(gokbuget2024managementofall pages 21-22): Nicola Gökbuget, Nicolas Boissel, Sabina Chiaretti, Hervé Dombret, Michael Doubek, Adele Fielding, Robin Foà, Sebastian Giebel, Dieter Hoelzer, Mathilde Hunault, David I. Marks, Giovanni Martinelli, Oliver Ottmann, Anita Rijneveld, Philippe Rousselot, Josep Ribera, and Renato Bassan. Management of all in adults: 2024 eln recommendations from a european expert panel. Blood, 143:1903-1930, May 2024. URL: https://doi.org/10.1182/blood.2023023568, doi:10.1182/blood.2023023568. This article has 133 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(kantarjian2024resultsofthe pages 3-4): Hagop Kantarjian, Nicholas J. Short, Fadi G. Haddad, Nitin Jain, Xuelin Huang, Guillermo Montalban-Bravo, Rashmi Kanagal-Shamanna, Tapan M. Kadia, Naval Daver, Kelly Chien, Yesid Alvarado, Guillermo Garcia-Manero, Ghayas C. Issa, Rebecca Garris, Cedric Nasnas, Lewis Nasr, Farhad Ravandi, and Elias Jabbour. Results of the simultaneous combination of ponatinib and blinatumomab in philadelphia chromosome-positive all. Journal of Clinical Oncology, 42:4246-4251, Dec 2024. URL: https://doi.org/10.1200/jco.24.00272, doi:10.1200/jco.24.00272. This article has 80 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(graiqevciuka2024implementationofpharmacogenetics pages 5-7): Violeta Graiqevci-Uka, Emir Behluli, Rifat Hadziselimovic, Thomas Liehr, and Gazmend Temaj. Implementation of pharmacogenetics for treatment of patients with acute lymphoblastic leukemia. Research Results in Pharmacology, 10:27-39, Jun 2024. URL: https://doi.org/10.18413/rrpharmacology.10.382, doi:10.18413/rrpharmacology.10.382. This article has 2 citations.</p>
+</li>
+<li>
+<p>(graiqevciuka2024implementationofpharmacogenetics pages 1-3): Violeta Graiqevci-Uka, Emir Behluli, Rifat Hadziselimovic, Thomas Liehr, and Gazmend Temaj. Implementation of pharmacogenetics for treatment of patients with acute lymphoblastic leukemia. Research Results in Pharmacology, 10:27-39, Jun 2024. URL: https://doi.org/10.18413/rrpharmacology.10.382, doi:10.18413/rrpharmacology.10.382. This article has 2 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Acute_Lymphoblastic_Leukemia-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+                        </div>
+                    </div>
                 </div>
                 
                 <div style="margin-bottom: 4px;">

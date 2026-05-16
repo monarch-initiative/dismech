@@ -1,14 +1,14 @@
 ---
 name: boss
 description: Use ONLY when the user explicitly asks to orchestrate parallel external agents (Codex or Claude Code) in tmux sessions via tp (tmux-pilot). Or when a user tells you that you're the boss or orchestrator. You can also use this if you are an operclaw agent. NEVER auto-invoke for a generic "do this in parallel" request. For in-process subagents, use superpowers:dispatching-parallel-agents instead.
-argument-hint: [ "curate" | "new" | "status" | "kill" | "research" | <QUESTION> ] [INFO]
+argument-hint: '[ "curate" | "new" | "status" | "kill" | "research" | <QUESTION> ] [INFO]'
 ---
 
 # boss: orchestrate multiple agents in the dismech repo
 
 ## Overview
 
-Use this skill when the user wants you to orchestrate one of more dismech jobs, in such a way the user has observability via the `tmux` wrapper `tp`
+Use this skill when the user wants you to orchestrate one or more dismech jobs, in such a way the user has observability via the `tmux` wrapper `tp`
 
 Ground rules:
 
@@ -24,7 +24,7 @@ Example user invocations:
    * user intent: create a new tp session to curate a new disease
    * SOP:
       * create an issue (may be skipped): use `gh`.
-      * start a tmux/tp session: `tp new dismech-issue-NNNN-<handle> --profile codex --repo ~/repos/dismech --branch feat/dismech-issue-NNNN-<handle> --description <desc> --prompt "/curate <DISEASE> <INFO>"`
+      * start a tmux/tp session: `tp new issue-NNNN-<handle> --profile codex --repo <path-to-dismech> --branch feat/dismech-issue-NNNN-<handle> --description <desc> --prompt "/curate <DISEASE> <INFO>"`
 * `/boss status`
    * user intent: I want to know the status of all sessions in this repo
       - are they active?
@@ -33,8 +33,8 @@ Example user invocations:
       - is the PR passing?
       - has the PR been reviewed? If so, was it approved? If not, send `tp send <name> "address comments in #<NN>`
       - is the PR in conflict? I so, prompt the agent to fix: `tp send ...`
-* `/boss status`
-   * user intend: PR is merged, and I don't need to do further work
+* `/boss kill`
+   * user intent: PR is merged, and I don't need to do further work; tear down the session/worktree/branch
 
 
 ## About

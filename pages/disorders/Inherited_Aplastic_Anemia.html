@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2797,6 +2988,8 @@
                 
                 <div class="evidence-explanation">Establishes FA as the most common IBMFS with case report data on relative frequencies of the major subtypes.</div>
                 
+                
+                
             </div>
             
             
@@ -2854,6 +3047,8 @@
                 
                 
                 <div class="evidence-explanation">Describes the clinical consequences of telomere biology disorders including bone marrow failure as a primary complication.</div>
+                
+                
                 
             </div>
             
@@ -2913,6 +3108,8 @@
                 
                 <div class="evidence-explanation">International consensus statement defining DBA as a congenital erythropoiesis disorder with cancer predisposition.</div>
                 
+                
+                
             </div>
             
             
@@ -2971,6 +3168,8 @@
                 
                 <div class="evidence-explanation">Defines SDS as a ribosomopathy with the cardinal features of pancreatic deficiency, bone marrow failure, and myeloid malignancy predisposition.</div>
                 
+                
+                
             </div>
             
             
@@ -3028,6 +3227,8 @@
                 
                 
                 <div class="evidence-explanation">Defines CAMT as an IBMFS with severe thrombocytopenia at birth progressing to aplastic anemia.</div>
+                
+                
                 
             </div>
             
@@ -3175,6 +3376,8 @@
                 
                 <div class="evidence-explanation">Describes the central role of FANCI-FANCD2 monoubiquitination in the FA DNA repair pathway and the consequences of its disruption.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3194,6 +3397,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes that 22 FA genes participate in the ICL repair pathway and that pathway disruption causes genomic instability.</div>
+                
+                
                 
             </div>
             
@@ -3325,6 +3530,8 @@
                 
                 <div class="evidence-explanation">Describes how germline variants in telomerase complex genes cause premature telomere shortening particularly in HSCs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3345,6 +3552,8 @@
                 
                 <div class="evidence-explanation">Confirms that TBD manifestations cluster in highly proliferative tissues due to short/dysfunctional telomeres.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3364,6 +3573,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes telomere length assessment as part of the diagnostic workup for bone marrow failure syndromes and dyskeratosis congenita.</div>
+                
+                
                 
             </div>
             
@@ -3495,6 +3706,8 @@
                 
                 <div class="evidence-explanation">Describes the specific ribosome biogenesis defect in SDS involving SBDS-mediated eIF6 eviction from the 60S subunit.</div>
                 
+                
+                
             </div>
             
             
@@ -3604,6 +3817,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies MPL and THPO mutations as causes of CAMT, restricted to the hematopoietic system.</div>
+                
+                
                 
             </div>
             
@@ -3735,6 +3950,8 @@
                 
                 <div class="evidence-explanation">Proposes inflammatory cytokines as convergent mediators of cytopenias across all IBMFSs, acting through TP53-dependent growth arrest and apoptosis.</div>
                 
+                
+                
             </div>
             
             
@@ -3845,6 +4062,8 @@
                 
                 <div class="evidence-explanation">Canonical review establishing IBMFSs as genetic disorders of hematopoietic aplasia with variable clinical phenotypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3864,6 +4083,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that BMF is the most common hematologic complication in TBDs and can precede malignant transformation.</div>
+                
+                
                 
             </div>
             
@@ -3963,6 +4184,8 @@
                 
                 <div class="evidence-explanation">Demonstrates TP53 biallelic inactivation as a key driver of clonal evolution to myeloid malignancy in SDS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3983,6 +4206,8 @@
                 
                 <div class="evidence-explanation">Confirms that multiple IBMFSs including FA, TBDs, ribosomopathies, and SCN are recognized germline predispositions to myeloid neoplasms.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4002,6 +4227,8 @@
                 
                 
                 <div class="evidence-explanation">Reports cumulative incidences of bone marrow failure (~50%), leukemia (~25%), and solid tumors (~10%) in FA.</div>
+                
+                
                 
             </div>
             
@@ -4123,6 +4350,8 @@
                 
                 <div class="evidence-explanation">Establishes pancytopenia with elevated MCV and HbF as the most common presentation in FA.</div>
                 
+                
+                
             </div>
             
             
@@ -4231,6 +4460,8 @@
                 
                 <div class="evidence-explanation">Quantifies the dramatically elevated cancer risks in FA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4250,6 +4481,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms poor outcomes of myeloid malignancies in SDS.</div>
+                
+                
                 
             </div>
             
@@ -4306,6 +4539,8 @@
                 
                 
                 <div class="evidence-explanation">The original description of SDS was motivated by the co-occurrence of pancreatic insufficiency and neutropenia, establishing neutropenia as a cardinal feature.</div>
+                
+                
                 
             </div>
             
@@ -4372,6 +4607,8 @@
                 
                 <div class="evidence-explanation">Lists liver cirrhosis as a life-threatening complication of TBDs.</div>
                 
+                
+                
             </div>
             
             
@@ -4427,6 +4664,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies exocrine pancreatic deficiency as a cardinal feature of SDS.</div>
+                
+                
                 
             </div>
             
@@ -4545,6 +4784,8 @@
                 
                 <div class="evidence-explanation">Lists head and neck SCC as one of the most common malignancies in FA.</div>
                 
+                
+                
             </div>
             
             
@@ -4610,6 +4851,8 @@
                 
                 <div class="evidence-explanation">Lists pulmonary fibrosis as a life-threatening complication of TBDs.</div>
                 
+                
+                
             </div>
             
             
@@ -4674,6 +4917,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms short stature as the most common physical finding in FA.</div>
+                
+                
                 
             </div>
             
@@ -4766,6 +5011,8 @@
                 
                 <div class="evidence-explanation">Quantifies radial ray anomalies as present in one-third of FA cases.</div>
                 
+                
+                
             </div>
             
             
@@ -4857,6 +5104,8 @@
                 
                 <div class="evidence-explanation">Establishes FA as a multigenic disorder. FANCA is the most commonly affected gene accounting for 60-70% of cases.</div>
                 
+                
+                
             </div>
             
             
@@ -4924,6 +5173,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that germline variants in telomerase complex genes (including TERT) cause premature telomere shortening and TBD phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5050,6 +5301,8 @@
                 
                 <div class="evidence-explanation">Defines the molecular mechanism of SBDS deficiency in SDS.</div>
                 
+                
+                
             </div>
             
             
@@ -5158,6 +5411,8 @@
                 
                 <div class="evidence-explanation">Confirms HSCT as the only curative option for IBMFSs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5177,6 +5432,8 @@
                 
                 
                 <div class="evidence-explanation">Describes the transplant dilemma in TBDs where conditioning toxicity must be balanced against malignancy risk.</div>
+                
+                
                 
             </div>
             
@@ -5274,6 +5531,8 @@
                 
                 <div class="evidence-explanation">Lists androgens as a non-transplant treatment for BMF in TBDs.</div>
                 
+                
+                
             </div>
             
             
@@ -5362,6 +5621,8 @@
                 
                 
                 <div class="evidence-explanation">International consensus for DBA recommending lowered corticosteroid maintenance dose.</div>
+                
+                
                 
             </div>
             
@@ -5487,6 +5748,8 @@
                 
                 <div class="evidence-explanation">Demonstrates clinical benefit of routine bone marrow surveillance in SDS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5506,6 +5769,8 @@
                 
                 
                 <div class="evidence-explanation">DBA consensus recommends systematic surveillance including early colorectal cancer screening.</div>
+                
+                
                 
             </div>
             

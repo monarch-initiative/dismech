@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2720,6 +2911,8 @@
                 
                 <div class="evidence-explanation">Directly supports autosomal recessive inheritance in CS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2737,6 +2930,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata confirms autosomal recessive inheritance for Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -2827,6 +3022,8 @@
                 
                 <div class="evidence-explanation">This cohort directly confirms clinical subtype stratification including type I.</div>
                 
+                
+                
             </div>
             
             
@@ -2885,6 +3082,8 @@
                 
                 <div class="evidence-explanation">Supports severe early-onset disease biology consistent with type II presentations.</div>
                 
+                
+                
             </div>
             
             
@@ -2942,6 +3141,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms type III within the observed ERCC6-related spectrum.</div>
+                
+                
                 
             </div>
             
@@ -3096,6 +3297,8 @@
                 
                 <div class="evidence-explanation">Defines the core repair pathway mechanistically affected in Cockayne syndrome biology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3116,6 +3319,8 @@
                 
                 <div class="evidence-explanation">Reinforces TC-NER as the critical pathway disrupted in CS, with consequences for transcription fidelity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3135,6 +3340,8 @@
                 
                 
                 <div class="evidence-explanation">Provides direct human clinical-genetic evidence that ERCC6 and ERCC8 are the main causal genes.</div>
+                
+                
                 
             </div>
             
@@ -3234,6 +3441,8 @@
                 
                 <div class="evidence-explanation">Directly links impaired migration via defective autophagy to microcephaly in CSB.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3253,6 +3462,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates pharmacological rescue potential for the migration defect, suggesting a targetable pathway.</div>
+                
+                
                 
             </div>
             
@@ -3366,6 +3577,8 @@
                 
                 <div class="evidence-explanation">Identifies disturbed GABA switch as a mechanism underlying intellectual disability in CSB.</div>
                 
+                
+                
             </div>
             
             
@@ -3463,6 +3676,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates altered neuronal network functionality in CSB-deficient neural models.</div>
+                
+                
                 
             </div>
             
@@ -3582,6 +3797,8 @@
                 
                 <div class="evidence-explanation">Directly links oligodendrocyte maturation failure to clinical demyelination.</div>
                 
+                
+                
             </div>
             
             
@@ -3694,6 +3911,8 @@
                 
                 <div class="evidence-explanation">Identifies NRF2 pathway repression as a key oxidative stress defect in CS fibroblasts.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3713,6 +3932,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates nicotinamide can partially rescue the NRF2-related abnormalities.</div>
+                
+                
                 
             </div>
             
@@ -3826,6 +4047,8 @@
                 
                 <div class="evidence-explanation">Identifies arachidonic acid metabolism activation as a key inflammatory pathway perturbation in CS fibroblasts.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3845,6 +4068,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates nicotinamide can partially rescue the inflammatory abnormalities including arachidonic acid pathway activation.</div>
+                
+                
                 
             </div>
             
@@ -3957,6 +4182,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that CS proteins are required for mitochondrial DNA maintenance via POLG1, providing a mechanistic link between nuclear DNA repair defects and mitochondrial dysfunction.</div>
+                
+                
                 
             </div>
             
@@ -4090,6 +4317,8 @@
                 
                 <div class="evidence-explanation">Establishes mitochondrial dysfunction as a conserved pathogenic feature of CS across species and tissue contexts.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4109,6 +4338,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates rescue of mitochondrial defects via NAD+ precursor supplementation, supporting NAD+ signaling as a key mechanistic and therapeutic node.</div>
+                
+                
                 
             </div>
             
@@ -4222,6 +4453,8 @@
                 
                 <div class="evidence-explanation">Identifies a progeroid-specific DNA methylation signature in CS that is absent in UV-sensitive syndrome, supporting an epigenomic mechanism for accelerated aging distinct from the shared NER defect.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4241,6 +4474,8 @@
                 
                 
                 <div class="evidence-explanation">Quantifies accelerated biological aging in CS cells using an epigenetic clock, providing molecular evidence for the progeroid phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4340,6 +4575,8 @@
                 
                 <div class="evidence-explanation">Supports a characteristic demyelinating peripheral neuropathy profile in CS.</div>
                 
+                
+                
             </div>
             
             
@@ -4414,6 +4651,8 @@
                 
                 <div class="evidence-explanation">Directly classifies CS as a segmental progeroid syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4433,6 +4672,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the mechanistic link between oxidative stress and accelerated cellular senescence in CS.</div>
+                
+                
                 
             </div>
             
@@ -4562,6 +4803,8 @@
                 
                 <div class="evidence-explanation">Identifies hypertension among the recognized late complications of CS warranting yearly surveillance per management guidelines.</div>
                 
+                
+                
             </div>
             
             
@@ -4629,6 +4872,8 @@
                 
                 <div class="evidence-explanation">Lists gastroesophageal reflux as a recognized complication requiring standard management in CS care guidelines.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4646,6 +4891,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies gastroesophageal reflux as frequent (79-30%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4714,6 +4961,8 @@
                 
                 <div class="evidence-explanation">Documents diffuse pigmentary retinopathy with macular involvement in genetically confirmed adult CS patients, supporting the retinopathy phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4734,6 +4983,8 @@
                 
                 <div class="evidence-explanation">Identifies combined cone and rod system dysfunction underlying pigmentary retinopathy and progressive vision loss in CS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4751,6 +5002,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies pigmentary retinopathy as very frequent (99-80%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4807,6 +5060,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies optic atrophy as occasional (29-5%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4866,6 +5121,8 @@
                 
                 <div class="evidence-explanation">Identifies congenital cataracts as a recognized ophthalmologic feature of CS type II in the GeneReviews summary.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4886,6 +5143,8 @@
                 
                 <div class="evidence-explanation">The CoSyNH cohort (n=102) reported cataracts in approximately 46% of participants and identified early cataracts (before age 3) as the strongest negative prognostic indicator, supporting a frequent and clinically important phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4903,6 +5162,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies cataracts as frequent (79-30%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4962,6 +5223,8 @@
                 
                 <div class="evidence-explanation">Validates enophthalmos (deeply set eyes) as one of the ten most statistically discriminant features of CS in a 69-patient diagnostic score derivation cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4979,6 +5242,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies deeply set eyes as frequent (79-30%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5045,6 +5310,8 @@
                 
                 <div class="evidence-explanation">Explicitly names microcephaly as a clinical presentation of CSB.</div>
                 
+                
+                
             </div>
             
             
@@ -5103,6 +5370,8 @@
                 
                 <div class="evidence-explanation">Identifies frequent dental caries as a recognized oro-dental feature of CS, multifactorial in origin (enamel defects, diet, hygiene, and dry mouth).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5123,6 +5392,8 @@
                 
                 <div class="evidence-explanation">Validates frequent dental caries as one of the ten most discriminant features in the Spitz et al. validated CS diagnostic score.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5140,6 +5411,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies carious teeth as frequent (79-30%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5199,6 +5472,8 @@
                 
                 <div class="evidence-explanation">Documents enamel hypoplasia as one of multiple recognized oro-dental anomalies in a 17-patient CS cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5219,6 +5494,8 @@
                 
                 <div class="evidence-explanation">Validates enamel hypoplasia among the ten most discriminant diagnostic features of CS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5236,6 +5513,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies enamel hypoplasia as frequent (79-30%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5295,6 +5574,8 @@
                 
                 <div class="evidence-explanation">Documents hypodontia (notably missing lateral incisors, second premolars, and molars including agenesis of second permanent molars) as part of the CS oro-dental phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -5353,6 +5634,8 @@
                 
                 <div class="evidence-explanation">Identifies microdontia among the dental morphology anomalies in CS.</div>
                 
+                
+                
             </div>
             
             
@@ -5410,6 +5693,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms micrognathia and retrognathia as part of the CS cranio-oro-facial phenotype, contributing to mid-face hypoplasia.</div>
+                
+                
                 
             </div>
             
@@ -5478,6 +5763,8 @@
                 
                 <div class="evidence-explanation">Explicitly lists photosensitivity as a core clinical feature of Cockayne syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5498,6 +5785,8 @@
                 
                 <div class="evidence-explanation">Confirms that despite photosensitivity, CS patients are not predisposed to skin cancers, distinguishing CS from xeroderma pigmentosum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5515,6 +5804,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies cutaneous photosensitivity as frequent (79-30%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5571,6 +5862,8 @@
                 
                 
                 <div class="evidence-explanation">Explicitly names &#34;a characteristic senile face&#34; as a clinical feature of CS, directly supporting the progeroid facial appearance phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5637,6 +5930,8 @@
                 
                 <div class="evidence-explanation">Supports spasticity as a common neurologic manifestation in CS.</div>
                 
+                
+                
             </div>
             
             
@@ -5694,6 +5989,8 @@
                 
                 
                 <div class="evidence-explanation">Recommended use of physical therapy to prevent contractures in CS care guidelines reflects underlying progressive motor weakness and functional impairment.</div>
+                
+                
                 
             </div>
             
@@ -5753,6 +6050,8 @@
                 
                 <div class="evidence-explanation">Confirms intracranial calcification (with putaminal predominance) as a hallmark neuroimaging feature in a genetically confirmed CS cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5772,6 +6071,8 @@
                 
                 
                 <div class="evidence-explanation">Reinforces basal ganglia calcifications among the cardinal imaging features of CS in a quantitative MRI cohort study.</div>
+                
+                
                 
             </div>
             
@@ -5831,6 +6132,8 @@
                 
                 <div class="evidence-explanation">Confirms kyphosis as a recognized spinal deformity in CS, especially in the severe type II form.</div>
                 
+                
+                
             </div>
             
             
@@ -5888,6 +6191,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms scoliosis as a recognized spinal deformity in CS, especially in the severe type II form.</div>
+                
+                
                 
             </div>
             
@@ -5954,6 +6259,8 @@
                 
                 <div class="evidence-explanation">Identifies intellectual disability as a core clinical manifestation in CSB.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5971,6 +6278,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies intellectual disability as occasional (29-5%) in Cockayne syndrome. The higher-frequency cognitive phenotype is better captured by HP:0001268 (Mental deterioration), which ORPHA classifies as Very frequent (99-80%).</div>
+                
+                
                 
             </div>
             
@@ -6028,6 +6337,8 @@
                 
                 <div class="evidence-explanation">Supports demyelination as a defining neurologic phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -6083,6 +6394,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the peripheral demyelinating neuropathy phenotype in CS.</div>
+                
+                
                 
             </div>
             
@@ -6140,6 +6453,8 @@
                 
                 <div class="evidence-explanation">Identifies ataxia as a cardinal neurologic feature in ERCC6-related CS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6157,6 +6472,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies ataxia as frequent (79-30%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -6216,6 +6533,8 @@
                 
                 <div class="evidence-explanation">Validates areflexia as one of the ten most statistically discriminant features of CS in the validated Spitz et al. CS diagnostic score (95.7% sensitivity, 86.4% specificity).</div>
                 
+                
+                
             </div>
             
             
@@ -6270,6 +6589,8 @@
                 
                 <div class="evidence-explanation">Orphadata classifies cerebellar atrophy as very frequent (99-80%) in Cockayne syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6289,6 +6610,8 @@
                 
                 
                 <div class="evidence-explanation">Quantifies severe infratentorial volume reduction supporting cerebellar atrophy as a predominant imaging feature.</div>
+                
+                
                 
             </div>
             
@@ -6344,6 +6667,8 @@
                 
                 <div class="evidence-explanation">Orphadata classifies mental deterioration as very frequent (99-80%) in Cockayne syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6363,6 +6688,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms near-universal neurocognitive decline in adult CS survivors.</div>
+                
+                
                 
             </div>
             
@@ -6418,6 +6745,8 @@
                 
                 <div class="evidence-explanation">Orphadata classifies atypical behavior as very frequent (99-80%) in Cockayne syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6437,6 +6766,8 @@
                 
                 
                 <div class="evidence-explanation">Near-universal neuropsychiatric symptoms in adult CS survivors support behavioral abnormalities as a very frequent feature.</div>
+                
+                
                 
             </div>
             
@@ -6496,6 +6827,8 @@
                 
                 <div class="evidence-explanation">Documents tremor as a near-universal late-stage neurologic manifestation in adult CS survivors (15/18, 83.3%).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6515,6 +6848,8 @@
                 
                 
                 <div class="evidence-explanation">Indicates tremor as a recognized treatable manifestation in standard CS care guidelines.</div>
+                
+                
                 
             </div>
             
@@ -6574,6 +6909,8 @@
                 
                 <div class="evidence-explanation">Identifies seizures as a less frequent but recognized complication in adult CS survivors (5/18, 27.8%).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6591,6 +6928,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies seizures as frequent (79-30%) in Cockayne syndrome, supporting upgrade from OCCASIONAL.</div>
+                
+                
                 
             </div>
             
@@ -6650,6 +6989,8 @@
                 
                 <div class="evidence-explanation">Quantifies severe brain atrophy (57% volume reduction with infratentorial predominance) as a hallmark imaging feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6670,6 +7011,8 @@
                 
                 <div class="evidence-explanation">Confirms generalized cerebral atrophy on MRI in 85.7% of adult CS survivors with available imaging.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6687,6 +7030,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies cerebral atrophy as frequent (79-30%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -6746,6 +7091,8 @@
                 
                 <div class="evidence-explanation">Identifies hypomyelination as one of the three principal neuroimaging features of CS in a genetically and biochemically confirmed cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6765,6 +7112,8 @@
                 
                 
                 <div class="evidence-explanation">DTI-based quantitative confirmation that CS white matter abnormalities correspond to a hypomyelinating disorder pattern.</div>
+                
+                
                 
             </div>
             
@@ -6831,6 +7180,8 @@
                 
                 <div class="evidence-explanation">Supports growth impairment with cachectic dwarfism/short stature as a clinical hallmark.</div>
                 
+                
+                
             </div>
             
             
@@ -6888,6 +7239,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms severe postnatal growth and weight deficiency below the fifth percentile as a defining clinical feature of fully manifest CS.</div>
+                
+                
                 
             </div>
             
@@ -6956,6 +7309,8 @@
                 
                 <div class="evidence-explanation">Identifies progressive sensorineural hearing loss as an established feature of CS, with both peripheral cochlear and central auditory components.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6976,6 +7331,8 @@
                 
                 <div class="evidence-explanation">Provides direct histopathologic evidence of cochlear pathology in CS, including severe stria vascularis and spiral ligament atrophy underlying the sensorineural hearing impairment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6993,6 +7350,8 @@
                 
                 
                 <div class="evidence-explanation">Orphadata classifies progressive sensorineural hearing impairment as very frequent (99-80%) in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -7048,6 +7407,8 @@
                 
                 <div class="evidence-explanation">Orphadata classifies cachexia as very frequent (99-80%) in Cockayne syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7067,6 +7428,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies cachectic dwarfism as a defining clinical characteristic of CS.</div>
+                
+                
                 
             </div>
             
@@ -7125,6 +7488,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies early postnatal joint contractures as a recognized feature of CS, especially in the severe type II form.</div>
+                
+                
                 
             </div>
             
@@ -7211,6 +7576,8 @@
                 
                 <div class="evidence-explanation">Supports ERCC6 as the predominant molecular contributor in CS.</div>
                 
+                
+                
             </div>
             
             
@@ -7253,6 +7620,8 @@
                 
                 
                 <div class="evidence-explanation">Supports ERCC8 as a principal causative gene in Cockayne syndrome.</div>
+                
+                
                 
             </div>
             
@@ -7345,6 +7714,8 @@
                 
                 <div class="evidence-explanation">Supports nicotinamide modulation of oxidative stress and autophagy in patient-derived cellular systems.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7364,6 +7735,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates nicotinamide can restore POLG1 levels in CS cells, suggesting potential mitochondrial benefit.</div>
+                
+                
                 
             </div>
             
@@ -7442,6 +7815,8 @@
                 
                 <div class="evidence-explanation">Directly supports genetic counseling as a core component of clinical management.</div>
                 
+                
+                
             </div>
             
             
@@ -7519,6 +7894,8 @@
                 
                 <div class="evidence-explanation">Documents the multimodal supportive care approach recommended in the GeneReviews CS management summary, including feeding support, rehabilitation, and symptom-targeted pharmacotherapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7538,6 +7915,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes the CoSyNH multidisciplinary care guidelines as the evidence base for supportive management in CS.</div>
+                
+                
                 
             </div>
             
@@ -7616,6 +7995,8 @@
                 
                 <div class="evidence-explanation">Recommends sunscreens and sun exposure limitation as the cornerstone intervention for cutaneous photosensitivity in CS management guidelines.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7635,6 +8016,8 @@
                 
                 
                 <div class="evidence-explanation">Supports use of sunglasses for ophthalmologic photoprotection in CS.</div>
+                
+                
                 
             </div>
             
@@ -7713,6 +8096,8 @@
                 
                 <div class="evidence-explanation">Documents quantitative improvements in speech perception following cochlear implantation in pediatric CS patients with progressive sensorineural hearing loss.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7732,6 +8117,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms cochlear implantation benefit in additional CS type I pediatric cases, identifying post-lingual onset and cognitive function as predictors of better outcome.</div>
+                
+                
                 
             </div>
             
@@ -7810,6 +8197,8 @@
                 
                 <div class="evidence-explanation">Identifies feeding gastrostomy tube placement as a recommended nutritional support intervention in CS care guidelines.</div>
                 
+                
+                
             </div>
             
             
@@ -7886,6 +8275,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies aggressive dental care as a recommended preventive intervention in CS management guidelines.</div>
+                
+                
                 
             </div>
             

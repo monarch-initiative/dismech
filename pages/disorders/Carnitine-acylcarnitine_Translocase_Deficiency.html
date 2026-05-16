@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2778,6 +2969,8 @@
                 
                 <div class="evidence-explanation">Supports SLC25A20/CACT transporter dysfunction as the initiating molecular event.</div>
                 
+                
+                
             </div>
             
             
@@ -2955,6 +3148,8 @@
                 
                 
                 <div class="evidence-explanation">Supports impaired long-chain fatty acid oxidation downstream of CACT transporter dysfunction.</div>
+                
+                
                 
             </div>
             
@@ -3182,6 +3377,8 @@
                 
                 <div class="evidence-explanation">Autopsy evidence of multi-organ lipid accumulation directly supports toxic acylcarnitine/lipid handling failure.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3201,6 +3398,8 @@
                 
                 
                 <div class="evidence-explanation">Elevated long-chain acylcarnitines confirm acylcarnitine accumulation as a disease hallmark.</div>
+                
+                
                 
             </div>
             
@@ -3417,6 +3616,8 @@
                 
                 <div class="evidence-explanation">Review evidence links neonatal long-chain fatty-acid dependence to the severe systemic CACT deficiency presentation.</div>
                 
+                
+                
             </div>
             
             
@@ -3548,6 +3749,8 @@
                 
                 <div class="evidence-explanation">GeneReviews confirms cardiac arrhythmia and cardiac arrest as prominent early-onset features.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3568,6 +3771,8 @@
                 
                 <div class="evidence-explanation">Confirms cardiomyopathy and sudden death as primary causes of mortality.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3587,6 +3792,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirming cardiac and skeletal muscle vulnerability in long-chain fatty acid oxidation disorders.</div>
+                
+                
                 
             </div>
             
@@ -3684,6 +3891,8 @@
                 
                 <div class="evidence-explanation">GeneReviews directly describes hyperammonemia as a key clinical challenge and prognostic factor.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3703,6 +3912,8 @@
                 
                 
                 <div class="evidence-explanation">Literature review confirms hyperammonemia as one of the most frequent presenting symptoms.</div>
+                
+                
                 
             </div>
             
@@ -3760,6 +3971,8 @@
                 
                 <div class="evidence-explanation">Autopsy case report directly documents the multi-organ microvesicular steatosis pattern.</div>
                 
+                
+                
             </div>
             
             
@@ -3791,7 +4004,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neonatal presentations can include apnea as part of respiratory and neurologic instability during metabolic crisis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002104\"}}, {\"id\": \"Asp231His and Ala281Val pathogenic mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"In silico structural modeling demonstrates that Asp231His disrupts the matrix salt-bridge network and Ala281Val impairs helix packing and conformational transitions required for substrate transport.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC25A20\"]}}, {\"id\": \"Cardiac arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac arrhythmias are prominent in early-onset disease and are associated with high rates of cardiac arrest. Arrhythmia is a major contributor to early mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiac energy failure and arrhythmogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The heart is highly dependent on long-chain fatty acid oxidation for energy. CACT deficiency causes cardiac energy deficit and toxic lipid accumulation in cardiomyocytes, leading to hypertrophic cardiomyopathy and cardiac arrhythmias. Cardiac involvement is often the primary determinant of mortality.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"fatty acid beta-oxidation\"], \"locations\": [\"heart\"]}}, {\"id\": \"Catabolic stress-triggered metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Birth transition, fasting, illness, or poor intake increase dependence on long-chain fatty acid oxidation. In CACT deficiency this exposes the transport and FAO block, producing acute systemic decompensation with poor feeding, lethargy, hypotonia, respiratory distress or apnea, and encephalopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"response to starvation\", \"generation of precursor metabolites and energy\"]}}, {\"id\": \"Dicarboxylic aciduria\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transaminitis reflecting hepatocellular injury and hepatic dysfunction is a typical feature of CACT deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neonatal metabolic decompensation can include encephalopathy due to combined energy failure, hypoglycemia, and hyperammonemia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Free carnitine (C0)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected individuals with early-onset disease typically experience brain injury at presentation and recurrent hyperammonemia, leading to developmental delay and intellectual disability. Later-onset cases have better developmental outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement with hepatic dysfunction, transaminitis, and microvesicular steatosis reflecting impaired mitochondrial fat handling and lipid accumulation in hepatocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated ammonia is a prominent and difficult-to-treat feature, particularly in early-onset disease. It is an important determinant of neurocognitive outcome.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperammonemia during metabolic crises\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia is a prominent and difficult-to-treat feature of CACT deficiency, particularly during neonatal and acute metabolic crises. It is an important determinant of long-term neurocognitive outcome. Ammonia scavenger medications are of limited efficacy; high-rate dextrose infusion is the most effective intervention.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Univentricular or biventricular hypertrophic cardiomyopathy, ranging from mild to severe, is a common feature. Cardiac involvement may respond to dietary and medical therapies but is a frequent cause of death.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting intolerance with low ketone production and hypoglycemia is a hallmark of CACT deficiency, resulting from the inability to oxidize long-chain fatty acids for ketogenesis.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired transport of long-chain acylcarnitines into the mitochondrial matrix blocks long-chain fatty acid beta-oxidation. This leads to inadequate ATP generation during fasting, birth, or illness, and impaired ketogenesis, shifting energy reliance to glucose until glycogen stores are depleted.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"ketone body metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased alertness and lethargy during acute metabolic decompensation episodes, reflecting systemic energy failure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Long-chain acylcarnitines (C16, C18, C18:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a typical feature of CACT deficiency, reflecting impaired skeletal muscle energy metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Poor feeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are common, particularly in neonatal-onset disease. Feeding tube placement and/or feeding therapy may be required.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Respiratory distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory distress is a frequent presenting symptom in neonatal-onset CACT deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002098\"}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal muscle breakdown due to impaired muscle energy metabolism and toxic metabolite accumulation. Rhabdomyolysis can occur during metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"SLC25A20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC25A20\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"SLC25A20 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC25A20\"], \"variant_count\": 3}}, {\"id\": \"SLC25A20 transporter molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC25A20 pathogenic variants reduce mitochondrial inner membrane carnitine-acylcarnitine translocase activity.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"carnitine transport\"], \"genes\": [\"SLC25A20\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blocked transport of long-chain acylcarnitines results in their cytoplasmic accumulation and secondary depletion of free carnitine. Accumulated long-chain acylcarnitines and acyl-CoA derivatives cause biochemical toxicity in high-energy-demand tissues including heart, skeletal muscle, liver, and kidney, manifesting as lipid-laden microvesicular steatosis across multiple organs.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"epithelial cell of proximal tubule\", \"skeletal muscle fiber\"], \"biological_processes\": [\"carnitine shuttle\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"c.199-10T\u003eG splice variant in SLC25A20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent splice variant common in a Chinese cohort (14/15 patients homozygous), associated with severe early-onset disease.\\n\", \"meta\": {\"genes\": [\"SLC25A20\"]}}, {\"id\": \"p.Gly20Asp (c.59G\u003eA) variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel variant identified in a Spanish patient with severe neonatal-onset disease and fatal outcome during intercurrent infection in the first year.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC25A20\"]}}], \"edges\": [{\"source\": \"SLC25A20 transporter molecular function deficiency\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Catabolic stress-triggered metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Cardiac energy failure and arrhythmogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Long-chain acylcarnitines (C16, C18, C18:1)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Free carnitine (C0)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Dicarboxylic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Hyperammonemia during metabolic crises\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Poor feeding\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Respiratory distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Apnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac energy failure and arrhythmogenesis\", \"target\": \"Cardiac arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac energy failure and arrhythmogenesis\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemia during metabolic crises\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemia during metabolic crises\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SLC25A20 pathogenic variants\", \"target\": \"SLC25A20 transporter molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC25A20\", \"target\": \"SLC25A20 transporter molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.199-10T\u003eG splice variant in SLC25A20\", \"target\": \"SLC25A20\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.199-10T\u003eG splice variant in SLC25A20\", \"target\": \"SLC25A20 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly20Asp (c.59G\u003eA) variant\", \"target\": \"SLC25A20\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly20Asp (c.59G\u003eA) variant\", \"target\": \"SLC25A20 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Asp231His and Ala281Val pathogenic mutations\", \"target\": \"SLC25A20\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Asp231His and Ala281Val pathogenic mutations\", \"target\": \"SLC25A20 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neonatal presentations can include apnea as part of respiratory and neurologic instability during metabolic crisis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002104\"}}, {\"id\": \"Asp231His and Ala281Val pathogenic mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"In silico structural modeling demonstrates that Asp231His disrupts the matrix salt-bridge network and Ala281Val impairs helix packing and conformational transitions required for substrate transport.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC25A20\"]}}, {\"id\": \"Cardiac arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac arrhythmias are prominent in early-onset disease and are associated with high rates of cardiac arrest. Arrhythmia is a major contributor to early mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiac energy failure and arrhythmogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The heart is highly dependent on long-chain fatty acid oxidation for energy. CACT deficiency causes cardiac energy deficit and toxic lipid accumulation in cardiomyocytes, leading to hypertrophic cardiomyopathy and cardiac arrhythmias. Cardiac involvement is often the primary determinant of mortality.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"fatty acid beta-oxidation\"], \"locations\": [\"heart\"]}}, {\"id\": \"Catabolic stress-triggered metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Birth transition, fasting, illness, or poor intake increase dependence on long-chain fatty acid oxidation. In CACT deficiency this exposes the transport and FAO block, producing acute systemic decompensation with poor feeding, lethargy, hypotonia, respiratory distress or apnea, and encephalopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"response to starvation\", \"generation of precursor metabolites and energy\"]}}, {\"id\": \"Dicarboxylic aciduria\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transaminitis reflecting hepatocellular injury and hepatic dysfunction is a typical feature of CACT deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neonatal metabolic decompensation can include encephalopathy due to combined energy failure, hypoglycemia, and hyperammonemia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Free carnitine (C0)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected individuals with early-onset disease typically experience brain injury at presentation and recurrent hyperammonemia, leading to developmental delay and intellectual disability. Later-onset cases have better developmental outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement with hepatic dysfunction, transaminitis, and microvesicular steatosis reflecting impaired mitochondrial fat handling and lipid accumulation in hepatocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated ammonia is a prominent and difficult-to-treat feature, particularly in early-onset disease. It is an important determinant of neurocognitive outcome.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperammonemia during metabolic crises\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia is a prominent and difficult-to-treat feature of CACT deficiency, particularly during neonatal and acute metabolic crises. It is an important determinant of long-term neurocognitive outcome. Ammonia scavenger medications are of limited efficacy; high-rate dextrose infusion is the most effective intervention.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Univentricular or biventricular hypertrophic cardiomyopathy, ranging from mild to severe, is a common feature. Cardiac involvement may respond to dietary and medical therapies but is a frequent cause of death.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting intolerance with low ketone production and hypoglycemia is a hallmark of CACT deficiency, resulting from the inability to oxidize long-chain fatty acids for ketogenesis.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired transport of long-chain acylcarnitines into the mitochondrial matrix blocks long-chain fatty acid beta-oxidation. This leads to inadequate ATP generation during fasting, birth, or illness, and impaired ketogenesis, shifting energy reliance to glucose until glycogen stores are depleted.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"ketone body metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased alertness and lethargy during acute metabolic decompensation episodes, reflecting systemic energy failure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Long-chain acylcarnitines (C16, C18, C18:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a typical feature of CACT deficiency, reflecting impaired skeletal muscle energy metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Poor feeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are common, particularly in neonatal-onset disease. Feeding tube placement and/or feeding therapy may be required.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Respiratory distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory distress is a frequent presenting symptom in neonatal-onset CACT deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002098\"}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal muscle breakdown due to impaired muscle energy metabolism and toxic metabolite accumulation. Rhabdomyolysis can occur during metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"SLC25A20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC25A20\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"SLC25A20 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC25A20\"], \"variant_count\": 3}}, {\"id\": \"SLC25A20 transporter molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC25A20 pathogenic variants reduce mitochondrial inner membrane carnitine-acylcarnitine translocase activity.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"carnitine transport\"], \"genes\": [\"SLC25A20\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blocked transport of long-chain acylcarnitines results in their cytoplasmic accumulation and secondary depletion of free carnitine. Accumulated long-chain acylcarnitines and acyl-CoA derivatives cause biochemical toxicity in high-energy-demand tissues including heart, skeletal muscle, liver, and kidney, manifesting as lipid-laden microvesicular steatosis across multiple organs.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"epithelial cell of proximal tubule\", \"skeletal muscle fiber\"], \"biological_processes\": [\"carnitine shuttle\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"c.199-10T\u003eG splice variant in SLC25A20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent splice variant common in a Chinese cohort (14/15 patients homozygous), associated with severe early-onset disease.\\n\", \"meta\": {\"genes\": [\"SLC25A20\"]}}, {\"id\": \"p.Gly20Asp (c.59G\u003eA) variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel variant identified in a Spanish patient with severe neonatal-onset disease and fatal outcome during intercurrent infection in the first year.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC25A20\"]}}], \"edges\": [{\"source\": \"SLC25A20 transporter molecular function deficiency\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Catabolic stress-triggered metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Cardiac energy failure and arrhythmogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Long-chain acylcarnitines (C16, C18, C18:1)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Free carnitine (C0)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Dicarboxylic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic acylcarnitine accumulation and secondary carnitine depletion\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Hyperammonemia during metabolic crises\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Poor feeding\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Respiratory distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic stress-triggered metabolic decompensation\", \"target\": \"Apnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac energy failure and arrhythmogenesis\", \"target\": \"Cardiac arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac energy failure and arrhythmogenesis\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemia during metabolic crises\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemia during metabolic crises\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SLC25A20 pathogenic variants\", \"target\": \"SLC25A20 transporter molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC25A20\", \"target\": \"SLC25A20 transporter molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.199-10T\u003eG splice variant in SLC25A20\", \"target\": \"SLC25A20\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.199-10T\u003eG splice variant in SLC25A20\", \"target\": \"SLC25A20 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly20Asp (c.59G\u003eA) variant\", \"target\": \"SLC25A20\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly20Asp (c.59G\u003eA) variant\", \"target\": \"SLC25A20 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Asp231His and Ala281Val pathogenic mutations\", \"target\": \"SLC25A20\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Asp231His and Ala281Val pathogenic mutations\", \"target\": \"SLC25A20 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3877,6 +4090,8 @@
                 
                 <div class="evidence-explanation">GeneReviews identifies cardiac arrhythmia as prominent in early-onset disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3896,6 +4111,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms cardiomyopathy and cardiac morbidity in fatty acid oxidation and carnitine shuttle disorders.</div>
+                
+                
                 
             </div>
             
@@ -3953,6 +4170,8 @@
                 
                 <div class="evidence-explanation">GeneReviews describes hypertrophic cardiomyopathy as a recognized feature that may respond to treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3972,6 +4191,8 @@
                 
                 
                 <div class="evidence-explanation">Literature review identifies cardiomyopathy as among the most frequent presenting symptoms.</div>
+                
+                
                 
             </div>
             
@@ -4038,6 +4259,8 @@
                 
                 <div class="evidence-explanation">GeneReviews lists liver dysfunction with hepatomegaly as a typical clinical feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4057,6 +4280,8 @@
                 
                 
                 <div class="evidence-explanation">Literature review confirms hepatomegaly as one of the most frequent presenting symptoms.</div>
+                
+                
                 
             </div>
             
@@ -4113,6 +4338,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews lists poor feeding as a typical clinical feature.</div>
+                
+                
                 
             </div>
             
@@ -4179,6 +4406,8 @@
                 
                 <div class="evidence-explanation">GeneReviews lists hypoketotic hypoglycemia as a typical clinical feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4199,6 +4428,8 @@
                 
                 <div class="evidence-explanation">Literature review confirms hypoketotic hypoglycemia as among the most frequent presenting symptoms.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4218,6 +4449,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms hypoketotic hypoglycemia as a general characteristic of all mitochondrial fatty acid oxidation disorders.</div>
+                
+                
                 
             </div>
             
@@ -4275,6 +4508,8 @@
                 
                 <div class="evidence-explanation">GeneReviews identifies hyperammonemia as prominent in early-onset CACT deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4294,6 +4529,8 @@
                 
                 
                 <div class="evidence-explanation">Literature review confirms hyperammonemia as one of the most frequent presenting symptoms.</div>
+                
+                
                 
             </div>
             
@@ -4350,6 +4587,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews lists transaminitis as a typical clinical feature.</div>
+                
+                
                 
             </div>
             
@@ -4416,6 +4655,8 @@
                 
                 <div class="evidence-explanation">GeneReviews lists hypotonia as a typical clinical feature of CACT deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4472,6 +4713,8 @@
                 
                 <div class="evidence-explanation">GeneReviews lists rhabdomyolysis as a typical clinical feature of long-chain fatty acid oxidation disorders.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4491,6 +4734,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms rhabdomyolysis as a source of morbidity in FAODs and carnitine shuttle defects.</div>
+                
+                
                 
             </div>
             
@@ -4557,6 +4802,8 @@
                 
                 <div class="evidence-explanation">GeneReviews lists lethargy as a typical clinical feature.</div>
                 
+                
+                
             </div>
             
             
@@ -4612,6 +4859,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews directly states developmental delay as a consequence of early-onset disease.</div>
+                
+                
                 
             </div>
             
@@ -4695,6 +4944,8 @@
                 
                 <div class="evidence-explanation">Review evidence lists encephalopathy among severe neonatal CACT deficiency manifestations.</div>
                 
+                
+                
             </div>
             
             
@@ -4760,6 +5011,8 @@
                 
                 <div class="evidence-explanation">Literature review identifies respiratory distress among the most frequent presenting symptoms.</div>
                 
+                
+                
             </div>
             
             
@@ -4813,6 +5066,8 @@
                 
                 
                 <div class="evidence-explanation">Review evidence lists apnea among severe neonatal CACT deficiency manifestations.</div>
+                
+                
                 
             </div>
             
@@ -4903,6 +5158,8 @@
                 
                 <div class="evidence-explanation">GeneReviews confirms SLC25A20 as the causal gene with biallelic variants required for diagnosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4922,6 +5179,8 @@
                 
                 
                 <div class="evidence-explanation">Structural biology study confirming SLC25A20 function in acylcarnitine-carnitine exchange.</div>
+                
+                
                 
             </div>
             
@@ -4965,6 +5224,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the SLC25A20-carnitine-acylcarnitine translocase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5056,6 +5317,8 @@
                 
                 <div class="evidence-explanation">GeneReviews provides specific dietary guidelines for CACT deficiency management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5076,6 +5339,8 @@
                 
                 <div class="evidence-explanation">Review confirms LCT restriction targets and essential fatty acid requirements for long-chain FAODs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5095,6 +5360,8 @@
                 
                 
                 <div class="evidence-explanation">Supports importance of early dietary intervention for improved outcomes.</div>
+                
+                
                 
             </div>
             
@@ -5174,6 +5441,8 @@
                 
                 <div class="evidence-explanation">Italian cohort study showing significant reduction in catabolic episodes and hospitalizations with triheptanoin versus MCT oil in LC-FAOD patients.</div>
                 
+                
+                
             </div>
             
             
@@ -5251,6 +5520,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews recommends MCT oil as an alternative when triheptanoin is unavailable.</div>
+                
+                
                 
             </div>
             
@@ -5330,6 +5601,8 @@
                 
                 <div class="evidence-explanation">Review supports carnitine supplementation in long-chain fatty acid oxidation disorders.</div>
                 
+                
+                
             </div>
             
             
@@ -5407,6 +5680,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews provides specific emergency management guidelines including dextrose infusion rates.</div>
+                
+                
                 
             </div>
             
@@ -5486,6 +5761,8 @@
                 
                 <div class="evidence-explanation">Confirms the role of MS/MS-based newborn screening for early CACT deficiency diagnosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5505,6 +5782,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates improved newborn screening performance with ratio-based markers.</div>
+                
+                
                 
             </div>
             
@@ -5584,6 +5863,8 @@
                 
                 <div class="evidence-explanation">GeneReviews confirms availability of carrier, prenatal, and preimplantation genetic testing.</div>
                 
+                
+                
             </div>
             
             
@@ -5662,6 +5943,8 @@
                 
                 <div class="evidence-explanation">GeneReviews emphasizes the importance of emergency planning and fasting avoidance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5681,6 +5964,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms the central importance of preventing lipolysis and managing catabolic states.</div>
+                
+                
                 
             </div>
             
@@ -5718,6 +6003,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5743,6 +6029,8 @@
                 
                 <div class="evidence-explanation">GeneReviews confirms elevated C16, C18, and C18:1 as diagnostic markers.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5763,6 +6051,8 @@
                 
                 <div class="evidence-explanation">Newborn screening study confirms long-chain acylcarnitines as primary diagnostic markers in genetically confirmed cases.</div>
                 
+                
+                
             </div>
             
             
@@ -5782,6 +6072,7 @@
                 
                 <div class="item-desc">Context: Secondary free carnitine depletion results from sequestration in long-chain acylcarnitine esters that cannot be transported into mitochondria. Low free carnitine is a characteristic biochemical finding.
 </div>
+                
                 
                 
     
@@ -5809,6 +6100,8 @@
                 
                 <div class="evidence-explanation">Directly demonstrates decreased free carnitine (C0) in confirmed CACT-deficient patients.</div>
                 
+                
+                
             </div>
             
             
@@ -5828,6 +6121,7 @@
                 
                 <div class="item-desc">Context: Acylcarnitine ratio indices including (C16+C18:1)/C2, C16/C2, C16:1/C3, and C16:1-OH/C3 improve diagnostic sensitivity and reduce false-positive rates in newborn screening compared with single acylcarnitine markers alone. False-positive rates with ratios were 0.02-0.08% versus 0.16-0.88% for single acylcarnitine indices.
 </div>
+                
                 
                 
     
@@ -5855,6 +6149,8 @@
                 
                 <div class="evidence-explanation">Study demonstrates improved diagnostic performance of ratio indices over single markers.</div>
                 
+                
+                
             </div>
             
             
@@ -5874,6 +6170,7 @@
                 
                 <div class="item-desc">Context: Urinary dicarboxylic acid excretion can be seen when impaired mitochondrial long-chain fatty acid oxidation redirects substrates toward alternative oxidation pathways.
 </div>
+                
                 
                 
     
@@ -5900,6 +6197,8 @@
                 
                 
                 <div class="evidence-explanation">Review evidence supports dicarboxylic aciduria as a urinary biochemical finding in CACT deficiency.</div>
+                
+                
                 
             </div>
             

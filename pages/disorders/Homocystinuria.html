@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2782,6 +2973,8 @@
                 
                 <div class="evidence-explanation">Clinical guidelines identify CBS deficiency and impaired cystathionine synthesis as the causal biochemical lesion.</div>
                 
+                
+                
             </div>
             
             
@@ -2953,6 +3146,8 @@
                 
                 <div class="evidence-explanation">Confirms massive homocysteine elevation as the central biochemical defect driving clinical complications.</div>
                 
+                
+                
             </div>
             
             
@@ -3107,6 +3302,8 @@
                 
                 <div class="evidence-explanation">Directly supports the coupled oxidative stress and mitochondrial dysfunction mechanism in CBS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3220,6 +3417,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates ER stress and proteotoxic stress in cells expressing pathogenic CBS variants.</div>
+                
+                
                 
             </div>
             
@@ -3410,6 +3609,8 @@
                 
                 <div class="evidence-explanation">Identifies thromboembolism as a major clinical complication driven by homocysteine toxicity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3429,6 +3630,8 @@
                 
                 
                 <div class="evidence-explanation">Ex vivo fibrin-network data support impaired fibrinolysis as a prothrombotic mechanism of homocysteine-thiolactone.</div>
+                
+                
                 
             </div>
             
@@ -3526,6 +3729,8 @@
                 
                 <div class="evidence-explanation">A patient study directly supports reduced collagen type I cross-links in homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3545,6 +3750,8 @@
                 
                 
                 <div class="evidence-explanation">Ex vivo plasma data support homocysteine-thiolactone modification of fibrinogen/fibrin as a structural protein mechanism.</div>
+                
+                
                 
             </div>
             
@@ -3721,6 +3928,8 @@
                 
                 <div class="evidence-explanation">Rat hippocampal physiology supports NMDA-receptor mediation of homocysteic-acid synaptic effects.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3740,6 +3949,8 @@
                 
                 
                 <div class="evidence-explanation">The review supports cognitive impairment as a major clinical complication of homocysteine toxicity.</div>
+                
+                
                 
             </div>
             
@@ -3775,7 +3986,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety symptoms are an occasional psychiatric feature of CBS-deficient homocystinuria.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Arterial thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial thrombotic events including cerebral ischemia and peripheral arterial occlusion are frequent complications driven by homocysteine-mediated endothelial dysfunction and platelet activation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004420\"}}, {\"id\": \"Betaine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Betaine (trimethylglycine) serves as an alternative methyl donor supporting homocysteine remethylation via betaine-homocysteine methyltransferase (BHMT) in the liver. Used as adjunctive therapy to lower homocysteine levels, particularly in pyridoxine non-responders.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"betaine\"]}}, {\"id\": \"CBS (cystathionine beta-synthase) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CBS\"], \"variant_count\": 3}}, {\"id\": \"CBS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CBS pathogenic variants reduce cystathionine beta-synthase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"cystathionine beta-synthase activity\"], \"genes\": [\"CBS\"]}}, {\"id\": \"CBS protein misfolding and proteostasis disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many CBS pathogenic variants cause protein misfolding and instability rather than active-site disruption. Misfolded CBS is cleared primarily by proteasomal degradation with contributions from ERAD and lysosomal-autophagic pathways. This conformational disease mechanism suggests proteostasis modulation as a potential therapeutic strategy.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"endoplasmic reticulum unfolded protein response\"]}}, {\"id\": \"Cerebral ischemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral ischemic events due to arterial thrombosis or embolism are a frequent vascular complication of CBS-deficient homocystinuria.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002637\"}}, {\"id\": \"Cerebral venous sinus thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombosis of the cerebral venous sinuses is an occasional but serious vascular complication of CBS-deficient homocystinuria.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033724\"}}, {\"id\": \"Cysteine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressive symptoms are an occasional psychiatric feature of CBS-deficient homocystinuria, but the precise mechanism is not well established.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Disrupted transsulfuration and methionine metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CBS function causes upstream accumulation of homocysteine and methionine with downstream depletion of cystathionine and cysteine, disrupting sulfur amino acid homeostasis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sulfur amino acid metabolic process\", \"homocysteine metabolic process\", \"transsulfuration\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is an occasional extrapyramidal feature of CBS-deficient homocystinuria, reflecting basal ganglia involvement from vascular or metabolic insults.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine-driven oxidative stress and protein modifications cause endothelial cell dysfunction and platelet activation, promoting thrombus formation and vascular occlusion. Modification of fibrinogen by homocysteine thiolactone increases resistance to fibrinolysis, providing a direct mechanistic link to the high thromboembolism risk in HCU.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"platelet\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Enzyme replacement therapy (ERT)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CBS-based enzyme replacement therapy is under development. ERT has shown efficacy in lowering plasma tHcy below 100 micromol/L in mouse models. Efficacy can be enhanced by co-administration of biological reductants (N-acetylcysteine, MESNA, cysteamine) that increase the availability of reduced homocysteine as a CBS substrate.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"FGF-21 (mitokine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fibrin homocysteinylation and collagen cross-link deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine-thiolactone modifies lysine residues on plasma fibrinogen/fibrin and alters fibrin network structure and fibrinolysis. Separately, patient data show reduced collagen type I cross-links in homocystinuria, supporting a collagen cross-linking defect for bone manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"collagen metabolic process\"]}}, {\"id\": \"Folate and B12 supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"B-vitamin supplementation with folate and cobalamin supports homocysteine remethylation via methionine synthase, complementing dietary and pharmacological management.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GDF-15 (mitokine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed achievement of developmental milestones in childhood, related to early neurotoxic effects of elevated homocysteine on the developing brain.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Homocysteic acid neuroexcitotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine-derived excitatory metabolites activate NMDA receptor signaling, providing a plausible bridge from the metabolic lesion to developmental delay, cognitive impairment, seizures, and neuropsychiatric manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"ionotropic glutamate receptor signaling pathway\", \"chemical synaptic transmission\"]}}, {\"id\": \"Hyperhomocystinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma total homocysteine is the biochemical hallmark of CBS-deficient homocystinuria. Concentrations typically exceed 100 micromol/L and may reach over 200 micromol/L in untreated patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002160\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension is a frequent vascular feature of CBS-deficient homocystinuria, likely related to endothelial dysfunction and vascular remodeling driven by elevated homocysteine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"I278T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"One of the most common CBS pathogenic variants worldwide. Shows reduced protein half-life (approximately 5.9 hours vs 16.6 hours for wild-type) and impaired folding. May respond partially to pyridoxine supplementation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment ranging from mild learning difficulties to severe intellectual disability occurs in untreated classical HCU, with homocysteic-acid NMDA receptor agonism providing a plausible neurotoxicity mechanism. B6-responsive patients have mean IQ of 79 vs 57 in nonresponders. No extreme responder patients had cognitive impairment.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Livedo reticularis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mottled, net-like discoloration of the skin is an occasional cutaneous vascular feature of CBS-deficient homocystinuria, reflecting microvascular dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033505\"}}, {\"id\": \"Methionine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Methionine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary restriction of methionine intake with cysteine-enriched amino acid mixtures is the cornerstone of management for pyridoxine non-responsive patients. E-HOD Part II data show that treatment can prevent thromboembolism (risk ratio 0.073) and lens dislocation (risk ratio 0.069) in NR patients detected by newborn screening compared to those ascertained clinically.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"NAD+/NADH ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density and osteoporosis are common in HCU, linked to impaired collagen cross-linking in patient collagen studies. At age 15, chances of radiologic spinal osteoporosis are 36% in B6-responsive and 64% in B6-nonresponsive patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Oxidative stress and mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated homocysteine is a reactive thiol that generates reactive oxygen species, while cysteine depletion impairs glutathione-dependent antioxidant defenses. CBS-deficient patients show altered NAD redox metrics, elevated mitokines (FGF-21, GDF-15), and increased mitochondrial DAMPs, indicating coupled oxidative damage and mitochondrial dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"cellular response to oxidative stress\", \"mitochondrion organization\"]}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychotic episodes are an occasional neuropsychiatric feature of CBS-deficient homocystinuria, linked to neurotoxic effects of elevated homocysteine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000709\"}}, {\"id\": \"Pulmonary embolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary embolism is a serious thromboembolic complication of CBS-deficient homocystinuria, particularly dangerous during surgery and immobilization.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002204\"}}, {\"id\": \"Pyridoxine (vitamin B6) supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pyridoxine is the first-line pharmacological intervention for classical HCU. PLP is a CBS cofactor, and approximately half of patients show some degree of biochemical response (reduced tHcy) to pyridoxine supplementation. Responsiveness stratifies disease severity and guides further treatment decisions. Guidelines recommend keeping tHcy below 100 micromol/L; pyridoxine-responsive patients generally achieve tHcy below 50 micromol/L.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"R125Q\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A permissive CBS variant that responds to pharmacological proteostasis modulation and chaperone co-expression, showing partial functional rescue.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent pathological fractures result from severe osteoporosis and impaired bone quality associated with disrupted collagen cross-linking in homocystinuria.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002757\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of HCU patients, mechanistically linked to homocysteic acid acting as a potent agonist at glutamatergic NMDA receptors, causing excitotoxicity. Neonatal methionine restriction may reduce seizure incidence.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebrovascular events can occur in HCU patients due to arterial thrombosis or embolism, particularly in untreated or poorly controlled disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001297\"}}, {\"id\": \"Supportive care and antioxidant therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive measures including monitoring for multisystem complications and consideration of antioxidant therapy. Evidence of oxidative damage and mitochondrial dysfunction supports potential benefit from antioxidant and mitochondrial support in CBS-deficient patients.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"T191M\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A common CBS pathogenic variant showing reduced protein half-life (approximately 7.7 hours) and responsiveness to proteasome inhibition.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thromboembolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial and venous thromboembolic events are a major source of morbidity and mortality in untreated HCU. At age 15, chances of having had a thromboembolic event are 12% in B6-responsive and 27% in B6-nonresponsive patients. Thromboembolism is the commonest presenting feature in extreme pyridoxine responders.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001907\"}}, {\"id\": \"Thrombosis prevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anticoagulation and thromboprophylaxis measures are important for managing vascular risk in HCU. Specific considerations include avoiding oral contraceptives, prophylactic anticoagulation during high-risk periods (surgery, pregnancy), and maintaining optimal metabolic control to reduce thromboembolic risk.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Total homocysteine (tHcy)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Venous thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deep venous thrombosis and other venous thromboembolic events are frequent in CBS-deficient homocystinuria and may be the presenting feature in mildly affected pyridoxine-responsive patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004936\"}}], \"edges\": [{\"source\": \"CBS molecular function deficiency\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Total homocysteine (tHcy)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Hyperhomocystinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Methionine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Cysteine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Oxidative stress and mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Fibrin homocysteinylation and collagen cross-link deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Homocysteic acid neuroexcitotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"GDF-15 (mitokine)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"FGF-21 (mitokine)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"NAD+/NADH ratio\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CBS protein misfolding and proteostasis disruption\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CBS protein misfolding and proteostasis disruption\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Arterial thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Venous thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Pulmonary embolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Cerebral ischemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Cerebral venous sinus thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Livedo reticularis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrin homocysteinylation and collagen cross-link deficiency\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrin homocysteinylation and collagen cross-link deficiency\", \"target\": \"Recurrent fractures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pyridoxine (vitamin B6) supplementation\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyridoxine (vitamin B6) supplementation\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Methionine-restricted diet\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Methionine-restricted diet\", \"target\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Betaine supplementation\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Folate and B12 supplementation\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Enzyme replacement therapy (ERT)\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Enzyme replacement therapy (ERT)\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thrombosis prevention\", \"target\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive care and antioxidant therapy\", \"target\": \"Oxidative stress and mitochondrial dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CBS (cystathionine beta-synthase) deficiency\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"I278T\", \"target\": \"CBS (cystathionine beta-synthase) deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"T191M\", \"target\": \"CBS (cystathionine beta-synthase) deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"R125Q\", \"target\": \"CBS (cystathionine beta-synthase) deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety symptoms are an occasional psychiatric feature of CBS-deficient homocystinuria.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Arterial thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial thrombotic events including cerebral ischemia and peripheral arterial occlusion are frequent complications driven by homocysteine-mediated endothelial dysfunction and platelet activation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004420\"}}, {\"id\": \"Betaine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Betaine (trimethylglycine) serves as an alternative methyl donor supporting homocysteine remethylation via betaine-homocysteine methyltransferase (BHMT) in the liver. Used as adjunctive therapy to lower homocysteine levels, particularly in pyridoxine non-responders.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"betaine\"]}}, {\"id\": \"CBS (cystathionine beta-synthase) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CBS\"], \"variant_count\": 3}}, {\"id\": \"CBS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CBS pathogenic variants reduce cystathionine beta-synthase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"cystathionine beta-synthase activity\"], \"genes\": [\"CBS\"]}}, {\"id\": \"CBS protein misfolding and proteostasis disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many CBS pathogenic variants cause protein misfolding and instability rather than active-site disruption. Misfolded CBS is cleared primarily by proteasomal degradation with contributions from ERAD and lysosomal-autophagic pathways. This conformational disease mechanism suggests proteostasis modulation as a potential therapeutic strategy.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"endoplasmic reticulum unfolded protein response\"]}}, {\"id\": \"Cerebral ischemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral ischemic events due to arterial thrombosis or embolism are a frequent vascular complication of CBS-deficient homocystinuria.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002637\"}}, {\"id\": \"Cerebral venous sinus thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombosis of the cerebral venous sinuses is an occasional but serious vascular complication of CBS-deficient homocystinuria.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033724\"}}, {\"id\": \"Cysteine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressive symptoms are an occasional psychiatric feature of CBS-deficient homocystinuria, but the precise mechanism is not well established.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Disrupted transsulfuration and methionine metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CBS function causes upstream accumulation of homocysteine and methionine with downstream depletion of cystathionine and cysteine, disrupting sulfur amino acid homeostasis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sulfur amino acid metabolic process\", \"homocysteine metabolic process\", \"transsulfuration\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is an occasional extrapyramidal feature of CBS-deficient homocystinuria, reflecting basal ganglia involvement from vascular or metabolic insults.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine-driven oxidative stress and protein modifications cause endothelial cell dysfunction and platelet activation, promoting thrombus formation and vascular occlusion. Modification of fibrinogen by homocysteine thiolactone increases resistance to fibrinolysis, providing a direct mechanistic link to the high thromboembolism risk in HCU.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"platelet\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Enzyme replacement therapy (ERT)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CBS-based enzyme replacement therapy is under development. ERT has shown efficacy in lowering plasma tHcy below 100 micromol/L in mouse models. Efficacy can be enhanced by co-administration of biological reductants (N-acetylcysteine, MESNA, cysteamine) that increase the availability of reduced homocysteine as a CBS substrate.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"FGF-21 (mitokine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Fibrin homocysteinylation and collagen cross-link deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine-thiolactone modifies lysine residues on plasma fibrinogen/fibrin and alters fibrin network structure and fibrinolysis. Separately, patient data show reduced collagen type I cross-links in homocystinuria, supporting a collagen cross-linking defect for bone manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"collagen metabolic process\"]}}, {\"id\": \"Folate and B12 supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"B-vitamin supplementation with folate and cobalamin supports homocysteine remethylation via methionine synthase, complementing dietary and pharmacological management.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GDF-15 (mitokine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed achievement of developmental milestones in childhood, related to early neurotoxic effects of elevated homocysteine on the developing brain.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Homocysteic acid neuroexcitotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine-derived excitatory metabolites activate NMDA receptor signaling, providing a plausible bridge from the metabolic lesion to developmental delay, cognitive impairment, seizures, and neuropsychiatric manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"ionotropic glutamate receptor signaling pathway\", \"chemical synaptic transmission\"]}}, {\"id\": \"Hyperhomocystinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma total homocysteine is the biochemical hallmark of CBS-deficient homocystinuria. Concentrations typically exceed 100 micromol/L and may reach over 200 micromol/L in untreated patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002160\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension is a frequent vascular feature of CBS-deficient homocystinuria, likely related to endothelial dysfunction and vascular remodeling driven by elevated homocysteine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"I278T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"One of the most common CBS pathogenic variants worldwide. Shows reduced protein half-life (approximately 5.9 hours vs 16.6 hours for wild-type) and impaired folding. May respond partially to pyridoxine supplementation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment ranging from mild learning difficulties to severe intellectual disability occurs in untreated classical HCU, with homocysteic-acid NMDA receptor agonism providing a plausible neurotoxicity mechanism. B6-responsive patients have mean IQ of 79 vs 57 in nonresponders. No extreme responder patients had cognitive impairment.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Livedo reticularis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mottled, net-like discoloration of the skin is an occasional cutaneous vascular feature of CBS-deficient homocystinuria, reflecting microvascular dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033505\"}}, {\"id\": \"Methionine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Methionine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary restriction of methionine intake with cysteine-enriched amino acid mixtures is the cornerstone of management for pyridoxine non-responsive patients. E-HOD Part II data show that treatment can prevent thromboembolism (risk ratio 0.073) and lens dislocation (risk ratio 0.069) in NR patients detected by newborn screening compared to those ascertained clinically.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"NAD+/NADH ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density and osteoporosis are common in HCU, linked to impaired collagen cross-linking in patient collagen studies. At age 15, chances of radiologic spinal osteoporosis are 36% in B6-responsive and 64% in B6-nonresponsive patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Oxidative stress and mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated homocysteine is a reactive thiol that generates reactive oxygen species, while cysteine depletion impairs glutathione-dependent antioxidant defenses. CBS-deficient patients show altered NAD redox metrics, elevated mitokines (FGF-21, GDF-15), and increased mitochondrial DAMPs, indicating coupled oxidative damage and mitochondrial dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"cellular response to oxidative stress\", \"mitochondrion organization\"]}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychotic episodes are an occasional neuropsychiatric feature of CBS-deficient homocystinuria, linked to neurotoxic effects of elevated homocysteine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000709\"}}, {\"id\": \"Pulmonary embolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary embolism is a serious thromboembolic complication of CBS-deficient homocystinuria, particularly dangerous during surgery and immobilization.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002204\"}}, {\"id\": \"Pyridoxine (vitamin B6) supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pyridoxine is the first-line pharmacological intervention for classical HCU. PLP is a CBS cofactor, and approximately half of patients show some degree of biochemical response (reduced tHcy) to pyridoxine supplementation. Responsiveness stratifies disease severity and guides further treatment decisions. Guidelines recommend keeping tHcy below 100 micromol/L; pyridoxine-responsive patients generally achieve tHcy below 50 micromol/L.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"R125Q\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A permissive CBS variant that responds to pharmacological proteostasis modulation and chaperone co-expression, showing partial functional rescue.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent pathological fractures result from severe osteoporosis and impaired bone quality associated with disrupted collagen cross-linking in homocystinuria.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002757\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of HCU patients, mechanistically linked to homocysteic acid acting as a potent agonist at glutamatergic NMDA receptors, causing excitotoxicity. Neonatal methionine restriction may reduce seizure incidence.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebrovascular events can occur in HCU patients due to arterial thrombosis or embolism, particularly in untreated or poorly controlled disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001297\"}}, {\"id\": \"Supportive care and antioxidant therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive measures including monitoring for multisystem complications and consideration of antioxidant therapy. Evidence of oxidative damage and mitochondrial dysfunction supports potential benefit from antioxidant and mitochondrial support in CBS-deficient patients.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"T191M\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A common CBS pathogenic variant showing reduced protein half-life (approximately 7.7 hours) and responsiveness to proteasome inhibition.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thromboembolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial and venous thromboembolic events are a major source of morbidity and mortality in untreated HCU. At age 15, chances of having had a thromboembolic event are 12% in B6-responsive and 27% in B6-nonresponsive patients. Thromboembolism is the commonest presenting feature in extreme pyridoxine responders.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001907\"}}, {\"id\": \"Thrombosis prevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anticoagulation and thromboprophylaxis measures are important for managing vascular risk in HCU. Specific considerations include avoiding oral contraceptives, prophylactic anticoagulation during high-risk periods (surgery, pregnancy), and maintaining optimal metabolic control to reduce thromboembolic risk.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Total homocysteine (tHcy)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Venous thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deep venous thrombosis and other venous thromboembolic events are frequent in CBS-deficient homocystinuria and may be the presenting feature in mildly affected pyridoxine-responsive patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004936\"}}], \"edges\": [{\"source\": \"CBS molecular function deficiency\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Total homocysteine (tHcy)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Hyperhomocystinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Methionine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Cysteine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Oxidative stress and mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Fibrin homocysteinylation and collagen cross-link deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Homocysteic acid neuroexcitotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"GDF-15 (mitokine)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"FGF-21 (mitokine)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"NAD+/NADH ratio\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CBS protein misfolding and proteostasis disruption\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CBS protein misfolding and proteostasis disruption\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Arterial thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Venous thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Pulmonary embolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Cerebral ischemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Cerebral venous sinus thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"target\": \"Livedo reticularis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrin homocysteinylation and collagen cross-link deficiency\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrin homocysteinylation and collagen cross-link deficiency\", \"target\": \"Recurrent fractures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homocysteic acid neuroexcitotoxicity\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pyridoxine (vitamin B6) supplementation\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyridoxine (vitamin B6) supplementation\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Methionine-restricted diet\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Methionine-restricted diet\", \"target\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Betaine supplementation\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Folate and B12 supplementation\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Enzyme replacement therapy (ERT)\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Enzyme replacement therapy (ERT)\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thrombosis prevention\", \"target\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive care and antioxidant therapy\", \"target\": \"Oxidative stress and mitochondrial dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CBS (cystathionine beta-synthase) deficiency\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"I278T\", \"target\": \"CBS (cystathionine beta-synthase) deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"T191M\", \"target\": \"CBS (cystathionine beta-synthase) deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"R125Q\", \"target\": \"CBS (cystathionine beta-synthase) deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3869,6 +4080,8 @@
                 
                 <div class="evidence-explanation">Classic natural history study quantifies thromboembolic event rates by B6 responsiveness.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3889,6 +4102,8 @@
                 
                 <div class="evidence-explanation">E-HOD registry shows thromboembolism is the commonest presentation in extreme responders.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3908,6 +4123,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms arterial and venous thrombotic events as important clinical manifestations of hyperhomocysteinemia.</div>
+                
+                
                 
             </div>
             
@@ -3974,6 +4191,8 @@
                 
                 <div class="evidence-explanation">Arterial thrombotic vascular events include stroke in the context of severe hyperhomocysteinemia.</div>
                 
+                
+                
             </div>
             
             
@@ -4028,6 +4247,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies pulmonary embolism as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4047,6 +4268,8 @@
                 
                 
                 <div class="evidence-explanation">Classic natural history study documents significant postoperative thromboembolic risk including PE.</div>
+                
+                
                 
             </div>
             
@@ -4102,6 +4325,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies hypertension as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -4155,6 +4380,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies livedo reticularis as occasional in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -4219,6 +4446,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies pancreatitis as occasional in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -4272,6 +4501,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies hepatomegaly as occasional in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -4336,6 +4567,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies ectopia lentis as very frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4356,6 +4589,8 @@
                 
                 <div class="evidence-explanation">Classic natural history study of 629 patients quantifies lens dislocation rates by B6 responsiveness.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4375,6 +4610,8 @@
                 
                 
                 <div class="evidence-explanation">E-HOD registry confirms lens dislocation is common across all pyridoxine responsiveness groups.</div>
+                
+                
                 
             </div>
             
@@ -4430,6 +4667,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies myopia as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4449,6 +4688,8 @@
                 
                 
                 <div class="evidence-explanation">Review of ocular complications in HCU supports myopia as a common ophthalmic manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4504,6 +4745,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies glaucoma as occasional in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4523,6 +4766,8 @@
                 
                 
                 <div class="evidence-explanation">Review of the ophthalmic spectrum of HCU covers glaucoma among ocular complications.</div>
+                
+                
                 
             </div>
             
@@ -4578,6 +4823,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies retinal detachment as occasional in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -4632,6 +4879,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies strabismus as occasional in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -4685,6 +4934,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies cataract as occasional in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -4749,6 +5000,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies sparse scalp hair as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -4802,6 +5055,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies high palate as occasional in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -4866,6 +5121,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies arachnodactyly as very frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4885,6 +5142,8 @@
                 
                 
                 <div class="evidence-explanation">E-HOD registry describes marfanoid features including arachnodactyly as characteristic of CBS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4940,6 +5199,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies genu valgum as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -4993,6 +5254,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies pes cavus as frequent in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -5057,6 +5320,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies osteoporosis as very frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5076,6 +5341,8 @@
                 
                 
                 <div class="evidence-explanation">Classic natural history study quantifies spinal osteoporosis rates by B6 responsiveness.</div>
+                
+                
                 
             </div>
             
@@ -5131,6 +5398,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies scoliosis as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5150,6 +5419,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical guidelines list skeletal abnormalities including scoliosis as characteristic of severe CBS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5205,6 +5476,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies recurrent fractures as very frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -5258,6 +5531,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies pectus excavatum as frequent in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -5313,6 +5588,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies pectus carinatum as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -5367,6 +5644,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies kyphosis as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -5420,6 +5699,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies joint stiffness as frequent in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -5484,6 +5765,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies intellectual disability as very frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5504,6 +5787,8 @@
                 
                 <div class="evidence-explanation">Classic natural history study quantifies cognitive impairment by B6 responsiveness.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5523,6 +5808,8 @@
                 
                 
                 <div class="evidence-explanation">E-HOD registry confirms cognitive impairment is most common in non-responders.</div>
+                
+                
                 
             </div>
             
@@ -5578,6 +5865,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies seizures as occasional in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5597,6 +5886,8 @@
                 
                 
                 <div class="evidence-explanation">Classic natural history study documents seizures as a feature and notes treatment may reduce incidence.</div>
+                
+                
                 
             </div>
             
@@ -5654,6 +5945,8 @@
                 
                 <div class="evidence-explanation">E-HOD registry data support developmental delay in the severe non-responder group.</div>
                 
+                
+                
             </div>
             
             
@@ -5707,6 +6000,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies depression as occasional in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -5762,6 +6057,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies anxiety as occasional in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -5816,6 +6113,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies psychosis as occasional in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -5869,6 +6168,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies dystonia as occasional in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -5933,6 +6234,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies disproportionate tall stature as very frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5952,6 +6255,8 @@
                 
                 
                 <div class="evidence-explanation">E-HOD registry describes marfanoid features as characteristic of early-presenting CBS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -6016,6 +6321,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies dental crowding as very frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -6070,6 +6377,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies hyperhomocystinemia as very frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6089,6 +6398,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical guidelines recommend tHcy measurement as the key diagnostic test.</div>
+                
+                
                 
             </div>
             
@@ -6144,6 +6455,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies arterial thrombosis as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6163,6 +6476,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms arterial thrombotic events as clinical manifestations of severe hyperhomocysteinemia.</div>
+                
+                
                 
             </div>
             
@@ -6218,6 +6533,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies venous thrombosis as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6237,6 +6554,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms venous thrombotic events as clinical manifestations of severe hyperhomocysteinemia.</div>
+                
+                
                 
             </div>
             
@@ -6292,6 +6611,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies cerebral ischemia as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -6346,6 +6667,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies amblyopia as frequent in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -6399,6 +6722,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies cerebral venous sinus thrombosis as occasional in CBS-deficient homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -6487,6 +6812,8 @@
                 
                 <div class="evidence-explanation">Orphanet confirms CBS as the disease-causing gene for ORPHA:394.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6507,6 +6834,8 @@
                 
                 <div class="evidence-explanation">Directly supports the conformational disorder model for CBS-deficient HCU.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6526,6 +6855,8 @@
                 
                 
                 <div class="evidence-explanation">E-HOD registry provides systematic classification of pyridoxine responsiveness groups.</div>
+                
+                
                 
             </div>
             
@@ -6574,6 +6905,8 @@
                 
                 <div class="evidence-explanation">GeneReviews supports biallelic MTHFR variants as the molecular basis of MTHFR-deficiency homocystinuria.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6593,6 +6926,8 @@
                 
                 
                 <div class="evidence-explanation">Case-report abstract supports MTHFR deficiency as a nonclassical autosomal recessive cause of homocystinuria.</div>
+                
+                
                 
             </div>
             
@@ -6705,6 +7040,8 @@
                 
                 <div class="evidence-explanation">Registry data show biochemical response in pyridoxine-responsive patients.</div>
                 
+                
+                
             </div>
             
             
@@ -6748,6 +7085,8 @@
                 
                 <div class="evidence-explanation">Registry data connect pyridoxine response to improved tHcy control.</div>
                 
+                
+                
             </div>
             
             
@@ -6787,6 +7126,8 @@
                 
                 <div class="evidence-explanation">Clinical guidelines define the tHcy treatment target for CBS-deficient HCU.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6807,6 +7148,8 @@
                 
                 <div class="evidence-explanation">E-HOD Part II shows pyridoxine-responsive patients generally achieve good biochemical control.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6826,6 +7169,8 @@
                 
                 
                 <div class="evidence-explanation">Defines pyridoxine responsiveness as a key clinical stratifier.</div>
+                
+                
                 
             </div>
             
@@ -6914,6 +7259,8 @@
                 
                 <div class="evidence-explanation">Registry study states that severe non-responders/partial responders require low-methionine diet and/or betaine.</div>
                 
+                
+                
             </div>
             
             
@@ -6957,6 +7304,8 @@
                 
                 <div class="evidence-explanation">Registry time-to-event data show reduced thromboembolism and lens dislocation under early treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -6996,6 +7345,8 @@
                 
                 <div class="evidence-explanation">E-HOD Part II provides quantitative evidence that early treatment dramatically reduces major complications.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7016,6 +7367,8 @@
                 
                 <div class="evidence-explanation">Directly supports methionine-restricted diet as crucial for reducing systemic consequences.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7035,6 +7388,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms dietary restriction as standard of care despite adherence challenges.</div>
+                
+                
                 
             </div>
             
@@ -7135,6 +7490,8 @@
                 
                 <div class="evidence-explanation">The review directly supports betaine as a remethylation-based bypass of homocysteine accumulation.</div>
                 
+                
+                
             </div>
             
             
@@ -7173,6 +7530,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms betaine supplementation as supporting homocysteine remethylation in the management of hyperhomocysteinemia.</div>
+                
+                
                 
             </div>
             
@@ -7261,6 +7620,8 @@
                 
                 <div class="evidence-explanation">The review directly supports B-vitamin supplementation for Hcy conversion.</div>
                 
+                
+                
             </div>
             
             
@@ -7299,6 +7660,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports folate and B12 supplementation as part of nutritional HHcy management.</div>
+                
+                
                 
             </div>
             
@@ -7387,6 +7750,8 @@
                 
                 <div class="evidence-explanation">Mouse-model ERT data support direct restoration of CBS-dependent homocysteine clearance.</div>
                 
+                
+                
             </div>
             
             
@@ -7430,6 +7795,8 @@
                 
                 <div class="evidence-explanation">The ERT mechanism paper identifies reduced homocysteine as the CBS substrate that determines enzyme-replacement clearance.</div>
                 
+                
+                
             </div>
             
             
@@ -7468,6 +7835,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports the quantitative ERT efficacy claim in mouse models.</div>
+                
+                
                 
             </div>
             
@@ -7556,6 +7925,8 @@
                 
                 <div class="evidence-explanation">Natural history data document high-risk thromboembolic contexts that justify thromboprophylaxis.</div>
                 
+                
+                
             </div>
             
             
@@ -7594,6 +7965,8 @@
                 
                 
                 <div class="evidence-explanation">High thromboembolism risk in HCU supports need for thromboprophylaxis strategies.</div>
+                
+                
                 
             </div>
             
@@ -7682,6 +8055,8 @@
                 
                 <div class="evidence-explanation">Patient biomarker study directly suggests antioxidant and mitochondrial support for the oxidative damage mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -7720,6 +8095,8 @@
                 
                 
                 <div class="evidence-explanation">Directly recommends assessment of oxidative damage and consideration of antioxidant therapy with mitochondrial support.</div>
+                
+                
                 
             </div>
             
@@ -7799,6 +8176,8 @@
                 
                 <div class="evidence-explanation">GeneReviews directly supports carrier testing and prenatal/preimplantation genetic testing as genetic counseling content for inherited homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -7835,6 +8214,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -7860,6 +8240,8 @@
                 
                 <div class="evidence-explanation">US prevalence study confirms elevated tHcy as the primary diagnostic criterion for classical HCU.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7880,6 +8262,8 @@
                 
                 <div class="evidence-explanation">Study documents markedly elevated tHcy in CBS-deficient patients compared to controls.</div>
                 
+                
+                
             </div>
             
             
@@ -7899,6 +8283,7 @@
                 
                 <div class="item-desc">Context: Elevated plasma methionine results from upstream metabolite accumulation due to the CBS block.
 </div>
+                
                 
                 
     
@@ -7924,6 +8309,8 @@
                 
                 <div class="evidence-explanation">Orphanet directly supports methionine accumulation in CBS-deficient homocystinuria.</div>
                 
+                
+                
             </div>
             
             
@@ -7943,6 +8330,7 @@
                 
                 <div class="item-desc">Context: Plasma cysteine is depleted downstream of the CBS metabolic block. Cysteine depletion impairs glutathione synthesis and contributes to the oxidative stress observed in HCU patients.
 </div>
+                
                 
                 
     
@@ -7970,6 +8358,8 @@
                 
                 <div class="evidence-explanation">The metabolic block at CBS depletes downstream cysteine, as the transsulfuration pathway to cysteine is interrupted.</div>
                 
+                
+                
             </div>
             
             
@@ -7989,6 +8379,7 @@
                 
                 <div class="item-desc">Context: Growth differentiation factor 15 is elevated in CBS-deficient patients and correlates positively with total homocysteine levels, serving as a biomarker of mitochondrial stress in HCU.
 </div>
+                
                 
                 
     
@@ -8016,6 +8407,8 @@
                 
                 <div class="evidence-explanation">Directly supports elevated GDF-15 linked to homocysteine burden in CBS-deficient patients.</div>
                 
+                
+                
             </div>
             
             
@@ -8035,6 +8428,7 @@
                 
                 <div class="item-desc">Context: Fibroblast growth factor 21 is elevated in CBS-deficient patients, reflecting mitochondrial dysfunction and energy stress.
 </div>
+                
                 
                 
     
@@ -8062,6 +8456,8 @@
                 
                 <div class="evidence-explanation">Directly supports altered FGF-21 as a mitochondrial stress signal in CBS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8081,6 +8477,7 @@
                 
                 <div class="item-desc">Context: The NAD+/NADH ratio is significantly reduced in CBS-deficient patients, reflecting disturbed mitochondrial redox homeostasis.
 </div>
+                
                 
                 
     
@@ -8107,6 +8504,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports NAD redox-ratio disturbance in CBS-deficient patients.</div>
+                
+                
                 
             </div>
             

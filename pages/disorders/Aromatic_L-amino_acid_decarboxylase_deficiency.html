@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2727,6 +2918,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2746,6 +2939,8 @@
                 
                 
                 <div class="evidence-explanation">Consensus guideline supports autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -2868,6 +3063,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists DDC as the disease-causing gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2887,6 +3084,8 @@
                 
                 
                 <div class="evidence-explanation">The original case report directly documents absent or greatly reduced AADC activity.</div>
+                
+                
                 
             </div>
             
@@ -3049,6 +3248,8 @@
                 
                 <div class="evidence-explanation">Orphanet definition states the affected monoamine synthesis pathways.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3069,6 +3270,8 @@
                 
                 <div class="evidence-explanation">Consensus guideline supports combined monoamine deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3088,6 +3291,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical cohort describes generalized biogenic amine deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3167,6 +3372,8 @@
                 
                 <div class="evidence-explanation">Cohort data support the characteristic CSF metabolite pattern.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3186,6 +3393,8 @@
                 
                 
                 <div class="evidence-explanation">Original report supports precursor accumulation caused by AADC deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3279,6 +3488,8 @@
                 
                 <div class="evidence-explanation">Consensus guideline links the biochemical disorder to core motor symptoms.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3298,6 +3509,8 @@
                 
                 
                 <div class="evidence-explanation">Gene-therapy study background links monoamine deficiency to motor and developmental manifestations.</div>
+                
+                
                 
             </div>
             
@@ -3391,6 +3604,8 @@
                 
                 <div class="evidence-explanation">Clinical cohort supports autonomic and extraneurologic manifestations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3410,6 +3625,8 @@
                 
                 
                 <div class="evidence-explanation">Mainland China cohort supports frequent autonomic symptoms.</div>
+                
+                
                 
             </div>
             
@@ -3498,6 +3715,8 @@
                 
                 <div class="evidence-explanation">Systematic review supports common developmental delay and hypotonia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3517,6 +3736,8 @@
                 
                 
                 <div class="evidence-explanation">Gene-therapy study background links brain monoamine deficiency to developmental delay.</div>
+                
+                
                 
             </div>
             
@@ -3552,7 +3773,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autonomic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined catecholamine and serotonin deficiency contributes to autonomic and extraneurological symptoms including hyperhidrosis, nasal congestion, hypersalivation/drooling, sleep disturbance, hypotension, and miosis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biogenic Monoamine Synthesis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of AADC activity decreases synthesis of dopamine, serotonin, norepinephrine, and epinephrine, producing central and peripheral monoamine deficiency.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"dopamine biosynthetic process\", \"serotonin biosynthetic process\", \"norepinephrine biosynthetic process\"]}}, {\"id\": \"CSF Neurotransmitter Metabolite Signature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AADC deficiency produces a diagnostic CSF neurotransmitter pattern with low homovanillic acid and 5-hydroxyindoleacetic acid and elevated 3-ortho-methyldopa.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"DDC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"DDC\"], \"association\": \"Biallelic pathogenic variants\"}}, {\"id\": \"DDC Enzymatic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in DDC reduce aromatic L-amino acid decarboxylase activity, blocking decarboxylation of neurotransmitter precursors.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"aromatic-L-amino-acid decarboxylase activity\"], \"genes\": [\"DDC\"]}}, {\"id\": \"Decreased CSF 5-hydroxyindolacetic acid concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025455\"}}, {\"id\": \"Decreased CSF homovanillic acid concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003785\"}}, {\"id\": \"Dopamine agonist and MAO inhibitor pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine agonists and monoamine oxidase inhibitors are used as symptomatic neurotransmitter-directed treatment classes, sometimes with vitamin B6 and anticholinergics.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"dopamine agonist\", \"monoamine oxidase inhibitor\"]}}, {\"id\": \"Drooling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002307\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Eladocagene exuparvovec gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Eladocagene exuparvovec delivers DDC via an adeno-associated viral vector to the putamen, aiming to restore dopamine synthesis and improve motor, developmental, and oculogyric manifestations.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"eladocagene exuparvovec\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypokinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002375\"}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002615\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased circulating prolactin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000870\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Miosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000616\"}}, {\"id\": \"Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient dopamine synthesis in basal-ganglia motor circuits produces hypotonia, hypokinesia, dystonia, oculogyric crises, dyskinesia, and delayed motor development.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Nasal congestion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001742\"}}, {\"id\": \"Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early combined monoamine deficiency impairs developmental acquisition and is associated with global developmental delay, intellectual disability, seizures, feeding difficulties, and failure to thrive.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oculogyric crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010553\"}}, {\"id\": \"Poor head control\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002421\"}}, {\"id\": \"Pyridoxine pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pyridoxine or pyridoxal phosphate is used as cofactor-directed symptomatic therapy, often in combination with dopamine agonists and MAO inhibitors; clinical responses are variable.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sleep abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}], \"edges\": [{\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"CSF Neurotransmitter Metabolite Signature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Decreased CSF homovanillic acid concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Decreased CSF 5-hydroxyindolacetic acid concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Increased circulating prolactin concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Oculogyric crisis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Hypokinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Poor head control\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Nasal congestion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Drooling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Sleep abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Miosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Eladocagene exuparvovec gene therapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eladocagene exuparvovec gene therapy\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyridoxine pharmacotherapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dopamine agonist and MAO inhibitor pharmacotherapy\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"DDC\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autonomic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined catecholamine and serotonin deficiency contributes to autonomic and extraneurological symptoms including hyperhidrosis, nasal congestion, hypersalivation/drooling, sleep disturbance, hypotension, and miosis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biogenic Monoamine Synthesis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of AADC activity decreases synthesis of dopamine, serotonin, norepinephrine, and epinephrine, producing central and peripheral monoamine deficiency.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"dopamine biosynthetic process\", \"serotonin biosynthetic process\", \"norepinephrine biosynthetic process\"]}}, {\"id\": \"CSF Neurotransmitter Metabolite Signature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AADC deficiency produces a diagnostic CSF neurotransmitter pattern with low homovanillic acid and 5-hydroxyindoleacetic acid and elevated 3-ortho-methyldopa.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"DDC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"DDC\"], \"presence\": \"Positive\", \"association\": \"Biallelic pathogenic variants\"}}, {\"id\": \"DDC Enzymatic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in DDC reduce aromatic L-amino acid decarboxylase activity, blocking decarboxylation of neurotransmitter precursors.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"aromatic-L-amino-acid decarboxylase activity\"], \"genes\": [\"DDC\"]}}, {\"id\": \"Decreased CSF 5-hydroxyindolacetic acid concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025455\"}}, {\"id\": \"Decreased CSF homovanillic acid concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003785\"}}, {\"id\": \"Dopamine agonist and MAO inhibitor pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine agonists and monoamine oxidase inhibitors are used as symptomatic neurotransmitter-directed treatment classes, sometimes with vitamin B6 and anticholinergics.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"dopamine agonist\", \"monoamine oxidase inhibitor\"]}}, {\"id\": \"Drooling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002307\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Eladocagene exuparvovec gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Eladocagene exuparvovec delivers DDC via an adeno-associated viral vector to the putamen, aiming to restore dopamine synthesis and improve motor, developmental, and oculogyric manifestations.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"eladocagene exuparvovec\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypokinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002375\"}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002615\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased circulating prolactin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000870\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Miosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000616\"}}, {\"id\": \"Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient dopamine synthesis in basal-ganglia motor circuits produces hypotonia, hypokinesia, dystonia, oculogyric crises, dyskinesia, and delayed motor development.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Nasal congestion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001742\"}}, {\"id\": \"Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early combined monoamine deficiency impairs developmental acquisition and is associated with global developmental delay, intellectual disability, seizures, feeding difficulties, and failure to thrive.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oculogyric crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010553\"}}, {\"id\": \"Poor head control\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002421\"}}, {\"id\": \"Pyridoxine pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pyridoxine or pyridoxal phosphate is used as cofactor-directed symptomatic therapy, often in combination with dopamine agonists and MAO inhibitors; clinical responses are variable.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sleep abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}], \"edges\": [{\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"CSF Neurotransmitter Metabolite Signature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Decreased CSF homovanillic acid concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Decreased CSF 5-hydroxyindolacetic acid concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Increased circulating prolactin concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Oculogyric crisis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Hypokinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Poor head control\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Nasal congestion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Drooling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Sleep abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Miosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Eladocagene exuparvovec gene therapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eladocagene exuparvovec gene therapy\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyridoxine pharmacotherapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dopamine agonist and MAO inhibitor pharmacotherapy\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"DDC\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3646,6 +3867,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -3711,6 +3934,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -3766,6 +3991,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -3823,6 +4050,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -3879,6 +4108,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -3934,6 +4165,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4000,6 +4233,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4019,6 +4254,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review quantifies ptosis in the occasional range.</div>
+                
+                
                 
             </div>
             
@@ -4085,6 +4322,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4104,6 +4343,8 @@
                 
                 
                 <div class="evidence-explanation">Mainland China cohort supports nasal congestion as an autonomic manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4160,6 +4401,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4226,6 +4469,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4245,6 +4490,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical cohort supports hyperhidrosis as an AADC deficiency manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4311,6 +4558,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4330,6 +4579,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical cohort documents hypoglycemia among extraneurological symptoms.</div>
+                
+                
                 
             </div>
             
@@ -4396,6 +4647,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4415,6 +4668,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review quantifies hypotonia in the frequent range.</div>
+                
+                
                 
             </div>
             
@@ -4471,6 +4726,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4537,6 +4794,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4556,6 +4815,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports frequent behavioral manifestations.</div>
+                
+                
                 
             </div>
             
@@ -4613,6 +4874,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4668,6 +4931,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4725,6 +4990,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4781,6 +5048,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4800,6 +5069,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical cohort documents seizures in AADC deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4857,6 +5128,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4913,6 +5186,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4932,6 +5207,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports developmental delay as a cardinal sign.</div>
+                
+                
                 
             </div>
             
@@ -4989,6 +5266,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5045,6 +5324,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5064,6 +5345,8 @@
                 
                 
                 <div class="evidence-explanation">Consensus guideline lists dystonia as a key movement disorder.</div>
+                
+                
                 
             </div>
             
@@ -5121,6 +5404,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5176,6 +5461,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5233,6 +5520,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5252,6 +5541,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports sleep abnormality in the frequent range.</div>
+                
+                
                 
             </div>
             
@@ -5308,6 +5599,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5374,6 +5667,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5429,6 +5724,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5495,6 +5792,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5550,6 +5849,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5607,6 +5908,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5662,6 +5965,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5719,6 +6024,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5774,6 +6081,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5831,6 +6140,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5887,6 +6198,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5906,6 +6219,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical cohort supports decreased CSF homovanillic acid.</div>
+                
+                
                 
             </div>
             
@@ -5963,6 +6278,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5982,6 +6299,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review quantifies oculogyric crises in the frequent range.</div>
+                
+                
                 
             </div>
             
@@ -6039,6 +6358,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6058,6 +6379,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical cohort supports decreased CSF 5-hydroxyindoleacetic acid.</div>
+                
+                
                 
             </div>
             
@@ -6144,6 +6467,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists DDC as the disease-causing gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6164,6 +6489,8 @@
                 
                 <div class="evidence-explanation">Systematic review supports biallelic pathogenic DDC variants.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6183,6 +6510,8 @@
                 
                 
                 <div class="evidence-explanation">Mainland China cohort supports disease association with DDC variants.</div>
+                
+                
                 
             </div>
             
@@ -6296,6 +6625,8 @@
                 
                 <div class="evidence-explanation">Open-label clinical study describes AAV vector delivery of DDC to the putamen.</div>
                 
+                
+                
             </div>
             
             
@@ -6339,6 +6670,8 @@
                 
                 <div class="evidence-explanation">Clinical study supports restoration of putaminal dopamine synthesis.</div>
                 
+                
+                
             </div>
             
             
@@ -6378,6 +6711,8 @@
                 
                 <div class="evidence-explanation">Open-label phase 1/2 study supports motor improvement after AAV-DDC gene therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6398,6 +6733,8 @@
                 
                 <div class="evidence-explanation">Gene therapy improved key movement disorder manifestations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6417,6 +6754,8 @@
                 
                 
                 <div class="evidence-explanation">JAMA Insights reports FDA approval for AADC deficiency.</div>
+                
+                
                 
             </div>
             
@@ -6525,6 +6864,8 @@
                 
                 <div class="evidence-explanation">Clinical cohort lists vitamin B6 among AADC deficiency drug regimens.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6544,6 +6885,8 @@
                 
                 
                 <div class="evidence-explanation">Mainland China cohort supports partial improvement with pyridoxine-based regimens.</div>
+                
+                
                 
             </div>
             
@@ -6659,6 +7002,8 @@
                 
                 <div class="evidence-explanation">Original cases improved with dopamine agonist and MAO inhibitor therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6679,6 +7024,8 @@
                 
                 <div class="evidence-explanation">Clinical cohort supports dopamine agonist and MAO inhibitor use.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6698,6 +7045,8 @@
                 
                 
                 <div class="evidence-explanation">Mainland China cohort supports partial improvement with combination regimens.</div>
+                
+                
                 
             </div>
             
@@ -6775,6 +7124,8 @@
                 
                 
                 <div class="evidence-explanation">Consensus guideline supports medical and non-medical care recommendations for AADC deficiency.</div>
+                
+                
                 
             </div>
             
@@ -6868,6 +7219,8 @@
                 
                 <div class="evidence-explanation">ClinicalTrials.gov identifies pharmacodynamic assessment of eladocagene exuparvovec in AADC deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6887,6 +7240,8 @@
                 
                 
                 <div class="evidence-explanation">Trial follow-up includes motor development, AADC-specific symptoms, and pharmacodynamic measures.</div>
+                
+                
                 
             </div>
             

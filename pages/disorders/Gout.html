@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2608,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Disease</span>
@@ -2572,7 +2763,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2782,6 +2973,8 @@
                 
                 <div class="evidence-explanation">Establishes that hyperuricemia-driven MSU crystallization is the fundamental pathological process in gout.</div>
                 
+                
+                
             </div>
             
             
@@ -2831,6 +3024,8 @@
                 
                 <div class="evidence-explanation">Describes the non-classical crystallization pathway where MSU forms via an amorphous precursor on damaged cartilage collagen, explaining the anatomical specificity of crystal deposition.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2848,6 +3043,8 @@
                 
                 
                 <div class="evidence-explanation">Characterizes the unique structural properties of pathological MSU crystals that form in vivo at low supersaturation over extended time periods.</div>
+                
+                
                 
             </div>
             
@@ -2933,6 +3130,8 @@
                 
                 <div class="evidence-explanation">Establishes the central role of macrophages in initiating and propagating the acute inflammatory response to MSU crystals in gout.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2951,6 +3150,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that macrophages have complex, context-dependent roles in both promoting and resolving gouty inflammation depending on their polarization state.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2968,6 +3169,8 @@
                 
                 
                 <div class="evidence-explanation">Shows that effective urate-lowering therapy modulates immune cell proteomes, including those relevant to inflammasome activation, correlating with reduced flare burden.</div>
+                
+                
                 
             </div>
             
@@ -3042,6 +3245,8 @@
                 
                 <div class="evidence-explanation">Confirms that neutrophil recruitment is a primary feature of the acute gouty inflammatory response.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3059,6 +3264,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies IL-1B and CXCL8 as key mediators in the serum interactome associated with gouty inflammation, supporting their role in neutrophil recruitment and activation.</div>
+                
+                
                 
             </div>
             
@@ -3109,6 +3316,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that complement activation pathways are altered in gout and modulated by effective urate-lowering therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3127,6 +3336,8 @@
                 
                 <div class="evidence-explanation">Shows that reduction in gout flares correlates with changes in complement activation pathways, establishing complement as a key therapeutic target and biomarker.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3144,6 +3355,8 @@
                 
                 
                 <div class="evidence-explanation">Provides mechanistic evidence that xanthine oxidase inhibitors directly modulate complement activation in macrophages beyond their urate-lowering effects.</div>
+                
+                
                 
             </div>
             
@@ -3218,6 +3431,8 @@
                 
                 <div class="evidence-explanation">Describes the dual role of NETs in gout - initially amplifying inflammation but then promoting resolution through aggregation and sequestration mechanisms.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3236,6 +3451,8 @@
                 
                 <div class="evidence-explanation">Establishes the role of NETs in chronic gout pathology, specifically in the formation of tophi (urate crystal deposits).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3253,6 +3470,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies aggregated NETs as a key mechanism underlying the self-limited nature of acute gout flares and spontaneous resolution.</div>
+                
+                
                 
             </div>
             
@@ -3288,7 +3507,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"ABCG2\"], \"association\": \"Risk Factor\"}}, {\"id\": \"Hyperuricemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated serum uric acid from increased purine metabolism or decreased renal excretion leads to supersaturation and crystal formation. Urate is the end product of purine catabolism in humans.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Purine Metabolism\"], \"genes\": [\"SLC2A9\", \"ABCG2\", \"SLC22A12\"]}}, {\"id\": \"SLC22A12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC22A12\"], \"association\": \"Risk Factor\"}}, {\"id\": \"SLC2A9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC2A9\"], \"association\": \"Risk Factor\"}}], \"edges\": [{\"source\": \"SLC2A9\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCG2\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC22A12\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"ABCG2\"], \"association\": \"Risk Factor\"}}, {\"id\": \"Hyperuricemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated serum uric acid from increased purine metabolism or decreased renal excretion leads to supersaturation and crystal formation. Urate is the end product of purine catabolism in humans.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Purine Metabolism\"], \"genes\": [\"SLC2A9\", \"ABCG2\", \"SLC22A12\"]}}, {\"id\": \"SLC22A12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC22A12\"], \"association\": \"Risk Factor\"}}, {\"id\": \"SLC2A9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC2A9\"], \"association\": \"Risk Factor\"}}, {\"id\": \"Serum Uric Acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Elevated\", \"term_id\": \"NCIT:C61034\", \"term_label\": \"Serum Uric Acid Measurement\", \"readouts\": [{\"target\": \"Hyperuricemia\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"regulatory_endpoint_refs\": [\"FDA-SE-adult-noncancer-029\"], \"_regulatory_endpoints\": [{\"row_id\": \"FDA-SE-adult-noncancer-029\", \"source_table\": \"ADULT_NONCANCER\", \"disease_or_use\": \"Gout\", \"patient_population\": \"Patients with gout\", \"surrogate_endpoint\": \"Serum uric acid\", \"approval_type\": \"TRADITIONAL\", \"drug_mechanism_of_action\": \"Xanthine oxidase inhibitor; URAT1 inhibitor; Uricase\", \"endpoint_validation_level\": \"VALIDATED_SURROGATE_ENDPOINT\", \"clinical_benefit_linkage\": \"KNOWN_TO_PREDICT_CLINICAL_BENEFIT\", \"context_of_use\": \"Disease/use: Gout; population: Patients with gout; endpoint: Serum uric acid; approval context: traditional; drug mechanism: Xanthine oxidase inhibitor; URAT1 inhibitor; Uricase.\", \"source_url\": \"https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure\"}], \"interpretation\": \"Higher serum uric acid tracks the hyperuricemic biochemical state that drives urate crystal supersaturation; reduction under xanthine oxidase inhibitors, URAT1 inhibitors, or uricase reports pharmacodynamic urate-lowering in gout.\"}]}}], \"edges\": [{\"source\": \"Hyperuricemia\", \"target\": \"Serum Uric Acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher serum uric acid tracks the hyperuricemic biochemical state that drives urate crystal supersaturation; reduction under xanthine oxidase inhibitors, URAT1 inhibitors, or uricase reports pharmacodynamic urate-lowering in gout.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"SLC2A9\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCG2\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC22A12\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3442,6 +3661,8 @@
                 
                 <div class="evidence-explanation">Directly links MSU crystal formation to the development of painful acute arthritis in gout.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3459,6 +3680,8 @@
                 
                 
                 <div class="evidence-explanation">Explains the cellular mechanism underlying acute arthritis through macrophage-mediated inflammatory cascade initiation.</div>
+                
+                
                 
             </div>
             
@@ -3635,6 +3858,8 @@
                 
                 <div class="evidence-explanation">The 2020 ACR guideline strongly recommends NSAIDs as first-line treatment for acute gout flares.</div>
                 
+                
+                
             </div>
             
             
@@ -3681,6 +3906,8 @@
                 
                 
                 <div class="evidence-explanation">The 2020 ACR guideline strongly recommends colchicine as first-line treatment for acute gout flares.</div>
+                
+                
                 
             </div>
             
@@ -3729,6 +3956,8 @@
                 
                 <div class="evidence-explanation">The 2020 ACR guideline strongly recommends glucocorticoids as first-line treatment for acute gout flares.</div>
                 
+                
+                
             </div>
             
             
@@ -3776,6 +4005,8 @@
                 
                 <div class="evidence-explanation">Describes the paradoxical early flare phenomenon with XOI treatment, an important clinical consideration.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3793,6 +4024,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that sustained XOI urate-lowering therapy normalizes serum urate and reduces flares through modulation of immune proteomes.</div>
+                
+                
                 
             </div>
             
@@ -3840,6 +4073,8 @@
                 
                 
                 <div class="evidence-explanation">Shows that febuxostat has anti-inflammatory effects beyond urate lowering by modulating complement activation in macrophages.</div>
+                
+                
                 
             </div>
             
@@ -4034,6 +4269,98 @@
                 <div class="item-desc">Context: Usually &gt;6.8 mg/dL, may be normal during acute attack</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Pharmacodynamic Marker Of
+                        </span>
+                        <span class="readout-target">Hyperuricemia</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Pharmacodynamic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Higher serum uric acid tracks the hyperuricemic biochemical state that drives urate crystal supersaturation; reduction under xanthine oxidase inhibitors, URAT1 inhibitors, or uricase reports pharmacodynamic urate-lowering in gout.</div>
+                        
+                        
+                        <div class="regulatory-endpoints">
+                            
+                            <div class="regulatory-endpoint">
+                                <div>
+                                    
+                                    <a class="regulatory-endpoint-id" href="https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure" target="_blank" rel="noopener">FDA-SE-adult-noncancer-029</a>
+                                    
+                                    <span class="tag" style="background: #dbeafe; color: #1d4ed8; font-size: 0.72rem;">FDA</span>
+                                </div>
+                                <div class="regulatory-endpoint-title">Serum uric acid</div>
+                                <div class="regulatory-endpoint-meta">
+                                    
+                                    <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.72rem;">
+                                        Traditional
+                                    </span>
+                                    
+                                    
+                                    <span class="tag" style="background: #dcfce7; color: #166534; font-size: 0.72rem;">
+                                        Validated Surrogate Endpoint
+                                    </span>
+                                    
+                                </div>
+                                
+                                <div style="margin-top: 5px; color: #4f46e5;">Patients with gout</div>
+                                
+                            </div>
+                            
+                        </div>
+                        
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39426967" target="_blank">PMID:39426967</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"At 48 weeks ULT, serum urate normalized in all gout patients, and flares declined in association with significantly altered proteins"</div>
+                
+                
+                <div class="evidence-explanation">Supports serum urate normalization as a pharmacodynamic readout of urate-lowering therapy in gout.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
     
     
             </div>
@@ -4049,6 +4376,7 @@
                 <div class="item-desc">Context: Acute flare</div>
                 
                 
+                
     
     
             </div>
@@ -4062,6 +4390,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Negatively birefringent MSU crystals diagnostic</div>
+                
                 
                 
     
@@ -4099,7 +4428,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Gout
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-05-09T16:35:30Z&#39;
+updated_date: &#39;2026-05-12T00:25:12Z&#39;
 category: Complex
 parents:
 - Metabolic Disease
@@ -4355,6 +4684,37 @@ biochemical:
 - name: Serum Uric Acid
   presence: Elevated
   context: Usually &gt;6.8 mg/dL, may be normal during acute attack
+  readouts:
+  - target: Hyperuricemia
+    relationship: PHARMACODYNAMIC_MARKER_OF
+    direction: POSITIVE
+    endpoint_context: PHARMACODYNAMIC
+    regulatory_endpoint_refs:
+    - FDA-SE-adult-noncancer-029
+    interpretation: &gt;-
+      Higher serum uric acid tracks the hyperuricemic biochemical state that
+      drives urate crystal supersaturation; reduction under xanthine oxidase
+      inhibitors, URAT1 inhibitors, or uricase reports pharmacodynamic
+      urate-lowering in gout.
+    evidence:
+    - reference: PMID:39426967
+      reference_title: &#34;Effective xanthine oxidase inhibitor urate lowering therapy in gout is linked to an emergent serum protein interactome of complement and inflammation modulators.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        At 48 weeks ULT, serum urate normalized in all gout patients, and
+        flares declined in association with significantly altered proteins
+      explanation: &gt;-
+        Supports serum urate normalization as a pharmacodynamic readout of
+        urate-lowering therapy in gout.
+  biomarker_term:
+    preferred_term: Serum Uric Acid Measurement
+    term:
+      id: NCIT:C61034
+      label: Serum Uric Acid Measurement
+  synonyms:
+  - Serum urate
+  - Uric acid
 - name: CRP
   presence: Elevated
   context: Acute flare
@@ -5051,7 +5411,7 @@ Gout is a sterile, crystal-driven inflammatory arthritis initiated by supersatur
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gout", "mondoId": "MONDO:0005393", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gout", "yamlRevision": "473e5a0b505a"};
+        const OS_CONFIG = {"diseaseName": "Gout", "mondoId": "MONDO:0005393", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gout", "yamlRevision": "b0923e21b440"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

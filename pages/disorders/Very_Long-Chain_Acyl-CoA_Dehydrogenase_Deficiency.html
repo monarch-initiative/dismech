@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2739,6 +2930,8 @@
                 
                 <div class="evidence-explanation">Directly supports the early severe cardiac VLCAD subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -2797,6 +2990,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports the infantile/childhood hepatic-hypoketotic subtype.</div>
+                
+                
                 
             </div>
             
@@ -2857,6 +3052,8 @@
                 
                 <div class="evidence-explanation">Directly supports the later-onset myopathic VLCAD subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2876,6 +3073,8 @@
                 
                 
                 <div class="evidence-explanation">Adult cohort confirms myopathic presentations as the predominant adult phenotype.</div>
+                
+                
                 
             </div>
             
@@ -3073,6 +3272,8 @@
                 
                 <div class="evidence-explanation">Provides disease-level context for VLCADD as an FAO disorder, but only partially supports the specific catalytic-activity claim.</div>
                 
+                
+                
             </div>
             
             
@@ -3212,6 +3413,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the central role of FAO in mitochondrial ATP generation.</div>
+                
+                
                 
             </div>
             
@@ -3482,6 +3685,8 @@
                 
                 <div class="evidence-explanation">Supports high-energy-organ involvement including heart, liver, and systemic metabolic failure.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3501,6 +3706,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates impaired metabolic flexibility and energy homeostasis in VLCAD deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3614,6 +3821,8 @@
                 
                 <div class="evidence-explanation">Demonstrates widespread metabolic disruption from accumulated toxic intermediates.</div>
                 
+                
+                
             </div>
             
             
@@ -3712,6 +3921,8 @@
                 
                 <div class="evidence-explanation">Supports secondary OXPHOS dysfunction beyond the primary FAO defect.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3731,6 +3942,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports VLCAD-OXPHOS supercomplex interaction disruption.</div>
+                
+                
                 
             </div>
             
@@ -3846,6 +4059,8 @@
                 
                 <div class="evidence-explanation">Metabolomics data consistent with oxidative stress in VLCADD newborns.</div>
                 
+                
+                
             </div>
             
             
@@ -3921,6 +4136,8 @@
                 
                 <div class="evidence-explanation">Details specific TLR4 pathway impairment in VLCAD deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3955,7 +4172,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACADVL molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACADVL pathogenic variants reduce very long-chain acyl-CoA dehydrogenase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"fatty acid beta-oxidation\"], \"genes\": [\"ACADVL\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"ACADVL variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACADVL\"], \"variant_count\": 1}}, {\"id\": \"Avoidance of fasting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Frequent feeding and fasting limitation to prevent catabolic stress is the cornerstone of VLCAD management. Maximum fasting duration is age-dependent and shorter than in healthy individuals.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cardiac arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arrhythmias including ventricular fibrillation may occur in the severe neonatal form and are related to lipotoxic effects of accumulated long-chain acylcarnitines on cardiac conduction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated or hypertrophic cardiomyopathy predominantly in severe neonatal form. May present with pericardial effusion and arrhythmias.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum CK during rhabdomyolysis episodes. In an adult cohort, mean CK was 68,958 U/L; pediatric cases report peaks up to 76,656 U/L.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003236\"}}, {\"id\": \"Emergency glucose therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rapid carbohydrate support during illness or decompensation via intravenous glucose (at least 10% dextrose) to reverse catabolism and prevent further lipolysis.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced exercise capacity and exercise-induced muscle symptoms. In adult cohorts, exercise intolerance is a principal symptom.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Glucagon\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Glutathione\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement during acute metabolic decompensation, associated with hepatic steatosis from impaired fatty acid oxidation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia during metabolic decompensation, resulting from impaired hepatic FAO support for ureagenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia with inadequate ketone production during fasting or catabolic stress. A feared complication across all VLCAD subtypes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Immunometabolic dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCAD-deficient cells show impaired TLR4 signaling and reduced pro-inflammatory cytokine induction after LPS stimulation, connecting long-chain FAO to innate immune competence and helping explain why infection and inflammation trigger metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"toll-like receptor 4 signaling pathway\"]}}, {\"id\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial oxidation of long-chain fatty acyl-CoA substrates (C12-C20), especially during fasting and other catabolic states, reduces acetyl-CoA generation, limits ATP production, and impairs hepatic ketogenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"very long-chain fatty acid metabolic process\", \"fatty acid beta-oxidation\"]}}, {\"id\": \"Ketone bodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated lactate during metabolic crises, reflecting impaired mitochondrial energy metabolism and compensatory anaerobic glycolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low energy and reduced responsiveness during metabolic crises, associated with hypoglycemia and energy failure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Lipotoxic metabolite accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulating long-chain acylcarnitines (especially C14:1 and related C14-C18 species) and fatty acid intermediates may contribute directly to pathology through increased cellular permeability, inflammation, calcium signaling disruption, and arrhythmogenic potential.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lipid metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Long-chain acylcarnitines (C14, C16, C18 species)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Long-chain carboxylic and dicarboxylic acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Long-chain fat restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary restriction of long-chain triglycerides to approximately 10% of total energy intake, while ensuring adequate essential fatty acid supply and monitoring fat-soluble vitamins.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Medium-chain triglyceride supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MCT supplementation provides an alternative energy substrate that bypasses the VLCAD enzyme block. In long-chain FAODs, MCT is supplemented at 10-25% of total energy, with total MCT plus LCT maintained at 20-35% of energy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent proximal muscle weakness may develop in some patients, sometimes associated with the myopathic form.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia, particularly in the severe neonatal form, reflecting systemic energy deficit in skeletal muscle.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle pain is a common symptom, particularly in the later-onset myopathic form, and may occur independently of rhabdomyolysis episodes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Over 400 pathogenic ACADVL variants described\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in ACADVL cause VLCAD deficiency. The mutation spectrum includes missense, nonsense, splice-site, and small insertions/deletions. Genotype-phenotype correlations are imperfect; functional testing of residual enzyme activity provides better prognostic information than genotype alone.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Oxidative stress and glutathione vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCAD deficiency increases reactive oxygen species production and renders cells vulnerable to glutathione depletion under metabolic stress. Mitochondrial NADPH production is relevant to GSH recycling and cellular resilience.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\", \"glutathione metabolic process\"]}}, {\"id\": \"Pre-exercise carbohydrate or MCT loading\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patients at risk of rhabdomyolysis should ingest MCT or carbohydrates or a combination of both approximately 20 minutes before exercise to provide alternative energy substrates and reduce reliance on impaired long-chain FAO.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent muscle breakdown, often triggered by exercise, fasting, cold, or illness. In an adult FAOD cohort, rhabdomyolysis occurred in 84% of patients, with mean CK 68,958 U/L. VLCAD subgroup had 4.9 episodes per year pre-diagnosis, declining to 2.5 per year post-diagnosis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Secondary mitochondrial dysfunction and OXPHOS impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCAD interacts physically with OXPHOS supercomplexes; VLCAD deficiency disrupts these interactions and impairs electron transport chain function, worsening bioenergetics beyond the primary FAO defect.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures, including status epilepticus or epileptic spasms, can occur as severe neurologic presentations in VLCAD deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tetradecenoylcarnitine (C14:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tissue energy deficit in high-demand organs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy deficiency affects myocardium, skeletal muscle, and liver. Impaired FAO reduces availability of reducing equivalents and acetyl-CoA for mitochondrial ATP production and hepatic ketogenesis, forcing compensatory reliance on glucose utilization and gluconeogenesis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"oxidative phosphorylation\", \"gluconeogenesis\"], \"locations\": [\"heart\", \"skeletal muscle tissue\", \"liver\"]}}, {\"id\": \"Triheptanoin (UX007)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FDA-approved odd-chain triglyceride therapy for long-chain FAODs. Triheptanoin provides anaplerotic substrates (propionyl-CoA) that support the TCA cycle and gluconeogenesis, dosed at approximately 20-35% of total energy intake. GI adverse effects may improve with dose fractionation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"VLCAD enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting associated with fasting intolerance and metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"ACADVL molecular function deficiency\", \"target\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACADVL molecular function deficiency\", \"target\": \"VLCAD enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Lipotoxic metabolite accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Ketone bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Tetradecenoylcarnitine (C14:1)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Long-chain acylcarnitines (C14, C16, C18 species)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Glucagon\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Elevated creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipotoxic metabolite accumulation\", \"target\": \"Secondary mitochondrial dysfunction and OXPHOS impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipotoxic metabolite accumulation\", \"target\": \"Cardiac arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipotoxic metabolite accumulation\", \"target\": \"Long-chain carboxylic and dicarboxylic acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary mitochondrial dysfunction and OXPHOS impairment\", \"target\": \"Oxidative stress and glutathione vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and glutathione vulnerability\", \"target\": \"Immunometabolic dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and glutathione vulnerability\", \"target\": \"Glutathione\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Avoidance of fasting\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Medium-chain triglyceride supplementation\", \"target\": \"ACADVL molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Long-chain fat restriction\", \"target\": \"Lipotoxic metabolite accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (UX007)\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Emergency glucose therapy\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pre-exercise carbohydrate or MCT loading\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ACADVL variants\", \"target\": \"ACADVL molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Over 400 pathogenic ACADVL variants described\", \"target\": \"ACADVL variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACADVL molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACADVL pathogenic variants reduce very long-chain acyl-CoA dehydrogenase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"fatty acid beta-oxidation\"], \"genes\": [\"ACADVL\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"ACADVL variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACADVL\"], \"variant_count\": 1}}, {\"id\": \"Avoidance of fasting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Frequent feeding and fasting limitation to prevent catabolic stress is the cornerstone of VLCAD management. Maximum fasting duration is age-dependent and shorter than in healthy individuals.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cardiac arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arrhythmias including ventricular fibrillation may occur in the severe neonatal form and are related to lipotoxic effects of accumulated long-chain acylcarnitines on cardiac conduction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated or hypertrophic cardiomyopathy predominantly in severe neonatal form. May present with pericardial effusion and arrhythmias.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum CK during rhabdomyolysis episodes. In an adult cohort, mean CK was 68,958 U/L; pediatric cases report peaks up to 76,656 U/L.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003236\"}}, {\"id\": \"Emergency glucose therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rapid carbohydrate support during illness or decompensation via intravenous glucose (at least 10% dextrose) to reverse catabolism and prevent further lipolysis.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced exercise capacity and exercise-induced muscle symptoms. In adult cohorts, exercise intolerance is a principal symptom.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Glucagon\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\"}}, {\"id\": \"Glutathione\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement during acute metabolic decompensation, associated with hepatic steatosis from impaired fatty acid oxidation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia during metabolic decompensation, resulting from impaired hepatic FAO support for ureagenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia with inadequate ketone production during fasting or catabolic stress. A feared complication across all VLCAD subtypes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Immunometabolic dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCAD-deficient cells show impaired TLR4 signaling and reduced pro-inflammatory cytokine induction after LPS stimulation, connecting long-chain FAO to innate immune competence and helping explain why infection and inflammation trigger metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"toll-like receptor 4 signaling pathway\"]}}, {\"id\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial oxidation of long-chain fatty acyl-CoA substrates (C12-C20), especially during fasting and other catabolic states, reduces acetyl-CoA generation, limits ATP production, and impairs hepatic ketogenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"very long-chain fatty acid metabolic process\", \"fatty acid beta-oxidation\"]}}, {\"id\": \"Ketone bodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated lactate during metabolic crises, reflecting impaired mitochondrial energy metabolism and compensatory anaerobic glycolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low energy and reduced responsiveness during metabolic crises, associated with hypoglycemia and energy failure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Lipotoxic metabolite accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulating long-chain acylcarnitines (especially C14:1 and related C14-C18 species) and fatty acid intermediates may contribute directly to pathology through increased cellular permeability, inflammation, calcium signaling disruption, and arrhythmogenic potential.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lipid metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Long-chain acylcarnitines (C14, C16, C18 species)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\"}}, {\"id\": \"Long-chain carboxylic and dicarboxylic acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Long-chain fat restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary restriction of long-chain triglycerides to approximately 10% of total energy intake, while ensuring adequate essential fatty acid supply and monitoring fat-soluble vitamins.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Medium-chain triglyceride supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MCT supplementation provides an alternative energy substrate that bypasses the VLCAD enzyme block. In long-chain FAODs, MCT is supplemented at 10-25% of total energy, with total MCT plus LCT maintained at 20-35% of energy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent proximal muscle weakness may develop in some patients, sometimes associated with the myopathic form.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia, particularly in the severe neonatal form, reflecting systemic energy deficit in skeletal muscle.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle pain is a common symptom, particularly in the later-onset myopathic form, and may occur independently of rhabdomyolysis episodes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Over 400 pathogenic ACADVL variants described\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in ACADVL cause VLCAD deficiency. The mutation spectrum includes missense, nonsense, splice-site, and small insertions/deletions. Genotype-phenotype correlations are imperfect; functional testing of residual enzyme activity provides better prognostic information than genotype alone.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Oxidative stress and glutathione vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCAD deficiency increases reactive oxygen species production and renders cells vulnerable to glutathione depletion under metabolic stress. Mitochondrial NADPH production is relevant to GSH recycling and cellular resilience.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\", \"glutathione metabolic process\"]}}, {\"id\": \"Pre-exercise carbohydrate or MCT loading\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patients at risk of rhabdomyolysis should ingest MCT or carbohydrates or a combination of both approximately 20 minutes before exercise to provide alternative energy substrates and reduce reliance on impaired long-chain FAO.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent muscle breakdown, often triggered by exercise, fasting, cold, or illness. In an adult FAOD cohort, rhabdomyolysis occurred in 84% of patients, with mean CK 68,958 U/L. VLCAD subgroup had 4.9 episodes per year pre-diagnosis, declining to 2.5 per year post-diagnosis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Secondary mitochondrial dysfunction and OXPHOS impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCAD interacts physically with OXPHOS supercomplexes; VLCAD deficiency disrupts these interactions and impairs electron transport chain function, worsening bioenergetics beyond the primary FAO defect.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures, including status epilepticus or epileptic spasms, can occur as severe neurologic presentations in VLCAD deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tetradecenoylcarnitine (C14:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Tissue energy deficit in high-demand organs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy deficiency affects myocardium, skeletal muscle, and liver. Impaired FAO reduces availability of reducing equivalents and acetyl-CoA for mitochondrial ATP production and hepatic ketogenesis, forcing compensatory reliance on glucose utilization and gluconeogenesis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"oxidative phosphorylation\", \"gluconeogenesis\"], \"locations\": [\"heart\", \"skeletal muscle tissue\", \"liver\"]}}, {\"id\": \"Triheptanoin (UX007)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FDA-approved odd-chain triglyceride therapy for long-chain FAODs. Triheptanoin provides anaplerotic substrates (propionyl-CoA) that support the TCA cycle and gluconeogenesis, dosed at approximately 20-35% of total energy intake. GI adverse effects may improve with dose fractionation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"VLCAD enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting associated with fasting intolerance and metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"ACADVL molecular function deficiency\", \"target\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACADVL molecular function deficiency\", \"target\": \"VLCAD enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Lipotoxic metabolite accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Ketone bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Tetradecenoylcarnitine (C14:1)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Long-chain acylcarnitines (C14, C16, C18 species)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired very-long-chain fatty acid beta-oxidation\", \"target\": \"Glucagon\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Elevated creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tissue energy deficit in high-demand organs\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipotoxic metabolite accumulation\", \"target\": \"Secondary mitochondrial dysfunction and OXPHOS impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipotoxic metabolite accumulation\", \"target\": \"Cardiac arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipotoxic metabolite accumulation\", \"target\": \"Long-chain carboxylic and dicarboxylic acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary mitochondrial dysfunction and OXPHOS impairment\", \"target\": \"Oxidative stress and glutathione vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and glutathione vulnerability\", \"target\": \"Immunometabolic dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and glutathione vulnerability\", \"target\": \"Glutathione\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Avoidance of fasting\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Medium-chain triglyceride supplementation\", \"target\": \"ACADVL molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Long-chain fat restriction\", \"target\": \"Lipotoxic metabolite accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (UX007)\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Emergency glucose therapy\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pre-exercise carbohydrate or MCT loading\", \"target\": \"Tissue energy deficit in high-demand organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ACADVL variants\", \"target\": \"ACADVL molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Over 400 pathogenic ACADVL variants described\", \"target\": \"ACADVL variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4041,6 +4258,8 @@
                 
                 <div class="evidence-explanation">Directly supports cardiomyopathy in severe VLCAD.</div>
                 
+                
+                
             </div>
             
             
@@ -4096,6 +4315,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports arrhythmias in severe neonatal VLCAD.</div>
+                
+                
                 
             </div>
             
@@ -4162,6 +4383,8 @@
                 
                 <div class="evidence-explanation">Directly supports hepatomegaly as a feature of the hepatic VLCAD subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -4219,6 +4442,8 @@
                 
                 
                 <div class="evidence-explanation">Case evidence supports emesis/vomiting during VLCAD metabolic decompensation.</div>
+                
+                
                 
             </div>
             
@@ -4285,6 +4510,8 @@
                 
                 <div class="evidence-explanation">Directly supports hypoketotic hypoglycemia as a core VLCAD phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4304,6 +4531,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms hypoketotic hypoglycemia as a feared complication of VLCAD.</div>
+                
+                
                 
             </div>
             
@@ -4363,6 +4592,8 @@
                 
                 <div class="evidence-explanation">Review evidence directly supports hyperammonemia as an early VLCAD manifestation.</div>
                 
+                
+                
             </div>
             
             
@@ -4419,6 +4650,8 @@
                 
                 <div class="evidence-explanation">Review evidence directly supports lactic acidosis in early VLCAD disease.</div>
                 
+                
+                
             </div>
             
             
@@ -4474,6 +4707,8 @@
                 
                 
                 <div class="evidence-explanation">Quantifies elevated CK during rhabdomyolysis in adult FAOD cohort.</div>
+                
+                
                 
             </div>
             
@@ -4540,6 +4775,8 @@
                 
                 <div class="evidence-explanation">Directly supports recurrent rhabdomyolysis in later-onset VLCAD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4559,6 +4796,8 @@
                 
                 
                 <div class="evidence-explanation">Quantifies rhabdomyolysis frequency and severity in adult FAOD cohort.</div>
+                
+                
                 
             </div>
             
@@ -4616,6 +4855,8 @@
                 
                 <div class="evidence-explanation">Supports permanent muscle weakness as a complication of the myopathic form.</div>
                 
+                
+                
             </div>
             
             
@@ -4671,6 +4912,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports hypotonia in severe neonatal VLCAD.</div>
+                
+                
                 
             </div>
             
@@ -4737,6 +4980,8 @@
                 
                 <div class="evidence-explanation">Case evidence directly supports severe lethargy during VLCAD metabolic decompensation.</div>
                 
+                
+                
             </div>
             
             
@@ -4792,6 +5037,8 @@
                 
                 
                 <div class="evidence-explanation">Case-report title supports seizure/status epilepticus as secondary to VLCAD deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4858,6 +5105,8 @@
                 
                 <div class="evidence-explanation">Directly supports exercise intolerance as a principal symptom in adult VLCAD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4877,6 +5126,8 @@
                 
                 
                 <div class="evidence-explanation">Supports exercise intolerance in the myopathic form.</div>
+                
+                
                 
             </div>
             
@@ -4934,6 +5185,8 @@
                 
                 <div class="evidence-explanation">Directly supports myalgia as a principal symptom in adult FAOD including VLCAD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4953,6 +5206,8 @@
                 
                 
                 <div class="evidence-explanation">Supports muscle pain in the myopathic form.</div>
+                
+                
                 
             </div>
             
@@ -5043,6 +5298,8 @@
                 
                 <div class="evidence-explanation">Directly supports ACADVL biallelic pathogenic variants as causal.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5062,6 +5319,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the ACADVL-very long chain acyl-CoA dehydrogenase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5162,6 +5421,8 @@
                 
                 <div class="evidence-explanation">Nutritional guidance supports fasting prevention to maintain energy supply in FAODs.</div>
                 
+                
+                
             </div>
             
             
@@ -5201,6 +5462,8 @@
                 
                 <div class="evidence-explanation">Directly supports fasting avoidance in VLCAD management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5220,6 +5483,8 @@
                 
                 
                 <div class="evidence-explanation">Expert nutritional review supports fasting avoidance as a primary intervention.</div>
+                
+                
                 
             </div>
             
@@ -5308,6 +5573,8 @@
                 
                 <div class="evidence-explanation">Review evidence directly supports medium-chain fatty acid supplementation as bypass therapy.</div>
                 
+                
+                
             </div>
             
             
@@ -5346,6 +5613,8 @@
                 
                 
                 <div class="evidence-explanation">Provides quantitative dietary guidance for MCT supplementation.</div>
+                
+                
                 
             </div>
             
@@ -5434,6 +5703,8 @@
                 
                 <div class="evidence-explanation">Nutritional guidance supports reducing long-chain triglyceride exposure in long-chain FAODs.</div>
                 
+                
+                
             </div>
             
             
@@ -5473,6 +5744,8 @@
                 
                 <div class="evidence-explanation">Directly supports quantitative LCT restriction guidance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5492,6 +5765,8 @@
                 
                 
                 <div class="evidence-explanation">Supports clinical practice of LCT restriction guided by C14:1 levels.</div>
+                
+                
                 
             </div>
             
@@ -5580,6 +5855,8 @@
                 
                 <div class="evidence-explanation">Mouse-model evidence supports heptanoate as substrate support for glucose production in long-chain FAO defects.</div>
                 
+                
+                
             </div>
             
             
@@ -5619,6 +5896,8 @@
                 
                 <div class="evidence-explanation">Demonstrates heptanoate supports glucose homeostasis in VLCAD-deficient mice.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5638,6 +5917,8 @@
                 
                 
                 <div class="evidence-explanation">Expert review supports triheptanoin as a therapeutic option with good profile. Note &#34;Trihepatnoin&#34; is a typo in the original publication (correct spelling is triheptanoin).</div>
+                
+                
                 
             </div>
             
@@ -5726,6 +6007,8 @@
                 
                 <div class="evidence-explanation">Nutritional guidance supports IV glucose as emergency energy support.</div>
                 
+                
+                
             </div>
             
             
@@ -5765,6 +6048,8 @@
                 
                 <div class="evidence-explanation">Directly supports emergency dextrose therapy during catabolic crises.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5784,6 +6069,8 @@
                 
                 
                 <div class="evidence-explanation">Expert review confirms IV glucose as the primary emergency measure.</div>
+                
+                
                 
             </div>
             
@@ -5872,6 +6159,8 @@
                 
                 <div class="evidence-explanation">Nutritional guidance supports pre-exercise substrate loading for rhabdomyolysis prevention.</div>
                 
+                
+                
             </div>
             
             
@@ -5910,6 +6199,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports pre-exercise caloric loading as a management strategy.</div>
+                
+                
                 
             </div>
             
@@ -5988,6 +6279,8 @@
                 
                 
                 <div class="evidence-explanation">Supports organ-specific supportive management for cardiac complications.</div>
+                
+                
                 
             </div>
             
@@ -6115,6 +6408,8 @@
                 
                 <div class="evidence-explanation">Autosomal recessive inheritance supports the role of genetic counseling.</div>
                 
+                
+                
             </div>
             
             
@@ -6151,6 +6446,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6176,6 +6472,8 @@
                 
                 <div class="evidence-explanation">Review evidence directly supports C14:1 elevation in the characteristic VLCAD acylcarnitine profile.</div>
                 
+                
+                
             </div>
             
             
@@ -6197,6 +6495,7 @@
 </div>
                 
                 
+                
     
     
             </div>
@@ -6211,6 +6510,7 @@
                 
                 <div class="item-desc">Context: Elevated long-chain carboxylic and dicarboxylic acids accumulate due to impaired mitochondrial oxidation and are detectable on urine organic acid analysis during episodes.
 </div>
+                
                 
                 
     
@@ -6238,6 +6538,8 @@
                 
                 <div class="evidence-explanation">Review evidence directly supports elevated long-chain carboxylic and dicarboxylic acids in VLCAD.</div>
                 
+                
+                
             </div>
             
             
@@ -6257,6 +6559,7 @@
                 
                 <div class="item-desc">Context: Inappropriately low ketone body production during fasting, reflecting impaired hepatic ketogenesis from reduced acetyl-CoA generation. This hypoketotic state underlies the characteristic hypoglycemia.
 </div>
+                
                 
                 
     
@@ -6284,6 +6587,8 @@
                 
                 <div class="evidence-explanation">Directly supports hypoketotic state from impaired ketogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -6303,6 +6608,7 @@
                 
                 <div class="item-desc">Context: Fasting glucagon concentrations are significantly lower in VLCAD patients compared to controls, suggesting impaired glucagon secretion related to FAO defects.
 </div>
+                
                 
                 
     
@@ -6330,6 +6636,8 @@
                 
                 <div class="evidence-explanation">Directly supports low fasting glucagon in VLCAD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6349,6 +6657,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms glucagon deficit is intrinsic to VLCAD pathophysiology.</div>
+                
+                
                 
             </div>
             
@@ -6371,6 +6681,7 @@
 </div>
                 
                 
+                
     
     
             </div>
@@ -6385,6 +6696,7 @@
                 
                 <div class="item-desc">Context: Lymphocyte VLCAD enzyme activity is used for confirmatory diagnosis and phenotypic stratification. Patients with less than 10% residual activity tend to have more severe presentations.
 </div>
+                
                 
                 
     
@@ -6411,6 +6723,8 @@
                 
                 
                 <div class="evidence-explanation">Documents enzyme activity stratification and clinical correlation.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2737,6 +2928,8 @@
                 
                 <div class="evidence-explanation">GWAS cross-trait analysis supports heritable psychiatric genetic liability.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2756,6 +2949,8 @@
                 
                 
                 <div class="evidence-explanation">This supports polygenic risk architecture rather than a single causal locus.</div>
+                
+                
                 
             </div>
             
@@ -2934,6 +3129,8 @@
                 
                 <div class="evidence-explanation">The trial record supports food-choice behavior and neural activity as a mechanistic target in AN.</div>
                 
+                
+                
             </div>
             
             
@@ -3105,6 +3302,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis supports elevated endocrine and metabolic biomarkers in AN.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3124,6 +3323,8 @@
                 
                 
                 <div class="evidence-explanation">The authors explicitly connect biomarker differences with adaptation to starvation.</div>
+                
+                
                 
             </div>
             
@@ -3241,6 +3442,8 @@
                 
                 <div class="evidence-explanation">Longitudinal adolescent case-control data support cytokine alterations in acute AN.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3260,6 +3463,8 @@
                 
                 
                 <div class="evidence-explanation">This directly links immune markers with clinical variables and the gut microbiome.</div>
+                
+                
                 
             </div>
             
@@ -3336,6 +3541,8 @@
                 
                 <div class="evidence-explanation">Matched national cohort data support cardiovascular-risk assessment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3355,6 +3562,8 @@
                 
                 
                 <div class="evidence-explanation">The cohort quantifies increased cardiovascular risk among AN patients.</div>
+                
+                
                 
             </div>
             
@@ -3480,6 +3689,8 @@
                 
                 <div class="evidence-explanation">Hospitalized adolescent AN cohort data directly support severe bradycardia as a clinically important presentation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3501,6 +3712,8 @@ bone density"</div>
                 
                 
                 <div class="evidence-explanation">JAMA review identifies bradycardia as a medical complication of eating disorders including AN.</div>
+                
+                
                 
             </div>
             
@@ -3598,6 +3811,8 @@ bone density"</div>
                 
                 <div class="evidence-explanation">Lower reproductive hormones support endocrine disruption relevant to menstrual abnormalities, but amenorrhea itself is not named in the abstract.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3617,6 +3832,8 @@ bone density"</div>
                 
                 
                 <div class="evidence-explanation">Systematic review identifies hypothalamic amenorrhoea as an established feature and risk factor in AN.</div>
+                
+                
                 
             </div>
             
@@ -3683,6 +3900,8 @@ hormones"</div>
                 
                 <div class="evidence-explanation">JAMA review explicitly names hypokalemia as an electrolyte abnormality associated with eating disorders.</div>
                 
+                
+                
             </div>
             
             
@@ -3738,6 +3957,8 @@ hormones"</div>
                 
                 
                 <div class="evidence-explanation">JAMA review explicitly names hyponatremia as an electrolyte abnormality associated with eating disorders.</div>
+                
+                
                 
             </div>
             
@@ -3804,6 +4025,8 @@ bone density"</div>
                 
                 <div class="evidence-explanation">JAMA review identifies decreased bone density as a complication of eating disorders including AN.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3826,6 +4049,8 @@ HC."</div>
                 
                 <div class="evidence-explanation">Meta-analysis of 43 studies (N=4163) confirms reduced BMD at all measured sites in AN compared with healthy controls.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3845,6 +4070,8 @@ HC."</div>
                 
                 
                 <div class="evidence-explanation">Case-control study in adolescent girls demonstrates reduced hip BMD at the time of AN diagnosis.</div>
+                
+                
                 
             </div>
             
@@ -3907,6 +4134,8 @@ HC."</div>
                 
                 <div class="evidence-explanation">Trial background describes the restrictive-eating phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -3960,6 +4189,8 @@ HC."</div>
                 
                 
                 <div class="evidence-explanation">Clinical update identifies anxiety as a frequent comorbidity.</div>
+                
+                
                 
             </div>
             
@@ -4015,6 +4246,8 @@ HC."</div>
                 
                 <div class="evidence-explanation">Clinical update identifies depression as a frequent comorbidity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4035,6 +4268,8 @@ HC."</div>
                 
                 
                 <div class="evidence-explanation">JAMA review quantifies lifetime depression rate at 49.5% for AN.</div>
+                
+                
                 
             </div>
             
@@ -4092,6 +4327,8 @@ suicide."</div>
                 
                 
                 <div class="evidence-explanation">JAMA review reports that 25% of deaths in AN are from suicide, supporting the high prevalence of suicidal behavior.</div>
+                
+                
                 
             </div>
             
@@ -4187,6 +4424,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">Trial background directly connects AN with severe dietary restriction and weight loss behaviors.</div>
                 
+                
+                
             </div>
             
             
@@ -4249,6 +4488,8 @@ suicide."</div>
                 
                 
                 <div class="evidence-explanation">Clinical update identifies obsessive-compulsive disorders as a frequent psychiatric comorbidity of AN.</div>
+                
+                
                 
             </div>
             
@@ -4391,6 +4632,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">Clinical update identifies cognitive behavioral therapy as part of the treatment of choice for AN.</div>
                 
+                
+                
             </div>
             
             
@@ -4488,6 +4731,8 @@ suicide."</div>
                 
                 
                 <div class="evidence-explanation">Clinical update identifies family-based therapy as a treatment of choice for pediatric and adolescent AN.</div>
+                
+                
                 
             </div>
             
@@ -4590,6 +4835,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">Clinical update supports olanzapine specifically for weight gain while cautioning against broad psychopharmacotherapy efficacy claims.</div>
                 
+                
+                
             </div>
             
             
@@ -4669,6 +4916,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">The ICD-11 analysis supports using motivation and exclusions to distinguish AN from non-AN restrictive intake.</div>
                 
+                
+                
             </div>
             
             
@@ -4723,6 +4972,8 @@ suicide."</div>
                 
                 
                 <div class="evidence-explanation">Trial background supports purging as an AN-associated weight-loss behavior that can overlap with bulimia-spectrum presentations.</div>
+                
+                
                 
             </div>
             
@@ -4781,6 +5032,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">Clinical update supports depression as a common comorbidity requiring differential and comorbidity assessment.</div>
                 
+                
+                
             </div>
             
             
@@ -4837,6 +5090,8 @@ suicide."</div>
                 
                 
                 <div class="evidence-explanation">ICD-11 phenotype analysis supports the need for exclusion criteria when low weight may have non-AN explanations.</div>
+                
+                
                 
             </div>
             
@@ -4931,6 +5186,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">Captures the cross-disorder genetic-overlap finding.</div>
                 
+                
+                
             </div>
             
             
@@ -4974,6 +5231,8 @@ suicide."</div>
                 
                 
                 <div class="evidence-explanation">The abstract describes the dataset scale.</div>
+                
+                
                 
             </div>
             
@@ -5052,6 +5311,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">Captures the lower-biomarker portion of the meta-analysis findings.</div>
                 
+                
+                
             </div>
             
             
@@ -5095,6 +5356,8 @@ suicide."</div>
                 
                 
                 <div class="evidence-explanation">The abstract describes the biomarker meta-analysis design.</div>
+                
+                
                 
             </div>
             
@@ -5175,6 +5438,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">Captures the main cardiovascular event difference in the cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -5218,6 +5483,8 @@ suicide."</div>
                 
                 
                 <div class="evidence-explanation">The abstract describes the cohort design and matching strategy.</div>
+                
+                
                 
             </div>
             
@@ -5290,6 +5557,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">ClinicalTrials.gov record documents an rTMS study targeting food-choice behavior and neural activity.</div>
                 
+                
+                
             </div>
             
             
@@ -5349,6 +5618,8 @@ suicide."</div>
                 
                 <div class="evidence-explanation">ClinicalTrials.gov record documents a randomized neurostimulation trial in AN.</div>
                 
+                
+                
             </div>
             
             
@@ -5407,6 +5678,8 @@ suicide."</div>
                 
                 
                 <div class="evidence-explanation">ClinicalTrials.gov record documents a theta burst stimulation feasibility study for AN.</div>
+                
+                
                 
             </div>
             

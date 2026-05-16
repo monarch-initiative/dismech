@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2729,6 +2920,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2748,6 +2941,8 @@
                 
                 
                 <div class="evidence-explanation">Human case-series background supports biallelic SUMF1 causation.</div>
+                
+                
                 
             </div>
             
@@ -2838,6 +3033,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists the historical neonatal form and its severity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2857,6 +3054,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports worse prognosis in neonatal-onset MSD.</div>
+                
+                
                 
             </div>
             
@@ -2916,6 +3115,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies the infantile form as the most common historical form.</div>
                 
+                
+                
             </div>
             
             
@@ -2973,6 +3174,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies juvenile MSD as the rarest historical form.</div>
+                
+                
                 
             </div>
             
@@ -3104,6 +3307,8 @@
                 
                 <div class="evidence-explanation">Cell/biochemical study establishes FGly as the active-site residue needed for sulfatase catalysis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3124,6 +3329,8 @@
                 
                 <div class="evidence-explanation">Study identified FGE and MSD patient mutations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3143,6 +3350,8 @@
                 
                 
                 <div class="evidence-explanation">Review summarizes the variant-level FGE stability and activity defect.</div>
+                
+                
                 
             </div>
             
@@ -3243,6 +3452,8 @@
                 
                 <div class="evidence-explanation">Functional complementation paper directly states the shared sulfatase activity defect.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3263,6 +3474,8 @@
                 
                 <div class="evidence-explanation">SUMF1 coexpression increases sulfatase activity, supporting causality.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3282,6 +3495,8 @@
                 
                 
                 <div class="evidence-explanation">Review supports broad sulfatase activity reduction from SUMF1/FGE loss.</div>
+                
+                
                 
             </div>
             
@@ -3469,6 +3684,8 @@
                 
                 <div class="evidence-explanation">Review links sulfatase loss to lysosomal storage.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3488,6 +3705,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports tissue storage of sulfated substrates.</div>
+                
+                
                 
             </div>
             
@@ -3618,6 +3837,8 @@
                 
                 <div class="evidence-explanation">Review supports lysosomal dysfunction downstream of storage.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3638,6 +3859,8 @@
                 
                 <div class="evidence-explanation">Model-organism evidence summarized by the review connects SUMF1 loss, astrocyte dysfunction, and neuronal loss.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3657,6 +3880,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic clinical survey supports neurologic involvement as a main disease domain.</div>
+                
+                
                 
             </div>
             
@@ -3749,6 +3974,8 @@
                 
                 <div class="evidence-explanation">Ophthalmology review supports common ocular damage.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3769,6 +3996,8 @@
                 
                 <div class="evidence-explanation">Review identifies tapetoretinal degeneration as the main ocular pathology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3788,6 +4017,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports hearing loss as a frequent diagnostic finding.</div>
+                
+                
                 
             </div>
             
@@ -3868,6 +4099,8 @@
                 
                 <div class="evidence-explanation">Orphanet definition includes skeletal anomalies among MSD manifestations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3887,6 +4120,8 @@
                 
                 
                 <div class="evidence-explanation">Review supports MPS-like skeletal/connective-tissue involvement.</div>
+                
+                
                 
             </div>
             
@@ -3943,6 +4178,8 @@
                 
                 <div class="evidence-explanation">Review summarizes reported ultrastructural storage pathology.</div>
                 
+                
+                
             </div>
             
             
@@ -3974,7 +4211,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9-SUMF1 gene replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV9/SUMF1 gene replacement is a preclinical strategy designed to supply functional SUMF1 and restore sulfatase activity; evidence is currently from mouse and rat preclinical studies rather than clinical use.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Abnormality of peripheral nerve conduction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003134\"}}, {\"id\": \"Abnormality of retinal pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007703\"}}, {\"id\": \"Anteverted nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Broad hallux phalanx\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010059\"}}, {\"id\": \"Broad thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011304\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Coarse hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002208\"}}, {\"id\": \"Corneal opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007957\"}}, {\"id\": \"Depressed nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycosaminoglycan and sulfatide accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hematopoietic cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hematopoietic cell or bone marrow transplantation is investigational in MSD; a two-sibling attenuated-MSD case series reports correction of available biomarkers and possible slowing of disease progression, with longer follow-up needed.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008064\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001387\"}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002415\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mucopolysacchariduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008155\"}}, {\"id\": \"Neonatal hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sulfatide and glycosaminoglycan storage disrupts central and peripheral nervous-system cells, producing leukodystrophy-like disease, developmental impairment, regression, seizures, hearing/vision loss, and peripheral nerve involvement.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"lysosome\"]}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Rapid neurologic deterioration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007307\"}}, {\"id\": \"Reduced multiple sulfatase activities\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Retinal and Auditory Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MSD commonly affects sensory systems through retinal degeneration and sensorineural hearing impairment.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"SUMF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SUMF1\"], \"association\": \"Biallelic pathogenic variants\"}}, {\"id\": \"SUMF1 Formylglycine-Generating Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic SUMF1 variants reduce formylglycine-generating enzyme stability or catalytic activity in the endoplasmic reticulum.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"post-translational sulfatase activation\"], \"genes\": [\"SUMF1\"], \"locations\": [\"endoplasmic reticulum\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal and Joint Storage Manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mucopolysaccharidosis-like connective-tissue and skeletal storage pathology causes short stature, joint stiffness, and broad distal phalanges.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Smooth philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000319\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Sulfatase Catalytic Activation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failed FGE-dependent formylglycine generation lowers activity of multiple cellular sulfatases, including lysosomal sulfatases.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"sulfatase activity\"]}}, {\"id\": \"Sulfated Substrate Lysosomal Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced sulfatase activities cause lysosomal accumulation of glycosaminoglycans, sulfatides, and other sulfated substrates.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"lysosome organization\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"Thick eyebrow\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000574\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"SUMF1 Formylglycine-Generating Enzyme Deficiency\", \"target\": \"Sulfatase Catalytic Activation Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfatase Catalytic Activation Failure\", \"target\": \"Reduced multiple sulfatase activities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfatase Catalytic Activation Failure\", \"target\": \"Sulfated Substrate Lysosomal Storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Glycosaminoglycan and sulfatide accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Mucopolysacchariduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Retinal and Auditory Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Skeletal and Joint Storage Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Coarse hair\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Smooth philtrum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Anteverted nares\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Thick eyebrow\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Depressed nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Neonatal hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Abnormality of peripheral nerve conduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Rapid neurologic deterioration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Abnormality of retinal pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Corneal opacity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and Joint Storage Manifestations\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and Joint Storage Manifestations\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and Joint Storage Manifestations\", \"target\": \"Broad hallux phalanx\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and Joint Storage Manifestations\", \"target\": \"Broad thumb\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hematopoietic cell transplantation\", \"target\": \"Sulfated Substrate Lysosomal Storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9-SUMF1 gene replacement therapy\", \"target\": \"SUMF1 Formylglycine-Generating Enzyme Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9-SUMF1 gene replacement therapy\", \"target\": \"Sulfatase Catalytic Activation Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SUMF1\", \"target\": \"SUMF1 Formylglycine-Generating Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9-SUMF1 gene replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV9/SUMF1 gene replacement is a preclinical strategy designed to supply functional SUMF1 and restore sulfatase activity; evidence is currently from mouse and rat preclinical studies rather than clinical use.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Abnormality of peripheral nerve conduction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003134\"}}, {\"id\": \"Abnormality of retinal pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007703\"}}, {\"id\": \"Anteverted nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Broad hallux phalanx\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010059\"}}, {\"id\": \"Broad thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011304\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Coarse hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002208\"}}, {\"id\": \"Corneal opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007957\"}}, {\"id\": \"Depressed nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycosaminoglycan and sulfatide accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Positive\"}}, {\"id\": \"Hematopoietic cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hematopoietic cell or bone marrow transplantation is investigational in MSD; a two-sibling attenuated-MSD case series reports correction of available biomarkers and possible slowing of disease progression, with longer follow-up needed.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008064\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001387\"}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002415\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mucopolysacchariduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008155\"}}, {\"id\": \"Neonatal hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sulfatide and glycosaminoglycan storage disrupts central and peripheral nervous-system cells, producing leukodystrophy-like disease, developmental impairment, regression, seizures, hearing/vision loss, and peripheral nerve involvement.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"lysosome\"]}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Rapid neurologic deterioration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007307\"}}, {\"id\": \"Reduced multiple sulfatase activities\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Deficient\"}}, {\"id\": \"Retinal and Auditory Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MSD commonly affects sensory systems through retinal degeneration and sensorineural hearing impairment.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"SUMF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SUMF1\"], \"presence\": \"Positive\", \"association\": \"Biallelic pathogenic variants\"}}, {\"id\": \"SUMF1 Formylglycine-Generating Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic SUMF1 variants reduce formylglycine-generating enzyme stability or catalytic activity in the endoplasmic reticulum.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"post-translational sulfatase activation\"], \"genes\": [\"SUMF1\"], \"locations\": [\"endoplasmic reticulum\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal and Joint Storage Manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mucopolysaccharidosis-like connective-tissue and skeletal storage pathology causes short stature, joint stiffness, and broad distal phalanges.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Smooth philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000319\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Sulfatase Catalytic Activation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failed FGE-dependent formylglycine generation lowers activity of multiple cellular sulfatases, including lysosomal sulfatases.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"sulfatase activity\"]}}, {\"id\": \"Sulfated Substrate Lysosomal Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced sulfatase activities cause lysosomal accumulation of glycosaminoglycans, sulfatides, and other sulfated substrates.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"lysosome organization\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"Thick eyebrow\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000574\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"SUMF1 Formylglycine-Generating Enzyme Deficiency\", \"target\": \"Sulfatase Catalytic Activation Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfatase Catalytic Activation Failure\", \"target\": \"Reduced multiple sulfatase activities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfatase Catalytic Activation Failure\", \"target\": \"Sulfated Substrate Lysosomal Storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Glycosaminoglycan and sulfatide accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Mucopolysacchariduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Retinal and Auditory Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Skeletal and Joint Storage Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Coarse hair\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Smooth philtrum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Anteverted nares\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Thick eyebrow\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfated Substrate Lysosomal Storage\", \"target\": \"Depressed nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Neonatal hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Abnormality of peripheral nerve conduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroglial Lysosomal Dysfunction and Neurodegeneration\", \"target\": \"Rapid neurologic deterioration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Abnormality of retinal pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal and Auditory Degeneration\", \"target\": \"Corneal opacity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and Joint Storage Manifestations\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and Joint Storage Manifestations\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and Joint Storage Manifestations\", \"target\": \"Broad hallux phalanx\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and Joint Storage Manifestations\", \"target\": \"Broad thumb\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hematopoietic cell transplantation\", \"target\": \"Sulfated Substrate Lysosomal Storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9-SUMF1 gene replacement therapy\", \"target\": \"SUMF1 Formylglycine-Generating Enzyme Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9-SUMF1 gene replacement therapy\", \"target\": \"Sulfatase Catalytic Activation Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SUMF1\", \"target\": \"SUMF1 Formylglycine-Generating Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4070,6 +4307,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4134,6 +4373,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4200,6 +4441,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4219,6 +4462,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports hearing loss as a frequent finding at diagnosis.</div>
+                
+                
                 
             </div>
             
@@ -4285,6 +4530,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4304,6 +4551,8 @@
                 
                 
                 <div class="evidence-explanation">Ophthalmology review supports common ocular involvement.</div>
+                
+                
                 
             </div>
             
@@ -4361,6 +4610,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4416,6 +4667,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4473,6 +4726,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4492,6 +4747,8 @@
                 
                 
                 <div class="evidence-explanation">Ophthalmology review supports retinal pigmentary degeneration as a major ocular manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4548,6 +4805,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4614,6 +4873,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4669,6 +4930,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4726,6 +4989,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4782,6 +5047,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4837,6 +5104,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4903,6 +5172,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4922,6 +5193,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports ichthyosis as a frequent diagnostic finding.</div>
+                
+                
                 
             </div>
             
@@ -4988,6 +5261,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5053,6 +5328,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5108,6 +5385,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5174,6 +5453,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5229,6 +5510,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports leukodystrophy as one of the most frequent findings at diagnosis.</div>
+                
+                
                 
             </div>
             
@@ -5286,6 +5569,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5341,6 +5626,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5398,6 +5685,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5453,6 +5742,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5519,6 +5810,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5584,6 +5877,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5639,6 +5934,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5696,6 +5993,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5751,6 +6050,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5808,6 +6109,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5864,6 +6167,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5919,6 +6224,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -6005,6 +6312,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists SUMF1 as the disease-causing gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6025,6 +6334,8 @@
                 
                 <div class="evidence-explanation">Review links SUMF1/FGE mutations to the biochemical defect.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6044,6 +6355,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic clinical survey supports SUMF1 causation.</div>
+                
+                
                 
             </div>
             
@@ -6136,6 +6449,8 @@
                 
                 <div class="evidence-explanation">Review states that established curative therapy is unavailable.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6156,6 +6471,8 @@
                 
                 <div class="evidence-explanation">Review supports multidisciplinary quality-of-life-centered care.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6175,6 +6492,8 @@
                 
                 
                 <div class="evidence-explanation">Consensus statement supports systems-based complex management.</div>
+                
+                
                 
             </div>
             
@@ -6262,6 +6581,8 @@
                 
                 <div class="evidence-explanation">Human case series states the proposed cross-correction rationale for HCT.</div>
                 
+                
+                
             </div>
             
             
@@ -6301,6 +6622,8 @@
                 
                 <div class="evidence-explanation">Case series supports biochemical correction after HCT.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6320,6 +6643,8 @@
                 
                 
                 <div class="evidence-explanation">Case series supports possible clinical benefit while acknowledging need for longer follow-up.</div>
+                
+                
                 
             </div>
             
@@ -6407,6 +6732,8 @@
                 
                 <div class="evidence-explanation">Preclinical study describes AAV9/SUMF1 gene delivery in a mouse model.</div>
                 
+                
+                
             </div>
             
             
@@ -6450,6 +6777,8 @@
                 
                 <div class="evidence-explanation">Preclinical study reports increased sulfatase activity after AAV9/SUMF1 treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -6489,6 +6818,8 @@
                 
                 <div class="evidence-explanation">Mouse study supports survival extension after neonatal AAV9/SUMF1 treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6508,6 +6839,8 @@
                 
                 
                 <div class="evidence-explanation">Preclinical study supports broad distribution and phenotypic improvements.</div>
+                
+                
                 
             </div>
             
@@ -6542,6 +6875,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6567,6 +6901,8 @@
                 
                 <div class="evidence-explanation">Review supports simultaneous low sulfatase activity as a diagnostic biochemical finding.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6587,6 +6923,8 @@
                 
                 <div class="evidence-explanation">Consensus statement supports broad sulfatase involvement.</div>
                 
+                
+                
             </div>
             
             
@@ -6603,6 +6941,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
                     
                 </div>
+                
                 
                 
     
@@ -6630,6 +6969,8 @@
                 
                 <div class="evidence-explanation">Review supports storage of glycosaminoglycans and sulfatides.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6649,6 +6990,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review supports widespread accumulation of sulfated substrates.</div>
+                
+                
                 
             </div>
             

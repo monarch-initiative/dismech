@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2590,7 +2781,7 @@
             
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
@@ -2949,6 +3140,8 @@
                 
                 <div class="evidence-explanation">Lynch et al. 2004 landmark paper identifying somatic EGFR mutations in the tyrosine kinase domain that correlate with gefitinib sensitivity, establishing the molecular basis of EGFR-mutant NSCLC.</div>
                 
+                
+                
             </div>
             
             
@@ -3113,6 +3306,8 @@
                 
                 <div class="evidence-explanation">The FLAURA trial demonstrates the clinical manifestation of oncogene addiction in EGFR-mutant NSCLC, with high response rates to targeted EGFR inhibition.</div>
                 
+                
+                
             </div>
             
             
@@ -3191,6 +3386,8 @@
                 
                 <div class="evidence-explanation">Pao et al. 2005 discovery of the T790M gatekeeper mutation as the molecular basis of acquired resistance to first-generation EGFR TKIs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3210,6 +3407,8 @@
                 
                 
                 <div class="evidence-explanation">Sequist et al. 2011 systematic analysis of 37 resistant tumors revealing the diversity of acquired resistance mechanisms including T790M, MET amplification, PIK3CA mutations, EMT, and SCLC transformation.</div>
+                
+                
                 
             </div>
             
@@ -3265,6 +3464,8 @@
                 
                 
                 <div class="evidence-explanation">Abstract reports a NSCLC cohort dominated by adenocarcinoma.</div>
+                
+                
                 
             </div>
             
@@ -3528,6 +3729,8 @@
                 
                 <div class="evidence-explanation">Large meta-analysis of 456 studies and 115,815 NSCLC patients showing non-smokers have 3.7-fold higher EGFR mutation prevalence than smokers.</div>
                 
+                
+                
             </div>
             
             
@@ -3583,6 +3786,8 @@
                 
                 
                 <div class="evidence-explanation">Meta-analysis confirming geographic variation in EGFR mutation prevalence, with substantially higher rates in Asian populations.</div>
+                
+                
                 
             </div>
             
@@ -3640,6 +3845,8 @@
                 
                 <div class="evidence-explanation">Rangachari et al. demonstrate that brain metastases are present in approximately one quarter of EGFR-mutant NSCLC patients at diagnosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3659,6 +3866,8 @@
                 
                 
                 <div class="evidence-explanation">The cumulative incidence of brain metastases increases substantially over time, reaching over 45% by 3 years of targeted therapy treatment.</div>
+                
+                
                 
             </div>
             
@@ -3729,7 +3938,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -3751,6 +3960,8 @@
                 
                 <div class="evidence-explanation">Lynch et al. 2004 identified somatic EGFR mutations as the molecular basis for TKI sensitivity, establishing the genetic foundation of this disease subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3768,6 +3979,30 @@
                 
                 
                 <div class="evidence-explanation">Supports the common EGFR mutation spectrum, but does not directly establish the broader activating/resistance mutation framework.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/105" target="_blank">CIVIC_ASSERTION:105</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Non-small cell lung cancer with EGFR L858R mutation is sensitive to gefitinib."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion supports EGFR L858R as a recurrent treatment-sensitive activating mutation in NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -3787,7 +4022,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
             
             <div class="item-box treatment-box">
@@ -3848,7 +4083,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -3870,6 +4105,8 @@
                 
                 <div class="evidence-explanation">FLAURA trial final overall survival analysis demonstrating that first-line osimertinib provides a significant OS benefit (38.6 vs 31.8 months) over comparator EGFR-TKIs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3889,6 +4126,30 @@
                 
                 
                 <div class="evidence-explanation">FLAURA trial primary analysis confirming osimertinib superiority over first-generation EGFR TKIs for first-line treatment, with 18.9 vs 10.2 months median PFS.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/130" target="_blank">CIVIC_ASSERTION:130</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"EGFR T790M predicts sensitivity to osimertinib in non-small cell lung cancer"</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion supports osimertinib sensitivity in EGFR T790M-positive NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -3955,6 +4216,129 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/5" target="_blank">CIVIC_ASSERTION:5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Non-small cell lung cancer with EGFR L858R mutation is sensitive to erlotininib."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion directly supports erlotinib sensitivity in EGFR L858R-mutant NSCLC.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Afatinib
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                </div>
+                
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        afatinib
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_61390" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-desc">Second-generation irreversible EGFR-family TKI used for sensitizing EGFR mutations including L858R. It is part of the EGFR TKI treatment class now commonly sequenced around osimertinib.</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/6" target="_blank">CIVIC_ASSERTION:6</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"EGFR L858R positive NSCLC is sensitive to afatinib."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion directly supports afatinib sensitivity in EGFR L858R-mutant NSCLC.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -4016,7 +4400,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4037,6 +4421,30 @@
                 
                 
                 <div class="evidence-explanation">IPASS final analysis confirmed EGFR mutation status as the key predictive biomarker for first-line gefitinib, establishing the molecular selection paradigm for EGFR TKI therapy.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/105" target="_blank">CIVIC_ASSERTION:105</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Non-small cell lung cancer with EGFR L858R mutation is sensitive to gefitinib."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion directly supports gefitinib sensitivity in EGFR L858R-mutant NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -4175,6 +4583,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -4210,7 +4619,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: EGFR-Mutant Non-Small Cell Lung Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-05-02T00:00:00Z&#39;
+updated_date: &#39;2026-05-11T02:45:15Z&#39;
 description: &gt;-
   EGFR-mutant non-small cell lung cancer (NSCLC) is a molecularly-defined lung
   cancer subtype driven by activating mutations in the epidermal growth factor
@@ -4227,6 +4636,83 @@ categories:
 - Solid Tumor
 parents:
 - non-small cell lung carcinoma
+external_assertions:
+- name: CIViC EGFR L858R erlotinib sensitivity assertion
+  source: CIViC
+  assertion_type: accepted_assertion
+  external_id: CIVIC_ASSERTION:5
+  url: https://civicdb.org/links/assertions/5
+  description: &gt;-
+    CIViC accepted assertion that EGFR L858R in non-small cell lung cancer
+    predicts sensitivity/response to erlotinib.
+  notes: &gt;-
+    01-May-2026 CIViC accepted assertion: molecular_profile=&#34;EGFR L858R&#34;;
+    disease=&#34;Lung Non-small Cell Carcinoma&#34;; assertion_type=Predictive;
+    significance=Sensitivity/Response; therapy=Erlotinib; AMP category=Tier I - Level A.
+  evidence:
+  - reference: CIVIC_ASSERTION:5
+    reference_title: &#34;EGFR L858R / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Non-small cell lung cancer with EGFR L858R mutation is sensitive to erlotininib.
+    explanation: CIViC records an accepted predictive sensitivity assertion for EGFR L858R and erlotinib in NSCLC.
+- name: CIViC EGFR L858R afatinib sensitivity assertion
+  source: CIViC
+  assertion_type: accepted_assertion
+  external_id: CIVIC_ASSERTION:6
+  url: https://civicdb.org/links/assertions/6
+  description: &gt;-
+    CIViC accepted assertion that EGFR L858R in non-small cell lung cancer
+    predicts sensitivity/response to afatinib.
+  notes: &gt;-
+    01-May-2026 CIViC accepted assertion: molecular_profile=&#34;EGFR L858R&#34;;
+    disease=&#34;Lung Non-small Cell Carcinoma&#34;; assertion_type=Predictive;
+    significance=Sensitivity/Response; therapy=Afatinib; AMP category=Tier I - Level A.
+  evidence:
+  - reference: CIVIC_ASSERTION:6
+    reference_title: &#34;EGFR L858R / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: EGFR L858R positive NSCLC is sensitive to afatinib.
+    explanation: CIViC records an accepted predictive sensitivity assertion for EGFR L858R and afatinib in NSCLC.
+- name: CIViC EGFR L858R gefitinib sensitivity assertion
+  source: CIViC
+  assertion_type: accepted_assertion
+  external_id: CIVIC_ASSERTION:105
+  url: https://civicdb.org/links/assertions/105
+  description: &gt;-
+    CIViC accepted assertion that EGFR L858R in non-small cell lung cancer
+    predicts sensitivity/response to gefitinib.
+  notes: &gt;-
+    01-May-2026 CIViC accepted assertion: molecular_profile=&#34;EGFR L858R&#34;;
+    disease=&#34;Lung Non-small Cell Carcinoma&#34;; assertion_type=Predictive;
+    significance=Sensitivity/Response; therapy=Gefitinib; AMP category=Tier I - Level A.
+  evidence:
+  - reference: CIVIC_ASSERTION:105
+    reference_title: &#34;EGFR L858R / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Non-small cell lung cancer with EGFR L858R mutation is sensitive to gefitinib.
+    explanation: CIViC records an accepted predictive sensitivity assertion for EGFR L858R and gefitinib in NSCLC.
+- name: CIViC EGFR T790M osimertinib sensitivity assertion
+  source: CIViC
+  assertion_type: accepted_assertion
+  external_id: CIVIC_ASSERTION:130
+  url: https://civicdb.org/links/assertions/130
+  description: &gt;-
+    CIViC accepted assertion that EGFR T790M in non-small cell lung cancer
+    predicts sensitivity/response to osimertinib.
+  notes: &gt;-
+    01-May-2026 CIViC accepted assertion: molecular_profile=&#34;EGFR T790M&#34;;
+    disease=&#34;Lung Non-small Cell Carcinoma&#34;; assertion_type=Predictive;
+    significance=Sensitivity/Response; therapy=Osimertinib; AMP category=Tier I - Level A.
+  evidence:
+  - reference: CIVIC_ASSERTION:130
+    reference_title: &#34;EGFR T790M / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: EGFR T790M predicts sensitivity to osimertinib in non-small cell lung cancer
+    explanation: CIViC records an accepted predictive sensitivity assertion for EGFR T790M and osimertinib in NSCLC.
 has_subtypes:
 - name: EGFR Exon 19 Deletion NSCLC
   description: &gt;-
@@ -4522,6 +5008,12 @@ genetic:
     supports: PARTIAL
     snippet: &#34;Exon 19 deletion and exon 21 L858R mutation were the most common epidermal growth factor receptor (EGFR) mutations.&#34;
     explanation: &#34;Supports the common EGFR mutation spectrum, but does not directly establish the broader activating/resistance mutation framework.&#34;
+  - reference: CIVIC_ASSERTION:105
+    reference_title: &#34;EGFR L858R / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Non-small cell lung cancer with EGFR L858R mutation is sensitive to gefitinib.
+    explanation: CIViC&#39;s accepted assertion supports EGFR L858R as a recurrent treatment-sensitive activating mutation in NSCLC.
 treatments:
 - name: Osimertinib
   description: &gt;-
@@ -4558,6 +5050,12 @@ treatments:
       FLAURA trial primary analysis confirming osimertinib superiority over
       first-generation EGFR TKIs for first-line treatment, with 18.9 vs 10.2
       months median PFS.
+  - reference: CIVIC_ASSERTION:130
+    reference_title: &#34;EGFR T790M / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: EGFR T790M predicts sensitivity to osimertinib in non-small cell lung cancer
+    explanation: CIViC&#39;s accepted assertion supports osimertinib sensitivity in EGFR T790M-positive NSCLC.
 - name: Erlotinib
   description: &gt;-
     First-generation EGFR TKI. One of the original targeted therapies for
@@ -4572,6 +5070,35 @@ treatments:
       term:
         id: CHEBI:114785
         label: erlotinib
+  evidence:
+  - reference: CIVIC_ASSERTION:5
+    reference_title: &#34;EGFR L858R / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Non-small cell lung cancer with EGFR L858R mutation is sensitive to erlotininib.
+    explanation: CIViC&#39;s accepted assertion directly supports erlotinib sensitivity in EGFR L858R-mutant NSCLC.
+- name: Afatinib
+  description: &gt;-
+    Second-generation irreversible EGFR-family TKI used for sensitizing EGFR
+    mutations including L858R. It is part of the EGFR TKI treatment class now
+    commonly sequenced around osimertinib.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: afatinib
+      term:
+        id: CHEBI:61390
+        label: afatinib
+  evidence:
+  - reference: CIVIC_ASSERTION:6
+    reference_title: &#34;EGFR L858R / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: EGFR L858R positive NSCLC is sensitive to afatinib.
+    explanation: CIViC&#39;s accepted assertion directly supports afatinib sensitivity in EGFR L858R-mutant NSCLC.
 - name: Gefitinib
   description: &gt;-
     First-generation EGFR TKI approved for EGFR-mutant NSCLC. The IPASS trial
@@ -4597,6 +5124,12 @@ treatments:
       IPASS final analysis confirmed EGFR mutation status as the key predictive
       biomarker for first-line gefitinib, establishing the molecular selection
       paradigm for EGFR TKI therapy.
+  - reference: CIVIC_ASSERTION:105
+    reference_title: &#34;EGFR L858R / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Non-small cell lung cancer with EGFR L858R mutation is sensitive to gefitinib.
+    explanation: CIViC&#39;s accepted assertion directly supports gefitinib sensitivity in EGFR L858R-mutant NSCLC.
 - name: Amivantamab
   description: &gt;-
     Bispecific antibody targeting EGFR and MET. Approved for EGFR exon 20
@@ -5050,7 +5583,7 @@ EGFR-mutant NSCLC is driven by activating mutations in EGFR (most commonly exon 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "EGFR-Mutant Non-Small Cell Lung Cancer", "mondoId": "MONDO:0005061", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "EGFR-Mutant_Non-Small_Cell_Lung_Cancer", "yamlRevision": "dd5aca3d5ba5"};
+        const OS_CONFIG = {"diseaseName": "EGFR-Mutant Non-Small Cell Lung Cancer", "mondoId": "MONDO:0005061", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "EGFR-Mutant_Non-Small_Cell_Lung_Cancer", "yamlRevision": "d5c8b79c4335"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

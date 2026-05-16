@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2720,6 +2911,8 @@
                 
                 <div class="evidence-explanation">Supports autosomal recessive inheritance for AADC deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2739,6 +2932,8 @@
                 
                 
                 <div class="evidence-explanation">Supports recessive inheritance for arGTPCH deficiency.</div>
+                
+                
                 
             </div>
             
@@ -2839,6 +3034,8 @@
                 
                 <div class="evidence-explanation">Supports the DDC/AADC subtype and autosomal recessive etiology.</div>
                 
+                
+                
             </div>
             
             
@@ -2898,6 +3095,8 @@
                 
                 
                 <div class="evidence-explanation">Supports TH deficiency as a genetic subtype.</div>
+                
+                
                 
             </div>
             
@@ -2959,6 +3158,8 @@
                 
                 <div class="evidence-explanation">Supports the phenotypic spectrum of recessive GCH1 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3018,6 +3219,8 @@
                 
                 
                 <div class="evidence-explanation">Supports SPR as part of BH4 metabolism relevant to this group.</div>
+                
+                
                 
             </div>
             
@@ -3081,6 +3284,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports DNAJC12-related disease as a monoamine synthesis subtype.</div>
+                
+                
                 
             </div>
             
@@ -3227,6 +3432,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Directly supports reduced serotonin, dopamine, norepinephrine, and epinephrine in AADC deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3355,6 +3562,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports TH variants as the molecular lesion in TH deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3485,6 +3694,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports monoamine deficiency downstream of BH4-pathway defects.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3504,6 +3715,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports GCH1/BH4 biology in monoamine neurotransmitter production.</div>
+                
+                
                 
             </div>
             
@@ -3577,6 +3790,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports DNAJC12&#39;s role in monoamine synthesis pathogenesis.</div>
+                
+                
                 
             </div>
             
@@ -3702,6 +3917,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports the clinical consequences of inherited neurotransmitter metabolism defects.</div>
                 
+                
+                
             </div>
             
             
@@ -3736,7 +3953,7 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AADC Enzymatic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDC pathogenic variants reduce aromatic L-amino acid decarboxylase activity, impairing conversion of L-DOPA to dopamine and 5-hydroxytryptophan to serotonin, with secondary reduction of norepinephrine and epinephrine.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dopamine biosynthetic process\"], \"molecular_functions\": [\"aromatic-L-amino-acid decarboxylase activity\"], \"genes\": [\"DDC\"]}}, {\"id\": \"AADC gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV2-based gene supplementation with eladocagene exuparvovec or related hAADC vectors is a disease-directed therapy for AADC deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"AADC symptomatic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Conventional symptomatic regimens for AADC deficiency may include vitamin B6, dopamine agonists, and monoamine oxidase inhibitors, although responses are variable and often incomplete.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autonomic dysfunction is a key clinical feature in AADC deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012332\"}}, {\"id\": \"BH4 Cofactor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in BH4 biosynthesis or regeneration genes impair tetrahydrobiopterin availability, reducing monoamine neurotransmitter synthesis and, in many subtypes, causing hyperphenylalaninemia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tetrahydrobiopterin biosynthetic process\"], \"genes\": [\"GCH1\", \"PTS\", \"QDPR\", \"SPR\", \"PCBD1\"]}}, {\"id\": \"Carbidopa-levodopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carbidopa-levodopa can improve dopamine-responsive manifestations in TH deficiency and related dopa-responsive dystonia phenotypes.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levodopa\"]}}, {\"id\": \"Combined Monoamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced synthesis of dopamine and other monoamines disrupts basal ganglia, motor, autonomic, and neurodevelopmental functions, producing movement disorders, developmental delay, and autonomic manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dopaminergic neuron\"], \"biological_processes\": [\"catecholamine biosynthetic process\"]}}, {\"id\": \"DDC biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DDC\"], \"subtypes\": [\"Aromatic L-amino acid decarboxylase deficiency\"], \"association\": \"Causative biallelic pathogenic variants\"}}, {\"id\": \"DNAJC12 Co-chaperone Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DNAJC12 pathogenic variants impair a co-chaperone needed for monoamine synthesis enzyme function, producing hyperphenylalaninemia and central monoamine-related neurologic disease.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC12\"]}}, {\"id\": \"DNAJC12 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC12\"], \"subtypes\": [\"DNAJC12-related monoamine synthesis disorder\"], \"association\": \"Pathogenic variants affecting monoamine synthesis co-chaperone function\"}}, {\"id\": \"GCH1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GCH1\"], \"subtypes\": [\"Autosomal recessive GTP cyclohydrolase I deficiency\"], \"association\": \"Causative biallelic/recessive variants affecting GTP cyclohydrolase I and BH4 synthesis\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is common in severe inherited neurotransmitter synthesis disorders and may accompany motor and autonomic phenotypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperphenylalaninemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Movement disorders are core features across inherited neurotransmitter and catecholamine synthesis disorders, including dystonia, hypokinesia, oculogyric crises, and parkinsonism depending on subtype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100022\"}}, {\"id\": \"PCBD1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCBD1\"], \"association\": \"Causative variants affecting pterin-4 alpha-carbinolamine dehydratase\"}}, {\"id\": \"PTS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTS\"], \"association\": \"Causative variants affecting 6-pyruvoyltetrahydropterin synthase\"}}, {\"id\": \"QDPR pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"QDPR\"], \"association\": \"Causative variants affecting dihydropteridine reductase\"}}, {\"id\": \"SPR pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPR\"], \"subtypes\": [\"Sepiapterin reductase deficiency\"], \"association\": \"Causative variants affecting sepiapterin reductase\"}}, {\"id\": \"Sapropterin/BH4 supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sapropterin, a synthetic tetrahydrobiopterin analog, can be used to reduce blood phenylalanine in BH4-responsive hyperphenylalaninemia; for this umbrella entry it targets hyperphenylalaninemia caused by BH4-pathway defects.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sapropterin\"]}}, {\"id\": \"TH Enzymatic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic TH variants impair tyrosine hydroxylase, the enzyme that converts tyrosine toward L-DOPA, reducing dopamine biosynthesis and downstream catecholaminergic signaling.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dopamine biosynthetic process from tyrosine\"], \"molecular_functions\": [\"tyrosine 3-monooxygenase activity\"], \"genes\": [\"TH\"]}}, {\"id\": \"TH biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TH\"], \"subtypes\": [\"Tyrosine hydroxylase deficiency\"], \"association\": \"Causative biallelic pathogenic variants\"}}], \"edges\": [{\"source\": \"AADC Enzymatic Deficiency\", \"target\": \"Combined Monoamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TH Enzymatic Deficiency\", \"target\": \"Combined Monoamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BH4 Cofactor Deficiency\", \"target\": \"Combined Monoamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DNAJC12 Co-chaperone Dysfunction\", \"target\": \"Combined Monoamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined Monoamine Deficiency\", \"target\": \"Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined Monoamine Deficiency\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined Monoamine Deficiency\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbidopa-levodopa\", \"target\": \"TH Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carbidopa-levodopa\", \"target\": \"Movement Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AADC gene therapy\", \"target\": \"AADC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sapropterin/BH4 supplementation\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sapropterin/BH4 supplementation\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AADC symptomatic pharmacotherapy\", \"target\": \"AADC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AADC symptomatic pharmacotherapy\", \"target\": \"Movement Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DDC biallelic pathogenic variants\", \"target\": \"AADC Enzymatic Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TH biallelic pathogenic variants\", \"target\": \"TH Enzymatic Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCH1 pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTS pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"QDPR pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPR pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCBD1 pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAJC12 pathogenic variants\", \"target\": \"DNAJC12 Co-chaperone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AADC Enzymatic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDC pathogenic variants reduce aromatic L-amino acid decarboxylase activity, impairing conversion of L-DOPA to dopamine and 5-hydroxytryptophan to serotonin, with secondary reduction of norepinephrine and epinephrine.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dopamine biosynthetic process\"], \"molecular_functions\": [\"aromatic-L-amino-acid decarboxylase activity\"], \"genes\": [\"DDC\"]}}, {\"id\": \"AADC gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV2-based gene supplementation with eladocagene exuparvovec or related hAADC vectors is a disease-directed therapy for AADC deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"AADC symptomatic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Conventional symptomatic regimens for AADC deficiency may include vitamin B6, dopamine agonists, and monoamine oxidase inhibitors, although responses are variable and often incomplete.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autonomic dysfunction is a key clinical feature in AADC deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012332\"}}, {\"id\": \"BH4 Cofactor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in BH4 biosynthesis or regeneration genes impair tetrahydrobiopterin availability, reducing monoamine neurotransmitter synthesis and, in many subtypes, causing hyperphenylalaninemia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tetrahydrobiopterin biosynthetic process\"], \"genes\": [\"GCH1\", \"PTS\", \"QDPR\", \"SPR\", \"PCBD1\"]}}, {\"id\": \"Carbidopa-levodopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carbidopa-levodopa can improve dopamine-responsive manifestations in TH deficiency and related dopa-responsive dystonia phenotypes.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levodopa\"]}}, {\"id\": \"Combined Monoamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced synthesis of dopamine and other monoamines disrupts basal ganglia, motor, autonomic, and neurodevelopmental functions, producing movement disorders, developmental delay, and autonomic manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dopaminergic neuron\"], \"biological_processes\": [\"catecholamine biosynthetic process\"]}}, {\"id\": \"DDC biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DDC\"], \"subtypes\": [\"Aromatic L-amino acid decarboxylase deficiency\"], \"association\": \"Causative biallelic pathogenic variants\"}}, {\"id\": \"DNAJC12 Co-chaperone Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DNAJC12 pathogenic variants impair a co-chaperone needed for monoamine synthesis enzyme function, producing hyperphenylalaninemia and central monoamine-related neurologic disease.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC12\"]}}, {\"id\": \"DNAJC12 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC12\"], \"subtypes\": [\"DNAJC12-related monoamine synthesis disorder\"], \"association\": \"Pathogenic variants affecting monoamine synthesis co-chaperone function\"}}, {\"id\": \"GCH1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GCH1\"], \"subtypes\": [\"Autosomal recessive GTP cyclohydrolase I deficiency\"], \"association\": \"Causative biallelic/recessive variants affecting GTP cyclohydrolase I and BH4 synthesis\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is common in severe inherited neurotransmitter synthesis disorders and may accompany motor and autonomic phenotypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperphenylalaninemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Movement disorders are core features across inherited neurotransmitter and catecholamine synthesis disorders, including dystonia, hypokinesia, oculogyric crises, and parkinsonism depending on subtype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100022\"}}, {\"id\": \"PCBD1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCBD1\"], \"association\": \"Causative variants affecting pterin-4 alpha-carbinolamine dehydratase\"}}, {\"id\": \"PTS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTS\"], \"association\": \"Causative variants affecting 6-pyruvoyltetrahydropterin synthase\"}}, {\"id\": \"QDPR pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"QDPR\"], \"association\": \"Causative variants affecting dihydropteridine reductase\"}}, {\"id\": \"SPR pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPR\"], \"subtypes\": [\"Sepiapterin reductase deficiency\"], \"association\": \"Causative variants affecting sepiapterin reductase\"}}, {\"id\": \"Sapropterin/BH4 supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sapropterin, a synthetic tetrahydrobiopterin analog, can be used to reduce blood phenylalanine in BH4-responsive hyperphenylalaninemia; for this umbrella entry it targets hyperphenylalaninemia caused by BH4-pathway defects.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sapropterin\"]}}, {\"id\": \"TH Enzymatic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic TH variants impair tyrosine hydroxylase, the enzyme that converts tyrosine toward L-DOPA, reducing dopamine biosynthesis and downstream catecholaminergic signaling.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dopamine biosynthetic process from tyrosine\"], \"molecular_functions\": [\"tyrosine 3-monooxygenase activity\"], \"genes\": [\"TH\"]}}, {\"id\": \"TH biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TH\"], \"subtypes\": [\"Tyrosine hydroxylase deficiency\"], \"association\": \"Causative biallelic pathogenic variants\"}}], \"edges\": [{\"source\": \"AADC Enzymatic Deficiency\", \"target\": \"Combined Monoamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TH Enzymatic Deficiency\", \"target\": \"Combined Monoamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BH4 Cofactor Deficiency\", \"target\": \"Combined Monoamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DNAJC12 Co-chaperone Dysfunction\", \"target\": \"Combined Monoamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined Monoamine Deficiency\", \"target\": \"Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined Monoamine Deficiency\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combined Monoamine Deficiency\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbidopa-levodopa\", \"target\": \"TH Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carbidopa-levodopa\", \"target\": \"Movement Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AADC gene therapy\", \"target\": \"AADC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sapropterin/BH4 supplementation\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sapropterin/BH4 supplementation\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AADC symptomatic pharmacotherapy\", \"target\": \"AADC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AADC symptomatic pharmacotherapy\", \"target\": \"Movement Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DDC biallelic pathogenic variants\", \"target\": \"AADC Enzymatic Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TH biallelic pathogenic variants\", \"target\": \"TH Enzymatic Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCH1 pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTS pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"QDPR pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPR pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCBD1 pathogenic variants\", \"target\": \"BH4 Cofactor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAJC12 pathogenic variants\", \"target\": \"DNAJC12 Co-chaperone Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3814,6 +4031,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports hypotonia in AADC deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3833,6 +4052,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports hypotonia in a TH deficiency case.</div>
+                
+                
                 
             </div>
             
@@ -3897,6 +4118,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Registry study supports movement disorders as a broad phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3916,6 +4139,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">AADC-focused evidence supports movement disorders in a catecholamine synthesis subtype.</div>
+                
+                
                 
             </div>
             
@@ -3970,6 +4195,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Registry study directly supports global developmental delay.</div>
+                
+                
                 
             </div>
             
@@ -4028,6 +4255,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports parkinsonism in DNAJC12-related disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4047,6 +4276,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports a dystonia-parkinsonism subgroup in recessive GCH1 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4102,6 +4333,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports dystonia in AADC deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4121,6 +4354,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports dystonia-parkinsonism in recessive GCH1 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4144,6 +4379,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports dystonia in DNAJC12-related disease.</div>
+                
+                
                 
             </div>
             
@@ -4198,6 +4435,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">The abstract supports autonomic dysfunction generally; the phenotype is mapped to a broad HPO autonomic physiology term.</div>
+                
+                
                 
             </div>
             
@@ -4262,6 +4501,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports oculogyric crises in AADC deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4316,6 +4557,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports hyperphenylalaninemia in the BH4/non-PAH deficiency context.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4338,6 +4581,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports hyperphenylalaninemia in DNAJC12-related disease.</div>
+                
+                
                 
             </div>
             
@@ -4424,6 +4669,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports DDC as the causative gene for AADC deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4466,6 +4713,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports biallelic TH variants in TH deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4510,6 +4759,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports GCH1 as the BH4 biosynthesis gene underlying GTP cyclohydrolase I deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4552,6 +4803,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports PTS mutant alleles in human BH4 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4596,6 +4849,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports QDPR mutant alleles in human BH4 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4639,6 +4894,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports SPR as a BH4 biosynthesis gene whose mutation can produce the non-PAH hyperphenylalaninemia/BH4-deficiency group.</div>
                 
+                
+                
             </div>
             
             
@@ -4681,6 +4938,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports PCBD1 mutant alleles in human BH4 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4727,6 +4986,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports DNAJC12 pathogenic variants as disease-causing.</div>
+                
+                
                 
             </div>
             
@@ -4857,6 +5118,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports carbidopa-levodopa for dopa-responsive TH deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4876,6 +5139,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Case report supports clinical improvement with carbidopa-levodopa.</div>
+                
+                
                 
             </div>
             
@@ -4970,6 +5235,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports eladocagene exuparvovec as an approved gene therapy for AADC deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4989,6 +5256,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports AAV2 gene supplementation therapy for AADC deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5107,6 +5376,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports BH4-pathway defects as causes of non-PAH hyperphenylalaninemia in this disorder group.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5126,6 +5397,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Directly supports BH4 cofactor replacement in dihydrobiopterin synthetase deficiency, with improved monoamine metabolites and normalized phenylalanine.</div>
+                
+                
                 
             </div>
             
@@ -5244,6 +5517,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports vitamin B6, dopamine agonists, and MAO inhibitors as symptomatic pharmacotherapies used in AADC deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5263,6 +5538,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Captures the limited and variable response to conventional symptomatic pharmacotherapy.</div>
+                
+                
                 
             </div>
             
@@ -5353,6 +5630,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports rehabilitation needs after motor improvement from gene therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5372,6 +5651,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports post-treatment rehabilitation recommendations.</div>
+                
+                
                 
             </div>
             
@@ -5408,6 +5689,7 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 <div class="item-desc">Context: AADC deficiency causes combined deficiency of dopamine, serotonin, and catecholamines; other catecholamine synthesis disorders impair overlapping monoamine pathways.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5433,6 +5715,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports combined dopamine, serotonin, and catecholamine deficiency in AADC deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -5451,6 +5735,7 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 </div>
                 
                 <div class="item-desc">Context: BH4 biosynthesis or regeneration defects and DNAJC12-related disease can present with hyperphenylalaninemia alongside monoamine neurotransmitter deficiency.</div>
+                
                 
                 
     
@@ -5477,6 +5762,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports hyperphenylalaninemia plus monoamine neurotransmitter deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5545,6 +5832,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports this trial as AADC gene therapy research.</div>
                 
+                
+                
             </div>
             
             
@@ -5593,6 +5882,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports long-term safety and efficacy follow-up for eladocagene exuparvovec.</div>
+                
+                
                 
             </div>
             
@@ -5643,6 +5934,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 <div class="evidence-explanation">Supports VGN-R09b as an AADC deficiency gene therapy trial.</div>
                 
+                
+                
             </div>
             
             
@@ -5691,6 +5984,8 @@ hyperphenylalaninemia with infantile dystonia, young‐onset parkinsonism, devel
                 
                 
                 <div class="evidence-explanation">Supports AAV2-hAADC midbrain delivery as an AADC deficiency trial.</div>
+                
+                
                 
             </div>
             

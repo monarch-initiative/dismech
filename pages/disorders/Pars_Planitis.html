@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2715,6 +2906,8 @@
                 
                 <div class="evidence-explanation">This represents the classic form of pars planitis where no underlying cause can be identified.</div>
                 
+                
+                
             </div>
             
             
@@ -2770,6 +2963,8 @@
                 
                 
                 <div class="evidence-explanation">Secondary pars planitis occurs when intermediate uveitis is linked to an underlying systemic or infectious condition.</div>
+                
+                
                 
             </div>
             
@@ -2901,6 +3096,8 @@
                 
                 <div class="evidence-explanation">Shows T-cell predominance in ocular infiltrates supporting autoimmune pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2918,6 +3115,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms T-cell mediated immunopathogenesis and genetic susceptibility in pars planitis.</div>
+                
+                
                 
             </div>
             
@@ -3040,6 +3239,8 @@
                 
                 <div class="evidence-explanation">Documents vitreous cell infiltration and haze as defining inflammatory findings.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3057,6 +3258,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms high prevalence of vitreous inflammation and snowballs in clinical cohorts.</div>
+                
+                
                 
             </div>
             
@@ -3171,6 +3374,8 @@
                 
                 
                 <div class="evidence-explanation">Shows snowbanks as a frequent structural manifestation of pars planitis at the pars plana.</div>
+                
+                
                 
             </div>
             
@@ -3293,6 +3498,8 @@
                 
                 <div class="evidence-explanation">Notes peripheral retinal vasculitis as a recognized manifestation in pars planitis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3310,6 +3517,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms high frequency of peripheral vascular sheathing in clinical series.</div>
+                
+                
                 
             </div>
             
@@ -3432,6 +3641,8 @@
                 
                 <div class="evidence-explanation">Shows that macular thickening beyond a threshold prompts treatment due to risk of vision loss in intermediate uveitis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3449,6 +3660,8 @@
                 
                 
                 <div class="evidence-explanation">OCT-defined diffuse macular edema and foveal contour loss predict worse visual acuity, underscoring the impact of macular thickening.</div>
+                
+                
                 
             </div>
             
@@ -3546,6 +3759,8 @@
                 
                 <div class="evidence-explanation">Blurred vision is a core presenting symptom reported in pars planitis.</div>
                 
+                
+                
             </div>
             
             
@@ -3603,6 +3818,8 @@
                 
                 
                 <div class="evidence-explanation">Floaters are among the predominant presenting symptoms of pars planitis.</div>
+                
+                
                 
             </div>
             
@@ -3662,6 +3879,8 @@
                 
                 <div class="evidence-explanation">Chronic inflammation can lead to complications that threaten vision if not controlled.</div>
                 
+                
+                
             </div>
             
             
@@ -3719,6 +3938,8 @@
                 
                 
                 <div class="evidence-explanation">Vitreous opacities such as snowballs are typical inflammatory findings in pars planitis.</div>
+                
+                
                 
             </div>
             
@@ -3778,6 +3999,8 @@
                 
                 <div class="evidence-explanation">Macular edema represents a significant complication that can lead to permanent vision loss.</div>
                 
+                
+                
             </div>
             
             
@@ -3835,6 +4058,8 @@
                 
                 
                 <div class="evidence-explanation">Optic disc edema is a recognized complication of pars planitis.</div>
+                
+                
                 
             </div>
             
@@ -3894,6 +4119,8 @@
                 
                 <div class="evidence-explanation">Describes bone spicule-like pigmentation emerging after bilateral pars planitis, mimicking retinitis pigmentosa.</div>
                 
+                
+                
             </div>
             
             
@@ -3951,6 +4178,8 @@
                 
                 <div class="evidence-explanation">HLA-DR15 has been linked to immunogenetic susceptibility in pars planitis.</div>
                 
+                
+                
             </div>
             
             
@@ -3991,6 +4220,8 @@
                 
                 
                 <div class="evidence-explanation">HLA-B51 is reported among haplotypes associated with pars planitis, supporting a genetic component.</div>
+                
+                
                 
             </div>
             
@@ -4050,6 +4281,25 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        triamcinolone
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_9667" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        prednisone
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">First-line treatment for reducing inflammation in pars planitis.</div>
@@ -4080,6 +4330,8 @@
                 
                 
                 <div class="evidence-explanation">Corticosteroids form the foundation of treatment for pars planitis.</div>
+                
+                
                 
             </div>
             
@@ -4127,6 +4379,39 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        methotrexate
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        mycophenolate mofetil
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        azathioprine
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        cyclosporin A
+                        
+                        <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">Second-line therapy for chronic or steroid-resistant cases.</div>
@@ -4157,6 +4442,8 @@
                 
                 
                 <div class="evidence-explanation">Immunosuppressive agents, particularly methotrexate, provide steroid-sparing control for chronic cases.</div>
+                
+                
                 
             </div>
             
@@ -4204,6 +4491,25 @@
                 
                 
                 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        adalimumab
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C65216" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-treatment">
+                        infliximab
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C1789" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
                 
                 <div class="item-desc">TNF-alpha inhibitors for refractory cases.</div>
@@ -4234,6 +4540,8 @@
                 
                 
                 <div class="evidence-explanation">TNF-alpha inhibition with adalimumab controlled inflammation and enabled steroid-sparing in refractory cases.</div>
+                
+                
                 
             </div>
             
@@ -4310,6 +4618,8 @@
                 
                 <div class="evidence-explanation">Surgical intervention may be necessary for cases with severe vitreous involvement or complications.</div>
                 
+                
+                
             </div>
             
             
@@ -4362,6 +4672,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that chikungunya infection can manifest as intermediate uveitis, making viral screening important in suspected pars planitis.</div>
                 
+                
+                
             </div>
             
             
@@ -4401,6 +4713,8 @@
                 
                 
                 <div class="evidence-explanation">Clarifies that absence of systemic infection is required to diagnose idiopathic pars planitis, guiding environmental trigger evaluation.</div>
+                
+                
                 
             </div>
             
@@ -4489,6 +4803,8 @@
                 
                 <div class="evidence-explanation">Confirms the defining HLA-A29 positivity used to differentiate birdshot retinochoroiditis from pars planitis in comparative cohorts.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4506,6 +4822,8 @@
                 
                 
                 <div class="evidence-explanation">Specific vasculitis features plus HLA-A29 confirmation distinguish birdshot retinochoroiditis from pars planitis.</div>
+                
+                
                 
             </div>
             
@@ -4575,6 +4893,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that a fundus mass with vitreous seeding signals retinoblastoma rather than inflammatory pars planitis.</div>
                 
+                
+                
             </div>
             
             
@@ -4636,6 +4956,8 @@
                 
                 
                 <div class="evidence-explanation">Shows that molecular testing uncovers infectious causes that can mimic pars planitis.</div>
+                
+                
                 
             </div>
             
@@ -4706,6 +5028,8 @@
                 
                 <div class="evidence-explanation">Notes that neoplastic causes such as intraocular lymphoma can masquerade as intermediate uveitis and must be excluded.</div>
                 
+                
+                
             </div>
             
             
@@ -4773,6 +5097,8 @@
                 
                 
                 <div class="evidence-explanation">The SUN criteria treat multiple sclerosis as an exclusion, underscoring the need to differentiate it from idiopathic pars planitis.</div>
+                
+                
                 
             </div>
             
@@ -4842,6 +5168,8 @@
                 
                 <div class="evidence-explanation">Highlights sarcoidosis-associated intermediate uveitis complicated by vasoproliferative tumor and exudative detachment, requiring differentiation from idiopathic pars planitis.</div>
                 
+                
+                
             </div>
             
             
@@ -4879,7 +5207,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Pars Planitis
 creation_date: &#39;2026-01-08T01:24:35Z&#39;
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
+updated_date: &#39;2026-05-12T00:00:00Z&#39;
 category: Complex
 parents:
 - Inflammatory Disorder
@@ -5284,27 +5612,15 @@ treatments:
     term:
       id: NCIT:C122080
       label: Systemic Corticosteroid Therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: triamcinolone
-        term:
-          id: NCIT:C901
-          label: Triamcinolone
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: prednisone
-        term:
-          id: NCIT:C770
-          label: Prednisone
+    therapeutic_agent:
+    - preferred_term: triamcinolone
+      term:
+        id: CHEBI:9667
+        label: triamcinolone
+    - preferred_term: prednisone
+      term:
+        id: CHEBI:8382
+        label: prednisone
 - name: Immunosuppressive Agents
   description: Second-line therapy for chronic or steroid-resistant cases.
   examples:
@@ -5323,47 +5639,23 @@ treatments:
     term:
       id: MAXO:0000297
       label: immune suppressant agent therapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: methotrexate
-        term:
-          id: NCIT:C642
-          label: Methotrexate
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: mycophenolate mofetil
-        term:
-          id: NCIT:C1468
-          label: Mycophenolate Mofetil
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: azathioprine
-        term:
-          id: NCIT:C290
-          label: Azathioprine
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: cyclosporine
-        term:
-          id: NCIT:C406
-          label: Cyclosporine
+    therapeutic_agent:
+    - preferred_term: methotrexate
+      term:
+        id: CHEBI:44185
+        label: methotrexate
+    - preferred_term: mycophenolate mofetil
+      term:
+        id: CHEBI:8764
+        label: mycophenolate mofetil
+    - preferred_term: azathioprine
+      term:
+        id: CHEBI:2948
+        label: azathioprine
+    - preferred_term: cyclosporin A
+      term:
+        id: CHEBI:4031
+        label: cyclosporin A
 - name: Biological Therapy
   description: TNF-alpha inhibitors for refractory cases.
   examples:
@@ -5380,27 +5672,15 @@ treatments:
     term:
       id: NCIT:C15262
       label: Immunotherapy
-    qualifiers:
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: adalimumab
-        term:
-          id: NCIT:C65216
-          label: Adalimumab
-    - predicate:
-        preferred_term: therapeutic agent
-        term:
-          id: NCIT:C2259
-          label: Therapeutic Agent
-      value:
-        preferred_term: infliximab
-        term:
-          id: NCIT:C1789
-          label: Infliximab
+    therapeutic_agent:
+    - preferred_term: adalimumab
+      term:
+        id: NCIT:C65216
+        label: Adalimumab
+    - preferred_term: infliximab
+      term:
+        id: NCIT:C1789
+        label: Infliximab
 - name: Pars Plana Vitrectomy
   description: Surgical intervention for severe vitreous opacities or complications.
   evidence:
@@ -5571,7 +5851,7 @@ disease_term:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pars Planitis", "mondoId": "MONDO:0011644", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pars_Planitis", "yamlRevision": "0ff01dcb6277"};
+        const OS_CONFIG = {"diseaseName": "Pars Planitis", "mondoId": "MONDO:0011644", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pars_Planitis", "yamlRevision": "9e27076cd172"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

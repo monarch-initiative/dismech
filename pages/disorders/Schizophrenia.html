@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2770,6 +2961,8 @@
                 
                 <div class="evidence-explanation">While the literature supports dopamine dysregulation in various brain regions, it does not specifically emphasize the mesolimbic and mesocortical pathways alone.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2788,6 +2981,8 @@
                 
                 <div class="evidence-explanation">The abstract does not provide specific information supporting the imbalance of dopamine transmission specifically in the mesolimbic and mesocortical pathways as described in the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2805,6 +3000,8 @@
                 
                 
                 <div class="evidence-explanation">The study focuses on glutamate dysregulation rather than dopamine transmission dysregulation in mesolimbic and mesocortical pathways.</div>
+                
+                
                 
             </div>
             
@@ -2922,6 +3119,8 @@
                 
                 <div class="evidence-explanation">The literature specifically states that glutamatergic neurotransmission dysfunction is associated with the pathophysiology of schizophrenia, supporting the provided statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2940,6 +3139,8 @@
                 
                 <div class="evidence-explanation">The literature discusses the impairment of synaptic plasticity in schizophrenia and its interaction with brain maturation, aligning with the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2957,6 +3158,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the involvement of glutamatergic systems in schizophrenia, reinforcing the statement.</div>
+                
+                
                 
             </div>
             
@@ -3067,6 +3270,8 @@
                 
                 <div class="evidence-explanation">The literature highlights that GABAergic interneurons play a significant role in the cellular characteristics found in psychotic states, including schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3085,6 +3290,8 @@
                 
                 <div class="evidence-explanation">This reference directly states that disturbances in GABAergic neurotransmission may underlie the pathophysiology of schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3102,6 +3309,8 @@
                 
                 
                 <div class="evidence-explanation">This meta-analysis supports the idea that reduced GABA levels and thus GABAergic dysfunction are related to the pathophysiology of schizophrenia.</div>
+                
+                
                 
             </div>
             
@@ -3567,6 +3776,8 @@
                 
                 <div class="evidence-explanation">Delusions and hallucinations are recognized as common symptom clusters in schizophrenia, supporting the statement that hallucinations are frequent and a part of the psychiatric diagnostic category.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3585,6 +3796,8 @@
                 
                 <div class="evidence-explanation">This supports the note that hallucinations in schizophrenia can be auditory, visual, tactile, or olfactory in nature, indicating changes in sensory processing.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3602,6 +3815,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the claim that olfactory hallucinations are among the types of hallucinations experienced by schizophrenic patients, although less frequent than auditory hallucinations.</div>
+                
+                
                 
             </div>
             
@@ -3661,6 +3876,8 @@
                 
                 <div class="evidence-explanation">The literature describes delusions as false beliefs that are resistant to contradictory evidence, which aligns with the statement&#39;s note that delusions in schizophrenia are often paranoid or grandiose in nature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3679,6 +3896,8 @@
                 
                 <div class="evidence-explanation">While Capgras delusion may involve delusions, the reference suggests that these delusions are not exclusively found in paranoid schizophrenia. This partially supports the statement but adds another layer of complexity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3696,6 +3915,8 @@
                 
                 
                 <div class="evidence-explanation">The description of non-bizarre delusions aligns with the statement that delusions, which are false beliefs, are a frequent psychiatric diagnostic category in schizophrenia.</div>
+                
+                
                 
             </div>
             
@@ -3757,6 +3978,8 @@
                 
                 <div class="evidence-explanation">Disorganized thinking is closely related to disorganized speech, which is highlighted as a frequent impairment in schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3775,6 +3998,8 @@
                 
                 <div class="evidence-explanation">The study highlights disordered thinking (a form of cognitive impairment) as a main symptom in later stages of schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3792,6 +4017,8 @@
                 
                 
                 <div class="evidence-explanation">Impaired logical thought processes and communication, which might manifest as loose associations or incoherent speech, align with the cognitive phenotype of disorganized thinking.</div>
+                
+                
                 
             </div>
             
@@ -3844,6 +4071,8 @@
                 
                 <div class="evidence-explanation">The study indicates that social withdrawal is a significant aspect of schizophrenia and is frequently observed among patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3862,6 +4091,8 @@
                 
                 <div class="evidence-explanation">The study confirms the association between social withdrawal and various neurocognitive deficits in schizophrenia, supporting its frequent occurrence.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3879,6 +4110,8 @@
                 
                 
                 <div class="evidence-explanation">The review details social withdrawal as a prominent negative symptom in schizophrenia, further corroborating its frequent occurrence.</div>
+                
+                
                 
             </div>
             
@@ -3931,6 +4164,8 @@
                 
                 <div class="evidence-explanation">The study provides evidence that flat affect is a frequent and prominent clinical feature of schizophrenia, which aligns with the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3949,6 +4184,8 @@
                 
                 <div class="evidence-explanation">The reference suggests that flat affect, which is an emotional deficit, is part of the clinical phenotype of schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3966,6 +4203,8 @@
                 
                 
                 <div class="evidence-explanation">The study mentions flat affect as one of the core negative symptoms of schizophrenia, supporting its frequent occurrence within the schizophrenia phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4018,6 +4257,8 @@
                 
                 <div class="evidence-explanation">Evidence suggests there is a working memory deficit phenotype within schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4036,6 +4277,8 @@
                 
                 <div class="evidence-explanation">The literature highlights WM deficits as a central part of cognitive impairment in schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4053,6 +4296,8 @@
                 
                 
                 <div class="evidence-explanation">The study directly supports the existence of working memory deficits as a core phenotype in schizophrenia.</div>
+                
+                
                 
             </div>
             
@@ -4105,6 +4350,8 @@
                 
                 <div class="evidence-explanation">The reference suggests catatonia is associated with schizophrenia but does not specify the frequency of this phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4123,6 +4370,8 @@
                 
                 <div class="evidence-explanation">The study indicates catatonia is present in some patients with schizophrenia but does not specify its frequency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4140,6 +4389,8 @@
                 
                 
                 <div class="evidence-explanation">The literature suggests catatonia, as a motor symptom, is a recognized aspect of schizophrenia.</div>
+                
+                
                 
             </div>
             
@@ -4317,6 +4568,8 @@
                 
                 <div class="evidence-explanation">The meta-analysis confirms associations between specific SNPs in the DISC1 gene and schizophrenia risk.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4335,6 +4588,8 @@
                 
                 <div class="evidence-explanation">This reference raises questions about the role of DISC1 as a risk factor, implying a lack of consensus.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4352,6 +4607,8 @@
                 
                 
                 <div class="evidence-explanation">This study associates the DISC1 gene with schizophrenia among other mental disorders, supporting its role as a risk factor.</div>
+                
+                
                 
             </div>
             
@@ -4396,6 +4653,8 @@
                 
                 <div class="evidence-explanation">The COMT gene is identified as a weak genetic risk factor for schizophrenia, increasing the risk by 50-80% in family studies.</div>
                 
+                
+                
             </div>
             
             
@@ -4437,6 +4696,8 @@
                 
                 <div class="evidence-explanation">The meta-analysis found some evidence supporting the association of NRG1 with schizophrenia, but also highlighted the need for larger sample sizes to firmly establish this role.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4455,6 +4716,8 @@
                 
                 <div class="evidence-explanation">This reference identifies NRG1 as a potential susceptibility gene for schizophrenia, indicating a genetic association.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4472,6 +4735,8 @@
                 
                 
                 <div class="evidence-explanation">This review points to NRG1 as a gene potentially related to the risk of schizophrenia.</div>
+                
+                
                 
             </div>
             
@@ -4516,6 +4781,8 @@
                 
                 <div class="evidence-explanation">This reference provides evidence that DTNBP1 is associated with an increased risk of schizophrenia, particularly in European-Americans.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4534,6 +4801,8 @@
                 
                 <div class="evidence-explanation">This reference elaborates on the association of DTNBP1 with specific clinical features of schizophrenia, further supporting its role as a risk factor.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4551,6 +4820,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses the role of DTNBP1 as a risk gene for schizophrenia within the context of genetic and environmental interactions.</div>
+                
+                
                 
             </div>
             
@@ -4639,6 +4910,8 @@
                 
                 <div class="evidence-explanation">This reference supports the statement that antipsychotic medications act through dopamine D2 receptor antagonism. It also mentions medications like clozapine, risperidone, and others, but does not specifically mention olanzapine in this context.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4654,6 +4927,8 @@
                 
                 
                 <div class="evidence-explanation">The title suggests a focus on schizophrenia treatments, but no abstract provided to verify the contents in relation to the detailed mechanism of action of risperidone, olanzapine, or clozapine.</div>
+                
+                
                 
             </div>
             
@@ -4672,6 +4947,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the usage of clozapine and risperidone but does not detail the mechanism focused on dopamine D2 receptor antagonism.</div>
+                
+                
                 
             </div>
             
@@ -4750,6 +5027,8 @@
                 
                 <div class="evidence-explanation">This indicates that Cognitive Behavioral Therapy (CBT) is a recognized treatment for schizophrenia that aims at changing maladaptive thought patterns and behaviors.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4768,6 +5047,8 @@
                 
                 <div class="evidence-explanation">This highlights that CBT, which focuses on changing maladaptive thought patterns and behaviors, is effective in treating certain symptoms of schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4785,6 +5066,8 @@
                 
                 
                 <div class="evidence-explanation">The statement aligns with the cognitive approach to schizophrenia, which underpins CBT.</div>
+                
+                
                 
             </div>
             
@@ -4863,6 +5146,8 @@
                 
                 <div class="evidence-explanation">The study states that social skills training helps individuals with schizophrenia to improve functioning in their communities by acquiring interpersonal and independent living skills.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4881,6 +5166,8 @@
                 
                 <div class="evidence-explanation">Clinical therapies for first-episode psychosis as part of coordinated specialty care (CSC) include skills training directed at social skills.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4898,6 +5185,8 @@
                 
                 
                 <div class="evidence-explanation">This reference indicates that social skills training is a recognized psychosocial method used to treat schizophrenia and discusses its efficacy.</div>
+                
+                
                 
             </div>
             
@@ -4976,6 +5265,8 @@
                 
                 <div class="evidence-explanation">The article discusses the benefits of supportive therapy in schizophrenia treatment and emphasizes mechanisms such as the therapeutic alliance and social support, indicating that ongoing support helps manage daily life and stress.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4994,6 +5285,8 @@
                 
                 <div class="evidence-explanation">Supportive psychodynamic psychotherapy, a variant of supportive therapy, was found to significantly improve symptoms and functional outcomes, underscoring its role in ongoing support for managing stress and daily life in schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5011,6 +5304,8 @@
                 
                 
                 <div class="evidence-explanation">Coordinated specialty care, including supportive interventions, focuses on coping, recovery, and quality of life, indicating the importance of ongoing support.</div>
+                
+                
                 
             </div>
             
@@ -5087,6 +5382,8 @@
                 
                 <div class="evidence-explanation">While vocational rehabilitation programs have positive influences on work-related activities, they have not generally shown substantial and enduring impacts on competitive employment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5105,6 +5402,8 @@
                 
                 <div class="evidence-explanation">Vocational programs have shown promise with a significant portion of patients being gainfully employed, but it does not necessarily indicate maintaining stable employment over long periods.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5122,6 +5421,8 @@
                 
                 
                 <div class="evidence-explanation">Neurocognitive enhancement therapy combined with vocational services showed improved employment outcomes, supporting the positive impact on gaining and maintaining employment.</div>
+                
+                
                 
             </div>
             
@@ -5188,6 +5489,8 @@
                 
                 <div class="evidence-explanation">The review provides evidence linking prenatal stress to the risk of schizophrenia spectrum disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5206,6 +5509,8 @@
                 
                 <div class="evidence-explanation">The article discusses the association between prenatal stress and neurodevelopmental changes leading to schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5223,6 +5528,8 @@
                 
                 
                 <div class="evidence-explanation">The study found that maternal stress during pregnancy is associated with increased risk of schizophrenia spectrum disorders in offspring, particularly males.</div>
+                
+                
                 
             </div>
             
@@ -5279,6 +5586,8 @@
                 
                 <div class="evidence-explanation">The study suggests that there is an association between cannabis use and schizophrenia, but it indicates that the genetic components might play a significant role, making it partially supportive.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5297,6 +5606,8 @@
                 
                 <div class="evidence-explanation">The study provides direct evidence that cannabis use is associated with an earlier age at onset of psychosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5314,6 +5625,8 @@
                 
                 
                 <div class="evidence-explanation">The association of environmental factors, including cannabis use, supports the idea of increased risk of schizophrenia.</div>
+                
+                
                 
             </div>
             
@@ -5349,6 +5662,7 @@
                 <div class="item-desc">Context: Observed in cerebrospinal fluid and postmortem brain analysis.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5372,6 +5686,8 @@
                 
                 <div class="evidence-explanation">The study mentions elevated levels of the dopamine metabolite dimethyltryptamine in cerebrospinal fluid of schizophrenic patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5390,6 +5706,8 @@
                 
                 <div class="evidence-explanation">This study shows increased cerebrospinal fluid dopamine levels, which are related to dopamine metabolism, in first-episode psychosis subjects, supporting elevated dopamine metabolites in CSF in schizophrenia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5407,6 +5725,8 @@
                 
                 
                 <div class="evidence-explanation">While it discusses postmortem brain analysis and dopamine dysfunction in schizophrenia, it does not specifically state elevated dopamine metabolites.</div>
+                
+                
                 
             </div>
             
@@ -5428,6 +5748,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Observed in cerebrospinal fluid and postmortem brain analysis.</div>
+                
                 
                 
     
@@ -5453,6 +5774,8 @@
                 
                 <div class="evidence-explanation">The study discusses the search for diagnostic markers in CSF but does not provide specific evidence for elevated glutamate levels.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5471,6 +5794,8 @@
                 
                 <div class="evidence-explanation">This study focuses on the elevated levels of kynurenic acid, not directly on glutamate levels.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5488,6 +5813,8 @@
                 
                 
                 <div class="evidence-explanation">The study mentions alterations in glutamate (Glu) neurotransmission in schizophrenia, aligning with the statement.</div>
+                
+                
                 
             </div>
             

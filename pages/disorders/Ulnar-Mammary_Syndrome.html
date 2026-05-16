@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2699,6 +2890,8 @@ several organs"</div>
                 
                 <div class="evidence-explanation">Demonstrates that TBX3 haploinsufficiency from heterozygous loss-of-function mutations is the pathogenic mechanism in autosomal dominant UMS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2719,6 +2912,8 @@ expression of UMS is highly variable."</div>
                 
                 
                 <div class="evidence-explanation">Pallister kindred analysis directly establishes the marked variable expressivity that characterizes autosomal dominant TBX3-related disease.</div>
+                
+                
                 
             </div>
             
@@ -2742,6 +2937,8 @@ malformations merits investigation"</div>
                 
                 
                 <div class="evidence-explanation">Mouse Tbx3 mutant alleles show that some truncating variants produce mislocalized cytoplasmic protein with phenotypes distinct from true nulls, qualifying the simple haploinsufficiency model.</div>
+                
+                
                 
             </div>
             
@@ -2890,6 +3087,8 @@ several organs"</div>
                 
                 <div class="evidence-explanation">Original disease-gene paper demonstrating that heterozygous TBX3 loss-of-function variants cause UMS via haploinsufficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2912,6 +3111,8 @@ including five mutations downstream of the region encoding the T-box"</div>
                 
                 <div class="evidence-explanation">Establishes the breadth of the TBX3 mutation spectrum, including pathogenic variants outside the T-box DNA-binding domain.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2933,6 +3134,8 @@ frequency of severe upper limb malformations and teeth defects"</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates the genotype-phenotype gradient by which T-box-disrupting variants cause more severe limb and tooth phenotypes than non-T-box variants.</div>
+                
+                
                 
             </div>
             
@@ -3123,6 +3326,8 @@ elements"</div>
                 
                 <div class="evidence-explanation">Original disease-gene paper establishes that UMS limb defects specifically involve posterior (ulnar) elements.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3144,6 +3349,8 @@ complementary roles in patterning the mammalian upper limb"</div>
                 
                 
                 <div class="evidence-explanation">Establishes the evolutionary complementarity of TBX3 (posterior) and TBX5 (anterior) in limb patterning, the framework for the UMS-Holt-Oram phenotypic mirror.</div>
+                
+                
                 
             </div>
             
@@ -3168,6 +3375,8 @@ delineates the posterior mesenchymal territory competent to establish..."</div>
                 
                 
                 <div class="evidence-explanation">Mouse ChIP-seq and expression analysis directly demonstrates the molecular mechanism by which TBX3 establishes the posterior boundary that licenses SHH organizer formation.</div>
+                
+                
                 
             </div>
             
@@ -3422,6 +3631,8 @@ gland, tooth and genital development"</div>
                 
                 <div class="evidence-explanation">Establishes apocrine gland involvement (including breast) as a defining feature of UMS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3444,6 +3655,8 @@ Fgf signalling through FGFR1"</div>
                 
                 <div class="evidence-explanation">Mouse embryo data place Wnt and FGFR1 signaling upstream of Tbx3 in mammary placode initiation, identifying the molecular cascade that fails in UMS apocrine hypoplasia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3464,6 +3677,8 @@ the mammary placodes and on the extent of branching of the ductal tree in mice"<
                 
                 
                 <div class="evidence-explanation">Direct mouse-genetic demonstration that Tbx3 haploinsufficiency impairs mammary placode maintenance and ductal branching - the developmental basis of UMS breast hypoplasia.</div>
+                
+                
                 
             </div>
             
@@ -3679,6 +3894,8 @@ who were heterozygous for novel TBX3 pathogenic variants"</div>
                 
                 <div class="evidence-explanation">Direct clinical demonstration that TBX3 pathogenic variants cause congenital normosmic hypogonadotropic hypogonadism with pituitary hypoplasia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3700,6 +3917,8 @@ in 79 and 37% of UMS males, respectively"</div>
                 
                 <div class="evidence-explanation">Provides population-level frequency estimates anchoring the hypogonadotropic-hypogonadism phenotype in UMS males.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3720,6 +3939,8 @@ congenital nIHH"</div>
                 
                 
                 <div class="evidence-explanation">Establishes TBX3 as a candidate gene for isolated congenital normosmic IHH, beyond classic UMS diagnostic settings.</div>
+                
+                
                 
             </div>
             
@@ -3819,6 +4040,8 @@ congenital heart defects and the TBX3 mutation in this family"</div>
                 
                 <div class="evidence-explanation">Family report combining UMS with cardiac malformations and pulmonary stenosis links TBX3 mutation to embryonic cardiac septal expression.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3841,6 +4064,8 @@ Wolff-Parkinson-White (WPW) syndrome"</div>
                 
                 <div class="evidence-explanation">Clinical UMS case documents VSD in a TBX3-mutation-confirmed patient.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3862,6 +4087,8 @@ including the heart, mammary glands, limbs and lungs"</div>
                 
                 
                 <div class="evidence-explanation">Review establishes TBX3 as a critical cardiac developmental regulator, providing the mechanistic context for cardiac findings in UMS.</div>
+                
+                
                 
             </div>
             
@@ -3957,6 +4184,8 @@ including the heart, mammary glands, limbs and lungs"</div>
                 
                 <div class="evidence-explanation">Defines the dichotomous TBX3 role - specifying normal AV conduction tissue and repressing accessory pathways - that explains both conduction block and pre-excitation phenotypes in UMS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3977,6 +4206,8 @@ including the heart, mammary glands, limbs and lungs"</div>
                 
                 <div class="evidence-explanation">Direct clinical recommendation that TBX3 carriers be screened for both conduction block and pre-excitation, supporting cardiac surveillance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3996,6 +4227,8 @@ including the heart, mammary glands, limbs and lungs"</div>
                 
                 
                 <div class="evidence-explanation">Establishes a postnatal-maintenance role for TBX3 in conduction-system health, motivating long-term electrophysiologic follow-up.</div>
+                
+                
                 
             </div>
             
@@ -4134,6 +4367,8 @@ after birth with cleft palate and difficulty feeding"</div>
                 
                 <div class="evidence-explanation">Mouse neural-crest-specific Tbx3 ablation causes cleft palate, supporting a TBX3 role in cranial neural crest contribution to midline craniofacial development.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4156,6 +4391,8 @@ frequency of severe upper limb malformations and teeth defects"</div>
                 
                 <div class="evidence-explanation">Genotype-phenotype trend supports TBX3 dosage dependence of dental development.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4176,6 +4413,8 @@ bi-lobulated tongue tip typical for UMS"</div>
                 
                 
                 <div class="evidence-explanation">Family report documents bifid nasal tip and bilobed tongue tip as recognizable UMS midline features even in the absence of limb/mammary involvement.</div>
+                
+                
                 
             </div>
             
@@ -4211,7 +4450,7 @@ bi-lobulated tongue tip typical for UMS"</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Axillary Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or sparse axillary hair, reflecting failure of axillary apocrine gland development. A characteristic apocrine sign of UMS in both sexes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002221\"}}, {\"id\": \"Anterior Pituitary Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anatomic hypoplasia of the anterior pituitary on MRI, often with thin pituitary stalk and (in some cases) ectopic posterior pituitary, underlying the combined gonadotropin and growth-hormone deficiencies.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010627\"}}, {\"id\": \"Apocrine Gland Development Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX3 is required for induction and maintenance of mammary placodes and for ductal branching morphogenesis of the breast and axillary apocrine glands. In mouse embryos, Wnt signaling and FGF8/FGFR1 signaling converge on the surface ectoderm to induce and maintain Tbx3 expression in the prospective mammary bud, where Tbx3 is the earliest known placodal marker (preceding Lef1). Haploinsufficiency reduces placode maintenance and ductal branching in mice, with a genetic interaction with Tbx2 that does not require the p19Arf/p53 pathway. In the adult mammary gland TBX3 is restricted to luminal hormone-sensing (estrogen-receptor-positive) cells and is required for generation of this lineage. The same dosage-sensitive program supports development of axillary apocrine glands, so haploinsufficiency causes hypoplasia or aplasia of breast tissue, hypoplastic/inverted nipples, absent axillary hair, and hypohidrosis - the apocrine signature that distinguishes UMS from other posterior limb malformation syndromes.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Mammary Stem/Progenitor Cell\", \"Luminal Hormone-Sensing Mammary Cell\", \"Apocrine Cell\"], \"biological_processes\": [\"Mammary Gland Development\", \"Mammary Placode Formation\", \"Mammary Gland Morphogenesis\", \"Wnt Signaling Pathway\"]}}, {\"id\": \"Bifid Nasal Tip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midline craniofacial anomaly with a bifid nasal tip, recognized as a typical UMS feature even in patients lacking obvious limb or mammary involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000456\"}}, {\"id\": \"Bifid Tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilobed/bifid tongue tip from incomplete midline fusion of the lateral lingual swellings, reported as a typical UMS feature.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010297\"}}, {\"id\": \"Breast Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or aplasia of breast tissue, ranging from diminished development with normal lactation to complete absence of the breasts, reflecting failed mammary placode maintenance and ductal branching. This is a hallmark feature of UMS, distinguishing it from other posterior limb malformation syndromes.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0003187\"}}, {\"id\": \"Cardiac Conduction Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conduction-system defects, including Wolff-Parkinson-White-pattern pre-excitation, reflecting the developmental role of TBX3 in cardiac conduction-system specification.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001716\"}}, {\"id\": \"Cardiac Conduction System Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX3 plays a dichotomous role in patterning the atrioventricular (AV) conduction system: it specifies the development of the normal AV conduction tissue (AV node, His bundle, bundle branches) and represses the formation of accessory AV pathways elsewhere in working myocardium. Haploinsufficiency therefore produces a bidirectional electrical phenotype - conduction block from inadequate AV-node/Purkinje specification, and ventricular pre-excitation (Wolff-Parkinson-White pattern) from failure to suppress accessory pathways. TBX3 may also maintain postnatal conduction-system health, supporting adult-onset sinus-node dysfunction and AV block in carriers.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Cardiac Conduction System Development\"]}}, {\"id\": \"Cardiac Septation Defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX3 is expressed in the embryonic cardiac septal region and contributes to ventricular septum morphogenesis. Haploinsufficiency in this domain is the proposed mechanism for the congenital structural heart defects (most often ventricular septal defects, sometimes with pulmonary stenosis or other structural anomalies) reported in a minority of UMS patients. These structural findings are likely under-ascertained in the classical clinical descriptions, motivating routine cardiac evaluation in TBX3 carriers.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Ventricular Septum Morphogenesis\"]}}, {\"id\": \"Cardiac Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Routine cardiac evaluation including echocardiogram and ECG to detect ventricular septal defects and conduction abnormalities (including Wolff-Parkinson-White-pattern pre-excitation), since these may be under-ascertained in classical clinical descriptions.\\n\"}, {\"id\": \"Craniofacial and Dental Midline Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UMS includes craniofacial midline anomalies (bifid nasal tip, bifid or bilobed tongue tip, high-arched palate) and dental anomalies (hypodontia, misplaced or absent teeth, abnormal canines). T-box domain disrupting variants are associated with more severe dental involvement. In a Wnt1-Cre-driven mouse neural-crest-specific Tbx3 knockout, animals develop cleft palate, indicating that TBX3 dosage in cranial neural crest is required for palatal fusion and is a plausible mechanistic axis for the midline phenotypes seen in human carriers.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cranial Neural Crest Cell\"], \"biological_processes\": [\"Odontogenesis of Dentin-Containing Tooth\"]}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes from inadequate gonadotropin/testosterone drive during fetal testicular descent.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed or absent onset of puberty, especially in males, secondary to persistent hypogonadotropic hypogonadism. A combined-cohort analysis identified delayed puberty in 79% of UMS males. The HH-related deficit is stable rather than progressive (puberty fails to start and remains absent without exogenous gonadotropin/testosterone replacement).\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000823\"}}, {\"id\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Human chorionic gonadotropin (hCG) and gonadotropin-based regimens for hypogonadotropic hypogonadism, used to induce puberty and treat micropenis in UMS males.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Growth Hormone Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Partial growth hormone deficiency secondary to anterior pituitary hypoplasia, often responsive to recombinant human growth hormone therapy.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008240\"}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Missing or malformed teeth, including misplaced canines, reflecting TBX3 dosage requirement during odontogenesis. Dental anomalies are more frequent in patients with T-box-disrupting variants.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000668\"}}, {\"id\": \"Hypogonadotropic Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital normosmic hypogonadotropic hypogonadism (nIHH) with inadequate LH/FSH secretion, often persistent into adulthood and associated with anterior pituitary hypoplasia. Endocrine signs may be the presenting feature even without overt limb or mammary phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypohidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced sweating, especially in the axillae, secondary to apocrine sweat gland hypoplasia. Reduced perspiration is a classical apocrine sign of UMS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000966\"}}, {\"id\": \"Hypoplastic Nipples\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia, retraction, or inversion of the nipples and reduced areolar development, reflecting disrupted mammary placode/nipple morphogenesis. Hypoplastic or absent nipples are core prepubertal recognition features of UMS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002557\"}}, {\"id\": \"Hypothalamic-Pituitary Axis Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX3 is expressed in the developing pituitary gland, and recurrent structural pituitary findings in UMS - anterior pituitary hypoplasia, thin pituitary stalk, and ectopic posterior pituitary - implicate TBX3 dosage in adenohypophysis development. The clinical consequence is congenital normosmic hypogonadotropic hypogonadism (often persistent into adulthood), partial growth hormone deficiency, and short stature; a combined-cohort analysis found delayed puberty in 79% of UMS males and other signs of hypogonadism in 37%. The endocrine phenotype can be the presenting (or only) feature, even without overt limb or mammary signs, so TBX3 belongs in the diagnostic differential for congenital nIHH with midline defects.\\n\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Gonadotroph\", \"Somatotroph\"], \"biological_processes\": [\"Adenohypophysis Development\", \"Pituitary Gland Development\"]}}, {\"id\": \"Micropenis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micropenis from inadequate fetal/neonatal androgen exposure secondary to hypogonadotropic hypogonadism. Frequently co-occurs with cryptorchidism in UMS males.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000054\"}}, {\"id\": \"Orchidopexy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical descent and fixation of undescended testes for cryptorchidism in UMS males.\\n\"}, {\"id\": \"Postaxial Hand Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior (ulnar-side) digital duplications, including fifth-finger duplications and postaxial polydactyly. Posterior digital duplications can co-occur with contralateral ulnar deficiency, reflecting disturbed rather than purely deficient posterior patterning.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001162\"}}, {\"id\": \"Posterior Limb Patterning Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During early limb-bud development, TBX3 establishes the posterior expression boundary of anterior identity genes by transcriptional repression that excludes Gli3, Alx4, Hand1, and Irx3/5 from the posterior limb bud mesenchyme. This exclusion delineates a posterior territory competent to establish the Sonic-hedgehog-expressing zone of polarizing activity (ZPA). HAND2 cooperates with TBX3 to upregulate shared posterior identity targets and is required for SHH activation. TBX3 is itself a direct transcriptional target of retinoic acid signaling via an RA-receptor complex bound to the TBX3 promoter, placing RA upstream of TBX3 in limb patterning. Haploinsufficiency disrupts posterior limb morphogenesis, causing ulnar ray defects ranging from fifth finger hypoplasia to complete ulnar absence; posterior digital duplications also occur. Limb defects of UMS specifically affect posterior elements, in mirror-image contrast to the anterior radial defects of TBX5-related Holt-Oram syndrome, reflecting the complementary roles acquired by these paralogues.\\n\", \"meta\": {\"evidence_count\": 8, \"cell_types\": [\"Limb Bud Mesenchymal Cell\"], \"biological_processes\": [\"Embryonic Limb Morphogenesis\", \"Anterior/Posterior Pattern Specification\", \"Smoothened (SHH) Signaling Pathway\", \"Retinoic Acid Receptor Signaling Pathway\"]}}, {\"id\": \"Recombinant Human Growth Hormone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human growth hormone (rhGH) replacement for growth hormone deficiency from anterior pituitary hypoplasia. Reported to improve height in UMS probands with confirmed GH deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature secondary to combined growth hormone deficiency and delayed/absent pubertal growth from hypogonadotropic hypogonadism. Reported in approximately 16% of UMS cases in modern literature summaries; can respond to recombinant human growth hormone therapy.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Surgical Reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthopedic surgical correction of upper limb deformities (e.g., digital reconstruction, syndactyly release, ulnar deficiency management) and breast reconstruction as needed, depending on severity of malformations.\\n\"}, {\"id\": \"TBX3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"TBX3\"], \"association\": \"Causative\"}}, {\"id\": \"TBX3 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous loss-of-function variants in TBX3 (a T-box DNA-binding transcriptional repressor on chromosome 12q24.21) reduce functional protein dosage below the level required for several developmental programs. Variants include frameshift, nonsense, splice-site, and missense changes both within and outside the T-box DNA-binding domain; missense variants in the T-box domain are functionally most disruptive, consistent with the genotype-phenotype trend that T-box-disrupting variants cause more severe limb and dental phenotypes. Mouse data indicate that some engineered truncating alleles produce cytoplasmically mislocalized protein, so a subset of human variants may act through mechanisms beyond simple loss of function. Reduced TBX3 dosage is the upstream lesion that converges on tissue-specific transcriptional programs in the limb bud, mammary placode, hypothalamic-pituitary axis, cardiac conduction system, and craniofacial midline.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"Negative Regulation of Transcription by RNA Polymerase II\"], \"genes\": [\"TBX3\"]}}, {\"id\": \"Ulnar Ray Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior (ulnar) upper limb defects ranging from hypoplasia of the terminal phalanx of the fifth digit through fifth-finger and ulnar hypoplasia to complete absence of the ulna and the third, fourth, and fifth digits. Limb abnormalities specifically involve posterior elements, in mirror-image contrast to the anterior radial defects of Holt-Oram syndrome.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0003022\"}}, {\"id\": \"Ventricular Septal Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of UMS patients have congenital ventricular septal defects, consistent with the role of TBX3 in embryonic cardiac septation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Posterior Limb Patterning Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Apocrine Gland Development Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Hypothalamic-Pituitary Axis Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Cardiac Septation Defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Cardiac Conduction System Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Posterior Limb Patterning Disruption\", \"target\": \"Ulnar Ray Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Posterior Limb Patterning Disruption\", \"target\": \"Postaxial Hand Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apocrine Gland Development Failure\", \"target\": \"Breast Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apocrine Gland Development Failure\", \"target\": \"Hypoplastic Nipples\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apocrine Gland Development Failure\", \"target\": \"Absent Axillary Hair\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apocrine Gland Development Failure\", \"target\": \"Hypohidrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Anterior Pituitary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Growth Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Delayed Puberty\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Micropenis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac Septation Defects\", \"target\": \"Ventricular Septal Defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac Conduction System Disruption\", \"target\": \"Cardiac Conduction Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and Dental Midline Disruption\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and Dental Midline Disruption\", \"target\": \"Bifid Nasal Tip\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and Dental Midline Disruption\", \"target\": \"Bifid Tongue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Recombinant Human Growth Hormone\", \"target\": \"Hypothalamic-Pituitary Axis Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Human Growth Hormone\", \"target\": \"Short Stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Recombinant Human Growth Hormone\", \"target\": \"Growth Hormone Deficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"target\": \"Hypothalamic-Pituitary Axis Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"target\": \"Delayed Puberty\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"target\": \"Micropenis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical Reconstruction\", \"target\": \"Ulnar Ray Deficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical Reconstruction\", \"target\": \"Postaxial Hand Polydactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orchidopexy\", \"target\": \"Cryptorchidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surveillance\", \"target\": \"Ventricular Septal Defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surveillance\", \"target\": \"Cardiac Conduction Abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"TBX3\", \"target\": \"TBX3 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Axillary Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or sparse axillary hair, reflecting failure of axillary apocrine gland development. A characteristic apocrine sign of UMS in both sexes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002221\"}}, {\"id\": \"Anterior Pituitary Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anatomic hypoplasia of the anterior pituitary on MRI, often with thin pituitary stalk and (in some cases) ectopic posterior pituitary, underlying the combined gonadotropin and growth-hormone deficiencies.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010627\"}}, {\"id\": \"Apocrine Gland Development Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX3 is required for induction and maintenance of mammary placodes and for ductal branching morphogenesis of the breast and axillary apocrine glands. In mouse embryos, Wnt signaling and FGF8/FGFR1 signaling converge on the surface ectoderm to induce and maintain Tbx3 expression in the prospective mammary bud, where Tbx3 is the earliest known placodal marker (preceding Lef1). Haploinsufficiency reduces placode maintenance and ductal branching in mice, with a genetic interaction with Tbx2 that does not require the p19Arf/p53 pathway. In the adult mammary gland TBX3 is restricted to luminal hormone-sensing (estrogen-receptor-positive) cells and is required for generation of this lineage. The same dosage-sensitive program supports development of axillary apocrine glands, so haploinsufficiency causes hypoplasia or aplasia of breast tissue, hypoplastic/inverted nipples, absent axillary hair, and hypohidrosis - the apocrine signature that distinguishes UMS from other posterior limb malformation syndromes.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Mammary Stem/Progenitor Cell\", \"Luminal Hormone-Sensing Mammary Cell\", \"Apocrine Cell\"], \"biological_processes\": [\"Mammary Gland Development\", \"Mammary Placode Formation\", \"Mammary Gland Morphogenesis\", \"Wnt Signaling Pathway\"]}}, {\"id\": \"Bifid Nasal Tip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midline craniofacial anomaly with a bifid nasal tip, recognized as a typical UMS feature even in patients lacking obvious limb or mammary involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000456\"}}, {\"id\": \"Bifid Tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilobed/bifid tongue tip from incomplete midline fusion of the lateral lingual swellings, reported as a typical UMS feature.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010297\"}}, {\"id\": \"Breast Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or aplasia of breast tissue, ranging from diminished development with normal lactation to complete absence of the breasts, reflecting failed mammary placode maintenance and ductal branching. This is a hallmark feature of UMS, distinguishing it from other posterior limb malformation syndromes.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0003187\"}}, {\"id\": \"Cardiac Conduction Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conduction-system defects, including Wolff-Parkinson-White-pattern pre-excitation, reflecting the developmental role of TBX3 in cardiac conduction-system specification.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001716\"}}, {\"id\": \"Cardiac Conduction System Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX3 plays a dichotomous role in patterning the atrioventricular (AV) conduction system: it specifies the development of the normal AV conduction tissue (AV node, His bundle, bundle branches) and represses the formation of accessory AV pathways elsewhere in working myocardium. Haploinsufficiency therefore produces a bidirectional electrical phenotype - conduction block from inadequate AV-node/Purkinje specification, and ventricular pre-excitation (Wolff-Parkinson-White pattern) from failure to suppress accessory pathways. TBX3 may also maintain postnatal conduction-system health, supporting adult-onset sinus-node dysfunction and AV block in carriers.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Cardiac Conduction System Development\"]}}, {\"id\": \"Cardiac Septation Defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX3 is expressed in the embryonic cardiac septal region and contributes to ventricular septum morphogenesis. Haploinsufficiency in this domain is the proposed mechanism for the congenital structural heart defects (most often ventricular septal defects, sometimes with pulmonary stenosis or other structural anomalies) reported in a minority of UMS patients. These structural findings are likely under-ascertained in the classical clinical descriptions, motivating routine cardiac evaluation in TBX3 carriers.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Ventricular Septum Morphogenesis\"]}}, {\"id\": \"Cardiac Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Routine cardiac evaluation including echocardiogram and ECG to detect ventricular septal defects and conduction abnormalities (including Wolff-Parkinson-White-pattern pre-excitation), since these may be under-ascertained in classical clinical descriptions.\\n\"}, {\"id\": \"Craniofacial and Dental Midline Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UMS includes craniofacial midline anomalies (bifid nasal tip, bifid or bilobed tongue tip, high-arched palate) and dental anomalies (hypodontia, misplaced or absent teeth, abnormal canines). T-box domain disrupting variants are associated with more severe dental involvement. In a Wnt1-Cre-driven mouse neural-crest-specific Tbx3 knockout, animals develop cleft palate, indicating that TBX3 dosage in cranial neural crest is required for palatal fusion and is a plausible mechanistic axis for the midline phenotypes seen in human carriers.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cranial Neural Crest Cell\"], \"biological_processes\": [\"Odontogenesis of Dentin-Containing Tooth\"]}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes from inadequate gonadotropin/testosterone drive during fetal testicular descent.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed or absent onset of puberty, especially in males, secondary to persistent hypogonadotropic hypogonadism. A combined-cohort analysis identified delayed puberty in 79% of UMS males. The HH-related deficit is stable rather than progressive (puberty fails to start and remains absent without exogenous gonadotropin/testosterone replacement).\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000823\"}}, {\"id\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Human chorionic gonadotropin (hCG) and gonadotropin-based regimens for hypogonadotropic hypogonadism, used to induce puberty and treat micropenis in UMS males.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Growth Hormone Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Partial growth hormone deficiency secondary to anterior pituitary hypoplasia, often responsive to recombinant human growth hormone therapy.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008240\"}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Missing or malformed teeth, including misplaced canines, reflecting TBX3 dosage requirement during odontogenesis. Dental anomalies are more frequent in patients with T-box-disrupting variants.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000668\"}}, {\"id\": \"Hypogonadotropic Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital normosmic hypogonadotropic hypogonadism (nIHH) with inadequate LH/FSH secretion, often persistent into adulthood and associated with anterior pituitary hypoplasia. Endocrine signs may be the presenting feature even without overt limb or mammary phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypohidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced sweating, especially in the axillae, secondary to apocrine sweat gland hypoplasia. Reduced perspiration is a classical apocrine sign of UMS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000966\"}}, {\"id\": \"Hypoplastic Nipples\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia, retraction, or inversion of the nipples and reduced areolar development, reflecting disrupted mammary placode/nipple morphogenesis. Hypoplastic or absent nipples are core prepubertal recognition features of UMS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002557\"}}, {\"id\": \"Hypothalamic-Pituitary Axis Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX3 is expressed in the developing pituitary gland, and recurrent structural pituitary findings in UMS - anterior pituitary hypoplasia, thin pituitary stalk, and ectopic posterior pituitary - implicate TBX3 dosage in adenohypophysis development. The clinical consequence is congenital normosmic hypogonadotropic hypogonadism (often persistent into adulthood), partial growth hormone deficiency, and short stature; a combined-cohort analysis found delayed puberty in 79% of UMS males and other signs of hypogonadism in 37%. The endocrine phenotype can be the presenting (or only) feature, even without overt limb or mammary signs, so TBX3 belongs in the diagnostic differential for congenital nIHH with midline defects.\\n\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Gonadotroph\", \"Somatotroph\"], \"biological_processes\": [\"Adenohypophysis Development\", \"Pituitary Gland Development\"]}}, {\"id\": \"Micropenis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micropenis from inadequate fetal/neonatal androgen exposure secondary to hypogonadotropic hypogonadism. Frequently co-occurs with cryptorchidism in UMS males.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000054\"}}, {\"id\": \"Orchidopexy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical descent and fixation of undescended testes for cryptorchidism in UMS males.\\n\"}, {\"id\": \"Postaxial Hand Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior (ulnar-side) digital duplications, including fifth-finger duplications and postaxial polydactyly. Posterior digital duplications can co-occur with contralateral ulnar deficiency, reflecting disturbed rather than purely deficient posterior patterning.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001162\"}}, {\"id\": \"Posterior Limb Patterning Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During early limb-bud development, TBX3 establishes the posterior expression boundary of anterior identity genes by transcriptional repression that excludes Gli3, Alx4, Hand1, and Irx3/5 from the posterior limb bud mesenchyme. This exclusion delineates a posterior territory competent to establish the Sonic-hedgehog-expressing zone of polarizing activity (ZPA). HAND2 cooperates with TBX3 to upregulate shared posterior identity targets and is required for SHH activation. TBX3 is itself a direct transcriptional target of retinoic acid signaling via an RA-receptor complex bound to the TBX3 promoter, placing RA upstream of TBX3 in limb patterning. Haploinsufficiency disrupts posterior limb morphogenesis, causing ulnar ray defects ranging from fifth finger hypoplasia to complete ulnar absence; posterior digital duplications also occur. Limb defects of UMS specifically affect posterior elements, in mirror-image contrast to the anterior radial defects of TBX5-related Holt-Oram syndrome, reflecting the complementary roles acquired by these paralogues.\\n\", \"meta\": {\"evidence_count\": 8, \"cell_types\": [\"Limb Bud Mesenchymal Cell\"], \"biological_processes\": [\"Embryonic Limb Morphogenesis\", \"Anterior/Posterior Pattern Specification\", \"Smoothened (SHH) Signaling Pathway\", \"Retinoic Acid Receptor Signaling Pathway\"]}}, {\"id\": \"Recombinant Human Growth Hormone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human growth hormone (rhGH) replacement for growth hormone deficiency from anterior pituitary hypoplasia. Reported to improve height in UMS probands with confirmed GH deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature secondary to combined growth hormone deficiency and delayed/absent pubertal growth from hypogonadotropic hypogonadism. Reported in approximately 16% of UMS cases in modern literature summaries; can respond to recombinant human growth hormone therapy.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Surgical Reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthopedic surgical correction of upper limb deformities (e.g., digital reconstruction, syndactyly release, ulnar deficiency management) and breast reconstruction as needed, depending on severity of malformations.\\n\"}, {\"id\": \"TBX3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"TBX3\"], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"TBX3 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous loss-of-function variants in TBX3 (a T-box DNA-binding transcriptional repressor on chromosome 12q24.21) reduce functional protein dosage below the level required for several developmental programs. Variants include frameshift, nonsense, splice-site, and missense changes both within and outside the T-box DNA-binding domain; missense variants in the T-box domain are functionally most disruptive, consistent with the genotype-phenotype trend that T-box-disrupting variants cause more severe limb and dental phenotypes. Mouse data indicate that some engineered truncating alleles produce cytoplasmically mislocalized protein, so a subset of human variants may act through mechanisms beyond simple loss of function. Reduced TBX3 dosage is the upstream lesion that converges on tissue-specific transcriptional programs in the limb bud, mammary placode, hypothalamic-pituitary axis, cardiac conduction system, and craniofacial midline.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"Negative Regulation of Transcription by RNA Polymerase II\"], \"genes\": [\"TBX3\"]}}, {\"id\": \"Ulnar Ray Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior (ulnar) upper limb defects ranging from hypoplasia of the terminal phalanx of the fifth digit through fifth-finger and ulnar hypoplasia to complete absence of the ulna and the third, fourth, and fifth digits. Limb abnormalities specifically involve posterior elements, in mirror-image contrast to the anterior radial defects of Holt-Oram syndrome.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0003022\"}}, {\"id\": \"Ventricular Septal Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of UMS patients have congenital ventricular septal defects, consistent with the role of TBX3 in embryonic cardiac septation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Posterior Limb Patterning Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Apocrine Gland Development Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Hypothalamic-Pituitary Axis Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Cardiac Septation Defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TBX3 Haploinsufficiency\", \"target\": \"Cardiac Conduction System Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Posterior Limb Patterning Disruption\", \"target\": \"Ulnar Ray Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Posterior Limb Patterning Disruption\", \"target\": \"Postaxial Hand Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apocrine Gland Development Failure\", \"target\": \"Breast Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apocrine Gland Development Failure\", \"target\": \"Hypoplastic Nipples\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apocrine Gland Development Failure\", \"target\": \"Absent Axillary Hair\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Apocrine Gland Development Failure\", \"target\": \"Hypohidrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Anterior Pituitary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Growth Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Delayed Puberty\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Micropenis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic-Pituitary Axis Disruption\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac Septation Defects\", \"target\": \"Ventricular Septal Defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac Conduction System Disruption\", \"target\": \"Cardiac Conduction Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and Dental Midline Disruption\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and Dental Midline Disruption\", \"target\": \"Bifid Nasal Tip\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial and Dental Midline Disruption\", \"target\": \"Bifid Tongue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Recombinant Human Growth Hormone\", \"target\": \"Hypothalamic-Pituitary Axis Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Human Growth Hormone\", \"target\": \"Short Stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Recombinant Human Growth Hormone\", \"target\": \"Growth Hormone Deficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"target\": \"Hypothalamic-Pituitary Axis Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"target\": \"Delayed Puberty\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gonadotropin (hCG) Therapy for Pubertal Induction\", \"target\": \"Micropenis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical Reconstruction\", \"target\": \"Ulnar Ray Deficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical Reconstruction\", \"target\": \"Postaxial Hand Polydactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orchidopexy\", \"target\": \"Cryptorchidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surveillance\", \"target\": \"Ventricular Septal Defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surveillance\", \"target\": \"Cardiac Conduction Abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"TBX3\", \"target\": \"TBX3 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4302,6 +4541,8 @@ gland, tooth and genital development"</div>
                 
                 <div class="evidence-explanation">Apocrine/mammary gland involvement is a defining feature of UMS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4324,6 +4565,8 @@ lactation, to complete absence of the breasts and no axillary perspiration"</div
                 
                 <div class="evidence-explanation">Pallister kindred analysis documents the spectrum of breast hypoplasia/aplasia in UMS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4344,6 +4587,8 @@ the mammary placodes and on the extent of branching of the ductal tree in mice"<
                 
                 
                 <div class="evidence-explanation">Mouse-genetic basis for the human breast hypoplasia phenotype - Tbx3 dosage controls mammary placode maintenance and ductal branching.</div>
+                
+                
                 
             </div>
             
@@ -4410,6 +4655,8 @@ Wolff-Parkinson-White (WPW) syndrome"</div>
                 
                 <div class="evidence-explanation">Documents VSD with WPW-pattern conduction defects in TBX3-mutation-confirmed UMS.</div>
                 
+                
+                
             </div>
             
             
@@ -4464,6 +4711,8 @@ Wolff-Parkinson-White (WPW) syndrome"</div>
                 
                 
                 <div class="evidence-explanation">Documents WPW-pattern conduction defect in TBX3-mutation-confirmed UMS, supporting cardiac surveillance recommendations.</div>
+                
+                
                 
             </div>
             
@@ -4547,6 +4796,8 @@ in 79 and 37% of UMS males, respectively"</div>
                 
                 <div class="evidence-explanation">Provides cohort-level frequency of delayed puberty in UMS males, anchoring this as a high-frequency phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4567,6 +4818,8 @@ consistently undergo delayed puberty"</div>
                 
                 
                 <div class="evidence-explanation">Pallister kindred clinical analysis supports consistent delayed puberty in affected males.</div>
+                
+                
                 
             </div>
             
@@ -4624,6 +4877,8 @@ who were heterozygous for novel TBX3 pathogenic variants"</div>
                 
                 <div class="evidence-explanation">Direct clinical demonstration of congenital nIHH co-segregating with TBX3 pathogenic variants and pituitary hypoplasia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4644,6 +4899,8 @@ hypogonadotropic hypogonadism (HH), partial growth hormone deficiency"</div>
                 
                 
                 <div class="evidence-explanation">Recent family report frames hypogonadotropic hypogonadism and GH deficiency as canonical TBX3-related endocrine findings.</div>
+                
+                
                 
             </div>
             
@@ -4700,6 +4957,8 @@ anterior pituitary and an ectopic posterior pituitary gland"</div>
                 
                 <div class="evidence-explanation">Documents anterior pituitary hypoplasia and ectopic posterior pituitary as TBX3-related structural pituitary anomalies.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4720,6 +4979,8 @@ pituitary stalk and loss of a strong signal in the posterior pituitary"</div>
                 
                 
                 <div class="evidence-explanation">Recent case provides MRI-confirmed pituitary hypoplasia with thin stalk and posterior pituitary signal loss.</div>
+                
+                
                 
             </div>
             
@@ -4776,6 +5037,8 @@ hormone deficiency"</div>
                 
                 <div class="evidence-explanation">Documents growth hormone deficiency as part of the UMS endocrine phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4796,6 +5059,8 @@ deficiency, and hypogonadotropic hypogonadism"</div>
                 
                 
                 <div class="evidence-explanation">Recent case confirms growth hormone deficiency in a TBX3-mutation-confirmed proband.</div>
+                
+                
                 
             </div>
             
@@ -4861,6 +5126,8 @@ cryptorchidism"</div>
                 
                 <div class="evidence-explanation">Recent case documents micropenis with cryptorchidism in a TBX3-mutation-confirmed proband.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4881,6 +5148,8 @@ neonatal hypogonadism, and congenital giant bladder diverticula"</div>
                 
                 
                 <div class="evidence-explanation">Recent family report documents micropenis with neonatal hypogonadism in TBX3-mutation-positive twins.</div>
+                
+                
                 
             </div>
             
@@ -4937,6 +5206,8 @@ hormone deficiency, and cryptorchidism"</div>
                 
                 <div class="evidence-explanation">Documents cryptorchidism in a TBX3-mutation-confirmed UMS patient.</div>
                 
+                
+                
             </div>
             
             
@@ -4991,6 +5262,8 @@ neonatal hypogonadism, and congenital giant bladder diverticula"</div>
                 
                 
                 <div class="evidence-explanation">Documents congenital bladder diverticula in TBX3-mutation-positive twins, extending the genitourinary phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5055,6 +5328,8 @@ neonatal hypogonadism, and congenital giant bladder diverticula"</div>
                 
                 <div class="evidence-explanation">Pallister kindred analysis documents dental abnormalities including hypodontia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5076,6 +5351,8 @@ frequency of severe upper limb malformations and teeth defects"</div>
                 
                 
                 <div class="evidence-explanation">Confirms genotype-phenotype gradient that places dental defects with T-box-disrupting variants.</div>
+                
+                
                 
             </div>
             
@@ -5141,6 +5418,8 @@ axillary hair"</div>
                 
                 <div class="evidence-explanation">Pallister kindred clinical analysis documents diminished or absent axillary hair as a consistent UMS feature in both sexes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5162,6 +5441,8 @@ defects)"</div>
                 
                 
                 <div class="evidence-explanation">Absent axillary hair is listed among typical UMS features.</div>
+                
+                
                 
             </div>
             
@@ -5219,6 +5500,8 @@ lactation, to complete absence of the breasts and no axillary perspiration"</div
                 
                 <div class="evidence-explanation">Pallister kindred clinical description documents diminished/absent axillary perspiration as part of the apocrine UMS phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5239,6 +5522,8 @@ hypoplasia of the forearm, hypohidrosis"</div>
                 
                 
                 <div class="evidence-explanation">Recent case shows hypohidrosis in a TBX3-mutation-confirmed UMS proband.</div>
+                
+                
                 
             </div>
             
@@ -5304,6 +5589,8 @@ elements"</div>
                 
                 <div class="evidence-explanation">Confirms that UMS limb defects specifically affect posterior (ulnar) structures.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5326,6 +5613,8 @@ digits"</div>
                 
                 <div class="evidence-explanation">Pallister kindred analysis documents the full clinical spectrum of posterior limb deficiency in UMS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5347,6 +5636,8 @@ frequency of severe upper limb malformations"</div>
                 
                 
                 <div class="evidence-explanation">T-box-domain genotype-phenotype gradient applies most strongly to limb severity.</div>
+                
+                
                 
             </div>
             
@@ -5403,6 +5694,8 @@ with or without contralateral limb deficiencies"</div>
                 
                 <div class="evidence-explanation">Pallister kindred documents posterior digital duplications as part of the UMS limb spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5423,6 +5716,8 @@ unilateral, postaxial polydactyly, and bilateral fifth fingernail duplication"</
                 
                 
                 <div class="evidence-explanation">Modern case report documents postaxial polydactyly with TBX3 splice-site variant.</div>
+                
+                
                 
             </div>
             
@@ -5488,6 +5783,8 @@ hormone deficiency"</div>
                 
                 <div class="evidence-explanation">Documents short stature as a feature of TBX3-mutation-confirmed UMS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5507,6 +5804,8 @@ hormone deficiency"</div>
                 
                 
                 <div class="evidence-explanation">Modern Chinese family report demonstrates that short stature in UMS responds to rhGH/hCG, anchoring the endocrine basis of the growth phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5573,6 +5872,8 @@ hypoplastic nipples and/or areolas"</div>
                 
                 <div class="evidence-explanation">2024 review/cohort analysis explicitly anchors hypoplastic nipples/areolas as a core prepubertal UMS feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5593,6 +5894,8 @@ hypoplasia of the forearm, hypohidrosis, retracted nipple"</div>
                 
                 
                 <div class="evidence-explanation">Recent case shows retracted nipple as an apocrine clinical readout in a TBX3-mutation-confirmed UMS proband.</div>
+                
+                
                 
             </div>
             
@@ -5648,6 +5951,8 @@ bi-lobulated tongue tip typical for UMS"</div>
                 
                 
                 <div class="evidence-explanation">Recent family report establishes bifid nasal tip as a recognizable UMS feature in atypical presentations.</div>
+                
+                
                 
             </div>
             
@@ -5705,6 +6010,8 @@ defects"</div>
                 
                 <div class="evidence-explanation">Documents bilobed tongue tip as a typical UMS midline feature.</div>
                 
+                
+                
             </div>
             
             
@@ -5758,6 +6065,8 @@ defects"</div>
                 
                 
                 <div class="evidence-explanation">Pallister kindred clinical analysis documents imperforate hymen in some affected females.</div>
+                
+                
                 
             </div>
             
@@ -5845,6 +6154,8 @@ TBX3, a member of the T-box gene family, cause ulnar-mammary syndrome"</div>
                 
                 <div class="evidence-explanation">Original disease-gene paper establishes TBX3 as the causative gene for UMS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5867,6 +6178,8 @@ including five mutations downstream of the region encoding the T-box"</div>
                 
                 <div class="evidence-explanation">Demonstrates the breadth of the TBX3 mutation spectrum, including pathogenic variants outside the T-box DNA-binding domain.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5887,6 +6200,8 @@ those who have missense mutations and those who have deletions or frameshifts"</
                 
                 
                 <div class="evidence-explanation">Indicates that mutation type alone does not strongly predict phenotypic severity.</div>
+                
+                
                 
             </div>
             
@@ -6027,6 +6342,8 @@ those who have missense mutations and those who have deletions or frameshifts"</
                 
                 <div class="evidence-explanation">Treatment with rhGH and hCG significantly improved height and secondary sexual characteristics in a UMS proband.</div>
                 
+                
+                
             </div>
             
             
@@ -6148,6 +6465,8 @@ was significantly improved"</div>
                 
                 
                 <div class="evidence-explanation">hCG therapy improved micropenis in a UMS proband with hypogonadotropic hypogonadism.</div>
+                
+                
                 
             </div>
             

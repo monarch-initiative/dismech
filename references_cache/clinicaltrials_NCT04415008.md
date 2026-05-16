@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04415008
+reference_id: "clinicaltrials:NCT04415008"
 title: "A Prospective, Multicenter, Single Arm Clinical Study to Evaluate Efficacy of HAD Induction With Intensified Cytarabine in Newly-diagnosed CEBPA Double Mutated Acute Myeloid Leukemia"
 content_type: summary
 ---

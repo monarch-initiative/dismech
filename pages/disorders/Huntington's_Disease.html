@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2725,6 +2916,8 @@
                 
                 <div class="evidence-explanation">The literature explicitly states that Huntington&#39;s disease follows an autosomal-dominant pattern of inheritance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2743,6 +2936,8 @@
                 
                 <div class="evidence-explanation">The literature confirms that Huntington&#39;s disease is an autosomal dominant disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2760,6 +2955,8 @@
                 
                 
                 <div class="evidence-explanation">The literature supports that Huntington&#39;s disease is inherited in an autosomal dominant manner.</div>
+                
+                
                 
             </div>
             
@@ -2844,6 +3041,8 @@
                 
                 <div class="evidence-explanation">The abstract describes a case of childhood-onset Huntington&#39;s disease that progresses rapidly, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2862,6 +3061,8 @@
                 
                 <div class="evidence-explanation">The abstract confirms that Juvenile Huntington&#39;s Disease is rare, begins early, and progresses rapidly, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2879,6 +3080,8 @@
                 
                 
                 <div class="evidence-explanation">The abstract acknowledges the existence of juvenile Huntington&#39;s disease, which supports the statement.</div>
+                
+                
                 
             </div>
             
@@ -2938,6 +3141,8 @@
                 
                 <div class="evidence-explanation">The statement that Huntington&#39;s Disease typically begins after the age of 50 is not entirely accurate. While late-onset Huntington&#39;s Disease (LoHD) does occur, the typical age of onset for HD is in the fourth decade. However, the statement is partially supported by the fact that some individuals do experience late onset, and LoHD may have a slower progression.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2956,6 +3161,8 @@
                 
                 <div class="evidence-explanation">This reference refutes the statement that Huntington&#39;s Disease typically begins after the age of 50. It states that HD most typically manifests between the ages of 35 and 45 years.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2973,6 +3180,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses Juvenile-onset Huntington&#39;s Disease, which is not relevant to the claim about typical onset after the age of 50.</div>
+                
+                
                 
             </div>
             
@@ -3110,6 +3319,8 @@
                 
                 <div class="evidence-explanation">The reference confirms that an expanded CAG repeat in the HTT gene is the cause of Huntington&#39;s Disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3128,6 +3339,8 @@
                 
                 <div class="evidence-explanation">The literature clearly states that HD is caused by an expanded CAG repeat in the HTT gene, leading to a mutant huntingtin protein with an abnormal polyglutamine tract.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3145,6 +3358,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the statement by specifying that HD is caused by an expanded CAG repeat in the HTT gene, leading to an elongated polyglutamine stretch.</div>
+                
+                
                 
             </div>
             
@@ -3282,6 +3497,8 @@
                 
                 <div class="evidence-explanation">The literature supports that the pathogenesis of Huntington&#39;s Disease involves the accumulation of aggregated mutant huntingtin protein, leading to neuronal dysfunction and death.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3300,6 +3517,8 @@
                 
                 <div class="evidence-explanation">This reference supports the statement by highlighting the primary degeneration of neurons in the striatum due to Huntington&#39;s Disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3317,6 +3536,8 @@
                 
                 
                 <div class="evidence-explanation">This literature supports the statement by confirming that mutant huntingtin protein aggregation leads to neurotoxicity, particularly in the striatum.</div>
+                
+                
                 
             </div>
             
@@ -3487,6 +3708,8 @@
                 
                 <div class="evidence-explanation">The study identifies upregulation of glutamate receptors in medium spiny neurons, supporting the idea of excitotoxicity due to overactivation of these receptors leading to neuronal damage.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3505,6 +3728,8 @@
                 
                 <div class="evidence-explanation">This reference explains the concept of excitotoxicity and supports the idea that overactivation of glutamate receptors can lead to neuronal damage.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3522,6 +3747,8 @@
                 
                 
                 <div class="evidence-explanation">The study provides direct evidence that elevated glutamate levels increase the formation of hydroxyl radicals, implying oxidative stress induced by excitotoxicity, which supports the statement.</div>
+                
+                
                 
             </div>
             
@@ -3701,6 +3928,8 @@
                 
                 <div class="evidence-explanation">Supports the pathophysiology entry by directly linking mitochondrial dysfunction in HD to compromised energy metabolism, oxidative damage, and neuronal death.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3720,6 +3949,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the mitochondrial dysfunction mechanism by connecting impaired PGC-1alpha activity to defective mitochondrial biogenesis, metabolism, and antioxidant defense in HD.</div>
+                
+                
                 
             </div>
             
@@ -4089,6 +4320,8 @@
                 
                 <div class="evidence-explanation">In vivo evidence from HD transgenic mice showing that Sp1 binds soluble mutant huntingtin, supporting the sequestration mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4109,6 +4342,8 @@
                 
                 <div class="evidence-explanation">Cell culture experiments demonstrating that mutant huntingtin suppresses Sp1-regulated transcription.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4128,6 +4363,8 @@
                 
                 
                 <div class="evidence-explanation">HD cell culture models showing CBP depletion from its normal nuclear location and sequestration into polyglutamine aggregates.</div>
+                
+                
                 
             </div>
             
@@ -4274,6 +4511,8 @@
                 
                 <div class="evidence-explanation">The reference clearly states that chorea is a characteristic abnormal movement in Huntington&#39;s Disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4292,6 +4531,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that chorea is a major manifestation of Huntington&#39;s Disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4309,6 +4550,8 @@
                 
                 
                 <div class="evidence-explanation">The reference mentions chorea in the context of Huntington&#39;s Disease, supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -4530,6 +4773,8 @@
                 
                 <div class="evidence-explanation">The literature explicitly states that Huntington&#39;s disease is caused by an expanded CAG trinucleotide repeat in the HTT gene and is inherited in an autosomal dominant manner.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4548,6 +4793,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that Huntington&#39;s disease is caused by the expansion of the HTT CAG repeat and follows an autosomal dominant inheritance pattern.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4565,6 +4812,8 @@
                 
                 
                 <div class="evidence-explanation">This source supports the statement by indicating that Huntington&#39;s disease is an autosomal dominant disorder caused by a CAG expansion in the HTT gene.</div>
+                
+                
                 
             </div>
             
@@ -4823,6 +5072,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that tetrabenazine is used to manage chorea in Huntington&#39;s Disease by depleting dopamine.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4841,6 +5092,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that tetrabenazine depletes monoamines, including dopamine, to manage chorea in Huntington&#39;s Disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4858,6 +5111,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports that tetrabenazine depletes dopamine to manage chorea in Huntington&#39;s Disease.</div>
+                
+                
                 
             </div>
             
@@ -4936,6 +5191,8 @@
                 
                 <div class="evidence-explanation">The literature states that antipsychotics are used to manage psychiatric symptoms in Huntington&#39;s Disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4954,6 +5211,8 @@
                 
                 <div class="evidence-explanation">The literature supports the use of pharmacotherapy, which includes antipsychotic medications, for psychiatric symptoms in Huntington&#39;s Disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4971,6 +5230,8 @@
                 
                 
                 <div class="evidence-explanation">Risperidone, an antipsychotic, is mentioned as having a role in treating psychiatric symptoms in Huntington&#39;s Disease.</div>
+                
+                
                 
             </div>
             
@@ -5047,6 +5308,8 @@
                 
                 <div class="evidence-explanation">The abstract mentions that antidepressants, which include SSRIs, are used to manage symptoms in Huntington&#39;s Disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5064,6 +5327,8 @@
                 
                 
                 <div class="evidence-explanation">The use of antidepressants, which can include SSRIs, is associated with managing depressive symptoms in Huntington&#39;s Disease.</div>
+                
+                
                 
             </div>
             
@@ -5140,6 +5405,8 @@
                 
                 <div class="evidence-explanation">The review provides strong evidence that physical therapy interventions improve fitness, motor function, and gait in people with Huntington&#39;s Disease, supporting the statement that physical therapy helps maintain mobility and function.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5158,6 +5425,8 @@
                 
                 <div class="evidence-explanation">The study indicates that ancillary services, which include physical therapy, improve motor symptoms in HD patients, supporting the statement that physical therapy helps maintain mobility and function.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5175,6 +5444,8 @@
                 
                 
                 <div class="evidence-explanation">The study identifies specific mobility measures that are effective for assessing and optimizing mobility in HD patients, supporting the statement that physical therapy helps maintain mobility and function.</div>
+                
+                
                 
             </div>
             
@@ -5251,6 +5522,8 @@
                 
                 <div class="evidence-explanation">The literature indicates that speech-language pathologists (SLPs) play a significant role in managing dysarthria and dysphagia in patients with hyperkinetic disorders, including Huntington&#39;s Disease. However, it does not explicitly state that speech therapy helps manage these conditions in HD specifically.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5269,6 +5542,8 @@
                 
                 <div class="evidence-explanation">The literature highlights the importance of including speech and language therapists in the care of HD patients, indicating a supportive role. However, it does not provide explicit evidence that speech therapy directly helps manage dysarthria and dysphagia in HD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5286,6 +5561,8 @@
                 
                 
                 <div class="evidence-explanation">The literature states that the impact of rehabilitative treatments, including speech therapy, on dysphagia in HD has been minimally studied, providing no clear evidence of its efficacy.</div>
+                
+                
                 
             </div>
             
@@ -5362,6 +5639,8 @@
                 
                 <div class="evidence-explanation">The literature suggests that rehabilitation interventions, including motor training, can help manage functional abilities in HD, which implies a supportive role in daily living activities. However, it does not explicitly mention occupational therapy or daily living activities directly.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5380,6 +5659,8 @@
                 
                 <div class="evidence-explanation">This study discusses the burden on informal caregivers and the functional loss in HD individuals, indicating a need for supportive roles, which could include occupational therapy. However, it does not explicitly mention occupational therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5397,6 +5678,8 @@
                 
                 
                 <div class="evidence-explanation">The literature explicitly mentions that ancillary services, which include occupational therapy, improve various aspects of life for HD patients, indicating a supportive role in daily living activities.</div>
+                
+                
                 
             </div>
             
@@ -5495,6 +5778,8 @@
                 
                 <div class="evidence-explanation">The provided reference does not mention anything about &#39;None Applicable&#39; in relation to Huntington&#39;s Disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5513,6 +5798,8 @@
                 
                 <div class="evidence-explanation">The provided reference discusses the ethics of genetic prediction and testing for Huntington&#39;s Disease but does not mention &#39;None Applicable&#39; as a value.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5530,6 +5817,8 @@
                 
                 
                 <div class="evidence-explanation">The provided reference discusses nonhuman primate models for Huntington&#39;s Disease but does not mention &#39;None Applicable&#39; as a value.</div>
+                
+                
                 
             </div>
             
@@ -5563,6 +5852,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5586,6 +5876,8 @@
                 
                 <div class="evidence-explanation">The article discusses the presence of intracellular aggregates of mutant huntingtin, which are referred to as inclusion bodies, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5604,6 +5896,8 @@
                 
                 <div class="evidence-explanation">The study confirms the presence of mutant huntingtin (mHtt) aggregates within neurons, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5621,6 +5915,8 @@
                 
                 
                 <div class="evidence-explanation">The article mentions that aggregates containing expanded huntingtin are found in neurons, supporting the statement.</div>
+                
+                
                 
             </div>
             

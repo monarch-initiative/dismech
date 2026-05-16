@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -3014,6 +3205,8 @@
                 
                 <div class="evidence-explanation">Supports proximal molecular dysfunction of TFP encoded by HADHA/HADHB.</div>
                 
+                
+                
             </div>
             
             
@@ -3241,6 +3434,8 @@
                 
                 <div class="evidence-explanation">Supports TFP as the enzyme complex required for long-chain fatty acid beta-oxidation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3260,6 +3455,8 @@
                 
                 
                 <div class="evidence-explanation">Supports impaired long-chain FAO and downstream tissue injury in MTP deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3409,6 +3606,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms uncoupling effects of specific 3-hydroxy fatty acids on mitochondrial respiration.</div>
+                
+                
                 
             </div>
             
@@ -3654,6 +3853,8 @@
                 
                 <div class="evidence-explanation">Review evidence supports energy failure during fasting, illness, and physiologic stress.</div>
                 
+                
+                
             </div>
             
             
@@ -3750,6 +3951,8 @@
                 
                 <div class="evidence-explanation">Confirms neuromuscular system as the most commonly affected organ system.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3769,6 +3972,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates sensory neuronopathy as a major adult neurological feature.</div>
+                
+                
                 
             </div>
             
@@ -3804,7 +4009,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute crisis management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency management of metabolic decompensation episodes includes intravenous glucose to suppress catabolism, correction of metabolic acidosis, monitoring for cardiac arrhythmias, and management of rhabdomyolysis with aggressive hydration.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Avoidance of fasting and catabolic stress\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preventing prolonged fasting is critical. Frequent meals, cornstarch supplementation at night, and emergency protocols with IV glucose during illness help prevent metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bezafibrate therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bezafibrate, a PPAR-alpha agonist, has been shown to upregulate MTP expression in control fibroblasts and improve fatty acid oxidation capacities in a subset (23%) of MTP-deficient patient cell lines, particularly those heterozygous for the common c.1528G\u003eC mutation.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bezafibrate\"]}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy is a common and often severe manifestation of MTP deficiency, particularly in neonatal-onset and infantile forms. Included studies suggested fewer heart problems in screen-detected patients compared to clinically diagnosed ones.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Creatine kinase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dietary fat modification with MCT supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cornerstone of MTP deficiency management is restriction of long-chain dietary fat intake and supplementation with medium-chain triglycerides (MCT) which bypass the MTP-dependent step of beta-oxidation. Pre-symptomatic dietary management following newborn screening may be associated with a lower incidence of some complications.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Distal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive distal muscle weakness with areflexia and foot deformities is a characteristic feature, particularly of the mild myopathic form of MTP deficiency. It can mimic Charcot-Marie-Tooth disease.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002460\"}}, {\"id\": \"HADHA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"HADHA encodes the alpha subunit of MTP, which harbors the LCHAD and enoyl-CoA hydratase catalytic domains. HADHA variants that disrupt protein folding or stability cause complete MTP deficiency affecting all three enzymatic activities. Note that the common c.1528G\u003eC (p.E510Q) variant selectively affects LCHAD activity and causes isolated LCHAD deficiency rather than complete MTP deficiency. Fourteen mutations were identified in 26 alleles in Japanese patients.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"HADHA\"]}}, {\"id\": \"HADHA pathogenic variants causing MTP deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HADHA\"], \"variant_count\": 1}}, {\"id\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in HADHA or HADHB reduce catalytic activities of the mitochondrial trifunctional protein complex.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fatty acid beta-oxidation\"], \"molecular_functions\": [\"enoyl-CoA hydratase activity\", \"long-chain 3-hydroxyacyl-CoA dehydrogenase activity\", \"3-ketoacyl-CoA thiolase activity\"], \"genes\": [\"HADHA\", \"HADHB\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"HADHB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"HADHB encodes the beta subunit of MTP harboring the LCKAT catalytic domain. HADHB mutations are more frequent in Asian populations and typically cause complete TFP deficiency. No single common HADHB mutation has been identified. Compound heterozygous HADHB mutations can cause infantile-onset axonal Charcot-Marie-Tooth disease.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"HADHB\"]}}, {\"id\": \"HADHB pathogenic variants causing MTP deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"HADHB\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"Hepatic involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic involvement is common in severe and intermediate MTP deficiency and includes hepatopathy, liver dysfunction, and hepatic lipid accumulation during metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001392\"}}, {\"id\": \"Hepatic lipid accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoketotic hypoglycemia is a hallmark metabolic feature of MTP deficiency, reflecting impaired hepatic fatty acid oxidation and ketogenesis during fasting. Hypoglycemia can present across a wide age spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a common feature in infantile and early-onset MTP deficiency, and is part of the myopathic spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired energy production during catabolic stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During fasting, illness, or prolonged exercise, the body relies heavily on long-chain fatty acid oxidation for energy. In MTP deficiency, this metabolic pathway is blocked, leading to hypoketotic hypoglycemia because both hepatic gluconeogenesis and ketogenesis are impaired. The inability to generate adequate ketone bodies as an alternative fuel for brain and heart during fasting contributes to metabolic decompensation, which can be life-threatening.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"ketone body biosynthetic process\", \"gluconeogenesis\"]}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mitochondrial trifunctional protein is a heterooctamer (alpha4-beta4) on the inner mitochondrial membrane that catalyzes three sequential steps of long-chain fatty acid beta-oxidation. Deficiency impairs long-chain FAO, causing stress-dependent energy failure and accumulation of toxic long-chain acylcarnitine intermediates.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"long-chain fatty acid metabolic process\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lactic acidosis can occur during metabolic decompensation episodes, reflecting impaired mitochondrial energy metabolism and secondary mitochondrial dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Long-chain 3-hydroxy fatty acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Long-chain 3-hydroxyacylcarnitines (C16-OH, C18:1-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Long-chain acylcarnitines\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise-induced muscle pain and fatigue are characteristic features, particularly in milder and later-onset forms.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Neurotoxicity from long-chain fatty acid metabolite accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is a hallmark of MTP deficiency, particularly in later-onset forms. The neuromuscular system is the most commonly involved organ system. Axonal polyneuropathy, including sensory neuronopathy (ganglionopathy), is characteristic. In adult patients, sensory ataxia from sensory neuronopathy can be the predominant neurological feature. The neuropathy is thought to result from toxic effects of accumulated long-chain acyl-CoA and 3-hydroxy fatty acid intermediates on peripheral nerves.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"fatty acid beta-oxidation\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is a typical manifestation especially in milder, later-onset forms of MTP deficiency. It presents as axonal sensorimotor neuropathy and can mimic Charcot-Marie-Tooth disease. In adults, sensory neuronopathy (ganglionopathy) with sensory ataxia can be the predominant feature.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory failure is a notable feature of severe and intermediate forms of MTP deficiency and contributes to mortality.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pigmentary retinopathy is a complication of MTP deficiency, particularly associated with HADHA mutations. Retinopathy tends to present later in childhood and may progress to significant visual impairment.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000580\"}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic rhabdomyolysis, typically triggered by fasting, febrile illness, or exercise, is a characteristic feature of MTP deficiency. Rhabdomyolysis and peripheral neuropathy tend to present later in childhood or in adulthood.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Sudden death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden death may occur in severe neonatal forms of MTP deficiency during metabolic crises. The overall mortality is reported as high as 57.9% in a large retrospective analysis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001699\"}}, {\"id\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-chain 3-hydroxy fatty acids that accumulate in MTP deficiency (3-hydroxytetradecanoic acid, 3-hydroxypalmitic acid) act as potent uncouplers of oxidative phosphorylation in heart mitochondria. They increase resting respiration, diminish the respiratory control ratio, decrease mitochondrial membrane potential, and can induce mitochondrial permeability transition pore opening in calcium-loaded organelles. This mechanism contributes to the cardiomyopathy and energy failure seen in MTP deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"heart\"]}}], \"edges\": [{\"source\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"target\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Long-chain 3-hydroxyacylcarnitines (C16-OH, C18:1-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Long-chain acylcarnitines\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Hepatic lipid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Long-chain 3-hydroxy fatty acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"target\": \"Neurotoxicity from long-chain fatty acid metabolite accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Hepatic involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Sudden death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurotoxicity from long-chain fatty acid metabolite accumulation\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurotoxicity from long-chain fatty acid metabolite accumulation\", \"target\": \"Distal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dietary fat modification with MCT supplementation\", \"target\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary fat modification with MCT supplementation\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of fasting and catabolic stress\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bezafibrate therapy\", \"target\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute crisis management\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HADHA pathogenic variants causing MTP deficiency\", \"target\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HADHB pathogenic variants causing MTP deficiency\", \"target\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HADHA pathogenic variants\", \"target\": \"HADHA pathogenic variants causing MTP deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HADHB pathogenic variants\", \"target\": \"HADHB pathogenic variants causing MTP deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute crisis management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency management of metabolic decompensation episodes includes intravenous glucose to suppress catabolism, correction of metabolic acidosis, monitoring for cardiac arrhythmias, and management of rhabdomyolysis with aggressive hydration.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Avoidance of fasting and catabolic stress\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preventing prolonged fasting is critical. Frequent meals, cornstarch supplementation at night, and emergency protocols with IV glucose during illness help prevent metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bezafibrate therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bezafibrate, a PPAR-alpha agonist, has been shown to upregulate MTP expression in control fibroblasts and improve fatty acid oxidation capacities in a subset (23%) of MTP-deficient patient cell lines, particularly those heterozygous for the common c.1528G\u003eC mutation.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bezafibrate\"]}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy is a common and often severe manifestation of MTP deficiency, particularly in neonatal-onset and infantile forms. Included studies suggested fewer heart problems in screen-detected patients compared to clinically diagnosed ones.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Creatine kinase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Dietary fat modification with MCT supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cornerstone of MTP deficiency management is restriction of long-chain dietary fat intake and supplementation with medium-chain triglycerides (MCT) which bypass the MTP-dependent step of beta-oxidation. Pre-symptomatic dietary management following newborn screening may be associated with a lower incidence of some complications.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Distal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive distal muscle weakness with areflexia and foot deformities is a characteristic feature, particularly of the mild myopathic form of MTP deficiency. It can mimic Charcot-Marie-Tooth disease.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002460\"}}, {\"id\": \"HADHA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"HADHA encodes the alpha subunit of MTP, which harbors the LCHAD and enoyl-CoA hydratase catalytic domains. HADHA variants that disrupt protein folding or stability cause complete MTP deficiency affecting all three enzymatic activities. Note that the common c.1528G\u003eC (p.E510Q) variant selectively affects LCHAD activity and causes isolated LCHAD deficiency rather than complete MTP deficiency. Fourteen mutations were identified in 26 alleles in Japanese patients.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"HADHA\"]}}, {\"id\": \"HADHA pathogenic variants causing MTP deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HADHA\"], \"variant_count\": 1}}, {\"id\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in HADHA or HADHB reduce catalytic activities of the mitochondrial trifunctional protein complex.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fatty acid beta-oxidation\"], \"molecular_functions\": [\"enoyl-CoA hydratase activity\", \"long-chain 3-hydroxyacyl-CoA dehydrogenase activity\", \"3-ketoacyl-CoA thiolase activity\"], \"genes\": [\"HADHA\", \"HADHB\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"HADHB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"HADHB encodes the beta subunit of MTP harboring the LCKAT catalytic domain. HADHB mutations are more frequent in Asian populations and typically cause complete TFP deficiency. No single common HADHB mutation has been identified. Compound heterozygous HADHB mutations can cause infantile-onset axonal Charcot-Marie-Tooth disease.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"HADHB\"]}}, {\"id\": \"HADHB pathogenic variants causing MTP deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"HADHB\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"Hepatic involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic involvement is common in severe and intermediate MTP deficiency and includes hepatopathy, liver dysfunction, and hepatic lipid accumulation during metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001392\"}}, {\"id\": \"Hepatic lipid accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoketotic hypoglycemia is a hallmark metabolic feature of MTP deficiency, reflecting impaired hepatic fatty acid oxidation and ketogenesis during fasting. Hypoglycemia can present across a wide age spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a common feature in infantile and early-onset MTP deficiency, and is part of the myopathic spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired energy production during catabolic stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During fasting, illness, or prolonged exercise, the body relies heavily on long-chain fatty acid oxidation for energy. In MTP deficiency, this metabolic pathway is blocked, leading to hypoketotic hypoglycemia because both hepatic gluconeogenesis and ketogenesis are impaired. The inability to generate adequate ketone bodies as an alternative fuel for brain and heart during fasting contributes to metabolic decompensation, which can be life-threatening.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"ketone body biosynthetic process\", \"gluconeogenesis\"]}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mitochondrial trifunctional protein is a heterooctamer (alpha4-beta4) on the inner mitochondrial membrane that catalyzes three sequential steps of long-chain fatty acid beta-oxidation. Deficiency impairs long-chain FAO, causing stress-dependent energy failure and accumulation of toxic long-chain acylcarnitine intermediates.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"long-chain fatty acid metabolic process\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lactic acidosis can occur during metabolic decompensation episodes, reflecting impaired mitochondrial energy metabolism and secondary mitochondrial dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Long-chain 3-hydroxy fatty acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Long-chain 3-hydroxyacylcarnitines (C16-OH, C18:1-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Long-chain acylcarnitines\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise-induced muscle pain and fatigue are characteristic features, particularly in milder and later-onset forms.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Neurotoxicity from long-chain fatty acid metabolite accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is a hallmark of MTP deficiency, particularly in later-onset forms. The neuromuscular system is the most commonly involved organ system. Axonal polyneuropathy, including sensory neuronopathy (ganglionopathy), is characteristic. In adult patients, sensory ataxia from sensory neuronopathy can be the predominant neurological feature. The neuropathy is thought to result from toxic effects of accumulated long-chain acyl-CoA and 3-hydroxy fatty acid intermediates on peripheral nerves.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"fatty acid beta-oxidation\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is a typical manifestation especially in milder, later-onset forms of MTP deficiency. It presents as axonal sensorimotor neuropathy and can mimic Charcot-Marie-Tooth disease. In adults, sensory neuronopathy (ganglionopathy) with sensory ataxia can be the predominant feature.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory failure is a notable feature of severe and intermediate forms of MTP deficiency and contributes to mortality.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pigmentary retinopathy is a complication of MTP deficiency, particularly associated with HADHA mutations. Retinopathy tends to present later in childhood and may progress to significant visual impairment.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000580\"}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic rhabdomyolysis, typically triggered by fasting, febrile illness, or exercise, is a characteristic feature of MTP deficiency. Rhabdomyolysis and peripheral neuropathy tend to present later in childhood or in adulthood.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Sudden death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden death may occur in severe neonatal forms of MTP deficiency during metabolic crises. The overall mortality is reported as high as 57.9% in a large retrospective analysis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001699\"}}, {\"id\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-chain 3-hydroxy fatty acids that accumulate in MTP deficiency (3-hydroxytetradecanoic acid, 3-hydroxypalmitic acid) act as potent uncouplers of oxidative phosphorylation in heart mitochondria. They increase resting respiration, diminish the respiratory control ratio, decrease mitochondrial membrane potential, and can induce mitochondrial permeability transition pore opening in calcium-loaded organelles. This mechanism contributes to the cardiomyopathy and energy failure seen in MTP deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"heart\"]}}], \"edges\": [{\"source\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"target\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Long-chain 3-hydroxyacylcarnitines (C16-OH, C18:1-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Long-chain acylcarnitines\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Hepatic lipid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid beta-oxidation\", \"target\": \"Long-chain 3-hydroxy fatty acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"target\": \"Neurotoxicity from long-chain fatty acid metabolite accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncoupling of cardiac oxidative phosphorylation by long-chain 3-hydroxy fatty acids\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Hepatic involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired energy production during catabolic stress\", \"target\": \"Sudden death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurotoxicity from long-chain fatty acid metabolite accumulation\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurotoxicity from long-chain fatty acid metabolite accumulation\", \"target\": \"Distal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dietary fat modification with MCT supplementation\", \"target\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary fat modification with MCT supplementation\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of fasting and catabolic stress\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bezafibrate therapy\", \"target\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute crisis management\", \"target\": \"Impaired energy production during catabolic stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HADHA pathogenic variants causing MTP deficiency\", \"target\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HADHB pathogenic variants causing MTP deficiency\", \"target\": \"HADHA/HADHB molecular function deficiency in mitochondrial trifunctional protein\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HADHA pathogenic variants\", \"target\": \"HADHA pathogenic variants causing MTP deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HADHB pathogenic variants\", \"target\": \"HADHB pathogenic variants causing MTP deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3896,6 +4101,8 @@
                 
                 <div class="evidence-explanation">Supports cardiomyopathy as a significant MTP complication mitigated by early screening.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3915,6 +4122,8 @@
                 
                 
                 <div class="evidence-explanation">Cardiomyopathy is part of the multiorgan involvement in severe MTP deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3981,6 +4190,8 @@
                 
                 <div class="evidence-explanation">Supports hypoparathyroidism as a reported atypical presentation.</div>
                 
+                
+                
             </div>
             
             
@@ -4045,6 +4256,8 @@
                 
                 
                 <div class="evidence-explanation">Lists retinopathy among suggestive features of MTP deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4111,6 +4324,8 @@
                 
                 <div class="evidence-explanation">Confirms hypoglycemia as a feature presenting across the age spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4130,6 +4345,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies hypoketotic hypoglycemia as a classical MTP/HADHB phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4186,6 +4403,8 @@
                 
                 
                 <div class="evidence-explanation">Case evidence supports lactic acidosis as a severe neonatal MTPD presentation.</div>
+                
+                
                 
             </div>
             
@@ -4252,6 +4471,8 @@
                 
                 <div class="evidence-explanation">Characterizes rhabdomyolysis episodes occurring during childhood as the initial disease presentation in this cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -4307,6 +4528,8 @@
                 
                 
                 <div class="evidence-explanation">Directly lists hypotonia as a presenting symptom of MTP deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4364,6 +4587,8 @@
                 
                 <div class="evidence-explanation">Directly describes distal muscle weakness as a presenting feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4383,6 +4608,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms slowly progressive weakness in adult-onset MTP deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4449,6 +4676,8 @@
                 
                 <div class="evidence-explanation">Characterizes peripheral neuropathy timing in adult MTP patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4468,6 +4697,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms electrophysiological pattern of axonal neuropathy in MTP deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4534,6 +4765,8 @@
                 
                 <div class="evidence-explanation">Directly identifies respiratory failure as a notable feature of MTP deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4599,6 +4832,8 @@
                 
                 <div class="evidence-explanation">Supports exercise-induced myopathy in MTP deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4655,6 +4890,8 @@
                 
                 <div class="evidence-explanation">Confirms high mortality rate in MTP deficiency from multiple causes including metabolic crises.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4674,6 +4911,8 @@
                 
                 
                 <div class="evidence-explanation">Supports lethal metabolic crises in MTP deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4740,6 +4979,8 @@
                 
                 <div class="evidence-explanation">Review evidence directly lists hepatopathy in neonatal and infant TFP deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4759,6 +5000,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical systematic-review evidence supports liver involvement as an MTP/LCHAD complication.</div>
+                
+                
                 
             </div>
             
@@ -4852,6 +5095,8 @@ trifunctional protease."</div>
                 
                 <div class="evidence-explanation">Directly supports HADHA mutations as one molecular cause of mitochondrial trifunctional protein deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4873,6 +5118,8 @@ affected the stability and function of the enzyme complex."</div>
                 
                 
                 <div class="evidence-explanation">Protein-structure modeling supports disruption of MTP complex stability and function by HADHA variants.</div>
+                
+                
                 
             </div>
             
@@ -4926,6 +5173,8 @@ trifunctional protease."</div>
                 
                 <div class="evidence-explanation">Directly supports HADHB mutations as one molecular cause of mitochondrial trifunctional protein deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4946,6 +5195,8 @@ to be more related to the phenotype and prognosis."</div>
                 
                 
                 <div class="evidence-explanation">Supports mutation type as a predictor of clinical phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4968,6 +5219,8 @@ presentations."</div>
                 
                 
                 <div class="evidence-explanation">Supports the HADHB-associated molecular and clinical pattern in complete TFP deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5070,6 +5323,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Review guidance supports reducing long-chain fat and supplementing MCT oil in TFP deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -5113,6 +5368,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Dietary modification is recommended to reduce metabolic stress from impaired long-chain FAO.</div>
                 
+                
+                
             </div>
             
             
@@ -5152,6 +5409,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Supports dietary management as the primary treatment modality.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5171,6 +5430,8 @@ presentations."</div>
                 
                 
                 <div class="evidence-explanation">Emphasizes that dietary management is essential for survival.</div>
+                
+                
                 
             </div>
             
@@ -5259,6 +5520,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Review guidance supports avoiding fasting and illness triggers to reduce catabolic energy stress.</div>
                 
+                
+                
             </div>
             
             
@@ -5297,6 +5560,8 @@ presentations."</div>
                 
                 
                 <div class="evidence-explanation">Confirms fasting and illness as triggers for metabolic crises, supporting avoidance strategy.</div>
+                
+                
                 
             </div>
             
@@ -5445,6 +5710,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Human fibroblast evidence supports bezafibrate as a pharmacologic modulator of residual MTP function.</div>
                 
+                
+                
             </div>
             
             
@@ -5483,6 +5750,8 @@ presentations."</div>
                 
                 
                 <div class="evidence-explanation">Confirms pharmacological upregulation of MTP by bezafibrate.</div>
+                
+                
                 
             </div>
             
@@ -5562,6 +5831,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Supports newborn screening benefit for reducing cardiac and hepatic complications.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5581,6 +5852,8 @@ presentations."</div>
                 
                 
                 <div class="evidence-explanation">Notes that milder MTP phenotypes may be missed by standard newborn screening.</div>
+                
+                
                 
             </div>
             
@@ -5660,6 +5933,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Maternal complications necessitate genetic counseling and pregnancy monitoring.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5679,6 +5954,8 @@ presentations."</div>
                 
                 
                 <div class="evidence-explanation">Demonstrates availability and utility of prenatal diagnosis for MTP deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5767,6 +6044,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">FAOD nutritional guidance supports IV glucose as the emergency measure to suppress catabolism.</div>
                 
+                
+                
             </div>
             
             
@@ -5805,6 +6084,8 @@ presentations."</div>
                 
                 
                 <div class="evidence-explanation">Metabolic crises during infectious illness underscore need for aggressive crisis management.</div>
+                
+                
                 
             </div>
             
@@ -5884,6 +6165,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Distal weakness and foot deformities support need for physical therapy and rehabilitation.</div>
                 
+                
+                
             </div>
             
             
@@ -5939,6 +6222,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Confirms fasting as a trigger for acute episodes.</div>
                 
+                
+                
             </div>
             
             
@@ -5981,6 +6266,8 @@ presentations."</div>
                 
                 
                 <div class="evidence-explanation">Directly demonstrates infectious disease as a fatal trigger.</div>
+                
+                
                 
             </div>
             
@@ -6025,6 +6312,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Confirms exercise as a trigger for myoglobinuria episodes.</div>
                 
+                
+                
             </div>
             
             
@@ -6058,6 +6347,7 @@ presentations."</div>
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6083,6 +6373,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Directly identifies elevated C16-OH and C18:1-OH acylcarnitines as the most common biochemical finding.</div>
                 
+                
+                
             </div>
             
             
@@ -6102,6 +6394,7 @@ presentations."</div>
                 
                 <div class="item-desc">Context: Broadly elevated long-chain acylcarnitines are detectable by tandem mass spectrometry in blood samples from MTP-deficient patients. This includes multiple species reflecting impaired beta-oxidation of long-chain fatty acids.
 </div>
+                
                 
                 
     
@@ -6129,6 +6422,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Supports acylcarnitine profiling as a diagnostic tool for MTP deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6149,6 +6444,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Patient data directly support elevation of long-chain acylcarnitines.</div>
                 
+                
+                
             </div>
             
             
@@ -6168,6 +6465,7 @@ presentations."</div>
                 
                 <div class="item-desc">Context: Creatine kinase (CK) and CK-MB are elevated during rhabdomyolysis episodes and may be chronically elevated in patients with myopathic involvement.
 </div>
+                
                 
                 
     
@@ -6195,6 +6493,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Patient data support elevated CK and CK-MB in MTP deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -6214,6 +6514,7 @@ presentations."</div>
                 
                 <div class="item-desc">Context: Fat accumulation in the liver and heart can be demonstrated on autopsy or biopsy, reflecting impaired fatty acid oxidation and lipid storage.
 </div>
+                
                 
                 
     
@@ -6241,6 +6542,8 @@ presentations."</div>
                 
                 <div class="evidence-explanation">Directly demonstrates hepatic and cardiac lipid accumulation on autopsy.</div>
                 
+                
+                
             </div>
             
             
@@ -6260,6 +6563,7 @@ presentations."</div>
                 
                 <div class="item-desc">Context: Long-chain 3-hydroxy fatty acids accumulate when MTP/LCHAD-dependent beta-oxidation steps are blocked, and these intermediates can uncouple cardiac oxidative phosphorylation.
 </div>
+                
                 
                 
     
@@ -6286,6 +6590,8 @@ presentations."</div>
                 
                 
                 <div class="evidence-explanation">In vitro heart mitochondria data support accumulation and toxicity of long-chain 3-hydroxy fatty acids.</div>
+                
+                
                 
             </div>
             
@@ -7727,6 +8033,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Mitochondrial Trifunctional Protein Deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -7793,6 +8101,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Mitochondrial Trifunctional Protein Deficiency.</div>
+                
+                
                 
             </div>
             
@@ -7934,6 +8244,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Mitochondrial Trifunctional Protein Deficiency.</div>
+                
+                
                 
             </div>
             
@@ -8113,6 +8425,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Mitochondrial Trifunctional Protein Deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8179,6 +8493,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Mitochondrial Trifunctional Protein Deficiency.</div>
+                
+                
                 
             </div>
             
@@ -8247,6 +8563,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Mitochondrial Trifunctional Protein Deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8313,6 +8631,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Mitochondrial Trifunctional Protein Deficiency.</div>
+                
+                
                 
             </div>
             

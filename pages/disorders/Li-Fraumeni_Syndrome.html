@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2861,6 +3052,8 @@
                 
                 <div class="evidence-explanation">Whole-genome/whole-exome analysis of 37 pediatric adrenocortical tumours demonstrates that somatic LOH of chromosome 17 with selection against the wild-type TP53 allele is the dominant second-hit mechanism in this LFS tumor type, validating two-hit tumorigenesis at the genomic level.</div>
                 
+                
+                
             </div>
             
             
@@ -2932,6 +3125,8 @@
                 
                 <div class="evidence-explanation">The 415-carrier French LFS cohort demonstrates a clinically meaningful gradient of tumor onset by mutation class, supporting the dominant-negative and gain-of-function paradigm where missense alleles are biologically more severe than simple loss-of-function alleles.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2951,6 +3146,8 @@
                 
                 
                 <div class="evidence-explanation">Mechanistic review summarizing how mutant p53 GOF promotes Warburg metabolism, mevalonate pathway activation, cancer stem-cell phenotypes, and immune evasion - mechanisms relevant to LFS tumor aggressiveness.</div>
+                
+                
                 
             </div>
             
@@ -3148,6 +3345,8 @@
                 
                 <div class="evidence-explanation">Seminal Nature paper establishing p53-mediated ferroptosis as a non-canonical tumor suppressor mechanism, lost in TP53-deficient cells and therefore in LFS tumors.</div>
                 
+                
+                
             </div>
             
             
@@ -3302,6 +3501,8 @@
                 
                 <div class="evidence-explanation">In vivo 31P-MRS measurement in TP53 carriers from LFS families demonstrates increased skeletal-muscle oxidative phosphorylation, providing direct human evidence that p53 governs bioenergetic homeostasis and that this is altered in LFS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3321,6 +3522,8 @@
                 
                 
                 <div class="evidence-explanation">Mouse model evidence and human pilot study demonstrating that targeting the LFS-associated metabolic shift with metformin delays tumorigenesis, supporting OXPHOS as a causal driver in LFS.</div>
+                
+                
                 
             </div>
             
@@ -3814,6 +4017,8 @@
                 
                 <div class="evidence-explanation">Patient-derived iPSC modeling of LFS osteosarcoma identifies an H19/DECORIN axis downstream of mutant p53 that links impaired osteogenic differentiation to oncogenic transformation, providing the mechanistic bridge from TP53 mutation to osteosarcoma in LFS.</div>
                 
+                
+                
             </div>
             
             
@@ -3902,6 +4107,8 @@
                 
                 <div class="evidence-explanation">LFS Consortium histopathology of 43 breast tumors from 39 TP53 carriers establishes the characteristic HER2-positive phenotype of LFS-associated breast cancer, supporting a model in which TP53 loss permits HER2-driven transformation in premenopausal mammary epithelium.</div>
                 
+                
+                
             </div>
             
             
@@ -3989,6 +4196,8 @@
                 
                 
                 <div class="evidence-explanation">Whole-genome analysis of pediatric ACC identifies cooperating 11p LOH with uniparental disomy and IGF2 over-expression as a recurrent second genomic lesion that combines with TP53 LOH to drive adrenocortical tumorigenesis in LFS.</div>
+                
+                
                 
             </div>
             
@@ -4197,6 +4406,8 @@
                 
                 <div class="evidence-explanation">Retrospective case-series of 47 children with LFS quantifying that radiotherapy for a first pediatric LFS cancer is associated with a near 8-fold higher hazard of second primary cancer and substantially shorter time to second cancer, providing direct human evidence that p53 deficiency converts ionizing radiation into a clinically meaningful driver of subsequent malignancy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4216,6 +4427,8 @@
                 
                 
                 <div class="evidence-explanation">ERN GENTURIS European consensus guideline anchors radiation hypersensitivity as a clinically actionable LFS-specific liability and formally recommends radiotherapy avoidance or attenuation when feasible.</div>
+                
+                
                 
             </div>
             
@@ -4401,6 +4614,8 @@
                 
                 <div class="evidence-explanation">French cohort study demonstrates breast cancer is the predominant tumor type in adult females with LFS, occurring in 79% of affected women.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4421,6 +4636,8 @@
                 
                 <div class="evidence-explanation">LFS Consortium histopathology defines the HER2-enriched phenotype of LFS-associated breast cancer, supporting use of HER2-directed therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4440,6 +4657,8 @@
                 
                 
                 <div class="evidence-explanation">NCI Li-Fraumeni syndrome cohort of 286 TP53+ individuals provides sex- stratified cumulative incidence estimates for the major LFS tumors, anchoring breast cancer as the dominant adult-female phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4535,6 +4754,8 @@
                 
                 <div class="evidence-explanation">Pediatric ACC accounts for 27% of childhood LFS tumors in the French cohort, anchoring ACC as a core childhood phenotype of the syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4554,6 +4775,8 @@
                 
                 
                 <div class="evidence-explanation">Genome-wide profiling identifies TP53 LOH as the dominant second-hit event in pediatric ACC, mechanistically anchoring this phenotype to the LFS pathograph.</div>
+                
+                
                 
             </div>
             
@@ -4649,6 +4872,8 @@
                 
                 <div class="evidence-explanation">French LFS cohort of 415 TP53 carriers shows osteosarcoma is the most common pediatric LFS tumor, observed in 30% of childhood cases.</div>
                 
+                
+                
             </div>
             
             
@@ -4712,6 +4937,8 @@
                 
                 <div class="evidence-explanation">French cohort study of 415 TP53 mutation carriers demonstrates soft tissue sarcomas are a core tumor type in LFS, occurring in 23% of children and 27% of adults.</div>
                 
+                
+                
             </div>
             
             
@@ -4767,6 +4994,8 @@
                 
                 
                 <div class="evidence-explanation">CNS tumors account for 26% of pediatric LFS tumors in the French TP53 carrier cohort.</div>
+                
+                
                 
             </div>
             
@@ -4826,6 +5055,8 @@
                 
                 <div class="evidence-explanation">Large French cohort demonstrates that 43% of LFS patients develop multiple malignancies, with average 1.7 tumors per affected carrier.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4845,6 +5076,8 @@
                 
                 
                 <div class="evidence-explanation">Independent NCI Li-Fraumeni syndrome cohort confirms that nearly half of affected carriers develop a second primary cancer with hazard comparable to that of the first, anchoring the multi-primary phenotype as a hallmark of the syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5001,6 +5234,8 @@
                 
                 <div class="evidence-explanation">Clinical gradient of germline TP53 mutations demonstrates that dominant-negative missense mutations cause earlier tumor onset (21.3 years) compared to loss-of-function mutations (28.5 years), supporting mutation-specific phenotype stratification.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5021,6 +5256,8 @@
                 
                 <div class="evidence-explanation">ERN GENTURIS European consensus guideline confirms that variant class (dominant-negative &gt; LOF &gt; rearrangements) and additional modifiers drive penetrance variability, anchoring the genotype-phenotype gradient observed in clinical practice.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5040,6 +5277,8 @@
                 
                 
                 <div class="evidence-explanation">Maximum-likelihood pedigree analysis of 146 TP53-positive families (4,028 individuals) provides ascertainment-corrected sex-specific penetrance estimates and additionally identifies elevated lifetime risk for colorectal, gastric, lung, pancreatic, and ovarian cancers beyond the classical LFS spectrum.</div>
+                
+                
                 
             </div>
             
@@ -5172,6 +5411,8 @@
                 
                 <div class="evidence-explanation">AACR expert panel consensus recommends the Toronto Protocol surveillance approach for all LFS patients as soon as diagnosis is established.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5192,6 +5433,8 @@
                 
                 <div class="evidence-explanation">Eleven-year follow-up of the original Toronto Protocol prospective cohort demonstrates that intensive imaging-based surveillance approximately halves cancer-specific mortality at 5 years, providing the strongest evidence base for lifelong WB-MRI/brain-MRI surveillance in LFS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5211,6 +5454,8 @@
                 
                 
                 <div class="evidence-explanation">ERN GENTURIS European consensus guideline endorses WBMRI as the cornerstone radiation-free surveillance modality for LFS/hTP53rc.</div>
+                
+                
                 
             </div>
             
@@ -5392,6 +5637,8 @@
                 
                 <div class="evidence-explanation">Pathology characterization of 43 LFS-associated breast cancers establishes HER2 amplification as a dominant feature, providing the rationale for anti-HER2 therapy as a core component of LFS breast cancer management.</div>
                 
+                
+                
             </div>
             
             
@@ -5506,6 +5753,8 @@
                 
                 <div class="evidence-explanation">ERN GENTURIS European consensus guideline formally recommends radiation and genotoxic chemotherapy avoidance whenever feasible in TP53 carriers and pre-treatment TP53 testing in patients with suspicious presentations.</div>
                 
+                
+                
             </div>
             
             
@@ -5613,6 +5862,8 @@
                 
                 <div class="evidence-explanation">Mouse model and human pilot data demonstrating that metformin extends cancer-free survival by attenuating LFS-associated mitochondrial respiration, providing the mechanistic rationale for the MILI prevention trial.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5632,6 +5883,8 @@
                 
                 
                 <div class="evidence-explanation">Phase II precision-prevention trial protocol formally testing metformin chemoprevention in adult LFS carriers, transitioning the OXPHOS-targeting hypothesis from preclinical models to a randomized clinical evaluation.</div>
+                
+                
                 
             </div>
             
@@ -5710,6 +5963,8 @@
                 
                 <div class="evidence-explanation">Longitudinal multimodal cfDNA study in TP53 carriers demonstrates that liquid biopsy can detect cancer-associated signals earlier than conventional imaging, supporting development of cfDNA as an adjunct surveillance modality in LFS.</div>
                 
+                
+                
             </div>
             
             
@@ -5739,6 +5994,7 @@
                     TP53 Genetic Testing
                     
                 </div>
+                
                 
                 
     
@@ -5801,6 +6057,8 @@
                 
                 <div class="evidence-explanation">Foundational case-control evaluation of whole-body MRI as a surveillance modality in LFS, complementing the Toronto Protocol surveillance treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -5847,6 +6105,8 @@
                 
                 
                 <div class="evidence-explanation">Pediatric+adult WB-MRI surveillance trial that anchors the cancer- detection-rate evidence base for the Toronto Protocol approach in LFS.</div>
+                
+                
                 
             </div>
             
@@ -5895,6 +6155,8 @@
                 
                 <div class="evidence-explanation">Pilot imaging-trait study supporting refinement of WB-MRI surveillance protocols and reduction of false-positive findings in pediatric LFS surveillance.</div>
                 
+                
+                
             </div>
             
             
@@ -5941,6 +6203,8 @@
                 
                 
                 <div class="evidence-explanation">Biobank/biospecimen study underpinning the cfDNA early-detection and genotype-phenotype work that motivates emerging precision-surveillance strategies in LFS.</div>
+                
+                
                 
             </div>
             

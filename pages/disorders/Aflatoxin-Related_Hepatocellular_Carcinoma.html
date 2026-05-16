@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2768,6 +2959,38 @@
 	                
 	                
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8261428" target="_blank">PMID:8261428</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Lymphoblast microsomes expressing only CYP1A2 activated AFB1 to AFB1-8,9-epoxide (AFB1-8,9-epoxide trapped as the glutathione, conjugate) at both 16 microM and 128 microM AFB1 concentrations"</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates that human cytochromes P450 (CYP1A2 and CYP3A4) bioactivate AFB1 to the reactive AFB1-8,9-epoxide that forms DNA adducts.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
 	            </div>
 	            
@@ -2861,6 +3084,8 @@
                 
                 <div class="evidence-explanation">Review article establishing R249S as a biomarker of aflatoxin exposure and HCC risk in high-incidence geographic regions.</div>
                 
+                
+                
             </div>
             
             
@@ -2953,6 +3178,8 @@
                 
                 <div class="evidence-explanation">Review of cohort studies demonstrating synergistic hepatocarcinogenic interaction between HBV infection and aflatoxin exposure.</div>
                 
+                
+                
             </div>
             
             
@@ -3020,6 +3247,38 @@
 	                </div>
 	                
 	                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20538734" target="_blank">PMID:20538734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Using HCC cell lines, we show that p.R249S has lost the capacity to bind to p53 response elements and to transactivate p53 target genes."</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates that the R249S mutant loses transactivation of p53 target genes including those mediating cell cycle checkpoint enforcement.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
 	            </div>
@@ -3141,6 +3400,38 @@
 	                
 	                
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20538734" target="_blank">PMID:20538734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"in a cell line that constitutively expresses both p.R249S and the hepatitis B virus antigen HBx (PLC/PRF/5), silencing of either p.R249S or HBx by RNA interference slowed down proliferation"</div>
+                
+                
+                <div class="evidence-explanation">RNAi experiments show that R249S together with HBx drives hepatocyte proliferation in HCC cell lines, supporting their role in uncontrolled proliferation.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
 	            </div>
 	            
@@ -3190,6 +3481,8 @@
                 
                 <div class="evidence-explanation">Abstract states that HCC is the most common primary liver malignancy.</div>
                 
+                
+                
             </div>
             
             
@@ -3221,7 +3514,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aflatoxin B1 Metabolic Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFB1 is absorbed from the gut and transported to the liver where it undergoes cytochrome P450-mediated oxidation (primarily CYP3A4 and CYP1A2) to form AFB1-8,9-epoxide, a highly reactive electrophile. This epoxide binds covalently to DNA, forming pro-mutagenic adducts primarily at guanine residues.\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional p53 impairs the intrinsic apoptotic pathway in response to DNA damage. Combined with HBV-associated survival signals, this allows accumulation of cells with oncogenic mutations.\", \"meta\": {\"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"HBV-Aflatoxin Synergistic Interaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HBV and aflatoxin interact synergistically through multiple mechanisms: HBV-induced chronic inflammation increases hepatocyte proliferation, allowing fixation of aflatoxin-induced mutations; HBx protein inhibits DNA repair; and viral integration may disrupt tumor suppressor genes. The multiplicative interaction results in approximately 60-fold increased HCC risk compared to unexposed individuals.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Loss of Cell Cycle Checkpoint Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TP53 R249S mutation combined with HBx-mediated p53 inhibition and Rb pathway inactivation results in loss of cell cycle checkpoint control. Cells with DNA damage continue to proliferate, accumulating additional mutations.\", \"meta\": {\"biological_processes\": [\"cell cycle checkpoint signaling\"]}}, {\"id\": \"TP53 R249S Hotspot Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The aflatoxin-DNA adduct forms preferentially at the third position of codon 249 in TP53, causing a G\u003eT transversion that results in arginine-to-serine substitution (R249S). This mutation is found in approximately 50% of HCCs in high-aflatoxin regions but is rare in low-exposure areas. The R249S mutation impairs p53 DNA binding and transcriptional activity, eliminating its tumor suppressor function.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Uncontrolled Hepatocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of impaired checkpoints, apoptosis resistance, chronic inflammation, and hepatocyte regeneration drives clonal expansion of transformed cells, eventually leading to HCC development.\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"Aflatoxin B1 Metabolic Activation\", \"target\": \"TP53 R249S Hotspot Mutation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TP53 R249S Hotspot Mutation\", \"target\": \"Loss of Cell Cycle Checkpoint Control\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TP53 R249S Hotspot Mutation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HBV-Aflatoxin Synergistic Interaction\", \"target\": \"Loss of Cell Cycle Checkpoint Control\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Cell Cycle Checkpoint Control\", \"target\": \"Uncontrolled Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aflatoxin B1 Metabolic Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFB1 is absorbed from the gut and transported to the liver where it undergoes cytochrome P450-mediated oxidation (primarily CYP3A4 and CYP1A2) to form AFB1-8,9-epoxide, a highly reactive electrophile. This epoxide binds covalently to DNA, forming pro-mutagenic adducts primarily at guanine residues.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional p53 impairs the intrinsic apoptotic pathway in response to DNA damage. Combined with HBV-associated survival signals, this allows accumulation of cells with oncogenic mutations.\", \"meta\": {\"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"HBV-Aflatoxin Synergistic Interaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HBV and aflatoxin interact synergistically through multiple mechanisms: HBV-induced chronic inflammation increases hepatocyte proliferation, allowing fixation of aflatoxin-induced mutations; HBx protein inhibits DNA repair; and viral integration may disrupt tumor suppressor genes. The multiplicative interaction results in approximately 60-fold increased HCC risk compared to unexposed individuals.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Loss of Cell Cycle Checkpoint Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TP53 R249S mutation combined with HBx-mediated p53 inhibition and Rb pathway inactivation results in loss of cell cycle checkpoint control. Cells with DNA damage continue to proliferate, accumulating additional mutations.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell cycle checkpoint signaling\"]}}, {\"id\": \"TP53 R249S Hotspot Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The aflatoxin-DNA adduct forms preferentially at the third position of codon 249 in TP53, causing a G\u003eT transversion that results in arginine-to-serine substitution (R249S). This mutation is found in approximately 50% of HCCs in high-aflatoxin regions but is rare in low-exposure areas. The R249S mutation impairs p53 DNA binding and transcriptional activity, eliminating its tumor suppressor function.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Uncontrolled Hepatocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of impaired checkpoints, apoptosis resistance, chronic inflammation, and hepatocyte regeneration drives clonal expansion of transformed cells, eventually leading to HCC development.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"Aflatoxin B1 Metabolic Activation\", \"target\": \"TP53 R249S Hotspot Mutation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TP53 R249S Hotspot Mutation\", \"target\": \"Loss of Cell Cycle Checkpoint Control\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TP53 R249S Hotspot Mutation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HBV-Aflatoxin Synergistic Interaction\", \"target\": \"Loss of Cell Cycle Checkpoint Control\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Cell Cycle Checkpoint Control\", \"target\": \"Uncontrolled Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3565,6 +3858,38 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27785449" target="_blank">PMID:27785449</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"only orthotopic liver transplantation (OLT) or surgical resection is curative"</div>
+                
+                
+                <div class="evidence-explanation">Clinical review confirms that surgical resection is one of the few curative options for hepatocellular carcinoma.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -3612,6 +3937,38 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27785449" target="_blank">PMID:27785449</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"OLT is available for patients who meet or are downstaged into the Milan or University of San Francisco criteria"</div>
+                
+                
+                <div class="evidence-explanation">Clinical review describes orthotopic liver transplantation eligibility under Milan/UCSF criteria, consistent with this treatment option.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -3626,10 +3983,12 @@
                     
                     
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    <span class="tag tag-treatment">locoregional interventional procedure</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: surgical procedure</span>
                     
                     
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
                     
                     
     
@@ -3658,6 +4017,38 @@
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27785449" target="_blank">PMID:27785449</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Additional treatment modalities include transarterial chemoembolization, radiofrequency ablation, microwave ablation, percutaneous ethanol injection, cryoablation"</div>
+                
+                
+                <div class="evidence-explanation">Review explicitly lists TACE, radiofrequency ablation, and microwave ablation as locoregional treatments for HCC.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -3742,6 +4133,8 @@
                 
                 <div class="evidence-explanation">SHARP trial demonstrating sorafenib extends median survival by nearly 3 months in advanced hepatocellular carcinoma.</div>
                 
+                
+                
             </div>
             
             
@@ -3794,6 +4187,38 @@
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27785449" target="_blank">PMID:27785449</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HCC can be prevented if there are appropriate measures taken, including hepatitis B virus vaccination"</div>
+                
+                
+                <div class="evidence-explanation">Clinical review confirms HBV vaccination as a key preventive measure reducing HCC incidence in aflatoxin-endemic populations.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -3854,6 +4279,8 @@
                 
                 <div class="evidence-explanation">This abstract identifies aflatoxin exposure as a major etiological factor for HCC, supporting the environmental risk described.</div>
                 
+                
+                
             </div>
             
             
@@ -3882,6 +4309,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -3893,6 +4321,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -3902,6 +4331,7 @@
                     Urinary Aflatoxin Metabolites
                     
                 </div>
+                
                 
                 
     
@@ -3939,7 +4369,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Aflatoxin-Related Hepatocellular Carcinoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-05-05T11:34:04Z&#39;
+updated_date: &#39;2026-05-15T11:30:00Z&#39;
 description: &gt;-
   Aflatoxin-related hepatocellular carcinoma (HCC) is a form of liver cancer strongly
   associated with dietary exposure to aflatoxin B1 (AFB1), a mycotoxin produced by
@@ -3971,6 +4401,7 @@ infectious_agent:
     increases HCC risk approximately 60-fold compared to unexposed individuals.
   evidence:
   - reference: PMID:14986813
+    reference_title: Synergistic interaction between aflatoxin B1 and hepatitis B virus in hepatocarcinogenesis.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -4017,6 +4448,18 @@ pathophysiology:
     term:
       id: UBERON:0002107
       label: liver
+  evidence:
+  - reference: PMID:8261428
+    reference_title: Role of human microsomal and human complementary DNA-expressed cytochromes P4501A2 and P4503A4 in the bioactivation of aflatoxin B1.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Lymphoblast microsomes expressing only CYP1A2 activated AFB1 to
+      AFB1-8,9-epoxide (AFB1-8,9-epoxide trapped as the glutathione, conjugate)
+      at both 16 microM and 128 microM AFB1 concentrations
+    explanation: &gt;-
+      Demonstrates that human cytochromes P450 (CYP1A2 and CYP3A4) bioactivate
+      AFB1 to the reactive AFB1-8,9-epoxide that forms DNA adducts.
   downstream:
   - target: TP53 R249S Hotspot Mutation
     description: DNA adducts at codon 249 cause characteristic G&gt;T transversion
@@ -4029,6 +4472,7 @@ pathophysiology:
     binding and transcriptional activity, eliminating its tumor suppressor function.
   evidence:
   - reference: PMID:19376640
+    reference_title: &#34;The aflatoxin-induced TP53 mutation at codon 249 (R249S): biomarker of exposure, early detection and target for therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -4060,6 +4504,7 @@ pathophysiology:
     unexposed individuals.
   evidence:
   - reference: PMID:14986813
+    reference_title: Synergistic interaction between aflatoxin B1 and hepatitis B virus in hepatocarcinogenesis.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -4086,6 +4531,17 @@ pathophysiology:
     TP53 R249S mutation combined with HBx-mediated p53 inhibition and Rb pathway
     inactivation results in loss of cell cycle checkpoint control. Cells with
     DNA damage continue to proliferate, accumulating additional mutations.
+  evidence:
+  - reference: PMID:20538734
+    reference_title: &#34;Effects of the TP53 p.R249S mutant on proliferation and clonogenic properties in human hepatocellular carcinoma cell lines: interaction with hepatitis B virus X protein.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Using HCC cell lines, we show that p.R249S has lost the capacity to bind
+      to p53 response elements and to transactivate p53 target genes.
+    explanation: &gt;-
+      Demonstrates that the R249S mutant loses transactivation of p53 target
+      genes including those mediating cell cycle checkpoint enforcement.
   biological_processes:
   - preferred_term: cell cycle checkpoint signaling
     modifier: DECREASED
@@ -4111,6 +4567,19 @@ pathophysiology:
     The combination of impaired checkpoints, apoptosis resistance, chronic
     inflammation, and hepatocyte regeneration drives clonal expansion of
     transformed cells, eventually leading to HCC development.
+  evidence:
+  - reference: PMID:20538734
+    reference_title: &#34;Effects of the TP53 p.R249S mutant on proliferation and clonogenic properties in human hepatocellular carcinoma cell lines: interaction with hepatitis B virus X protein.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      in a cell line that constitutively expresses both p.R249S and the
+      hepatitis B virus antigen HBx (PLC/PRF/5), silencing of either p.R249S or
+      HBx by RNA interference slowed down proliferation
+    explanation: &gt;-
+      RNAi experiments show that R249S together with HBx drives hepatocyte
+      proliferation in HCC cell lines, supporting their role in uncontrolled
+      proliferation.
   cell_types:
   - preferred_term: hepatocyte
     term:
@@ -4239,6 +4708,17 @@ treatments:
     Hepatic resection is potentially curative for early-stage HCC with preserved
     liver function. Limited by underlying cirrhosis and multifocal disease in
     many aflatoxin-exposed populations.
+  evidence:
+  - reference: PMID:27785449
+    reference_title: &#34;Hepatocellular carcinoma: a review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      only orthotopic liver transplantation (OLT) or surgical resection is
+      curative
+    explanation: &gt;-
+      Clinical review confirms that surgical resection is one of the few
+      curative options for hepatocellular carcinoma.
   treatment_term:
     preferred_term: surgical procedure
     term:
@@ -4249,6 +4729,17 @@ treatments:
     Curative option for early HCC within Milan criteria (single tumor &lt;=5cm or
     up to 3 tumors each &lt;=3cm). Treats both tumor and underlying liver disease.
     Limited by organ availability.
+  evidence:
+  - reference: PMID:27785449
+    reference_title: &#34;Hepatocellular carcinoma: a review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      OLT is available for patients who meet or are downstaged into the Milan
+      or University of San Francisco criteria
+    explanation: &gt;-
+      Clinical review describes orthotopic liver transplantation eligibility
+      under Milan/UCSF criteria, consistent with this treatment option.
   treatment_term:
     preferred_term: organ transplantation
     term:
@@ -4259,11 +4750,23 @@ treatments:
     Transarterial chemoembolization (TACE), radiofrequency ablation, or
     microwave ablation for unresectable tumors. Provides local control but
     not curative for advanced disease.
+  evidence:
+  - reference: PMID:27785449
+    reference_title: &#34;Hepatocellular carcinoma: a review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Additional treatment modalities include transarterial chemoembolization,
+      radiofrequency ablation, microwave ablation, percutaneous ethanol
+      injection, cryoablation
+    explanation: &gt;-
+      Review explicitly lists TACE, radiofrequency ablation, and microwave
+      ablation as locoregional treatments for HCC.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: locoregional interventional procedure
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: MAXO:0000004
+      label: surgical procedure
 - name: Systemic Therapy
   description: &gt;-
     Sorafenib, lenvatinib, or atezolizumab-bevacizumab for advanced HCC.
@@ -4271,6 +4774,7 @@ treatments:
     second-line therapy.
   evidence:
   - reference: PMID:18650514
+    reference_title: Sorafenib in advanced hepatocellular carcinoma.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -4295,6 +4799,17 @@ treatments:
     Public health interventions including proper grain storage, crop rotation,
     and use of aflatoxin-resistant crop varieties. HBV vaccination dramatically
     reduces HCC incidence by eliminating the synergistic interaction.
+  evidence:
+  - reference: PMID:27785449
+    reference_title: &#34;Hepatocellular carcinoma: a review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      HCC can be prevented if there are appropriate measures taken, including
+      hepatitis B virus vaccination
+    explanation: &gt;-
+      Clinical review confirms HBV vaccination as a key preventive measure
+      reducing HCC incidence in aflatoxin-endemic populations.
   treatment_term:
     preferred_term: vaccination
     term:
@@ -8899,7 +9414,7 @@ STAGE 4: IMMUNE EVASION AND TUMOR PROGRESSION
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aflatoxin-Related Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aflatoxin-Related_Hepatocellular_Carcinoma", "yamlRevision": "e2e7ef679bab"};
+        const OS_CONFIG = {"diseaseName": "Aflatoxin-Related Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aflatoxin-Related_Hepatocellular_Carcinoma", "yamlRevision": "8477a2ceca60"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

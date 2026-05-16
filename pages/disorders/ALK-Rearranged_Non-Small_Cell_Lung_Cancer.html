@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2764,6 +2955,8 @@
                 
                 <div class="evidence-explanation">Supports the clinical relevance of ALK variant and resistance biology in EML4-ALK-positive NSCLC.</div>
                 
+                
+                
             </div>
             
             
@@ -2821,6 +3014,8 @@
                 
                 
                 <div class="evidence-explanation">Comprehensive review notes the diversity of ALK rearrangements including non-EML4 partner genes.</div>
+                
+                
                 
             </div>
             
@@ -2932,7 +3127,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2951,6 +3146,30 @@
                 
                 
                 <div class="evidence-explanation">This abstract states that ALK rearrangements drive a subset of NSCLC, supporting the ALK gene rearrangement mechanism.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/3" target="_blank">CIVIC_ASSERTION:3</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ALK-FUSIONS are found in 3-5% of non-small cell lung cancer and act as a targetable driver mutation."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion supports ALK fusions as targetable driver alterations in NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -3092,6 +3311,8 @@
                 
                 <div class="evidence-explanation">Direct support that ALK fusion events drive constitutive kinase signaling.</div>
                 
+                
+                
             </div>
             
             
@@ -3184,6 +3405,8 @@
                 
                 <div class="evidence-explanation">Frames ALK-rearranged NSCLC as the classic oncogene-addicted molecular subset.</div>
                 
+                
+                
             </div>
             
             
@@ -3240,7 +3463,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -3262,6 +3485,8 @@
                 
                 <div class="evidence-explanation">Confirms acquired resistance as a defining clinical challenge of ALK-targeted therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3281,6 +3506,30 @@
                 
                 
                 <div class="evidence-explanation">Co-crystal structures explain differential sensitivity of ALK resistance mutations to different inhibitors, supporting the ALK-dependent resistance mechanism.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/evidence_items/441" target="_blank">CIVIC_EID:441</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The G1202R mutation in the EML4-ALK fusion was found to confer resistance to crizotinib in Ba/F3 cells."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted evidence item supports ALK G1202R as an ALK-dependent crizotinib resistance mechanism.</div>
+                
+                
                 
             </div>
             
@@ -3337,6 +3586,8 @@
                 
                 <div class="evidence-explanation">Abstract reports a NSCLC cohort dominated by adenocarcinoma.</div>
                 
+                
+                
             </div>
             
             
@@ -3368,7 +3619,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALK Gene Rearrangement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK rearrangements result from chromosomal inversions or translocations that fuse the ALK kinase domain to an N-terminal partner gene (usually EML4). The partner provides a dimerization domain, causing constitutive ALK kinase activation independent of ligand.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type II pneumocyte\"], \"biological_processes\": [\"protein phosphorylation\"]}}, {\"id\": \"ALK TKI Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resistance to ALK TKIs develops through ALK-dependent mechanisms (secondary mutations like G1202R, compound mutations) or ALK-independent bypass pathways (MET, EGFR, KRAS). Later-generation TKIs (lorlatinib) overcome most single ALK mutations.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to drug\"], \"pdb_structures\": [{\"pdb_id\": \"2XP2\", \"description\": \"Crizotinib bound to wild-type ALK kinase domain (RCSB title \\\"Structure of the Human Anaplastic Lymphoma Kinase in Complex with Crizotinib\\\") \\u2014 G1202R solvent-front mutation sterically clashes with the crizotinib piperidine ring, explaining first-generation resistance. Note 2WGJ is the c-Met/crizotinib co-crystal from the same paper.\", \"resolution_angstrom\": 1.86, \"method\": \"X-ray\", \"ligand\": \"crizotinib\", \"target_protein\": \"ALK kinase domain (wild-type reference for resistance mapping)\"}, {\"pdb_id\": \"4CLI\", \"description\": \"Lorlatinib/ALK co-crystal \\u2014 macrocyclic scaffold maintains binding despite G1202R due to compact shape that avoids the solvent-front clash\", \"resolution_angstrom\": 1.65, \"method\": \"X-ray\", \"ligand\": \"lorlatinib\", \"target_protein\": \"ALK kinase domain\"}]}}, {\"id\": \"Constitutive ALK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The EML4-ALK fusion protein is constitutively dimerized and auto-phosphorylated, activating downstream signaling including RAS-MAPK, PI3K-AKT, and JAK-STAT3 pathways. These pathways promote cell proliferation, survival, and migration.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"JAK-STAT cascade\"]}}, {\"id\": \"Oncogene Addiction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK-rearranged tumors exhibit oncogene addiction, becoming dependent on continued ALK signaling for survival. ALK inhibition leads to dramatic tumor responses, often within days to weeks of starting therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"ALK Gene Rearrangement\", \"target\": \"Constitutive ALK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive ALK Signaling\", \"target\": \"Oncogene Addiction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oncogene Addiction\", \"target\": \"ALK TKI Resistance\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALK Gene Rearrangement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK rearrangements result from chromosomal inversions or translocations that fuse the ALK kinase domain to an N-terminal partner gene (usually EML4). The partner provides a dimerization domain, causing constitutive ALK kinase activation independent of ligand.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"type II pneumocyte\"], \"biological_processes\": [\"protein phosphorylation\"]}}, {\"id\": \"ALK TKI Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resistance to ALK TKIs develops through ALK-dependent mechanisms (secondary mutations like G1202R, compound mutations) or ALK-independent bypass pathways (MET, EGFR, KRAS). Later-generation TKIs (lorlatinib) overcome most single ALK mutations.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"response to drug\"], \"pdb_structures\": [{\"pdb_id\": \"2XP2\", \"description\": \"Crizotinib bound to wild-type ALK kinase domain (RCSB title \\\"Structure of the Human Anaplastic Lymphoma Kinase in Complex with Crizotinib\\\") \\u2014 G1202R solvent-front mutation sterically clashes with the crizotinib piperidine ring, explaining first-generation resistance. Note 2WGJ is the c-Met/crizotinib co-crystal from the same paper.\", \"resolution_angstrom\": 1.86, \"method\": \"X-ray\", \"ligand\": \"crizotinib\", \"target_protein\": \"ALK kinase domain (wild-type reference for resistance mapping)\"}, {\"pdb_id\": \"4CLI\", \"description\": \"Lorlatinib/ALK co-crystal \\u2014 macrocyclic scaffold maintains binding despite G1202R due to compact shape that avoids the solvent-front clash\", \"resolution_angstrom\": 1.65, \"method\": \"X-ray\", \"ligand\": \"lorlatinib\", \"target_protein\": \"ALK kinase domain\"}]}}, {\"id\": \"Constitutive ALK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The EML4-ALK fusion protein is constitutively dimerized and auto-phosphorylated, activating downstream signaling including RAS-MAPK, PI3K-AKT, and JAK-STAT3 pathways. These pathways promote cell proliferation, survival, and migration.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"JAK-STAT cascade\"]}}, {\"id\": \"Oncogene Addiction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK-rearranged tumors exhibit oncogene addiction, becoming dependent on continued ALK signaling for survival. ALK inhibition leads to dramatic tumor responses, often within days to weeks of starting therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"ALK Gene Rearrangement\", \"target\": \"Constitutive ALK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive ALK Signaling\", \"target\": \"Oncogene Addiction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oncogene Addiction\", \"target\": \"ALK TKI Resistance\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3432,6 +3683,8 @@
                 
                 <div class="evidence-explanation">Confirms lung adenocarcinoma as the histologic context for ALK-rearranged tumors.</div>
                 
+                
+                
             </div>
             
             
@@ -3489,6 +3742,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports younger age enrichment in ALK fusion-positive lung cancer.</div>
+                
+                
                 
             </div>
             
@@ -3548,6 +3803,8 @@
                 
                 <div class="evidence-explanation">In a real-world cohort of ALK-positive advanced lung adenocarcinoma, most patients with known smoking status were never-smokers.</div>
                 
+                
+                
             </div>
             
             
@@ -3606,6 +3863,8 @@
                 
                 <div class="evidence-explanation">Directly supports brain metastases as a frequent clinical manifestation of ALK-translocated NSCLC.</div>
                 
+                
+                
             </div>
             
             
@@ -3649,7 +3908,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3670,6 +3929,30 @@
                 
                 
                 <div class="evidence-explanation">Establishes ALK gene rearrangements as the defining genetic lesion of this NSCLC subset.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/3" target="_blank">CIVIC_ASSERTION:3</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ALK-FUSIONS are found in 3-5% of non-small cell lung cancer and act as a targetable driver mutation."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion supports ALK fusions as defining, targetable genetic drivers in NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -3719,6 +4002,8 @@
                 
                 
                 <div class="evidence-explanation">Supports EML4 (and other partners) as the fusion partner that drives constitutive ALK activation.</div>
+                
+                
                 
             </div>
             
@@ -3838,7 +4123,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3859,6 +4144,30 @@
                 
                 
                 <div class="evidence-explanation">Establishes alectinib as a second-generation ALK TKI used to address crizotinib resistance.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/34" target="_blank">CIVIC_ASSERTION:34</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ALK fusion positive NSCLC is sensitive to alectinib"</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion directly supports alectinib sensitivity in ALK fusion-positive NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -3988,6 +4297,8 @@
                 
                 <div class="evidence-explanation">Co-crystal structures of lorlatinib/ALK demonstrate the binding mode that overcomes resistance mutations like T1151K and G1202R.</div>
                 
+                
+                
             </div>
             
             
@@ -4076,6 +4387,8 @@
                 
                 
                 <div class="evidence-explanation">Directly identifies ceritinib as a second-generation ALK TKI used to address resistance issues after crizotinib.</div>
+                
+                
                 
             </div>
             
@@ -4167,6 +4480,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes brigatinib among the second-generation ALK TKIs used to address crizotinib resistance.</div>
+                
+                
                 
             </div>
             
@@ -4274,7 +4589,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4295,6 +4610,30 @@
                 
                 
                 <div class="evidence-explanation">Preclinical structural biology directly enabled the discovery and development of crizotinib as the first ALK TKI for NSCLC.</div>
+                
+                
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/3" target="_blank">CIVIC_ASSERTION:3</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Lung adenocarcinoma positive for ALK-FUSIONS have been found to be sensitive to crizotinib treatment"</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion directly supports crizotinib sensitivity in ALK fusion-positive NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -4373,6 +4712,8 @@
                 
                 <div class="evidence-explanation">Directly supports platinum/pemetrexed chemotherapy as a studied regimen in advanced ALK-positive NSCLC.</div>
                 
+                
+                
             </div>
             
             
@@ -4404,6 +4745,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4428,6 +4770,8 @@
                 
                 
                 <div class="evidence-explanation">Comprehensive review highlights the central role of ALK molecular diagnostics in identifying eligible NSCLC patients.</div>
+                
+                
                 
             </div>
             
@@ -4538,6 +4882,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that structural biology directly guided the drug discovery process for the first ALK inhibitor crizotinib.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4557,6 +4903,8 @@
                 
                 
                 <div class="evidence-explanation">Co-crystal structures explain differential sensitivity of ALK resistance mutations to different inhibitors.</div>
+                
+                
                 
             </div>
             
@@ -4583,7 +4931,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: ALK-Rearranged Non-Small Cell Lung Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-26T22:38:07Z&#39;
+updated_date: &#39;2026-05-11T02:45:15Z&#39;
 description: &gt;-
   ALK-rearranged non-small cell lung cancer (NSCLC) is a molecularly-defined lung
   cancer subtype driven by chromosomal rearrangements involving the anaplastic
@@ -4599,6 +4947,64 @@ categories:
 - Solid Tumor
 parents:
 - non-small cell lung carcinoma
+external_assertions:
+- name: CIViC ALK fusion crizotinib sensitivity assertion
+  source: CIViC
+  assertion_type: accepted_assertion
+  external_id: CIVIC_ASSERTION:3
+  url: https://civicdb.org/links/assertions/3
+  description: &gt;-
+    CIViC accepted assertion that ALK fusion-positive non-small cell lung
+    carcinoma predicts sensitivity/response to crizotinib.
+  notes: &gt;-
+    01-May-2026 CIViC accepted assertion: molecular_profile=&#34;v::ALK Fusion&#34;;
+    disease=&#34;Lung Non-small Cell Carcinoma&#34;; assertion_type=Predictive;
+    significance=Sensitivity/Response; therapy=Crizotinib; AMP category=Tier I - Level A.
+  evidence:
+  - reference: CIVIC_ASSERTION:3
+    reference_title: &#34;v::ALK Fusion / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Lung adenocarcinoma positive for ALK-FUSIONS have been found to be sensitive to crizotinib treatment
+    explanation: CIViC records an accepted predictive sensitivity assertion for ALK fusion and crizotinib in NSCLC.
+- name: CIViC ALK fusion alectinib sensitivity assertion
+  source: CIViC
+  assertion_type: accepted_assertion
+  external_id: CIVIC_ASSERTION:34
+  url: https://civicdb.org/links/assertions/34
+  description: &gt;-
+    CIViC accepted assertion that ALK fusion-positive non-small cell lung
+    carcinoma predicts sensitivity/response to alectinib.
+  notes: &gt;-
+    01-May-2026 CIViC accepted assertion: molecular_profile=&#34;v::ALK Fusion&#34;;
+    disease=&#34;Lung Non-small Cell Carcinoma&#34;; assertion_type=Predictive;
+    significance=Sensitivity/Response; therapy=Alectinib; AMP category=Tier I - Level A.
+  evidence:
+  - reference: CIVIC_ASSERTION:34
+    reference_title: &#34;v::ALK Fusion / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: ALK fusion positive NSCLC is sensitive to alectinib
+    explanation: CIViC records an accepted predictive sensitivity assertion for ALK fusion and alectinib in NSCLC.
+- name: CIViC EML4::ALK plus ALK G1202R crizotinib resistance evidence item
+  source: CIViC
+  assertion_type: accepted_evidence_item
+  external_id: CIVIC_EID:441
+  url: https://civicdb.org/links/evidence_items/441
+  description: &gt;-
+    CIViC accepted evidence item linking EML4::ALK fusion with ALK G1202R in
+    non-small cell lung cancer to crizotinib resistance.
+  notes: &gt;-
+    01-May-2026 CIViC accepted evidence item: molecular_profile=&#34;EML4::ALK
+    Fusion AND ALK G1202R&#34;; evidence_type=Predictive; evidence_level=D;
+    significance=Resistance; therapy=Crizotinib; citation_id=PMID:22277784.
+  evidence:
+  - reference: CIVIC_EID:441
+    reference_title: &#34;EML4::ALK Fusion AND ALK G1202R / Lung Non-small Cell Carcinoma (Predictive Resistance)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: The G1202R mutation in the EML4-ALK fusion was found to confer resistance to crizotinib in Ba/F3 cells.
+    explanation: CIViC records an accepted predictive resistance evidence item for ALK G1202R and crizotinib in NSCLC.
 has_subtypes:
 - name: EML4-ALK NSCLC
   description: &gt;-
@@ -4636,6 +5042,12 @@ pathophysiology:
     supports: SUPPORT
     snippet: An early result of this search was the discovery of NSCLC driven by activating rearrangements of the anaplastic lymphoma kinase (ALK) gene.
     explanation: This abstract states that ALK rearrangements drive a subset of NSCLC, supporting the ALK gene rearrangement mechanism.
+  - reference: CIVIC_ASSERTION:3
+    reference_title: &#34;v::ALK Fusion / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: ALK-FUSIONS are found in 3-5% of non-small cell lung cancer and act as a targetable driver mutation.
+    explanation: CIViC&#39;s accepted assertion supports ALK fusions as targetable driver alterations in NSCLC.
   cell_types:
   - preferred_term: type II pneumocyte
     term:
@@ -4721,6 +5133,12 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: The co-crystal structure of ceritinib/ALK demonstrates a strong interaction between ceritinib and the P-loop which is facilitated by T1151 on the β3 sheet, a feature not present in the alectinib/ALK or lorlatinib/ALK co-crystal structure.
     explanation: Co-crystal structures explain differential sensitivity of ALK resistance mutations to different inhibitors, supporting the ALK-dependent resistance mechanism.
+  - reference: CIVIC_EID:441
+    reference_title: &#34;EML4::ALK Fusion AND ALK G1202R / Lung Non-small Cell Carcinoma (Predictive Resistance)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: The G1202R mutation in the EML4-ALK fusion was found to confer resistance to crizotinib in Ba/F3 cells.
+    explanation: CIViC&#39;s accepted evidence item supports ALK G1202R as an ALK-dependent crizotinib resistance mechanism.
   pdb_structures:
   - pdb_id: 2XP2
     description: Crizotinib bound to wild-type ALK kinase domain (RCSB title &#34;Structure of the Human Anaplastic Lymphoma Kinase in Complex with Crizotinib&#34;) — G1202R solvent-front mutation sterically clashes with the crizotinib piperidine ring, explaining first-generation resistance. Note 2WGJ is the c-Met/crizotinib co-crystal from the same paper.
@@ -4871,6 +5289,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: the discovery of NSCLC driven by activating rearrangements of the anaplastic lymphoma kinase (ALK) gene
     explanation: Establishes ALK gene rearrangements as the defining genetic lesion of this NSCLC subset.
+  - reference: CIVIC_ASSERTION:3
+    reference_title: &#34;v::ALK Fusion / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: ALK-FUSIONS are found in 3-5% of non-small cell lung cancer and act as a targetable driver mutation.
+    explanation: CIViC&#39;s accepted assertion supports ALK fusions as defining, targetable genetic drivers in NSCLC.
 - name: EML4
   association: Fusion Partner
   inheritance:
@@ -4924,6 +5348,12 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;second-generation TKIs such as alectinib, ceritinib, and brigatinib have emerged to address resistance issues initially associated with the pioneer ALK-TKI, crizotinib&#34;
     explanation: Establishes alectinib as a second-generation ALK TKI used to address crizotinib resistance.
+  - reference: CIVIC_ASSERTION:34
+    reference_title: &#34;v::ALK Fusion / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: ALK fusion positive NSCLC is sensitive to alectinib
+    explanation: CIViC&#39;s accepted assertion directly supports alectinib sensitivity in ALK fusion-positive NSCLC.
 - name: Lorlatinib
   description: &gt;-
     Third-generation ALK TKI designed to overcome resistance mutations including
@@ -5029,6 +5459,12 @@ treatments:
     evidence_source: IN_VITRO
     snippet: The article highlights its beginning with the X-ray crystallographic structure of a lead compound (PHA-0665752) bound to the active site of the kinase domain of c-Met.
     explanation: Preclinical structural biology directly enabled the discovery and development of crizotinib as the first ALK TKI for NSCLC.
+  - reference: CIVIC_ASSERTION:3
+    reference_title: &#34;v::ALK Fusion / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Lung adenocarcinoma positive for ALK-FUSIONS have been found to be sensitive to crizotinib treatment
+    explanation: CIViC&#39;s accepted assertion directly supports crizotinib sensitivity in ALK fusion-positive NSCLC.
 - name: Chemotherapy
   description: &gt;-
     Pemetrexed-based chemotherapy, including platinum/pemetrexed regimens, is a
@@ -5541,7 +5977,7 @@ Some 2025 syntheses are used to summarize 2023–2024 findings where accessible;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ALK-Rearranged Non-Small Cell Lung Cancer", "mondoId": "MONDO:0005061", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALK-Rearranged_Non-Small_Cell_Lung_Cancer", "yamlRevision": "1dabcb1ff529"};
+        const OS_CONFIG = {"diseaseName": "ALK-Rearranged Non-Small Cell Lung Cancer", "mondoId": "MONDO:0005061", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALK-Rearranged_Non-Small_Cell_Lung_Cancer", "yamlRevision": "3db6383a74a4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2799,6 +2990,8 @@
                 
                 <div class="evidence-explanation">This review directly links myxedema coma to severe hypothyroidism with multisystem clinical decompensation.</div>
                 
+                
+                
             </div>
             
             
@@ -2927,6 +3120,8 @@
                 
                 <div class="evidence-explanation">This supports respiratory decompensation as a major pathway from severe hypothyroidism to coma.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2946,6 +3141,8 @@
                 
                 
                 <div class="evidence-explanation">This supports cardiovascular depression and effusions as downstream mechanisms in myxedema coma.</div>
+                
+                
                 
             </div>
             
@@ -3011,6 +3208,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports ADH-mediated water retention as a mechanism contributing to hyponatremia.</div>
+                
+                
                 
             </div>
             
@@ -3218,6 +3417,8 @@
                 
                 <div class="evidence-explanation">This thyroid dermatology review supports skin as a thyroid hormone target organ, consistent with cutaneous myxedema manifestations.</div>
                 
+                
+                
             </div>
             
             
@@ -3252,7 +3453,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADH-Mediated Water Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased cardiac output and hypovolemia can stimulate ADH release, reducing free water excretion and contributing to hyponatremia in myxedema coma.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bradycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001662\"}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001259\"}}, {\"id\": \"Cutaneous Myxedema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe thyroid hormone dysregulation affects skin homeostasis and can produce diffuse non-pitting edema and thickened skin. The cutaneous mechanism is modeled as abnormal aminoglycan and hyaluronan metabolism in the skin.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skin fibroblast\", \"Keratinocyte\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Glycosaminoglycan metabolic process\", \"Hyaluronan metabolic process\"]}}, {\"id\": \"Dry Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000958\"}}, {\"id\": \"Hyponatremia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002615\"}}, {\"id\": \"Hypoventilation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002791\"}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Non-pitting Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000507\"}}, {\"id\": \"Pericardial Effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001698\"}}, {\"id\": \"Respiratory And Cardiovascular Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound hypothyroidism can reduce ventilatory drive and cardiac output, contributing to hypoventilation, hypoxemia or hypercarbia, bradycardia, hypotension, serous effusions, and coma.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to thyroid hormone\"]}}, {\"id\": \"Severe Thyroid Hormone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myxedema is the severe end of hypothyroidism, with reduced thyroid hormone signaling causing systemic slowing of metabolism and, in decompensated cases, altered mental status, hypothermia, and multiple organ-system abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Thyroid follicular cell\"], \"biological_processes\": [\"Response to thyroid hormone\", \"Thyroid hormone metabolic process\"]}}, {\"id\": \"Sparse Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008070\"}}], \"edges\": [{\"source\": \"Severe Thyroid Hormone Deficiency\", \"target\": \"Respiratory And Cardiovascular Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe Thyroid Hormone Deficiency\", \"target\": \"Cutaneous Myxedema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"ADH-Mediated Water Retention\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Pericardial Effusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Hypoventilation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ADH-Mediated Water Retention\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous Myxedema\", \"target\": \"Non-pitting Edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous Myxedema\", \"target\": \"Dry Skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous Myxedema\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous Myxedema\", \"target\": \"Sparse Hair\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADH-Mediated Water Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased cardiac output and hypovolemia can stimulate ADH release, reducing free water excretion and contributing to hyponatremia in myxedema coma.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bradycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001662\"}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001259\"}}, {\"id\": \"Cutaneous Myxedema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe thyroid hormone dysregulation affects skin homeostasis and can produce diffuse non-pitting edema and thickened skin. The cutaneous mechanism is modeled as abnormal aminoglycan and hyaluronan metabolism in the skin.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skin fibroblast\", \"Keratinocyte\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Glycosaminoglycan metabolic process\", \"Hyaluronan metabolic process\"]}}, {\"id\": \"Dry Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000958\"}}, {\"id\": \"Hyponatremia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Present\"}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002615\"}}, {\"id\": \"Hypoventilation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002791\"}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Non-pitting Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000507\"}}, {\"id\": \"Pericardial Effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001698\"}}, {\"id\": \"Respiratory And Cardiovascular Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound hypothyroidism can reduce ventilatory drive and cardiac output, contributing to hypoventilation, hypoxemia or hypercarbia, bradycardia, hypotension, serous effusions, and coma.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to thyroid hormone\"]}}, {\"id\": \"Severe Thyroid Hormone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myxedema is the severe end of hypothyroidism, with reduced thyroid hormone signaling causing systemic slowing of metabolism and, in decompensated cases, altered mental status, hypothermia, and multiple organ-system abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Thyroid follicular cell\"], \"biological_processes\": [\"Response to thyroid hormone\", \"Thyroid hormone metabolic process\"]}}, {\"id\": \"Sparse Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008070\"}}], \"edges\": [{\"source\": \"Severe Thyroid Hormone Deficiency\", \"target\": \"Respiratory And Cardiovascular Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe Thyroid Hormone Deficiency\", \"target\": \"Cutaneous Myxedema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"ADH-Mediated Water Retention\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Pericardial Effusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Hypoventilation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory And Cardiovascular Decompensation\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ADH-Mediated Water Retention\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous Myxedema\", \"target\": \"Non-pitting Edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous Myxedema\", \"target\": \"Dry Skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous Myxedema\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous Myxedema\", \"target\": \"Sparse Hair\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3334,6 +3535,8 @@
                 
                 <div class="evidence-explanation">This supports bradycardia as a cardiovascular finding in myxedema coma.</div>
                 
+                
+                
             </div>
             
             
@@ -3387,6 +3590,8 @@
                 
                 
                 <div class="evidence-explanation">This identifies in-hospital hypotension as a clinically important feature associated with mortality in myxedema crisis.</div>
+                
+                
                 
             </div>
             
@@ -3451,6 +3656,8 @@
                 
                 <div class="evidence-explanation">This supports constipation and reduced gastrointestinal motility in profound hypothyroidism.</div>
                 
+                
+                
             </div>
             
             
@@ -3514,6 +3721,8 @@
                 
                 <div class="evidence-explanation">This supports dry skin as a physical finding of myxedema coma.</div>
                 
+                
+                
             </div>
             
             
@@ -3567,6 +3776,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports thinning or sparse body hair as a myxedema coma physical finding.</div>
+                
+                
                 
             </div>
             
@@ -3631,6 +3842,8 @@
                 
                 <div class="evidence-explanation">This supports coma as a decompensated manifestation of severe hypothyroidism.</div>
                 
+                
+                
             </div>
             
             
@@ -3694,6 +3907,8 @@
                 
                 <div class="evidence-explanation">This explicitly describes non-pitting edema among physical examination findings in myxedema coma.</div>
                 
+                
+                
             </div>
             
             
@@ -3748,6 +3963,8 @@
                 
                 <div class="evidence-explanation">This identifies hypothermia as a typical finding in the pre-comatose state of myxedema coma.</div>
                 
+                
+                
             </div>
             
             
@@ -3794,6 +4011,8 @@
                 
                 
                 <div class="evidence-explanation">This directly lists macroglossia among physical examination findings in myxedema coma.</div>
+                
+                
                 
             </div>
             
@@ -3849,6 +4068,8 @@
                 
                 <div class="evidence-explanation">This directly lists delayed deep tendon reflexes as a physical examination finding in myxedema coma.</div>
                 
+                
+                
             </div>
             
             
@@ -3903,6 +4124,8 @@
                 
                 <div class="evidence-explanation">This supports pericardial effusion as part of the cardiovascular involvement in myxedema coma.</div>
                 
+                
+                
             </div>
             
             
@@ -3956,6 +4179,8 @@
                 
                 
                 <div class="evidence-explanation">Reduced ventilatory drive with hypercarbia supports hypoventilation in myxedema coma.</div>
+                
+                
                 
             </div>
             
@@ -4099,6 +4324,8 @@
                 
                 <div class="evidence-explanation">This supports guideline-based intravenous T4 replacement for myxedema coma, with dosing individualized by patient risk.</div>
                 
+                
+                
             </div>
             
             
@@ -4188,6 +4415,8 @@
                 
                 
                 <div class="evidence-explanation">This supports empiric intravenous hydrocortisone during acute myxedema coma management.</div>
+                
+                
                 
             </div>
             
@@ -4279,6 +4508,8 @@
                 
                 <div class="evidence-explanation">This supports oral levothyroxine as a fallback option in settings where intravenous levothyroxine cannot be obtained.</div>
                 
+                
+                
             </div>
             
             
@@ -4359,6 +4590,8 @@
                 
                 <div class="evidence-explanation">This directly supports mechanical ventilatory support during myxedema coma management.</div>
                 
+                
+                
             </div>
             
             
@@ -4408,6 +4641,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports electrolyte correction as supportive management for myxedema coma.</div>
+                
+                
                 
             </div>
             
@@ -4463,6 +4698,8 @@
                 
                 <div class="evidence-explanation">The review identifies severe cold weather as a precipitating factor for myxedema coma.</div>
                 
+                
+                
             </div>
             
             
@@ -4505,6 +4742,8 @@
                 
                 <div class="evidence-explanation">This supports medication-related respiratory suppression as a precipitating factor.</div>
                 
+                
+                
             </div>
             
             
@@ -4537,6 +4776,7 @@
                 <div class="item-desc">Context: Myxedema coma</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4562,6 +4802,8 @@
                 
                 <div class="evidence-explanation">Low free T4 supports profound thyroid hormone deficiency in myxedema coma.</div>
                 
+                
+                
             </div>
             
             
@@ -4580,6 +4822,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Myxedema coma, including primary and central hypothyroidism</div>
+                
                 
                 
     
@@ -4607,6 +4850,8 @@
                 
                 <div class="evidence-explanation">TSH varies depending on whether hypothyroidism is primary or central, so it is not by itself diagnostic.</div>
                 
+                
+                
             </div>
             
             
@@ -4625,6 +4870,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Myxedema coma</div>
+                
                 
                 
     
@@ -4652,6 +4898,8 @@
                 
                 <div class="evidence-explanation">Low sodium supports hyponatremia as a laboratory abnormality in myxedema coma.</div>
                 
+                
+                
             </div>
             
             
@@ -4670,6 +4918,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Myxedema coma</div>
+                
                 
                 
     
@@ -4696,6 +4945,8 @@
                 
                 
                 <div class="evidence-explanation">Low blood glucose supports hypoglycemia as a laboratory abnormality in myxedema coma.</div>
+                
+                
                 
             </div>
             

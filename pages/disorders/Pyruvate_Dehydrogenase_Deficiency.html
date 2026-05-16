@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2727,6 +2918,8 @@
                 
                 <div class="evidence-explanation">Orphanet records X-linked dominant inheritance for the PDH deficiency spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2747,6 +2940,8 @@
                 
                 <div class="evidence-explanation">This review supports the X-linked PDHA1 inheritance pattern and explains why females can be affected.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2766,6 +2961,8 @@
                 
                 
                 <div class="evidence-explanation">This population-based PDHA1 carrier study supports PDHA1 as the dominant X-linked cause of PDH complex deficiency.</div>
+                
+                
                 
             </div>
             
@@ -2833,6 +3030,8 @@
                 
                 <div class="evidence-explanation">Orphanet records autosomal recessive inheritance for part of the PDH deficiency spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2852,6 +3051,8 @@
                 
                 
                 <div class="evidence-explanation">This review identifies autosomal recessive inheritance for rarer non-PDHA1 subtypes.</div>
+                
+                
                 
             </div>
             
@@ -2960,6 +3161,8 @@
                 
                 <div class="evidence-explanation">Orphanet maps E1-alpha deficiency exactly to MONDO:0010717.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2980,6 +3183,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies PDHA1 as a disease-causing gene for this subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2999,6 +3204,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet also lists LONP1 as a disease-causing gene in the E1-alpha subtype record.</div>
+                
+                
                 
             </div>
             
@@ -3064,6 +3271,8 @@
                 
                 <div class="evidence-explanation">Orphanet maps E1-beta deficiency exactly to MONDO:0013580.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3083,6 +3292,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies PDHB as the disease-causing gene for this subtype.</div>
+                
+                
                 
             </div>
             
@@ -3148,6 +3359,8 @@
                 
                 <div class="evidence-explanation">Orphanet maps E2 deficiency exactly to MONDO:0009502.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3167,6 +3380,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies DLAT loss-of-function variants as disease-causing for this subtype.</div>
+                
+                
                 
             </div>
             
@@ -3232,6 +3447,8 @@
                 
                 <div class="evidence-explanation">Orphanet maps E3 deficiency exactly to MONDO:0009529.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3251,6 +3468,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies DLD loss-of-function variants as disease-causing for this subtype.</div>
+                
+                
                 
             </div>
             
@@ -3316,6 +3535,8 @@
                 
                 <div class="evidence-explanation">Orphanet maps E3-binding protein deficiency exactly to MONDO:0009503.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3335,6 +3556,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies PDHX as the disease-causing gene for this subtype.</div>
+                
+                
                 
             </div>
             
@@ -3400,6 +3623,8 @@
                 
                 <div class="evidence-explanation">Orphanet maps PDH phosphatase deficiency exactly to MONDO:0012120.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3419,6 +3644,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies PDP1 loss-of-function variants as disease-causing for this subtype.</div>
+                
+                
                 
             </div>
             
@@ -3702,6 +3929,8 @@
                 
                 <div class="evidence-explanation">This review identifies the PDH complex subunit and regulatory architecture underlying the recognized deficiency subtypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3721,6 +3950,8 @@
                 
                 
                 <div class="evidence-explanation">The review identifies E1-alpha deficiency as the most frequent subtype.</div>
+                
+                
                 
             </div>
             
@@ -3822,6 +4053,8 @@
                 
                 
                 <div class="evidence-explanation">Yeast model and biochemical studies support variant-specific folding and assembly defects for PDHA1/E1-alpha.</div>
+                
+                
                 
             </div>
             
@@ -3944,6 +4177,8 @@
                 
                 <div class="evidence-explanation">Patient-derived fibroblast experiments connect LONP1 variant cells to inhibitory phospho-E1-alpha accumulation and PDH dysfunction.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3963,6 +4198,8 @@
                 
                 
                 <div class="evidence-explanation">Biochemical evidence supports the specific loss of LonP1-mediated phospho-E1-alpha proteolysis.</div>
+                
+                
                 
             </div>
             
@@ -4065,6 +4302,8 @@
                 
                 <div class="evidence-explanation">This case identifies a PDHA1 variant in a thiamine-responsive PDH deficiency presentation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4084,6 +4323,8 @@
                 
                 
                 <div class="evidence-explanation">The same case supports thiamine responsiveness in a selected PDHA1 presentation.</div>
+                
+                
                 
             </div>
             
@@ -4215,6 +4456,8 @@
                 
                 <div class="evidence-explanation">This directly supports the PDH complex step that is deficient in the disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4234,6 +4477,8 @@
                 
                 
                 <div class="evidence-explanation">This mechanistic review establishes PDHC as the pyruvate-to-acetyl-CoA link whose activity is deficient.</div>
+                
+                
                 
             </div>
             
@@ -4335,6 +4580,8 @@
                 
                 
                 <div class="evidence-explanation">This supports phosphorylation state as a regulator of residual PDH complex activity.</div>
+                
+                
                 
             </div>
             
@@ -4454,6 +4701,8 @@
                 
                 <div class="evidence-explanation">The cohort review directly supports lactic acidosis and the characteristic lactate:pyruvate ratio pattern.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4473,6 +4722,8 @@
                 
                 
                 <div class="evidence-explanation">The mechanistic review explains pyruvate and lactate accumulation downstream of impaired pyruvate oxidation.</div>
+                
+                
                 
             </div>
             
@@ -4632,6 +4883,8 @@
                 
                 <div class="evidence-explanation">This review links PDH-deficiency energy failure to brain maldevelopment and epilepsy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4651,6 +4904,8 @@
                 
                 
                 <div class="evidence-explanation">This supports seizures as a downstream consequence of cerebral energy failure and abnormal neurotransmitter metabolism.</div>
+                
+                
                 
             </div>
             
@@ -4758,6 +5013,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies severe neonatal lactic acidosis as a key manifestation.</div>
                 
+                
+                
             </div>
             
             
@@ -4849,6 +5106,8 @@
                 
                 
                 <div class="evidence-explanation">The large review directly identifies neurodevelopmental delay and hypotonia as the commonest signs.</div>
+                
+                
                 
             </div>
             
@@ -5005,6 +5264,8 @@
                 
                 <div class="evidence-explanation">This supports ataxia and seizures in milder PDH deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5024,6 +5285,8 @@
                 
                 
                 <div class="evidence-explanation">This case report and mini-review support dystonia as part of the PDH deficiency spectrum.</div>
+                
+                
                 
             </div>
             
@@ -5149,6 +5412,8 @@
                 
                 <div class="evidence-explanation">Orphanet defines E2 deficiency as a childhood PDH deficiency subtype with lactic acidosis and neurologic dysfunction.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5168,6 +5433,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies DLAT loss-of-function variants as causal for the E2 subtype.</div>
+                
+                
                 
             </div>
             
@@ -5293,6 +5560,8 @@
                 
                 <div class="evidence-explanation">Orphanet defines E3 deficiency as a PDH deficiency subtype with lactic acidosis, developmental delay, neurologic dysfunction, or liver disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5312,6 +5581,8 @@
                 
                 
                 <div class="evidence-explanation">The synonym supports the E3 subtype&#39;s overlap with branched-chain ketoacid dehydrogenase dysfunction.</div>
+                
+                
                 
             </div>
             
@@ -5347,7 +5618,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal facial shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Abnormal pyramidal sign\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007256\"}}, {\"id\": \"Abnormality of eye movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000496\"}}, {\"id\": \"Aplasia/Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007370\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Broad-based gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002136\"}}, {\"id\": \"Cerebral energy failure and neurodevelopmental injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced acetyl-CoA delivery to the TCA cycle and mitochondrial energy production injures the developing brain, contributing to structural brain anomalies, seizures, hypotonia, ataxia, and developmental delay.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"brain\"]}}, {\"id\": \"Cerebral palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100021\"}}, {\"id\": \"Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001266\"}}, {\"id\": \"Congenital lactic acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lactate accumulation causes congenital or early-onset lactic acidosis, often severe in neonatal presentations and associated with respiratory compensation such as tachypnea.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"DLAT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DLAT\"], \"association\": \"Causal biallelic loss-of-function variant\"}}, {\"id\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The DLAT/E2 subtype is characterized by childhood lactic acidosis and neurological dysfunction, with Orphanet phenotype rows documenting retinal degeneration, neurodegeneration, paroxysmal dystonia, broad-based gait, lower-limb hyperreflexia, globus-pallidus imaging abnormalities, atypical behavior, and low circulating vitamin B1.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DLAT\"]}}, {\"id\": \"DLD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DLD\"], \"association\": \"Causal biallelic loss-of-function variant\"}}, {\"id\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The DLD/E3 subtype can present with early lactic acidosis, delayed development, later neurologic dysfunction, or liver disease, and Orphanet synonymizes it with E3-deficient maple syrup urine disease. This captures the E3-subtype hepatic and branched-chain amino-acid phenotype branch.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DLD\"]}}, {\"id\": \"Decreased PDH complex activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced PDH complex activity is the defining enzymatic abnormality.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002928\"}}, {\"id\": \"Dichloroacetate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dichloroacetate is a targeted pharmacologic approach intended to increase PDH complex catalytic activity and stability. Human trial evidence supports lactate lowering but not broad neurologic or clinical outcome improvement.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"dichloroacetate\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Elevated plasma branched chain amino acids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008344\"}}, {\"id\": \"Epicanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000286\"}}, {\"id\": \"Eye of the tiger anomaly of globus pallidus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002454\"}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Frontal bossing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002007\"}}, {\"id\": \"Gait disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hepatic encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002480\"}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"High palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000218\"}}, {\"id\": \"Hypercoagulability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100724\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased circulating lactate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blood lactate is commonly elevated in PDH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002151\"}}, {\"id\": \"Increased serum pyruvate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blood pyruvate can be elevated because pyruvate oxidation is blocked.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003542\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Ketogenic diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ketogenic diet is the best-supported disease-directed management strategy, bypassing the PDH block by providing ketone-derived acetyl-CoA and improving epilepsy, ataxia, sleep, language, social function, and hospitalization frequency in many patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"LONP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LONP1\"], \"association\": \"Causal germline pathogenic variant in the E1-alpha subtype record\"}}, {\"id\": \"LONP1 impaired phospho-E1-alpha proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic LONP1 variants can impair mitochondrial LonP1 protease degradation of phosphorylated PDH E1-alpha. Accumulation of inhibitory phospho-E1-alpha reduces PDH activity and produces a PDH deficiency biochemical phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial phospho-E1-alpha proteolysis\"], \"genes\": [\"LONP1\"]}}, {\"id\": \"Lactate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lactate and pyruvate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When pyruvate cannot efficiently enter the PDH complex reaction, pyruvate and lactate accumulate in blood, CSF, and tissues, producing the classic biochemical pattern of lactic acidosis with a lactate:pyruvate ratio often not exceeding 20.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"pyruvate metabolic process\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lactic acidosis is a core biochemical and clinical manifestation of PDH deficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Long philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000343\"}}, {\"id\": \"Low levels of vitamin B1\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100503\"}}, {\"id\": \"Lower limb hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002395\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Multiple lipomas\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001012\"}}, {\"id\": \"Narrow face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000275\"}}, {\"id\": \"Neurodegeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002180\"}}, {\"id\": \"Neurodevelopmental delay and hypotonia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurodevelopmental delay and hypotonia are among the most common clinical signs in the 371-patient PDC deficiency spectrum.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Osteolytic defects of the middle phalanx of the 4th toe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100453\"}}, {\"id\": \"PDH complex component or phosphatase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in PDH complex structural subunits or PDH phosphatase reduce PDH complex activity in the mitochondrial matrix. The canonical disease genes include PDHA1, PDHB, DLAT, DLD, PDHX, and PDP1.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"pyruvate dehydrogenase activity\"], \"genes\": [\"PDHA1\", \"PDHB\", \"DLAT\", \"DLD\", \"PDHX\", \"PDP1\"]}}, {\"id\": \"PDH complex enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PDHA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PDHA1\"], \"association\": \"Causal X-linked pathogenic variant\"}}, {\"id\": \"PDHA1 variant folding and assembly defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many PDHA1 E1-alpha pathogenic variants impair folding, E1 incorporation, or assembly of the PDH complex, lowering overall PDC activity.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"pyruvate dehydrogenase activity\"], \"genes\": [\"PDHA1\"]}}, {\"id\": \"PDHB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDHB\"], \"association\": \"Causal biallelic pathogenic variant\"}}, {\"id\": \"PDHX\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDHX\"], \"association\": \"Causal biallelic pathogenic variant\"}}, {\"id\": \"PDK-regulated residual PDH activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Residual PDH complex activity is modulated by phosphorylation of E1-alpha by pyruvate dehydrogenase kinases and dephosphorylation by PDH phosphatases, making kinase inhibition a plausible treatment target in selected variants.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"pyruvate decarboxylation to acetyl-CoA\"], \"genes\": [\"PDHA1\"]}}, {\"id\": \"PDP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDP1\"], \"association\": \"Causal biallelic loss-of-function variant\"}}, {\"id\": \"Paroxysmal dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002268\"}}, {\"id\": \"Pectus excavatum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000767\"}}, {\"id\": \"Pyruvate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDH complex deficiency blocks oxidative decarboxylation of pyruvate to acetyl-CoA, weakening the link between glycolysis and the TCA cycle.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"pyruvate decarboxylation to acetyl-CoA\", \"tricarboxylic acid cycle\"]}}, {\"id\": \"Retinal degeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000546\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Seizures and movement disorders\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe and milder PDH deficiency states can produce seizures, ataxia, dystonia, and other movement disorders through energy failure, structural brain anomalies, and neurotransmitter disturbance.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sodium phenylbutyrate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium phenylbutyrate is an investigational pharmacologic approach that can inhibit PDK-mediated E1-alpha phosphorylation, increase PDH complex activity in responsive cells and models, and is under clinical study for PDH complex deficiency.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"sodium phenylbutyrate\"]}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Tachypnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002789\"}}, {\"id\": \"Thiamine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose thiamine may benefit selected thiamine-responsive PDHA1 variants, particularly milder movement-disorder presentations.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"thiamine\"]}}, {\"id\": \"Thiamine-responsive PDHA1 residual activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selected PDHA1 variants can retain thiamine-responsive residual activity, producing milder movement-disorder presentations that may improve with high-dose thiamine rather than representing broad responsiveness of all PDH complex subtypes.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"pyruvate dehydrogenase activity\"], \"genes\": [\"PDHA1\"]}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Trigonocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000243\"}}, {\"id\": \"Upslanted palpebral fissure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000582\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002119\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Wide nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000431\"}}], \"edges\": [{\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Decreased PDH complex activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"PDH complex enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Abnormal facial shape\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Frontal bossing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"High palate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Trigonocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Narrow face\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Epicanthus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Long philtrum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Wide nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Upslanted palpebral fissure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Pectus excavatum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Multiple lipomas\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Osteolytic defects of the middle phalanx of the 4th toe\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDHA1 variant folding and assembly defects\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LONP1 impaired phospho-E1-alpha proteolysis\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LONP1 impaired phospho-E1-alpha proteolysis\", \"target\": \"Decreased PDH complex activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thiamine-responsive PDHA1 residual activity\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"target\": \"Lactate and pyruvate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"target\": \"Cerebral energy failure and neurodevelopmental injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDK-regulated residual PDH activity\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Congenital lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Lactate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Pyruvate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Increased circulating lactate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Increased serum pyruvate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Neurodevelopmental delay and hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Seizures and movement disorders\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Aplasia/Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Tachypnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Cerebral palsy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Gait disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Abnormal pyramidal sign\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Abnormality of eye movement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Paroxysmal dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Broad-based gait\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Lower limb hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Retinal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Paroxysmal dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Broad-based gait\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Lower limb hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Eye of the tiger anomaly of globus pallidus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Low levels of vitamin B1\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hepatic encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Elevated plasma branched chain amino acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hypercoagulability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiamine supplementation\", \"target\": \"Thiamine-responsive PDHA1 residual activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dichloroacetate\", \"target\": \"PDK-regulated residual PDH activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dichloroacetate\", \"target\": \"Lactate and pyruvate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sodium phenylbutyrate\", \"target\": \"PDK-regulated residual PDH activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PDHA1\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHA1\", \"target\": \"PDHA1 variant folding and assembly defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHA1\", \"target\": \"PDK-regulated residual PDH activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHA1\", \"target\": \"Thiamine-responsive PDHA1 residual activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LONP1\", \"target\": \"LONP1 impaired phospho-E1-alpha proteolysis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHB\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLAT\", \"target\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLAT\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLD\", \"target\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLD\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHX\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDP1\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal facial shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Abnormal pyramidal sign\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007256\"}}, {\"id\": \"Abnormality of eye movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000496\"}}, {\"id\": \"Aplasia/Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007370\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Broad-based gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002136\"}}, {\"id\": \"Cerebral energy failure and neurodevelopmental injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced acetyl-CoA delivery to the TCA cycle and mitochondrial energy production injures the developing brain, contributing to structural brain anomalies, seizures, hypotonia, ataxia, and developmental delay.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"brain\"]}}, {\"id\": \"Cerebral palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100021\"}}, {\"id\": \"Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001266\"}}, {\"id\": \"Congenital lactic acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lactate accumulation causes congenital or early-onset lactic acidosis, often severe in neonatal presentations and associated with respiratory compensation such as tachypnea.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"DLAT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DLAT\"], \"association\": \"Causal biallelic loss-of-function variant\"}}, {\"id\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The DLAT/E2 subtype is characterized by childhood lactic acidosis and neurological dysfunction, with Orphanet phenotype rows documenting retinal degeneration, neurodegeneration, paroxysmal dystonia, broad-based gait, lower-limb hyperreflexia, globus-pallidus imaging abnormalities, atypical behavior, and low circulating vitamin B1.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DLAT\"]}}, {\"id\": \"DLD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DLD\"], \"association\": \"Causal biallelic loss-of-function variant\"}}, {\"id\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The DLD/E3 subtype can present with early lactic acidosis, delayed development, later neurologic dysfunction, or liver disease, and Orphanet synonymizes it with E3-deficient maple syrup urine disease. This captures the E3-subtype hepatic and branched-chain amino-acid phenotype branch.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DLD\"]}}, {\"id\": \"Decreased PDH complex activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced PDH complex activity is the defining enzymatic abnormality.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002928\"}}, {\"id\": \"Dichloroacetate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dichloroacetate is a targeted pharmacologic approach intended to increase PDH complex catalytic activity and stability. Human trial evidence supports lactate lowering but not broad neurologic or clinical outcome improvement.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"dichloroacetate\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Elevated plasma branched chain amino acids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008344\"}}, {\"id\": \"Epicanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000286\"}}, {\"id\": \"Eye of the tiger anomaly of globus pallidus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002454\"}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Frontal bossing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002007\"}}, {\"id\": \"Gait disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hepatic encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002480\"}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"High palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000218\"}}, {\"id\": \"Hypercoagulability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100724\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased circulating lactate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blood lactate is commonly elevated in PDH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002151\"}}, {\"id\": \"Increased serum pyruvate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blood pyruvate can be elevated because pyruvate oxidation is blocked.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003542\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Ketogenic diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ketogenic diet is the best-supported disease-directed management strategy, bypassing the PDH block by providing ketone-derived acetyl-CoA and improving epilepsy, ataxia, sleep, language, social function, and hospitalization frequency in many patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"LONP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LONP1\"], \"association\": \"Causal germline pathogenic variant in the E1-alpha subtype record\"}}, {\"id\": \"LONP1 impaired phospho-E1-alpha proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic LONP1 variants can impair mitochondrial LonP1 protease degradation of phosphorylated PDH E1-alpha. Accumulation of inhibitory phospho-E1-alpha reduces PDH activity and produces a PDH deficiency biochemical phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial phospho-E1-alpha proteolysis\"], \"genes\": [\"LONP1\"]}}, {\"id\": \"Lactate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Lactate and pyruvate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When pyruvate cannot efficiently enter the PDH complex reaction, pyruvate and lactate accumulate in blood, CSF, and tissues, producing the classic biochemical pattern of lactic acidosis with a lactate:pyruvate ratio often not exceeding 20.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"pyruvate metabolic process\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lactic acidosis is a core biochemical and clinical manifestation of PDH deficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Long philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000343\"}}, {\"id\": \"Low levels of vitamin B1\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100503\"}}, {\"id\": \"Lower limb hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002395\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Multiple lipomas\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001012\"}}, {\"id\": \"Narrow face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000275\"}}, {\"id\": \"Neurodegeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002180\"}}, {\"id\": \"Neurodevelopmental delay and hypotonia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurodevelopmental delay and hypotonia are among the most common clinical signs in the 371-patient PDC deficiency spectrum.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Osteolytic defects of the middle phalanx of the 4th toe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100453\"}}, {\"id\": \"PDH complex component or phosphatase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in PDH complex structural subunits or PDH phosphatase reduce PDH complex activity in the mitochondrial matrix. The canonical disease genes include PDHA1, PDHB, DLAT, DLD, PDHX, and PDP1.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"pyruvate dehydrogenase activity\"], \"genes\": [\"PDHA1\", \"PDHB\", \"DLAT\", \"DLD\", \"PDHX\", \"PDP1\"]}}, {\"id\": \"PDH complex enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"PDHA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PDHA1\"], \"association\": \"Causal X-linked pathogenic variant\"}}, {\"id\": \"PDHA1 variant folding and assembly defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many PDHA1 E1-alpha pathogenic variants impair folding, E1 incorporation, or assembly of the PDH complex, lowering overall PDC activity.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"pyruvate dehydrogenase activity\"], \"genes\": [\"PDHA1\"]}}, {\"id\": \"PDHB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDHB\"], \"association\": \"Causal biallelic pathogenic variant\"}}, {\"id\": \"PDHX\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDHX\"], \"association\": \"Causal biallelic pathogenic variant\"}}, {\"id\": \"PDK-regulated residual PDH activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Residual PDH complex activity is modulated by phosphorylation of E1-alpha by pyruvate dehydrogenase kinases and dephosphorylation by PDH phosphatases, making kinase inhibition a plausible treatment target in selected variants.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"pyruvate decarboxylation to acetyl-CoA\"], \"genes\": [\"PDHA1\"]}}, {\"id\": \"PDP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDP1\"], \"association\": \"Causal biallelic loss-of-function variant\"}}, {\"id\": \"Paroxysmal dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002268\"}}, {\"id\": \"Pectus excavatum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000767\"}}, {\"id\": \"Pyruvate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDH complex deficiency blocks oxidative decarboxylation of pyruvate to acetyl-CoA, weakening the link between glycolysis and the TCA cycle.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"pyruvate decarboxylation to acetyl-CoA\", \"tricarboxylic acid cycle\"]}}, {\"id\": \"Retinal degeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E2 deficiency\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000546\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Seizures and movement disorders\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe and milder PDH deficiency states can produce seizures, ataxia, dystonia, and other movement disorders through energy failure, structural brain anomalies, and neurotransmitter disturbance.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sodium phenylbutyrate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium phenylbutyrate is an investigational pharmacologic approach that can inhibit PDK-mediated E1-alpha phosphorylation, increase PDH complex activity in responsive cells and models, and is under clinical study for PDH complex deficiency.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"sodium phenylbutyrate\"]}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Tachypnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002789\"}}, {\"id\": \"Thiamine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose thiamine may benefit selected thiamine-responsive PDHA1 variants, particularly milder movement-disorder presentations.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"thiamine\"]}}, {\"id\": \"Thiamine-responsive PDHA1 residual activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selected PDHA1 variants can retain thiamine-responsive residual activity, producing milder movement-disorder presentations that may improve with high-dose thiamine rather than representing broad responsiveness of all PDH complex subtypes.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"pyruvate dehydrogenase activity\"], \"genes\": [\"PDHA1\"]}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Trigonocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000243\"}}, {\"id\": \"Upslanted palpebral fissure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000582\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002119\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"E3 deficiency\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Wide nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000431\"}}], \"edges\": [{\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Decreased PDH complex activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"PDH complex enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Abnormal facial shape\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Frontal bossing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"High palate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Trigonocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Narrow face\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Epicanthus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Long philtrum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Wide nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Upslanted palpebral fissure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Pectus excavatum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Multiple lipomas\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDH complex component or phosphatase deficiency\", \"target\": \"Osteolytic defects of the middle phalanx of the 4th toe\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDHA1 variant folding and assembly defects\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LONP1 impaired phospho-E1-alpha proteolysis\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LONP1 impaired phospho-E1-alpha proteolysis\", \"target\": \"Decreased PDH complex activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thiamine-responsive PDHA1 residual activity\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"target\": \"Lactate and pyruvate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"target\": \"Cerebral energy failure and neurodevelopmental injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDK-regulated residual PDH activity\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Congenital lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Lactate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Pyruvate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Increased circulating lactate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and pyruvate accumulation\", \"target\": \"Increased serum pyruvate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Neurodevelopmental delay and hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Seizures and movement disorders\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Aplasia/Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral energy failure and neurodevelopmental injury\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Tachypnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital lactic acidosis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Cerebral palsy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental delay and hypotonia\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Gait disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Abnormal pyramidal sign\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Abnormality of eye movement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Paroxysmal dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Broad-based gait\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Lower limb hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Seizures and movement disorders\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Retinal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Paroxysmal dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Broad-based gait\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Lower limb hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Eye of the tiger anomaly of globus pallidus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"target\": \"Low levels of vitamin B1\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hepatic encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Elevated plasma branched chain amino acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"target\": \"Hypercoagulability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Reduced pyruvate decarboxylation to acetyl-CoA\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiamine supplementation\", \"target\": \"Thiamine-responsive PDHA1 residual activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dichloroacetate\", \"target\": \"PDK-regulated residual PDH activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dichloroacetate\", \"target\": \"Lactate and pyruvate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sodium phenylbutyrate\", \"target\": \"PDK-regulated residual PDH activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PDHA1\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHA1\", \"target\": \"PDHA1 variant folding and assembly defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHA1\", \"target\": \"PDK-regulated residual PDH activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHA1\", \"target\": \"Thiamine-responsive PDHA1 residual activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LONP1\", \"target\": \"LONP1 impaired phospho-E1-alpha proteolysis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHB\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLAT\", \"target\": \"DLAT-associated E2 neurodegenerative movement-retinal syndrome\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLAT\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLD\", \"target\": \"DLD-associated E3 hepatic and branched-chain ketoacid dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLD\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDHX\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDP1\", \"target\": \"PDH complex component or phosphatase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5439,6 +5710,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for infant feeding difficulties.</div>
                 
+                
+                
             </div>
             
             
@@ -5494,6 +5767,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific support for hepatic failure in E3 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5551,6 +5826,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for vomiting in E3 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -5606,6 +5883,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for hepatomegaly in E3 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5672,6 +5951,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured support for hypertelorism.</div>
                 
+                
+                
             </div>
             
             
@@ -5727,6 +6008,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for abnormal eye movements.</div>
+                
+                
                 
             </div>
             
@@ -5793,6 +6076,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for abnormal facial shape.</div>
                 
+                
+                
             </div>
             
             
@@ -5848,6 +6133,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for microcephaly.</div>
+                
+                
                 
             </div>
             
@@ -5905,6 +6192,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured support for frontal bossing.</div>
                 
+                
+                
             </div>
             
             
@@ -5960,6 +6249,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured support for high palate.</div>
+                
+                
                 
             </div>
             
@@ -6017,6 +6308,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured support for epicanthus.</div>
                 
+                
+                
             </div>
             
             
@@ -6073,6 +6366,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured support for long philtrum.</div>
                 
+                
+                
             </div>
             
             
@@ -6128,6 +6423,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured support for upslanted palpebral fissures.</div>
+                
+                
                 
             </div>
             
@@ -6194,6 +6491,8 @@
                 
                 <div class="evidence-explanation">The cohort review supports lactic acidosis as part of the dominant PDH deficiency phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6213,6 +6512,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides frequency support for lactic acidosis in the E1-alpha subtype.</div>
+                
+                
                 
             </div>
             
@@ -6270,6 +6571,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for hypoglycemia in E3 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -6326,6 +6629,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for transaminase elevation in E3 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -6381,6 +6686,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for elevated branched-chain amino acids in E3 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -6447,6 +6754,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for hypotonia.</div>
                 
+                
+                
             </div>
             
             
@@ -6502,6 +6811,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for spasticity.</div>
+                
+                
                 
             </div>
             
@@ -6559,6 +6870,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured support for pectus excavatum.</div>
                 
+                
+                
             </div>
             
             
@@ -6614,6 +6927,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured support for multiple lipomas.</div>
+                
+                
                 
             </div>
             
@@ -6680,6 +6995,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for seizures.</div>
                 
+                
+                
             </div>
             
             
@@ -6735,6 +7052,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for global developmental delay.</div>
+                
+                
                 
             </div>
             
@@ -6792,6 +7111,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for ataxia.</div>
                 
+                
+                
             </div>
             
             
@@ -6847,6 +7168,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for dysarthria.</div>
+                
+                
                 
             </div>
             
@@ -6904,6 +7227,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for choreoathetosis.</div>
                 
+                
+                
             </div>
             
             
@@ -6959,6 +7284,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for gait disturbance.</div>
+                
+                
                 
             </div>
             
@@ -7016,6 +7343,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for dystonia.</div>
                 
+                
+                
             </div>
             
             
@@ -7071,6 +7400,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for tremor.</div>
+                
+                
                 
             </div>
             
@@ -7128,6 +7459,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for lethargy.</div>
                 
+                
+                
             </div>
             
             
@@ -7183,6 +7516,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured support for ventriculomegaly.</div>
+                
+                
                 
             </div>
             
@@ -7240,6 +7575,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for atypical behavior in E2 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -7295,6 +7632,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for hepatic encephalopathy in E3 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -7361,6 +7700,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for tachypnea.</div>
                 
+                
+                
             </div>
             
             
@@ -7416,6 +7757,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for dyspnea.</div>
+                
+                
                 
             </div>
             
@@ -7482,6 +7825,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for growth delay.</div>
                 
+                
+                
             </div>
             
             
@@ -7537,6 +7882,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for intrauterine growth restriction.</div>
+                
+                
                 
             </div>
             
@@ -7603,6 +7950,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for increased circulating lactate in E1-alpha deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -7658,6 +8007,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for increased serum pyruvate in E1-alpha deficiency.</div>
+                
+                
                 
             </div>
             
@@ -7715,6 +8066,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured support for decreased PDH complex activity.</div>
                 
+                
+                
             </div>
             
             
@@ -7770,6 +8123,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for pyramidal signs.</div>
+                
+                
                 
             </div>
             
@@ -7827,6 +8182,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for cerebral-palsy-like presentation.</div>
                 
+                
+                
             </div>
             
             
@@ -7882,6 +8239,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for corpus-callosum aplasia/hypoplasia.</div>
+                
+                
                 
             </div>
             
@@ -7939,6 +8298,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured support for trigonocephaly.</div>
                 
+                
+                
             </div>
             
             
@@ -7994,6 +8355,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured support for narrow face.</div>
+                
+                
                 
             </div>
             
@@ -8051,6 +8414,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides structured support for wide nasal bridge.</div>
                 
+                
+                
             </div>
             
             
@@ -8106,6 +8471,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides structured frequency support for this skeletal finding.</div>
+                
+                
                 
             </div>
             
@@ -8163,6 +8530,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for retinal degeneration in E2 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8218,6 +8587,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for neurodegeneration in E2 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -8275,6 +8646,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for paroxysmal dystonia in E2 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8330,6 +8703,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for broad-based gait in E2 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -8387,6 +8762,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for lower limb hyperreflexia in E2 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8442,6 +8819,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for this E2-deficiency neuroimaging feature.</div>
+                
+                
                 
             </div>
             
@@ -8499,6 +8878,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for low vitamin B1 levels in E2 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8554,6 +8935,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides subtype-specific frequency support for hypercoagulability in E3 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -8640,6 +9023,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies PDHA1 as disease-causing for E1-alpha deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8659,6 +9044,8 @@
                 
                 
                 <div class="evidence-explanation">This supports PDHA1 as the predominant causal gene in PDH complex deficiency.</div>
+                
+                
                 
             </div>
             
@@ -8703,6 +9090,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies LONP1 as disease-causing in the E1-alpha deficiency subtype record.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8722,6 +9111,8 @@
                 
                 
                 <div class="evidence-explanation">Human sibling sequencing evidence supports LONP1 as a causal germline gene for this PDH deficiency presentation.</div>
+                
+                
                 
             </div>
             
@@ -8766,6 +9157,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies PDHB as disease-causing for E1-beta deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8808,6 +9201,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies DLAT loss-of-function variants as disease-causing for E2 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -8852,6 +9247,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies DLD loss-of-function variants as disease-causing for E3 deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8895,6 +9292,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies PDHX as disease-causing for E3-binding protein deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -8937,6 +9336,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies PDP1 loss-of-function variants as disease-causing for PDH phosphatase deficiency.</div>
+                
+                
                 
             </div>
             
@@ -9045,6 +9446,8 @@
                 
                 <div class="evidence-explanation">The Swedish cohort supports clinical benefit from ketogenic diet across several PDH deficiency outcomes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9064,6 +9467,8 @@
                 
                 
                 <div class="evidence-explanation">This review directly supports the bypass mechanism for ketogenic diet in PDH deficiency.</div>
+                
+                
                 
             </div>
             
@@ -9171,6 +9576,8 @@
                 
                 
                 <div class="evidence-explanation">A PDHA1 case report supports high-dose thiamine responsiveness in a selected presentation.</div>
+                
+                
                 
             </div>
             
@@ -9292,6 +9699,8 @@
                 
                 <div class="evidence-explanation">A randomized trial supports lactate reduction but not global clinical benefit.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9312,6 +9721,8 @@
                 
                 <div class="evidence-explanation">The same trial limits the claim to biochemical effect rather than proven clinical improvement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9331,6 +9742,8 @@
                 
                 
                 <div class="evidence-explanation">Long-term follow-up supports a safety concern and reinforces that DCA is not an uncomplicated disease-modifying therapy.</div>
+                
+                
                 
             </div>
             
@@ -9441,6 +9854,8 @@
                 
                 <div class="evidence-explanation">Patient fibroblast evidence supports increased PDH activity, but this is not a completed clinical efficacy trial.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9461,6 +9876,8 @@
                 
                 <div class="evidence-explanation">This review supports variant-specific, investigational use rather than universal treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9480,6 +9897,8 @@
                 
                 
                 <div class="evidence-explanation">The completed Phase 2 trial record supports disease-specific clinical investigation of phenylbutyrate.</div>
+                
+                
                 
             </div>
             
@@ -9516,6 +9935,7 @@
                 <div class="item-desc">Context: Blood and CSF lactate are often elevated in PDH deficiency.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -9541,6 +9961,8 @@
                 
                 <div class="evidence-explanation">The clinical review supports elevated lactate as a disease-severity and mortality-associated biochemical abnormality.</div>
                 
+                
+                
             </div>
             
             
@@ -9559,6 +9981,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Pyruvate accumulates when oxidative decarboxylation by the PDH complex is deficient.</div>
+                
                 
                 
     
@@ -9586,6 +10009,8 @@
                 
                 <div class="evidence-explanation">This supports pyruvate accumulation downstream of impaired pyruvate oxidation.</div>
                 
+                
+                
             </div>
             
             
@@ -9604,6 +10029,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Residual enzyme activity is reduced and correlates with severity in severe presentations.</div>
+                
                 
                 
     
@@ -9630,6 +10056,8 @@
                 
                 
                 <div class="evidence-explanation">This supports reduced residual PDH complex activity as a key biochemical abnormality.</div>
+                
+                
                 
             </div>
             
@@ -9710,6 +10138,8 @@
                 
                 <div class="evidence-explanation">The trial record documents the efficacy outcome used in the Phase 3 DCA study.</div>
                 
+                
+                
             </div>
             
             
@@ -9759,6 +10189,8 @@
                 
                 <div class="evidence-explanation">The trial record identifies phenylbutyrate safety and efficacy as the study aim.</div>
                 
+                
+                
             </div>
             
             
@@ -9807,6 +10239,8 @@
                 
                 
                 <div class="evidence-explanation">This trial record supports ongoing natural-history and genotype-outcome data collection.</div>
+                
+                
                 
             </div>
             

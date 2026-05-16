@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2794,6 +2985,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s definition directly supports the core Classical EDS phenotype triad.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2811,6 +3004,8 @@
                 
                 
                 <div class="evidence-explanation">This reference directly supports the claim that Classical EDS (cEDS) is characterized by joint hypermobility, skin hyperextensibility, and atrophic scarring.</div>
+                
+                
                 
             </div>
             
@@ -2868,6 +3063,8 @@
                 
                 <div class="evidence-explanation">While hEDS is characterized by generalized joint hypermobility and chronic pain, the provided literature does not emphasize recurrent joint dislocations as a defining characteristic.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2886,6 +3083,8 @@
                 
                 <div class="evidence-explanation">Supports generalized joint hypermobility context, but only partially supports recurrent dislocations/chronic pain framing.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2903,6 +3102,8 @@
                 
                 
                 <div class="evidence-explanation">This provides direct support for the statement, noting joint hypermobility, recurrent dislocations, and associated chronic pain in hEDS.</div>
+                
+                
                 
             </div>
             
@@ -2960,6 +3161,8 @@
                 
                 <div class="evidence-explanation">This excerpt directly supports the statement by confirming that vEDS is characterized by thin, translucent skin, and fragility of arteries, intestines, and uterus.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2978,6 +3181,8 @@
                 
                 <div class="evidence-explanation">This excerpt supports the statement by indicating that vEDS is the most severe form of EDS and is associated with significant arterial fragility.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2995,6 +3200,8 @@
                 
                 
                 <div class="evidence-explanation">This excerpt supports the statement by mentioning the severe arterial fragility associated with vEDS.</div>
+                
+                
                 
             </div>
             
@@ -3054,6 +3261,8 @@
                 
                 <div class="evidence-explanation">The reference describes the kyphoscoliotic type of Ehlers-Danlos syndrome (EDS VI) as having kyphoscoliosis and hypotonia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3071,6 +3280,8 @@
                 
                 
                 <div class="evidence-explanation">The reference explicitly lists kyphoscoliosis, hypotonia, and ocular abnormalities as characteristics of PLOD1-kEDS.</div>
+                
+                
                 
             </div>
             
@@ -3272,6 +3483,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that mutations affecting collagen synthesis and enzymes responsible for collagen modification are associated with Ehlers-Danlos Syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3290,6 +3503,8 @@
                 
                 <div class="evidence-explanation">This reference identifies specific gene mutations (e.g., COL3A1) responsible for defective collagen synthesis leading to Ehlers-Danlos Syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3307,6 +3522,8 @@
                 
                 
                 <div class="evidence-explanation">Supports collagen-gene mutation context broadly, but only partially supports this EDS-specific mechanistic descriptor.</div>
+                
+                
                 
             </div>
             
@@ -3493,6 +3710,8 @@
                 
                 <div class="evidence-explanation">The provided snippet mentions tissue fragility as a cardinal feature of Ehlers-Danlos Syndrome (EDS), which is consistent with the statement that abnormal collagen leads to weakened connective tissues.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3511,6 +3730,8 @@
                 
                 <div class="evidence-explanation">Supports periodontal EDS molecular pathology, but only partially supports broad collagen-fragility mechanism across EDS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3528,6 +3749,8 @@
                 
                 
                 <div class="evidence-explanation">Provides broad conceptual support for collagen defects and connective tissue disease, but only partially supports this specific descriptor.</div>
+                
+                
                 
             </div>
             
@@ -3628,6 +3851,8 @@
                 
                 <div class="evidence-explanation">The excerpt confirms tissue fragility and various manifestations affecting skin, joints, and internal organs, but does not explicitly mention every detail cited in the statement such as joint dislocations, organ ruptures, or poor wound healing.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3646,6 +3871,8 @@
                 
                 <div class="evidence-explanation">The excerpt supports the statement by highlighting arterial fragility and spontaneous ruptures, contributing to tissue injury and dysfunction. However, it does not explicitly mention joint dislocations or poor wound healing.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3663,6 +3890,8 @@
                 
                 
                 <div class="evidence-explanation">The text discusses tissue fragility leading to bruising and bleeding, supporting aspects of tissue injury and dysfunction. However, it does not explicitly address joint dislocations or organ ruptures.</div>
+                
+                
                 
             </div>
             
@@ -4075,6 +4304,8 @@
                 
                 <div class="evidence-explanation">This study reports the presence of mitral valve prolapse in patients with hypermobile Ehlers-Danlos syndrome (hEDS) or hypermobility spectrum disorder (HSD).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4093,6 +4324,8 @@
                 
                 <div class="evidence-explanation">This reference mentions the association of mitral valve prolapse with Ehlers-Danlos syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4110,6 +4343,8 @@
                 
                 
                 <div class="evidence-explanation">This study confirms the association of mitral valve prolapse with Ehlers-Danlos syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4176,6 +4411,8 @@
                 
                 <div class="evidence-explanation">The literature mentions heartburn and various other gastrointestinal symptoms but does not specifically mention gastroesophageal reflux as an occasional manifestation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4194,6 +4431,8 @@
                 
                 <div class="evidence-explanation">The literature focuses on gastroparesis in EDS patients but does not provide evidence for gastroesophageal reflux as an occasional manifestation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4211,6 +4450,8 @@
                 
                 
                 <div class="evidence-explanation">The literature mentions gastro-esophageal dysmotility and reflux as contributing factors but does not specify the frequency as &#39;occasional.&#39;</div>
+                
+                
                 
             </div>
             
@@ -4275,6 +4516,8 @@
                 
                 <div class="evidence-explanation">Supports variable ophthalmic involvement generally, but only partially supports keratoconus specifically.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4293,6 +4536,8 @@
                 
                 <div class="evidence-explanation">This reference talks mainly about kyphoscoliotic EDS and its genetic underpinnings, without specifically mentioning ophthalmologic features or keratoconus.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4310,6 +4555,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses keratoconus but does not specifically link it to Ehlers-Danlos syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4367,6 +4614,8 @@
                 
                 <div class="evidence-explanation">Supports ophthalmic variability generally, but only partially supports keratoconus specifically.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4384,6 +4633,8 @@
                 
                 
                 <div class="evidence-explanation">Provides indirect refractive-surgery caution context and only partial support for keratoconus frequency claim.</div>
+                
+                
                 
             </div>
             
@@ -4448,6 +4699,8 @@
                 
                 <div class="evidence-explanation">The reference clearly states that cutaneous (skin) hyperextensibility is one of the cardinal features of Ehlers-Danlos Syndrome (EDS). This aligns with the statement indicating a high frequency dermatologic phenotype of skin hyperextensibility in EDS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4466,6 +4719,8 @@
                 
                 <div class="evidence-explanation">The reference shows that skin hyperextensibility is a consistent clinical feature across different EDS subtypes, which supports the statement about its high prevalence as a dermatologic phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4483,6 +4738,8 @@
                 
                 
                 <div class="evidence-explanation">Case-level localized finding provides only partial support for very-frequent phenotype claim.</div>
+                
+                
                 
             </div>
             
@@ -4540,6 +4797,8 @@
                 
                 <div class="evidence-explanation">This reference directly mentions delayed wound healing as a characteristic of Ehlers-Danlos syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4558,6 +4817,8 @@
                 
                 <div class="evidence-explanation">Primarily animal data with mixed findings; only partial support for human poor wound-healing frequency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4575,6 +4836,8 @@
                 
                 
                 <div class="evidence-explanation">This reference lists delayed wound healing as a characteristic feature of classic Ehlers-Danlos syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4634,6 +4897,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies atrophic scars as very frequent in Classical EDS.</div>
                 
+                
+                
             </div>
             
             
@@ -4690,6 +4955,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies striae distensae as very frequent in Classical EDS.</div>
                 
+                
+                
             </div>
             
             
@@ -4745,6 +5012,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies fragile skin as very frequent in Classical EDS.</div>
+                
+                
                 
             </div>
             
@@ -4818,6 +5087,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that musculoskeletal manifestations, including joint hypermobility, are highly prevalent in individuals with Ehlers-Danlos Syndrome (EDS).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4836,6 +5107,8 @@
                 
                 <div class="evidence-explanation">Supports pain/instability burden in JH/EDS, but only partially supports very-frequent joint hypermobility frequency directly.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4853,6 +5126,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the statement by acknowledging hypermobility of the joints as a characteristic of EDS, along with chronic pain and other musculoskeletal features.</div>
+                
+                
                 
             </div>
             
@@ -5038,6 +5313,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies cigarette-paper scars as very frequent in Classical EDS.</div>
                 
+                
+                
             </div>
             
             
@@ -5094,6 +5371,8 @@
                 
                 <div class="evidence-explanation">Orphanet classifies soft, doughy skin as very frequent in Classical EDS.</div>
                 
+                
+                
             </div>
             
             
@@ -5141,6 +5420,8 @@
                 
                 <div class="evidence-explanation">The literature specifies that the COL3A1 mutation, causing vascular EDS, leads to early vascular events including spontaneous arterial rupture or dissection.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5158,6 +5439,8 @@
                 
                 
                 <div class="evidence-explanation">Supports vascular fragility context, but this snippet is treatment-trial focused and only partially supports frequency framing.</div>
+                
+                
                 
             </div>
             
@@ -5206,6 +5489,8 @@
                 
                 <div class="evidence-explanation">The abstract explicitly mentions that spontaneous arterial rupture or dissection is a characteristic of vascular Ehlers-Danlos syndrome (vEDS).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5224,6 +5509,8 @@
                 
                 <div class="evidence-explanation">The study evaluates the treatment of life-threatening arterial rupture in vEDS patients, indicating that arterial rupture is a significant and frequent concern in this subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5241,6 +5528,8 @@
                 
                 
                 <div class="evidence-explanation">This reference highlights that type IV Ehlers-Danlos syndrome (vascular EDS) has a substantial risk of arterial rupture.</div>
+                
+                
                 
             </div>
             
@@ -5327,6 +5616,8 @@
                 
                 <div class="evidence-explanation">This statement supports that pathogenic variants in COL1A1 are associated with some subtypes of Ehlers-Danlos Syndrome (EDS).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5346,6 +5637,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists COL1A1 as a disease-causing germline gene association for Classical EDS.</div>
+                
+                
                 
             </div>
             
@@ -5388,6 +5681,8 @@
                 
                 <div class="evidence-explanation">The literature explicitly states that vascular Ehlers-Danlos syndrome (vEDS) is caused by pathogenic variants in the COL3A1 gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5406,6 +5701,8 @@
                 
                 <div class="evidence-explanation">The abstract confirms the association of vascular EDS with pathogenic variants in the COL3A1 gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5423,6 +5720,8 @@
                 
                 
                 <div class="evidence-explanation">The study supports the association between pathogenic COL3A1 variants and vascular Ehlers-Danlos syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5465,6 +5764,8 @@
                 
                 <div class="evidence-explanation">The reference clearly states that mutations in the COL5A1 gene are associated with classical Ehlers-Danlos Syndrome, thus supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5484,6 +5785,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists COL5A1 as a disease-causing germline gene association for Classical EDS.</div>
+                
+                
                 
             </div>
             
@@ -5526,6 +5829,8 @@
                 
                 <div class="evidence-explanation">The reference confirms that mutations in the COL5A2 gene, encoding the alpha2-chain of type V collagen, are associated with classical EDS and account for approximately 50% of classic EDS cases along with COL5A1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5545,6 +5850,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists COL5A2 as a disease-causing germline gene association for Classical EDS.</div>
+                
+                
                 
             </div>
             
@@ -5587,6 +5894,8 @@
                 
                 <div class="evidence-explanation">This study demonstrates that ADAMTS2 mutations cause Ehlers-Danlos syndrome type VIIC (dermatosparaxis) by disrupting procollagen processing.</div>
                 
+                
+                
             </div>
             
             
@@ -5627,6 +5936,8 @@
                 
                 
                 <div class="evidence-explanation">This GeneReviews entry confirms that biallelic pathogenic variants in TNXB cause classical-like EDS.</div>
+                
+                
                 
             </div>
             
@@ -5669,6 +5980,8 @@
                 
                 <div class="evidence-explanation">This study demonstrates that C1R mutations cause periodontal EDS by triggering intracellular activation of complement proteases.</div>
                 
+                
+                
             </div>
             
             
@@ -5709,6 +6022,8 @@
                 
                 
                 <div class="evidence-explanation">This study demonstrates that C1S mutations cause periodontal EDS, with activated C1s degrading collagen I.</div>
+                
+                
                 
             </div>
             
@@ -5751,6 +6066,8 @@
                 
                 <div class="evidence-explanation">This source clearly states that pathogenic variants in the PLOD1 gene are responsible for kyphoscoliotic Ehlers-Danlos syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5769,6 +6086,8 @@
                 
                 <div class="evidence-explanation">This reference supports the association between PLOD1 mutations and kyphoscoliotic Ehlers-Danlos syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5786,6 +6105,8 @@
                 
                 
                 <div class="evidence-explanation">This source reinforces the role of PLOD1 pathogenic variants in causing kyphoscoliotic Ehlers-Danlos syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5876,6 +6197,8 @@
                 
                 <div class="evidence-explanation">This reference highlights the need for multimodal pain management in Ehlers-Danlos syndrome (EDS) patients, which is a component of supportive care.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5894,6 +6217,8 @@
                 
                 <div class="evidence-explanation">This reference supports the use of physical therapy, which strengthens joints and manages pain, aligning with the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5911,6 +6236,8 @@
                 
                 
                 <div class="evidence-explanation">Supports multidisciplinary screening/management context, but only partially supports the full supportive-care treatment claim.</div>
+                
+                
                 
             </div>
             
@@ -5989,6 +6316,8 @@
                 
                 <div class="evidence-explanation">This article supports the need for surgical interventions for severe joint instability in patients with hypermobile Ehlers-Danlos Syndrome, which can be considered analogous to severe cases in other types of EDS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6007,6 +6336,8 @@
                 
                 <div class="evidence-explanation">Snippet is pharmacologic trial context and does not directly support surgical intervention.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6024,6 +6355,8 @@
                 
                 
                 <div class="evidence-explanation">Supports life-threatening complication profile, but only indirectly supports surgical treatment recommendation.</div>
+                
+                
                 
             </div>
             
@@ -6100,6 +6433,8 @@
                 
                 <div class="evidence-explanation">Supports screening/management in athletes, but only partially supports explicit avoidance recommendation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6117,6 +6452,8 @@
                 
                 
                 <div class="evidence-explanation">Supports exercise/rehabilitation benefit generally, but only partial support for avoiding high-impact/contact sports specifically.</div>
+                
+                
                 
             </div>
             
@@ -6193,6 +6530,8 @@
                 
                 <div class="evidence-explanation">Provides limited support for orthotics; phrasing is broad and indirect.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6210,6 +6549,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the use of orthotic devices (e.g., bracing) as effective in the management of EDS.</div>
+                
+                
                 
             </div>
             
@@ -6261,6 +6602,8 @@
                 
                 <div class="evidence-explanation">The snippet indicates that minor physical trauma can exacerbate symptoms by causing severe mucocutaneous injuries in EDS patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6279,6 +6622,8 @@
                 
                 <div class="evidence-explanation">Snippet does not directly address physical trauma as an environmental exacerbating factor.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6296,6 +6641,8 @@
                 
                 
                 <div class="evidence-explanation">Supports systemic fragility and complication risk, but only partially supports explicit trauma-exacerbation framing.</div>
+                
+                
                 
             </div>
             
@@ -6335,6 +6682,8 @@
                 
                 <div class="evidence-explanation">Supports strain/injury context in hypermobility, but only partially supports repetitive-motion environmental effect claim.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6352,6 +6701,8 @@
                 
                 
                 <div class="evidence-explanation">Although it discusses the overlap of symptoms, it does not directly state that repetitive motion exacerbates these symptoms. However, it implies increased fragility and susceptibility, which could be worsened by repetitive motion.</div>
+                
+                
                 
             </div>
             
@@ -6383,6 +6734,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6406,6 +6758,8 @@
                 
                 <div class="evidence-explanation">This reference indicates that vascular Ehlers-Danlos syndrome (EDS) type IV is caused by mutations in type III collagen, supporting the statement about the abnormal presence of collagen type III in this subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6424,6 +6778,8 @@
                 
                 <div class="evidence-explanation">This reference clearly indicates that the vascular subtype of Ehlers-Danlos syndrome is caused by variants in type III collagen, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6441,6 +6797,8 @@
                 
                 
                 <div class="evidence-explanation">This reference again confirms that vascular Ehlers-Danlos syndrome is tied to abnormalities in type III collagen due to mutations in the COL3A1 gene.</div>
+                
+                
                 
             </div>
             

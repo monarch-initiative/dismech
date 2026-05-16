@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2883,6 +3074,8 @@
                 
                 <div class="evidence-explanation">Defines the canonical clinical syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2902,6 +3095,8 @@
                 
                 
                 <div class="evidence-explanation">Adds core neurologic features used in clinical recognition.</div>
+                
+                
                 
             </div>
             
@@ -2968,6 +3163,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s definition supports the neurodevelopmental disorder framing of this entry.</div>
+                
+                
                 
             </div>
             
@@ -3037,6 +3234,8 @@
                 
                 <div class="evidence-explanation">Supports methylation analysis as first-line molecular testing.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3056,6 +3255,8 @@
                 
                 
                 <div class="evidence-explanation">Supports second-tier sequencing for methylation-negative cases.</div>
+                
+                
                 
             </div>
             
@@ -3138,6 +3339,8 @@
                 
                 <div class="evidence-explanation">Supports predominant de novo occurrence in clinical practice.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3157,6 +3360,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the imprinting-associated autosomal dominant inheritance mechanism.</div>
+                
+                
                 
             </div>
             
@@ -3253,6 +3458,8 @@
                 
                 <div class="evidence-explanation">Quantifies and defines the major deletion subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3273,6 +3480,8 @@
                 
                 <div class="evidence-explanation">Quantifies the higher epilepsy burden in deletion-genotype Angelman syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3292,6 +3501,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes earlier seizure onset and more severe epilepsy phenotype in deletion-genotype AS.</div>
+                
+                
                 
             </div>
             
@@ -3364,6 +3575,8 @@
                 
                 <div class="evidence-explanation">Supports a distinct UBE3A-variant molecular subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3383,6 +3596,8 @@
                 
                 
                 <div class="evidence-explanation">Provides an additional estimate from a contemporary GeneReviews summary.</div>
+                
+                
                 
             </div>
             
@@ -3444,6 +3659,8 @@
                 
                 <div class="evidence-explanation">Supports UPD as a recognized molecular subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -3503,6 +3720,8 @@
                 
                 
                 <div class="evidence-explanation">Supports imprinting-center defects as a rarer molecular subtype.</div>
+                
+                
                 
             </div>
             
@@ -3630,6 +3849,8 @@
                 
                 <div class="evidence-explanation">Establishes the initiating molecular lesion.</div>
                 
+                
+                
             </div>
             
             
@@ -3740,6 +3961,8 @@
                 
                 <div class="evidence-explanation">Supports neuron-specific imprinting mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -3839,6 +4062,8 @@
                 
                 <div class="evidence-explanation">Supports this discrete protein-abundance event.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3858,6 +4083,8 @@
                 
                 
                 <div class="evidence-explanation">Human iPSC-derived cortical-neuron study provides direct molecular support linking neuronal UBE3A loss to altered ubiquitin-dependent protein regulation.</div>
+                
+                
                 
             </div>
             
@@ -4010,6 +4237,8 @@
                 
                 <div class="evidence-explanation">Supports broad neuronal signaling dysregulation downstream of reduced ubiquitination control.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4029,6 +4258,8 @@
                 
                 
                 <div class="evidence-explanation">Adds direct mechanistic evidence that UBE3A-dependent ubiquitination regulates neuronal protein turnover linked to synaptic dysfunction.</div>
+                
+                
                 
             </div>
             
@@ -4128,6 +4359,8 @@
                 
                 
                 <div class="evidence-explanation">Supports multipathway dysregulation framing.</div>
+                
+                
                 
             </div>
             
@@ -4319,6 +4552,8 @@
                 
                 <div class="evidence-explanation">Supports this discrete synaptic-remodeling event.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4339,6 +4574,8 @@
                 
                 <div class="evidence-explanation">Provides synapse-level electrophysiologic evidence for impaired plasticity in Angelman model systems.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4358,6 +4595,8 @@
                 
                 
                 <div class="evidence-explanation">Supports causal linkage between UBE3A downstream signaling defects and synaptic plasticity abnormalities.</div>
+                
+                
                 
             </div>
             
@@ -4510,6 +4749,8 @@
                 
                 <div class="evidence-explanation">Supports disrupted excitability homeostasis event.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4529,6 +4770,8 @@
                 
                 
                 <div class="evidence-explanation">Adds direct mechanistic support for excitability-homeostasis framing in cortical neurons.</div>
+                
+                
                 
             </div>
             
@@ -4654,6 +4897,8 @@
                 
                 <div class="evidence-explanation">Establishes the contiguous gene context of deletion AS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4673,6 +4918,8 @@
                 
                 
                 <div class="evidence-explanation">Supports clinically more severe epilepsy phenotype in deletion AS attributable to contiguous gene effects.</div>
+                
+                
                 
             </div>
             
@@ -4798,6 +5045,8 @@
                 
                 <div class="evidence-explanation">Defines OCA2 codeletion as the molecular driver of the deletion-specific ophthalmic phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -4904,6 +5153,8 @@
                 
                 <div class="evidence-explanation">Supports coupling of epileptic burden with abnormal EEG background.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4924,6 +5175,8 @@
                 
                 <div class="evidence-explanation">Provides quantitative-EEG description of the abnormal cortical-network background.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4943,6 +5196,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes elevated EEG delta as a translatable biomarker of cortical network hyperexcitability.</div>
+                
+                
                 
             </div>
             
@@ -5078,6 +5333,8 @@
                 
                 <div class="evidence-explanation">Establishes the high prevalence of GI dysmotility consistent with autonomic/enteric nervous system involvement in AS.</div>
                 
+                
+                
             </div>
             
             
@@ -5202,6 +5459,8 @@
                 
                 <div class="evidence-explanation">Supports constipation as one of the most prevalent GI comorbidities.</div>
                 
+                
+                
             </div>
             
             
@@ -5258,6 +5517,8 @@
                 
                 <div class="evidence-explanation">Supports GERD as a major GI phenotype in AS.</div>
                 
+                
+                
             </div>
             
             
@@ -5313,6 +5574,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates feeding difficulties as frequent (79-30%).</div>
+                
+                
                 
             </div>
             
@@ -5379,6 +5642,8 @@
                 
                 <div class="evidence-explanation">Documents strabismus as a clinically significant ophthalmic manifestation requiring surgical correction in AS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5398,6 +5663,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table confirms frequent (79-30%) strabismus.</div>
+                
+                
                 
             </div>
             
@@ -5452,6 +5719,8 @@
                 
                 
                 <div class="evidence-explanation">Documents the deletion-restricted high-myopia phenotype.</div>
+                
+                
                 
             </div>
             
@@ -5518,6 +5787,8 @@
                 
                 <div class="evidence-explanation">Supports very high prevalence of microcephaly.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5537,6 +5808,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table confirms very frequent (99-80%) microcephaly.</div>
+                
+                
                 
             </div>
             
@@ -5594,6 +5867,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates drooling as frequent (79-30%).</div>
                 
+                
+                
             </div>
             
             
@@ -5649,6 +5924,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates wide mouth as frequent (79-30%).</div>
+                
+                
                 
             </div>
             
@@ -5715,6 +5992,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates skin hypopigmentation as frequent (79-30%).</div>
                 
+                
+                
             </div>
             
             
@@ -5770,6 +6049,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates fair hair as frequent (79-30%).</div>
+                
+                
                 
             </div>
             
@@ -5836,6 +6117,8 @@
                 
                 <div class="evidence-explanation">Supports scoliosis as a common and clinically relevant musculoskeletal manifestation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5855,6 +6138,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates scoliosis as frequent (79-30%).</div>
+                
+                
                 
             </div>
             
@@ -5911,6 +6196,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates infantile hypotonia as frequent (79-30%).</div>
+                
+                
                 
             </div>
             
@@ -5977,6 +6264,8 @@
                 
                 <div class="evidence-explanation">Supports severe cognitive impairment as a core phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5996,6 +6285,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table confirms very frequent (99-80%) severe intellectual disability.</div>
+                
+                
                 
             </div>
             
@@ -6053,6 +6344,8 @@
                 
                 <div class="evidence-explanation">Supports near-universal developmental delay and its timing.</div>
                 
+                
+                
             </div>
             
             
@@ -6108,6 +6401,8 @@
                 
                 
                 <div class="evidence-explanation">Supports severe expressive language impairment as a defining feature.</div>
+                
+                
                 
             </div>
             
@@ -6165,6 +6460,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table confirms very frequent (99-80%) ataxia; gait ataxia is a child term.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6184,6 +6481,8 @@
                 
                 
                 <div class="evidence-explanation">Supports ataxic gait as a cardinal motor phenotype.</div>
+                
+                
                 
             </div>
             
@@ -6241,6 +6540,8 @@
                 
                 <div class="evidence-explanation">Quantifies high seizure prevalence and early onset.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6260,6 +6561,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table confirms very frequent (99-80%) seizures.</div>
+                
+                
                 
             </div>
             
@@ -6317,6 +6620,8 @@
                 
                 <div class="evidence-explanation">Supports sleep disturbance as a recurring syndrome feature.</div>
                 
+                
+                
             </div>
             
             
@@ -6372,6 +6677,8 @@
                 
                 
                 <div class="evidence-explanation">Supports hypermotor/hyperactive behavioral phenotype.</div>
+                
+                
                 
             </div>
             
@@ -6429,6 +6736,8 @@
                 
                 <div class="evidence-explanation">Supports characteristic laughter/happy demeanor phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -6482,6 +6791,8 @@
                 
                 
                 <div class="evidence-explanation">Supports limb tremor/tremulousness as part of the cardinal motor profile.</div>
+                
+                
                 
             </div>
             
@@ -6539,6 +6850,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates EEG abnormality as very frequent (99-80%).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6558,6 +6871,8 @@
                 
                 
                 <div class="evidence-explanation">Supports very high prevalence of abnormal EEG.</div>
+                
+                
                 
             </div>
             
@@ -6615,6 +6930,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates cerebral cortical atrophy as very frequent (99-80%).</div>
                 
+                
+                
             </div>
             
             
@@ -6670,6 +6987,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates motor delay as very frequent (99-80%).</div>
+                
+                
                 
             </div>
             
@@ -6727,6 +7046,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates autistic behavior as very frequent (99-80%).</div>
                 
+                
+                
             </div>
             
             
@@ -6783,6 +7104,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates self-injurious behavior as very frequent (99-80%).</div>
                 
+                
+                
             </div>
             
             
@@ -6838,6 +7161,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates polyphagia as frequent (79-30%).</div>
+                
+                
                 
             </div>
             
@@ -6904,6 +7229,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates obesity as frequent (79-30%).</div>
                 
+                
+                
             </div>
             
             
@@ -6967,6 +7294,8 @@
                 
                 <div class="evidence-explanation">Restricts iris hypopigmentation to the deletion subtype, mediated by OCA2 codeletion.</div>
                 
+                
+                
             </div>
             
             
@@ -7020,6 +7349,8 @@
                 
                 
                 <div class="evidence-explanation">Quantifies the deletion-genotype-specific astigmatism risk.</div>
+                
+                
                 
             </div>
             
@@ -7077,6 +7408,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates broad-based gait as very frequent (99-80%).</div>
                 
+                
+                
             </div>
             
             
@@ -7133,6 +7466,8 @@
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates protruding tongue as frequent (79-30%).</div>
                 
+                
+                
             </div>
             
             
@@ -7188,6 +7523,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype table rates recurrent hand flapping as frequent (79-30%).</div>
+                
+                
                 
             </div>
             
@@ -7274,6 +7611,8 @@
                 
                 <div class="evidence-explanation">Supports UBE3A as the primary disease gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7293,6 +7632,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the UBE3A-Angelman syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7337,6 +7678,8 @@
                 
                 <div class="evidence-explanation">Supports the major non-sequence molecular mechanisms.</div>
                 
+                
+                
             </div>
             
             
@@ -7379,6 +7722,8 @@
                 
                 
                 <div class="evidence-explanation">Documents codeletion of GABRB3 with UBE3A in deletion-genotype AS.</div>
+                
+                
                 
             </div>
             
@@ -7423,6 +7768,8 @@
                 
                 <div class="evidence-explanation">Provides direct evidence for GABRA5 cluster hemizygosity contributing to deletion-AS pathophysiology.</div>
                 
+                
+                
             </div>
             
             
@@ -7466,6 +7813,8 @@
                 
                 <div class="evidence-explanation">Supports GABRG3 cluster hemizygosity as part of the deletion-AS modifier locus.</div>
                 
+                
+                
             </div>
             
             
@@ -7508,6 +7857,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies OCA2 codeletion as the molecular basis for the deletion-specific ophthalmic phenotype.</div>
+                
+                
                 
             </div>
             
@@ -7643,6 +7994,8 @@
                 
                 <div class="evidence-explanation">Supports use of specific newer ASMs with improved tolerability in Angelman syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7663,6 +8016,8 @@
                 
                 <div class="evidence-explanation">Adds review-level context on current ASM usage patterns and evidence limitations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7682,6 +8037,8 @@
                 
                 
                 <div class="evidence-explanation">Direct management recommendation for epilepsy in AS.</div>
+                
+                
                 
             </div>
             
@@ -7791,6 +8148,8 @@
                 
                 <div class="evidence-explanation">Quantifies real-world seizure reduction with highly purified CBD in 15q-DDS including Angelman syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7811,6 +8170,8 @@
                 
                 <div class="evidence-explanation">Suggests subtype-specific seizure-type response patterns in AS treated with CBD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7830,6 +8191,8 @@
                 
                 
                 <div class="evidence-explanation">Supports tolerability of CBD treatment in AS.</div>
+                
+                
                 
             </div>
             
@@ -7921,6 +8284,8 @@
                 
                 
                 <div class="evidence-explanation">Supports strabismus surgery as an effective intervention with comparable success across AS molecular subtypes.</div>
+                
+                
                 
             </div>
             
@@ -8018,6 +8383,8 @@
                 
                 <div class="evidence-explanation">Supports LGIT as an adjunctive dietary option for seizure control.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8037,6 +8404,8 @@
                 
                 
                 <div class="evidence-explanation">Adds contemporary prospective evidence showing tolerability with non-significant efficacy trends.</div>
+                
+                
                 
             </div>
             
@@ -8134,6 +8503,8 @@
                 
                 <div class="evidence-explanation">Supports procedure-level use of tonsillectomy for specific clinical indications in Angelman syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8153,6 +8524,8 @@
                 
                 
                 <div class="evidence-explanation">Supports need for enhanced perioperative and postoperative monitoring after tonsillectomy.</div>
+                
+                
                 
             </div>
             
@@ -8243,6 +8616,8 @@
                 
                 <div class="evidence-explanation">Supports standard multidisciplinary rehabilitative care.</div>
                 
+                
+                
             </div>
             
             
@@ -8319,6 +8694,8 @@
                 
                 
                 <div class="evidence-explanation">Supports occupational therapy as part of standard multidisciplinary care.</div>
+                
+                
                 
             </div>
             
@@ -8408,6 +8785,8 @@
                 
                 
                 <div class="evidence-explanation">Supports speech-language intervention tailored to severe expressive impairment.</div>
+                
+                
                 
             </div>
             
@@ -8505,6 +8884,8 @@
                 
                 <div class="evidence-explanation">Supports routine GI-focused symptomatic management.</div>
                 
+                
+                
             </div>
             
             
@@ -8583,6 +8964,8 @@
                 
                 <div class="evidence-explanation">Supports direct diagnostic differentiation at the molecular testing level.</div>
                 
+                
+                
             </div>
             
             
@@ -8640,6 +9023,8 @@
                 
                 
                 <div class="evidence-explanation">Supports HERC2 disorder as a clinically relevant differential.</div>
+                
+                
                 
             </div>
             
@@ -8710,6 +9095,8 @@
                 
                 
                 <div class="evidence-explanation">Supports key symptomatic overlap that makes Houge-Janssens syndrome a relevant clinical differential.</div>
+                
+                
                 
             </div>
             
@@ -8801,6 +9188,8 @@
                 
                 <div class="evidence-explanation">Supports relevance for human-cell-model mechanisms linking UBE3A loss to neuronal hyperexcitability.</div>
                 
+                
+                
             </div>
             
             
@@ -8876,6 +9265,8 @@
                 
                 
                 <div class="evidence-explanation">Supports direct disease-vs-control transcriptomic comparison in human neuron-like cells.</div>
+                
+                
                 
             </div>
             
@@ -8954,6 +9345,8 @@
                 
                 
                 <div class="evidence-explanation">Supports mechanistically relevant transcriptomic profiling in human AS neuronal models and ASO-treated conditions.</div>
+                
+                
                 
             </div>
             
@@ -9037,6 +9430,8 @@
                 
                 <div class="evidence-explanation">Supports utility of this model for transcriptomic interrogation of imprinting-related Angelman pathophysiology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9056,6 +9451,8 @@
                 
                 
                 <div class="evidence-explanation">Adds mechanistic rescue context relevant to disease-modifying therapy modeling.</div>
+                
+                
                 
             </div>
             
@@ -9133,6 +9530,8 @@
                 
                 <div class="evidence-explanation">Supports this dataset as a human comparative transcriptomic resource connected to UBE3A-region disorders.</div>
                 
+                
+                
             </div>
             
             
@@ -9194,6 +9593,8 @@
                 
                 <div class="evidence-explanation">Supports active clinical development of UBE3A-unsilencing therapy.</div>
                 
+                
+                
             </div>
             
             
@@ -9242,6 +9643,8 @@
                 
                 
                 <div class="evidence-explanation">Supports clinical translation of UBE3A-restoration strategies.</div>
+                
+                
                 
             </div>
             
@@ -9304,6 +9707,8 @@
                 
                 <div class="evidence-explanation">Supports late-stage therapeutic evaluation in AS.</div>
                 
+                
+                
             </div>
             
             
@@ -9352,6 +9757,8 @@
                 
                 
                 <div class="evidence-explanation">Supports active clinical evaluation of an alternative ASO program (ION582) for paternal UBE3A reactivation.</div>
+                
+                
                 
             </div>
             
@@ -9414,6 +9821,8 @@
                 
                 <div class="evidence-explanation">Supports pivotal Phase 3 evaluation of UBE3A-restoring ASO therapy in deletion-type AS.</div>
                 
+                
+                
             </div>
             
             
@@ -9463,6 +9872,8 @@
                 
                 <div class="evidence-explanation">Supports basket evaluation of GTX-102 across all major AS molecular subtypes.</div>
                 
+                
+                
             </div>
             
             
@@ -9511,6 +9922,8 @@
                 
                 
                 <div class="evidence-explanation">Supports long-term safety follow-up for the GTX-102 ASO program.</div>
+                
+                
                 
             </div>
             

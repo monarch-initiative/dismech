@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2730,6 +2921,8 @@ families with autosomal dominant pure or complex hereditary spastic paraplegia,"
                 
                 <div class="evidence-explanation">Identifies monoallelic ALDH18A1 mutations in autosomal dominant pedigrees.</div>
                 
+                
+                
             </div>
             
             
@@ -2799,6 +2992,8 @@ impairment, without any cutaneous abnormality."</div>
                 
                 <div class="evidence-explanation">Identifies biallelic ALDH18A1 mutations in autosomal recessive spastic paraplegia families.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2820,6 +3015,8 @@ neurologic involvement and multisystem disease."</div>
                 
                 
                 <div class="evidence-explanation">Confirms autosomal recessive inheritance for ALDH18A1-related cutis laxa.</div>
+                
+                
                 
             </div>
             
@@ -2909,6 +3106,8 @@ as well as in two sporadic patients."</div>
                 
                 <div class="evidence-explanation">Establishes SPG9A as an autosomal dominant form of ALDH18A1-related spastic paraplegia.</div>
                 
+                
+                
             </div>
             
             
@@ -2971,6 +3170,8 @@ traits."</div>
                 
                 <div class="evidence-explanation">Clinical comparison confirms SPG9B is more severe than SPG9A across multiple clinical domains.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2990,6 +3191,8 @@ traits."</div>
                 
                 
                 <div class="evidence-explanation">Homozygous ALDH18A1 patients demonstrate the overlap of neurological and cutaneous features in recessive disease.</div>
+                
+                
                 
             </div>
             
@@ -3070,6 +3273,8 @@ traits."</div>
                 
                 <div class="evidence-explanation">Literature review within this study proposes that dominant ALDH18A1 mutations cause disease through a dominant-negative mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -3138,6 +3343,8 @@ traits."</div>
                 
                 <div class="evidence-explanation">Patient-cell and complemented-cell experiments show impaired oligomer assembly for a homozygous ALDH18A1 variant.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3159,6 +3366,8 @@ fibroblasts."</div>
                 
                 
                 <div class="evidence-explanation">Patient fibroblast Western blotting supports reduced P5CS protein stability for ARCL3A-associated variants.</div>
+                
+                
                 
             </div>
             
@@ -3297,6 +3506,8 @@ deficiency."</div>
                 
                 <div class="evidence-explanation">Metabolic profiling demonstrates reduced amino acid levels downstream of P5CS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3317,6 +3528,8 @@ glutamate, including proline and glutathione."</div>
                 
                 
                 <div class="evidence-explanation">Metabolomics in patient fibroblasts confirms broad impairment of glutamate-derived amino acid and antioxidant pathways.</div>
+                
+                
                 
             </div>
             
@@ -3412,6 +3625,8 @@ antioxidant responses in the cell."</div>
                 
                 <div class="evidence-explanation">Decreased putrescine biosynthesis demonstrates P5CS deficiency impacts antioxidant pathways beyond proline synthesis.</div>
                 
+                
+                
             </div>
             
             
@@ -3505,6 +3720,8 @@ associated with impaired P5CS function."</div>
                 
                 <div class="evidence-explanation">Patient fibroblast transcriptomics link impaired P5CS function to extracellular matrix-related cellular dysregulation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3526,6 +3743,8 @@ neurologic involvement and multisystem disease."</div>
                 
                 
                 <div class="evidence-explanation">Clinical description anchors the extracellular matrix-related cellular findings to cutis laxa connective-tissue disease.</div>
+                
+                
                 
             </div>
             
@@ -3612,6 +3831,8 @@ lower limbs."</div>
                 
                 <div class="evidence-explanation">Clinical series establishes the corticospinal motor-system phenotype framing ALDH18A1-associated hereditary spastic paraplegia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3631,6 +3852,8 @@ lower limbs."</div>
                 
                 
                 <div class="evidence-explanation">Homozygous ALDH18A1 cases support neurodevelopmental involvement in the recessive spectrum.</div>
+                
+                
                 
             </div>
             
@@ -3685,6 +3908,8 @@ features but hitherto unrelated cellular etiology."</div>
                 
                 <div class="evidence-explanation">Patient fibroblast assays identify lipid droplet dysregulation as a cellular consequence associated with ALDH18A1 loss of function.</div>
                 
+                
+                
             </div>
             
             
@@ -3719,7 +3944,7 @@ features but hitherto unrelated cellular etiology."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH18A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALDH18A1\"], \"association\": \"Causative\"}}, {\"id\": \"Antioxidant metabolism impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"P5CS deficiency leads to reduced glutathione levels and decreased polyamine (putrescine) biosynthesis from ornithine, impairing cellular antioxidant defenses. This oxidative vulnerability may contribute to neuronal degeneration in motor neurons and cortical neurons.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Glutamate metabolic process\"]}}, {\"id\": \"Cellular lipid droplet dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALDH18A1-mutant fibroblasts show enlarged lipid droplets after oleate loading, a cellular phenotype similar to findings reported in Warburg Micro syndrome models.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cutis laxa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wrinkled, inelastic skin with visible veins is a feature of ARCL3A and some SPG9B patients, reflecting deficient proline-dependent collagen synthesis. The degree of skin involvement is variable.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0000973\"}}, {\"id\": \"Dominant-negative disruption of P5CS oligomer (SPG9A)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the autosomal dominant form, heterozygous missense mutations do not abolish P5CS protein production but are proposed to disrupt P5CS oligomer architecture via a dominant-negative effect, reducing enzymatic activity despite normal protein localization.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ALDH18A1\"]}}, {\"id\": \"Extracellular matrix-related cellular dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired P5CS function is associated with extracellular matrix-related transcript changes in patient fibroblasts and with the wrinkled, inelastic skin phenotype of ALDH18A1-related cutis laxa.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is prominent in the recessive form, with variable severity.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glutathione and putrescine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment ranging from mild to severe intellectual disability, more prominent in biallelic SPG9B and ARCL3A than in dominant SPG9A.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is reported in approximately 70% of ARCL3A patients and reflects impaired brain growth.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0000252\"}}, {\"id\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALDH18A1-related P5CS deficiency produces a neurological disease spectrum spanning hereditary spastic paraplegia, cognitive impairment, developmental delay, and microcephaly, with recessive SPG9B generally more severe than dominant SPG9A.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"P5CS deficiency and proline biosynthesis impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in ALDH18A1 reduce P5CS enzymatic activity and impair de novo biosynthesis of proline and ornithine from glutamate. Human plasma amino-acid studies and patient-cell metabolomics show reduced glutamate-derived metabolites, providing the metabolic bridge to downstream antioxidant, extracellular-matrix, and neurodevelopmental abnormalities.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-proline biosynthetic process\", \"Ornithine metabolic process\"], \"genes\": [\"ALDH18A1\"]}}, {\"id\": \"P5CS oligomerization and protein stability defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ALDH18A1 variants can reduce P5CS oligomer incorporation, protein stability, or both, producing a partial loss-of-function state in patient cells.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALDH18A1\"]}}, {\"id\": \"Plasma proline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Spastic paraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spasticity of the lower limbs is the hallmark feature, presenting as pure hereditary spastic paraplegia in some dominant families and complex HSP with additional neurological features in others.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9A\"], \"term_id\": \"HP:0001258\"}}, {\"id\": \"Spastic paraplegia with cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Biallelic mutations cause complex spastic paraplegia with marked cognitive impairment, earlier onset, and greater disability than the dominant form.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0001258\"}}], \"edges\": [{\"source\": \"Dominant-negative disruption of P5CS oligomer (SPG9A)\", \"target\": \"P5CS deficiency and proline biosynthesis impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS oligomerization and protein stability defects\", \"target\": \"P5CS deficiency and proline biosynthesis impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS oligomerization and protein stability defects\", \"target\": \"Cellular lipid droplet dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Antioxidant metabolism impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Extracellular matrix-related cellular dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Plasma proline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Glutathione and putrescine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antioxidant metabolism impairment\", \"target\": \"Glutathione and putrescine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular matrix-related cellular dysregulation\", \"target\": \"Cutis laxa\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Spastic paraplegia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Spastic paraplegia with cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ALDH18A1\", \"target\": \"Dominant-negative disruption of P5CS oligomer (SPG9A)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALDH18A1\", \"target\": \"P5CS deficiency and proline biosynthesis impairment\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALDH18A1\", \"target\": \"P5CS oligomerization and protein stability defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH18A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALDH18A1\"], \"association\": \"Causative\"}}, {\"id\": \"Antioxidant metabolism impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"P5CS deficiency leads to reduced glutathione levels and decreased polyamine (putrescine) biosynthesis from ornithine, impairing cellular antioxidant defenses. This oxidative vulnerability may contribute to neuronal degeneration in motor neurons and cortical neurons.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Glutamate metabolic process\"]}}, {\"id\": \"Cellular lipid droplet dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALDH18A1-mutant fibroblasts show enlarged lipid droplets after oleate loading, a cellular phenotype similar to findings reported in Warburg Micro syndrome models.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cutis laxa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wrinkled, inelastic skin with visible veins is a feature of ARCL3A and some SPG9B patients, reflecting deficient proline-dependent collagen synthesis. The degree of skin involvement is variable.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0000973\"}}, {\"id\": \"Dominant-negative disruption of P5CS oligomer (SPG9A)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the autosomal dominant form, heterozygous missense mutations do not abolish P5CS protein production but are proposed to disrupt P5CS oligomer architecture via a dominant-negative effect, reducing enzymatic activity despite normal protein localization.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ALDH18A1\"]}}, {\"id\": \"Extracellular matrix-related cellular dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired P5CS function is associated with extracellular matrix-related transcript changes in patient fibroblasts and with the wrinkled, inelastic skin phenotype of ALDH18A1-related cutis laxa.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is prominent in the recessive form, with variable severity.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glutathione and putrescine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Decreased\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment ranging from mild to severe intellectual disability, more prominent in biallelic SPG9B and ARCL3A than in dominant SPG9A.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is reported in approximately 70% of ARCL3A patients and reflects impaired brain growth.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0000252\"}}, {\"id\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALDH18A1-related P5CS deficiency produces a neurological disease spectrum spanning hereditary spastic paraplegia, cognitive impairment, developmental delay, and microcephaly, with recessive SPG9B generally more severe than dominant SPG9A.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"P5CS deficiency and proline biosynthesis impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in ALDH18A1 reduce P5CS enzymatic activity and impair de novo biosynthesis of proline and ornithine from glutamate. Human plasma amino-acid studies and patient-cell metabolomics show reduced glutamate-derived metabolites, providing the metabolic bridge to downstream antioxidant, extracellular-matrix, and neurodevelopmental abnormalities.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-proline biosynthetic process\", \"Ornithine metabolic process\"], \"genes\": [\"ALDH18A1\"]}}, {\"id\": \"P5CS oligomerization and protein stability defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ALDH18A1 variants can reduce P5CS oligomer incorporation, protein stability, or both, producing a partial loss-of-function state in patient cells.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALDH18A1\"]}}, {\"id\": \"Plasma proline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Decreased\"}}, {\"id\": \"Spastic paraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spasticity of the lower limbs is the hallmark feature, presenting as pure hereditary spastic paraplegia in some dominant families and complex HSP with additional neurological features in others.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9A\"], \"term_id\": \"HP:0001258\"}}, {\"id\": \"Spastic paraplegia with cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Biallelic mutations cause complex spastic paraplegia with marked cognitive impairment, earlier onset, and greater disability than the dominant form.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SPG9B\"], \"term_id\": \"HP:0001258\"}}], \"edges\": [{\"source\": \"Dominant-negative disruption of P5CS oligomer (SPG9A)\", \"target\": \"P5CS deficiency and proline biosynthesis impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS oligomerization and protein stability defects\", \"target\": \"P5CS deficiency and proline biosynthesis impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS oligomerization and protein stability defects\", \"target\": \"Cellular lipid droplet dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Antioxidant metabolism impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Extracellular matrix-related cellular dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Plasma proline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"P5CS deficiency and proline biosynthesis impairment\", \"target\": \"Glutathione and putrescine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antioxidant metabolism impairment\", \"target\": \"Glutathione and putrescine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular matrix-related cellular dysregulation\", \"target\": \"Cutis laxa\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Spastic paraplegia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Spastic paraplegia with cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and corticospinal motor-system involvement\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ALDH18A1\", \"target\": \"Dominant-negative disruption of P5CS oligomer (SPG9A)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALDH18A1\", \"target\": \"P5CS deficiency and proline biosynthesis impairment\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALDH18A1\", \"target\": \"P5CS oligomerization and protein stability defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3803,6 +4028,8 @@ features but hitherto unrelated cellular etiology."</div>
                 
                 <div class="evidence-explanation">Cataracts are a common feature of ALDH18A1-related disorders, more frequent than in the related PYCR1-related cutis laxa.</div>
                 
+                
+                
             </div>
             
             
@@ -3865,6 +4092,8 @@ features but hitherto unrelated cellular etiology."</div>
                 
                 
                 <div class="evidence-explanation">Microcephaly is a frequent neurological feature of ARCL3A.</div>
+                
+                
                 
             </div>
             
@@ -3932,6 +4161,8 @@ microcephaly, and severe developmental and speech delay."</div>
                 
                 <div class="evidence-explanation">Cutis laxa is a recognized feature of ARCL3A with variable distribution.</div>
                 
+                
+                
             </div>
             
             
@@ -3996,6 +4227,8 @@ families with autosomal dominant pure or complex hereditary spastic paraplegia,"
                 
                 <div class="evidence-explanation">Spastic paraplegia is the defining feature of SPG9A, ranging from pure to complex forms.</div>
                 
+                
+                
             </div>
             
             
@@ -4051,6 +4284,8 @@ impairment, without any cutaneous abnormality."</div>
                 
                 
                 <div class="evidence-explanation">SPG9B is characterized by complex HSP with prominent cognitive impairment.</div>
+                
+                
                 
             </div>
             
@@ -4118,6 +4353,8 @@ traits."</div>
                 
                 <div class="evidence-explanation">Cognitive impairment is a defining feature distinguishing SPG9B severity from SPG9A.</div>
                 
+                
+                
             </div>
             
             
@@ -4171,6 +4408,8 @@ traits."</div>
                 
                 
                 <div class="evidence-explanation">Developmental delay is a consistent feature of biallelic ALDH18A1 disease.</div>
+                
+                
                 
             </div>
             
@@ -4237,6 +4476,8 @@ microcephaly, and severe developmental and speech delay."</div>
                 
                 
                 <div class="evidence-explanation">Short stature and failure to thrive are consistent features of ARCL3A.</div>
+                
+                
                 
             </div>
             
@@ -4332,6 +4573,8 @@ spastic paraplegia and autosomal recessive and dominant cutis laxa."</div>
                 
                 <div class="evidence-explanation">Establishes that ALDH18A1 mutations cause both dominant and recessive forms of spastic paraplegia and cutis laxa.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4353,6 +4596,8 @@ glutamate."</div>
                 
                 <div class="evidence-explanation">Defines the enzymatic function of the ALDH18A1 gene product.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4372,6 +4617,8 @@ glutamate."</div>
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the ALDH18A1-P5CS deficiency gene-disease relationship as definitive with semidominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -4466,6 +4713,8 @@ distinct from other causative genes."</div>
                 
                 <div class="evidence-explanation">Authors recommend metabolic screening as part of the diagnostic approach for HSP.</div>
                 
+                
+                
             </div>
             
             
@@ -4549,6 +4798,7 @@ distinct from other causative genes."</div>
                 <div class="item-desc">Context: Reduced plasma proline levels serve as a potential biomarker, particularly when mutations affect the G5K domain. Mutations in the G5PR domain may not alter plasma amino acid levels.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4576,6 +4826,8 @@ deficiency."</div>
                 
                 <div class="evidence-explanation">Plasma amino acid profiling reveals P5CS deficiency biomarkers in affected individuals.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4597,6 +4849,8 @@ and arginine."</div>
                 
                 <div class="evidence-explanation">Demonstrates that amino acid levels may be normal when mutations affect the G5PR domain.</div>
                 
+                
+                
             </div>
             
             
@@ -4615,6 +4869,7 @@ and arginine."</div>
                 </div>
                 
                 <div class="item-desc">Context: Metabolomic profiling in patient fibroblasts shows reduced glutamate, proline, glutathione, and putrescine, indicating broad impairment of glutamate-derived metabolic pathways and antioxidant defenses.</div>
+                
                 
                 
     
@@ -4643,6 +4898,8 @@ putrescine, derived from ornithine, was also decreased in patient fibroblasts,"<
                 
                 
                 <div class="evidence-explanation">Comprehensive metabolomics reveals impaired amino acid and antioxidant metabolism in ALDH18A1-deficient cells.</div>
+                
+                
                 
             </div>
             
@@ -5442,6 +5699,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for ALDH18A1 De Barsy Spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -5508,6 +5767,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for ALDH18A1 De Barsy Spectrum.</div>
+                
+                
                 
             </div>
             
@@ -5576,6 +5837,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for ALDH18A1 De Barsy Spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -5642,6 +5905,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for ALDH18A1 De Barsy Spectrum.</div>
+                
+                
                 
             </div>
             
@@ -5710,6 +5975,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for ALDH18A1 De Barsy Spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -5776,6 +6043,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for ALDH18A1 De Barsy Spectrum.</div>
+                
+                
                 
             </div>
             
@@ -5844,6 +6113,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for ALDH18A1 De Barsy Spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -5910,6 +6181,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for ALDH18A1 De Barsy Spectrum.</div>
+                
+                
                 
             </div>
             

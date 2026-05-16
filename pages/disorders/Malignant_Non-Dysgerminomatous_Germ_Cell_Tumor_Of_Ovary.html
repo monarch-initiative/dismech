@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2721,6 +2912,8 @@
                 
                 <div class="evidence-explanation">This review supports the ovarian germ-cell origin and major histologic classification framework used for this non-dysgerminomatous disease entry.</div>
                 
+                
+                
             </div>
             
             
@@ -2822,6 +3015,8 @@
                 
                 <div class="evidence-explanation">This supports ovarian yolk sac tumor as a rare malignant ovarian germ cell tumor subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -2879,6 +3074,8 @@
                 
                 
                 <div class="evidence-explanation">This supports immature teratoma as a rare ovarian neoplasm in the target population.</div>
+                
+                
                 
             </div>
             
@@ -2938,6 +3135,8 @@
                 
                 <div class="evidence-explanation">This imaging series supports ovarian embryonal carcinoma as one of the rare malignant ovarian germ cell tumor types in this non-dysgerminomatous group.</div>
                 
+                
+                
             </div>
             
             
@@ -2996,6 +3195,8 @@
                 
                 <div class="evidence-explanation">This supports non-gestational ovarian choriocarcinoma as a rare malignant ovarian germ cell tumor type.</div>
                 
+                
+                
             </div>
             
             
@@ -3053,6 +3254,8 @@
                 
                 
                 <div class="evidence-explanation">This supports malignant mixed germ cell tumor as one of the rare malignant ovarian germ cell tumor types represented in this entry.</div>
+                
+                
                 
             </div>
             
@@ -3197,6 +3400,8 @@
                 
                 <div class="evidence-explanation">This source directly supports primordial germ cells as the inferred cell-of-origin for malignant ovarian germ cell tumors.</div>
                 
+                
+                
             </div>
             
             
@@ -3288,6 +3493,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the specific non-dysgerminomatous differentiation programs represented in this entry.</div>
+                
+                
                 
             </div>
             
@@ -3423,6 +3630,8 @@
                 
                 <div class="evidence-explanation">This molecular profiling series supports recurrent actionable oncogenic alterations in a subset of ovarian yolk sac tumors; KIT is not modeled as a gene for this non-dysgerminomatous page because the same paper and the wider literature associate KIT most strongly with dysgerminoma biology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3442,6 +3651,8 @@
                 
                 
                 <div class="evidence-explanation">This larger yolk sac tumor series supports molecular alteration of persistent or recurrent disease and specifically includes PIK3CA.</div>
+                
+                
                 
             </div>
             
@@ -3546,6 +3757,8 @@
                 
                 <div class="evidence-explanation">This supports component-specific tumor marker secretion in rare ovarian non-dysgerminomatous germ cell tumor histologies.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3565,6 +3778,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the bulky unilateral ovarian mass presentation for the non-dysgerminomatous tumor types covered by this imaging series.</div>
+                
+                
                 
             </div>
             
@@ -3644,6 +3859,8 @@
                 
                 <div class="evidence-explanation">This review supports the broad germ-cell tumor platinum sensitivity that underlies ovarian germ-cell tumor treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3663,6 +3880,8 @@
                 
                 
                 <div class="evidence-explanation">This ovarian germ cell tumor cohort supports favorable outcomes with bleomycin-containing platinum-based chemotherapy.</div>
+                
+                
                 
             </div>
             
@@ -3778,6 +3997,8 @@
                 
                 <div class="evidence-explanation">This imaging cohort supports a large unilateral tumor phenotype for rare ovarian non-dysgerminomatous germ cell tumors.</div>
                 
+                
+                
             </div>
             
             
@@ -3831,6 +4052,8 @@
                 
                 
                 <div class="evidence-explanation">This supports large tumor bulk; the abdominal distention phenotype is a clinical mass-effect inference rather than directly measured in the cited abstract.</div>
+                
+                
                 
             </div>
             
@@ -3895,6 +4118,8 @@
                 
                 <div class="evidence-explanation">This supports AFP as a routinely measured and clinically informative serum marker in ovarian yolk sac tumor.</div>
                 
+                
+                
             </div>
             
             
@@ -3958,6 +4183,8 @@
                 
                 <div class="evidence-explanation">This recent review directly supports abdominal pain and distension as presenting symptoms of malignant ovarian germ cell tumors.</div>
                 
+                
+                
             </div>
             
             
@@ -4014,6 +4241,8 @@
                 
                 <div class="evidence-explanation">This supports beta-hCG elevation as a laboratory feature of non-gestational ovarian choriocarcinoma in the non-dysgerminomatous group.</div>
                 
+                
+                
             </div>
             
             
@@ -4067,6 +4296,8 @@
                 
                 
                 <div class="evidence-explanation">This ovarian malignant germ cell tumor case series supports LDH elevation as part of the serum marker pattern outside immature teratoma.</div>
+                
+                
                 
             </div>
             
@@ -4153,6 +4384,8 @@
                 
                 <div class="evidence-explanation">This cytogenetic report directly supports i(12p) in an ovarian yolk sac tumor, a non-dysgerminomatous malignant ovarian germ cell tumor subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -4196,6 +4429,8 @@
                 
                 <div class="evidence-explanation">This molecular profiling study supports KRAS as a somatic alteration in a subset of ovarian yolk sac tumors; KIT is not included as a curated gene here because it is primarily associated with dysgerminoma rather than the non-dysgerminomatous focus of this page.</div>
                 
+                
+                
             </div>
             
             
@@ -4238,6 +4473,8 @@
                 
                 
                 <div class="evidence-explanation">This supports PIK3CA alteration in persistent and recurrent ovarian yolk sac tumor.</div>
+                
+                
                 
             </div>
             
@@ -4328,6 +4565,8 @@
                 
                 <div class="evidence-explanation">This recent management review supports fertility-sparing surgery as a central treatment strategy.</div>
                 
+                
+                
             </div>
             
             
@@ -4377,6 +4616,8 @@
                 
                 <div class="evidence-explanation">This recent management review supports surveillance after surgery in selected early-stage malignant ovarian germ cell tumors.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4396,6 +4637,8 @@
                 
                 
                 <div class="evidence-explanation">This trial directly models active surveillance for low-risk germ cell tumors and includes ovarian germ cell tumor-relevant populations.</div>
+                
+                
                 
             </div>
             
@@ -4518,6 +4761,8 @@
                 
                 <div class="evidence-explanation">This recent management review supports BEP as first-line therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4537,6 +4782,8 @@
                 
                 
                 <div class="evidence-explanation">This cohort documents dominant use of BEP or reduced-bleomycin BEP in children, adolescents, and young adults with malignant ovarian germ cell tumors.</div>
+                
+                
                 
             </div>
             
@@ -4652,6 +4899,8 @@
                 
                 <div class="evidence-explanation">This retrospective study supports PC as a potential alternative in fertility-preserving treatment, but prospective confirmation is still needed.</div>
                 
+                
+                
             </div>
             
             
@@ -4729,6 +4978,8 @@
                 
                 <div class="evidence-explanation">This systematic review supports neoadjuvant chemotherapy as a possible selected strategy while preserving uncertainty.</div>
                 
+                
+                
             </div>
             
             
@@ -4762,6 +5013,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4787,6 +5039,8 @@
                 
                 <div class="evidence-explanation">This supports AFP as a quantitative serum biomarker used for ovarian yolk sac tumor prognosis during chemotherapy.</div>
                 
+                
+                
             </div>
             
             
@@ -4803,6 +5057,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated especially in non-gestational ovarian choriocarcinoma)</span>
                     
                 </div>
+                
                 
                 
     
@@ -4830,6 +5085,8 @@
                 
                 <div class="evidence-explanation">This supports beta-hCG as a component-specific biomarker in rare ovarian non-dysgerminomatous germ cell tumors.</div>
                 
+                
+                
             </div>
             
             
@@ -4846,6 +5103,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Can be elevated as part of the malignant ovarian germ cell tumor marker panel, especially outside immature teratoma.)</span>
                     
                 </div>
+                
                 
                 
     
@@ -4873,6 +5131,8 @@
                 
                 <div class="evidence-explanation">This supports LDH as a serum biomarker measured in ovarian malignant germ cell tumor evaluation.</div>
                 
+                
+                
             </div>
             
             
@@ -4889,6 +5149,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Emerging blood-based biomarker for germ cell tumors, including non-teratomatous germ cell tumors; clinical utility in ovarian and pediatric germ cell tumor settings remains under evaluation.)</span>
                     
                 </div>
+                
                 
                 
     
@@ -4915,6 +5176,8 @@
                 
                 
                 <div class="evidence-explanation">This review supports miR-371a-3p as an emerging GCT-associated circulating biomarker; support is partial because the evidence is germ-cell-tumor broad rather than ovarian non-dysgerminomatous specific.</div>
+                
+                
                 
             </div>
             
@@ -4983,6 +5246,8 @@
                 
                 <div class="evidence-explanation">This trial directly evaluates a less-toxic platinum/taxane alternative to BEP for malignant ovarian germ cell tumors.</div>
                 
+                
+                
             </div>
             
             
@@ -5031,6 +5296,8 @@
                 
                 
                 <div class="evidence-explanation">This trial is relevant to platinum selection and toxicity reduction across pediatric and adult germ cell tumor treatment, including ovarian germ cell tumors.</div>
+                
+                
                 
             </div>
             

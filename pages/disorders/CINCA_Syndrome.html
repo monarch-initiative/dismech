@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2736,6 +2927,8 @@
                 
                 <div class="evidence-explanation">Original study establishing autosomal dominant inheritance for the CAPS spectrum caused by CIAS1/NLRP3 mutations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2756,6 +2949,8 @@
                 
                 <div class="evidence-explanation">Case documenting paternal transmission of NLRP3 mutation to a child with CINCA/NOMID, confirming autosomal dominant inheritance in the minority of familial (non-de novo) cases.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2775,6 +2970,8 @@
                 
                 
                 <div class="evidence-explanation">Largest NLRP3 mosaicism cohort confirming that clinical presentation and treatment response are similar between mosaic and germline cases, with an overrepresentation of late-onset forms (37.5%) and myeloid-restricted mosaicism in late-onset patients.</div>
+                
+                
                 
             </div>
             
@@ -2862,6 +3059,8 @@
                 
                 <div class="evidence-explanation">Review confirming NLRP3 gain-of-function mutations as the causative mechanism in CAPS including CINCA/NOMID.</div>
                 
+                
+                
             </div>
             
             
@@ -2921,6 +3120,8 @@
                 
                 <div class="evidence-explanation">Landmark NEJM trial demonstrating that 6 of 18 clinically definite NOMID patients lacked identifiable CIAS1 mutations by standard sequencing, yet responded identically to IL-1 blockade, suggesting undetected somatic mosaicism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2941,6 +3142,8 @@
                 
                 <div class="evidence-explanation">Case report demonstrating that initial NLRP3 testing was negative but subsequent deep sequencing revealed somatic mosaicism, underscoring the need for advanced sequencing in clinically diagnosed mutation-negative patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2960,6 +3163,8 @@
                 
                 
                 <div class="evidence-explanation">Review of the literature quantifying the prevalence of somatic mosaicism in CINCA/NOMID, noting that mosaic patients tend to present with milder neurologic symptoms compared to those with germline mutations.</div>
+                
+                
                 
             </div>
             
@@ -3042,6 +3247,8 @@
                 
                 <div class="evidence-explanation">Original identification of CIAS1/NLRP3 mutations as the cause of FCAS and MWS, establishing the genetic basis for the entire CAPS spectrum including CINCA/NOMID.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3061,6 +3268,8 @@
                 
                 
                 <div class="evidence-explanation">Comprehensive review by Hoffman laboratory tracing the discovery of NLRP3 as the CAPS disease gene and its broader role in innate immunity.</div>
+                
+                
                 
             </div>
             
@@ -3158,6 +3367,8 @@
                 
                 <div class="evidence-explanation">Review describing constitutive inflammasome activation as the central pathogenic mechanism in CAPS, with gain-of-function mutations driving inappropriate caspase-1 activation and cytokine release.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3178,6 +3389,8 @@
                 
                 <div class="evidence-explanation">Review detailing normal and pathological NLRP3 inflammasome assembly mechanisms, including ASC speck formation and regulatory nodes disrupted by CAPS mutations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3197,6 +3410,8 @@
                 
                 
                 <div class="evidence-explanation">Review of NLRP3 spatiotemporal dynamics implicating mitochondria, lysosomes, ER, Golgi, endosomes, and the centrosome in NLRP3 localization and inflammasome assembly, providing mechanistic context for how CAPS mutations disrupt normal subcellular regulation.</div>
+                
+                
                 
             </div>
             
@@ -3333,6 +3548,8 @@
                 
                 <div class="evidence-explanation">Review confirming that excessive IL-1beta release from constitutively active inflammasome is the proximate cause of CAPS symptoms.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3353,6 +3570,8 @@
                 
                 <div class="evidence-explanation">Case report with histopathological evidence that IL-1beta overproduction begins in utero, causing necrotizing funisitis and villitis as the earliest manifestations of CINCA/NOMID even before birth.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3372,6 +3591,8 @@
                 
                 
                 <div class="evidence-explanation">Case report confirming intrauterine onset of IL-1beta-driven inflammation in CINCA/NOMID, with severe funisitis leading to umbilical cord rupture and neonatal asphyxia.</div>
+                
+                
                 
             </div>
             
@@ -3463,6 +3684,8 @@
                 
                 
                 <div class="evidence-explanation">Review identifying IL-18 alongside IL-1 as a key downstream inflammatory mediator of the NLRP3 inflammasome, confirming its role in CAPS pathogenesis.</div>
+                
+                
                 
             </div>
             
@@ -3622,6 +3845,8 @@
                 
                 <div class="evidence-explanation">Landmark NEJM trial characterizing the multisystem neutrophilic inflammation in NOMID/CINCA affecting skin, CNS, joints, and sensory organs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3641,6 +3866,8 @@
                 
                 
                 <div class="evidence-explanation">Histopathological evidence of neutrophilic infiltration in umbilical cord vessels and Wharton&#39;s jelly, demonstrating that neutrophilic inflammation begins in utero in CINCA/NOMID and can involve the placenta and umbilical cord.</div>
+                
+                
                 
             </div>
             
@@ -3735,6 +3962,8 @@
                 
                 <div class="evidence-explanation">MRI documentation of cochlear and leptomeningeal inflammatory lesions in NOMID patients, which improved with anakinra treatment, confirming active CNS inflammation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3754,6 +3983,8 @@
                 
                 
                 <div class="evidence-explanation">Large pediatric CAPS cohort showing high prevalence of severe neurological symptoms in patients with novel NLRP3 mutations, consistent with the CNS inflammatory burden in CINCA/NOMID.</div>
+                
+                
                 
             </div>
             
@@ -3851,6 +4082,8 @@
                 
                 
                 <div class="evidence-explanation">Pediatric CAPS cohort documenting musculoskeletal involvement as a major disease domain responsive to IL-1 blockade, confirming IL-1-driven skeletal overgrowth.</div>
+                
+                
                 
             </div>
             
@@ -3966,6 +4199,8 @@
                 
                 <div class="evidence-explanation">Landmark NEJM trial identifying deforming arthropathy as a cardinal feature of NOMID/CINCA, distinct from bony overgrowth and reflecting cartilage destruction.</div>
                 
+                
+                
             </div>
             
             
@@ -4028,6 +4263,8 @@
                 
                 <div class="evidence-explanation">NEJM trial documenting markedly elevated baseline serum amyloid A levels (median 174 mg/L) in NOMID patients, reflecting the chronic inflammatory state that drives AA amyloidosis risk. SAA normalized rapidly with anakinra.</div>
                 
+                
+                
             </div>
             
             
@@ -4084,6 +4321,8 @@
                 
                 <div class="evidence-explanation">Review characterizing CAPS cutaneous involvement as a systemic neutrophilic process, with skin biopsy showing neutrophilic dermatosis rather than mast cell-mediated urticaria.</div>
                 
+                
+                
             </div>
             
             
@@ -4128,6 +4367,8 @@
                 
                 <div class="evidence-explanation">NEJM trial documenting leptomeningeal inflammatory lesions on MRI in NOMID patients corresponding to the chronic meningeal inflammatory infiltrate.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4147,6 +4388,8 @@
                 
                 
                 <div class="evidence-explanation">Neonatal case documenting severe neutrophilic CSF pleocytosis (667 cells, 4:1 PMN predominance) with hypoglycorrhachia and elevated protein, reflecting the intense chronic meningeal inflammatory infiltrate.</div>
+                
+                
                 
             </div>
             
@@ -4192,6 +4435,8 @@
                 
                 <div class="evidence-explanation">Case report with histopathological documentation of necrotizing funisitis as evidence of intrauterine inflammatory damage in CINCA/NOMID.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4211,6 +4456,8 @@
                 
                 
                 <div class="evidence-explanation">Case report documenting severe necrotizing funisitis with umbilical cord rupture, confirming the diagnostic value of placental histopathology in neonatal CINCA/NOMID.</div>
+                
+                
                 
             </div>
             
@@ -4256,6 +4503,8 @@
                 
                 <div class="evidence-explanation">NEJM trial documenting markedly elevated baseline serum amyloid A (median 174 mg/L, &gt;17x upper limit of normal) as the precursor protein for AA amyloid deposits, which normalized with anakinra.</div>
                 
+                
+                
             </div>
             
             
@@ -4287,7 +4536,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthropathy with epiphyseal overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ranges from arthralgia and joint swelling in milder cases to severe deforming arthropathy with characteristic bony overgrowth of the patellae, distal femora, and other epiphyses. The patellar overgrowth pattern is distinctive to CINCA/NOMID within the CAPS spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003040\"}}, {\"id\": \"Cartilage damage and destructive arthropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic IL-1beta-mediated inflammation in the joints drives chondrocyte dysfunction and cartilage matrix degradation, leading to progressive destructive arthropathy. Extracellular matrix disassembly in articular cartilage results in joint deformity and functional impairment distinctive to the severe CINCA/NOMID phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Extracellular matrix disassembly\"], \"locations\": [\"Synovial joint\"]}}, {\"id\": \"Central nervous system inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic aseptic meningitis with neutrophilic and lymphocytic infiltration of the leptomeninges leads to elevated intracranial pressure, papilledema, progressive sensorineural hearing loss, and cognitive impairment. Microglial activation in the brain parenchyma may contribute to cerebral atrophy in inadequately treated patients. Cochlear inflammation produces progressive hearing loss, and leptomeningeal enhancement is visible on MRI.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\"], \"locations\": [\"Leptomeninx\", \"Cochlea\"]}}, {\"id\": \"Constitutive NLRP3 inflammasome activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant cryopyrin undergoes spontaneous oligomerization and constitutive assembly of the NLRP3 inflammasome complex, comprising NLRP3, ASC (PYCARD), and pro-caspase-1. NEK7 serves as a scaffold facilitating NLRP3 activation via microtubule organizing center trafficking. The resulting continuous activation of caspase-1 occurs without normal requirement for exogenous danger signals. ASC speck formation, the hallmark of inflammasome assembly, is enhanced in patient myeloid cells and suppressible by MCC950.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"]}}, {\"id\": \"Epiphyseal skeletal overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-1beta-driven inflammation at the growth plates stimulates abnormal endochondral ossification, producing characteristic bony overgrowth of the patellae, distal femora, and other long bone epiphyses. The distinctive radiographic features include epiphyseal enlargement and calcified physeal lesions unique to CINCA/NOMID within the CAPS spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Endochondral ossification\"], \"locations\": [\"Epiphysis\", \"Growth plate cartilage\"]}}, {\"id\": \"Excessive IL-18 production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively active caspase-1 also cleaves pro-IL-18 into its mature form. IL-18 contributes to macrophage activation and interferon-gamma production, amplifying the innate immune response and promoting Th1-polarized inflammation. Elevated serum IL-18 levels are a feature of CAPS and contribute to the systemic inflammatory burden alongside IL-1beta.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Positive regulation of interleukin-18 production\"]}}, {\"id\": \"Excessive IL-1beta production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively active caspase-1 cleaves pro-IL-1beta into its mature, biologically active form. The resulting overproduction of IL-1beta is the primary driver of systemic inflammation, fever, and tissue damage throughout the body. Gasdermin D-dependent pyroptosis of activated myeloid cells releases intracellular contents including IL-1beta and amplifies inflammation.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Positive regulation of interleukin-1 beta production\", \"Pyroptotic inflammatory response\"]}}, {\"id\": \"IL-1 inhibition with anakinra\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra (recombinant IL-1 receptor antagonist) is the first-line treatment. Daily subcutaneous injections rapidly suppress inflammation, rash, fever, and normalize inflammatory markers. Early treatment can prevent or stabilize neurological damage including hearing loss, cognitive impairment, and papilledema. MRI-visible cochlear and leptomeningeal lesions improve with treatment.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Anakinra\"]}}, {\"id\": \"IL-1 inhibition with canakinumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Canakinumab (anti-IL-1beta monoclonal antibody) provides sustained IL-1 blockade with less frequent dosing (every 4-8 weeks subcutaneously). Effective for long-term disease control across musculoskeletal, neurological, auditory, and visual domains in CINCA/NOMID.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Canakinumab\"]}}, {\"id\": \"IL-1 inhibition with rilonacept\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rilonacept (IL-1 Trap, a soluble decoy receptor) is another IL-1 inhibitor approved for CAPS. Administered weekly by subcutaneous injection. Captures both IL-1alpha and IL-1beta.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Rilonacept\"]}}, {\"id\": \"NLRP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NLRP3\"], \"association\": \"Causative\"}}, {\"id\": \"NLRP3 gain-of-function mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous gain-of-function mutations in the NLRP3 gene (encoding cryopyrin) lower the activation threshold for NLRP3 inflammasome assembly. Most CINCA/NOMID mutations are de novo, arising post-zygotically or in the germline. The NLRP3 protein contains a pyrin domain, a NACHT domain, and leucine-rich repeats; disease mutations cluster in the NACHT domain and disrupt autoinhibitory conformations.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NLRP3\"]}}, {\"id\": \"Recurrent fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent or continuous low-grade fever beginning in the neonatal period, often accompanying flares of the urticarial rash. Fever is driven by systemic IL-1beta overproduction.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001954\"}}, {\"id\": \"Secondary amyloidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic uncontrolled systemic inflammation leads to sustained elevation of serum amyloid A (SAA), which can deposit as AA amyloid in kidneys and other organs. This potentially causes nephrotic syndrome and renal failure if untreated. AA amyloidosis is a recognized long-term complication across the CAPS spectrum, particularly in undertreated patients.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"Kidney\"]}}, {\"id\": \"Systemic neutrophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess IL-1beta drives recruitment and activation of neutrophils throughout the body, producing neutrophilic infiltration in skin, joints, meninges, and other tissues. The skin rash of CINCA is a neutrophilic urticarial dermatosis rather than true mast cell-mediated urticaria. Sustained neutrophilic inflammation causes tissue damage and organ dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\", \"Monocyte\"], \"biological_processes\": [\"Neutrophil chemotaxis\", \"Inflammatory response\"], \"locations\": [\"Skin of body\"]}}, {\"id\": \"Urticarial rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-pruritic, migratory urticaria-like rash present from birth or the neonatal period. The rash is a neutrophilic urticarial dermatosis rather than mast cell-mediated urticaria, and worsens with cold exposure, fever, or stress. Present in virtually all CINCA/NOMID patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"NLRP3 gain-of-function mutation\", \"target\": \"Constitutive NLRP3 inflammasome activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive NLRP3 inflammasome activation\", \"target\": \"Excessive IL-1beta production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive NLRP3 inflammasome activation\", \"target\": \"Excessive IL-18 production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Systemic neutrophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Central nervous system inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Epiphyseal skeletal overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Cartilage damage and destructive arthropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Secondary amyloidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-18 production\", \"target\": \"Systemic neutrophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with anakinra\", \"target\": \"Recurrent fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with anakinra\", \"target\": \"Urticarial rash\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with canakinumab\", \"target\": \"Recurrent fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with canakinumab\", \"target\": \"Arthropathy with epiphyseal overgrowth\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with rilonacept\", \"target\": \"Recurrent fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NLRP3\", \"target\": \"NLRP3 gain-of-function mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthropathy with epiphyseal overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ranges from arthralgia and joint swelling in milder cases to severe deforming arthropathy with characteristic bony overgrowth of the patellae, distal femora, and other epiphyses. The patellar overgrowth pattern is distinctive to CINCA/NOMID within the CAPS spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003040\"}}, {\"id\": \"Cartilage damage and destructive arthropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic IL-1beta-mediated inflammation in the joints drives chondrocyte dysfunction and cartilage matrix degradation, leading to progressive destructive arthropathy. Extracellular matrix disassembly in articular cartilage results in joint deformity and functional impairment distinctive to the severe CINCA/NOMID phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Extracellular matrix disassembly\"], \"locations\": [\"Synovial joint\"]}}, {\"id\": \"Central nervous system inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic aseptic meningitis with neutrophilic and lymphocytic infiltration of the leptomeninges leads to elevated intracranial pressure, papilledema, progressive sensorineural hearing loss, and cognitive impairment. Microglial activation in the brain parenchyma may contribute to cerebral atrophy in inadequately treated patients. Cochlear inflammation produces progressive hearing loss, and leptomeningeal enhancement is visible on MRI.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\"], \"locations\": [\"Leptomeninx\", \"Cochlea\"]}}, {\"id\": \"Constitutive NLRP3 inflammasome activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant cryopyrin undergoes spontaneous oligomerization and constitutive assembly of the NLRP3 inflammasome complex, comprising NLRP3, ASC (PYCARD), and pro-caspase-1. NEK7 serves as a scaffold facilitating NLRP3 activation via microtubule organizing center trafficking. The resulting continuous activation of caspase-1 occurs without normal requirement for exogenous danger signals. ASC speck formation, the hallmark of inflammasome assembly, is enhanced in patient myeloid cells and suppressible by MCC950.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"]}}, {\"id\": \"Epiphyseal skeletal overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-1beta-driven inflammation at the growth plates stimulates abnormal endochondral ossification, producing characteristic bony overgrowth of the patellae, distal femora, and other long bone epiphyses. The distinctive radiographic features include epiphyseal enlargement and calcified physeal lesions unique to CINCA/NOMID within the CAPS spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Endochondral ossification\"], \"locations\": [\"Epiphysis\", \"Growth plate cartilage\"]}}, {\"id\": \"Excessive IL-18 production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively active caspase-1 also cleaves pro-IL-18 into its mature form. IL-18 contributes to macrophage activation and interferon-gamma production, amplifying the innate immune response and promoting Th1-polarized inflammation. Elevated serum IL-18 levels are a feature of CAPS and contribute to the systemic inflammatory burden alongside IL-1beta.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Positive regulation of interleukin-18 production\"]}}, {\"id\": \"Excessive IL-1beta production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively active caspase-1 cleaves pro-IL-1beta into its mature, biologically active form. The resulting overproduction of IL-1beta is the primary driver of systemic inflammation, fever, and tissue damage throughout the body. Gasdermin D-dependent pyroptosis of activated myeloid cells releases intracellular contents including IL-1beta and amplifies inflammation.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Positive regulation of interleukin-1 beta production\", \"Pyroptotic inflammatory response\"]}}, {\"id\": \"IL-1 inhibition with anakinra\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra (recombinant IL-1 receptor antagonist) is the first-line treatment. Daily subcutaneous injections rapidly suppress inflammation, rash, fever, and normalize inflammatory markers. Early treatment can prevent or stabilize neurological damage including hearing loss, cognitive impairment, and papilledema. MRI-visible cochlear and leptomeningeal lesions improve with treatment.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Anakinra\"]}}, {\"id\": \"IL-1 inhibition with canakinumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Canakinumab (anti-IL-1beta monoclonal antibody) provides sustained IL-1 blockade with less frequent dosing (every 4-8 weeks subcutaneously). Effective for long-term disease control across musculoskeletal, neurological, auditory, and visual domains in CINCA/NOMID.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Canakinumab\"]}}, {\"id\": \"IL-1 inhibition with rilonacept\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rilonacept (IL-1 Trap, a soluble decoy receptor) is another IL-1 inhibitor approved for CAPS. Administered weekly by subcutaneous injection. Captures both IL-1alpha and IL-1beta.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Rilonacept\"]}}, {\"id\": \"NLRP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NLRP3\"], \"presence\": \"PRESENT\", \"association\": \"Causative\"}}, {\"id\": \"NLRP3 gain-of-function mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous gain-of-function mutations in the NLRP3 gene (encoding cryopyrin) lower the activation threshold for NLRP3 inflammasome assembly. Most CINCA/NOMID mutations are de novo, arising post-zygotically or in the germline. The NLRP3 protein contains a pyrin domain, a NACHT domain, and leucine-rich repeats; disease mutations cluster in the NACHT domain and disrupt autoinhibitory conformations.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NLRP3\"]}}, {\"id\": \"Recurrent fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent or continuous low-grade fever beginning in the neonatal period, often accompanying flares of the urticarial rash. Fever is driven by systemic IL-1beta overproduction.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001954\"}}, {\"id\": \"Secondary amyloidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic uncontrolled systemic inflammation leads to sustained elevation of serum amyloid A (SAA), which can deposit as AA amyloid in kidneys and other organs. This potentially causes nephrotic syndrome and renal failure if untreated. AA amyloidosis is a recognized long-term complication across the CAPS spectrum, particularly in undertreated patients.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"Kidney\"]}}, {\"id\": \"Systemic neutrophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess IL-1beta drives recruitment and activation of neutrophils throughout the body, producing neutrophilic infiltration in skin, joints, meninges, and other tissues. The skin rash of CINCA is a neutrophilic urticarial dermatosis rather than true mast cell-mediated urticaria. Sustained neutrophilic inflammation causes tissue damage and organ dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\", \"Monocyte\"], \"biological_processes\": [\"Neutrophil chemotaxis\", \"Inflammatory response\"], \"locations\": [\"Skin of body\"]}}, {\"id\": \"Urticarial rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-pruritic, migratory urticaria-like rash present from birth or the neonatal period. The rash is a neutrophilic urticarial dermatosis rather than mast cell-mediated urticaria, and worsens with cold exposure, fever, or stress. Present in virtually all CINCA/NOMID patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"NLRP3 gain-of-function mutation\", \"target\": \"Constitutive NLRP3 inflammasome activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive NLRP3 inflammasome activation\", \"target\": \"Excessive IL-1beta production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive NLRP3 inflammasome activation\", \"target\": \"Excessive IL-18 production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Systemic neutrophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Central nervous system inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Epiphyseal skeletal overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Cartilage damage and destructive arthropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-1beta production\", \"target\": \"Secondary amyloidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive IL-18 production\", \"target\": \"Systemic neutrophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with anakinra\", \"target\": \"Recurrent fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with anakinra\", \"target\": \"Urticarial rash\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with canakinumab\", \"target\": \"Recurrent fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with canakinumab\", \"target\": \"Arthropathy with epiphyseal overgrowth\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibition with rilonacept\", \"target\": \"Recurrent fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NLRP3\", \"target\": \"NLRP3 gain-of-function mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4378,6 +4627,8 @@
                 
                 <div class="evidence-explanation">All 18 NOMID patients in the landmark NEJM trial had urticarial rash at baseline which resolved rapidly with anakinra, confirming universality and IL-1 dependence of this phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4397,6 +4648,8 @@
                 
                 
                 <div class="evidence-explanation">Chinese NLRP3-AID cohort of 9 patients confirming rash in 100% of cases, consistent with OBLIGATE frequency across different populations.</div>
+                
+                
                 
             </div>
             
@@ -4454,6 +4707,8 @@
                 
                 <div class="evidence-explanation">Review characterizing CAPS as a systemic inflammatory disorder with widespread organ involvement including hepatosplenomegaly from reticuloendothelial activation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4473,6 +4728,8 @@
                 
                 
                 <div class="evidence-explanation">Case report documenting severe hepatosplenomegaly with cholestasis as a neonatal manifestation of CINCA/NOMID, which gradually improved in parallel with decreasing inflammatory markers after canakinumab treatment.</div>
+                
+                
                 
             </div>
             
@@ -4542,6 +4799,8 @@
                 
                 <div class="evidence-explanation">NEJM trial documenting cochlear inflammatory lesions on MRI in NOMID patients that improved with anakinra, linking hearing loss to reversible cochlear inflammation.</div>
                 
+                
+                
             </div>
             
             
@@ -4607,6 +4866,8 @@
                 
                 <div class="evidence-explanation">Large pediatric CAPS cohort confirming high prevalence of ophthalmologic involvement including papilledema in severe CAPS phenotypes.</div>
                 
+                
+                
             </div>
             
             
@@ -4662,6 +4923,8 @@
                 
                 
                 <div class="evidence-explanation">Pediatric cohort confirming visual manifestations (including uveitis) as a major disease domain in severe CAPS responsive to IL-1 blockade.</div>
+                
+                
                 
             </div>
             
@@ -4764,6 +5027,8 @@
                 
                 <div class="evidence-explanation">NEJM trial establishing chronic aseptic meningitis as a hallmark neurological manifestation of NOMID/CINCA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4784,6 +5049,8 @@
                 
                 <div class="evidence-explanation">Case report of an infant with CINCA/NOMID presenting with subdural hemorrhage, macrocephaly, cerebral atrophy, and ventriculomegaly secondary to chronic CNS inflammation, initially raising suspicion of abusive head trauma.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4803,6 +5070,8 @@
                 
                 
                 <div class="evidence-explanation">Neonatal case documenting severe CSF pleocytosis (667 cells) with neutrophilic predominance, hypoglycorrhachia, and markedly elevated protein at birth, confirming intrauterine-onset aseptic meningitis.</div>
+                
+                
                 
             </div>
             
@@ -4872,6 +5141,8 @@
                 
                 <div class="evidence-explanation">NEJM trial establishing fever as a cardinal feature of NOMID/CINCA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4891,6 +5162,8 @@
                 
                 
                 <div class="evidence-explanation">Chinese NLRP3-AID cohort showing fever in 77.8% of patients, consistent with VERY_FREQUENT classification.</div>
+                
+                
                 
             </div>
             
@@ -4960,6 +5233,8 @@
                 
                 <div class="evidence-explanation">NEJM trial identifying deforming arthropathy as a cardinal feature of NOMID/CINCA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4979,6 +5254,8 @@
                 
                 
                 <div class="evidence-explanation">Chinese NLRP3-AID cohort showing arthritis/arthralgia in 88.9% (8/9) of patients, with two CINCA cases also having clubbed fingers.</div>
+                
+                
                 
             </div>
             
@@ -5045,6 +5322,8 @@
                 
                 <div class="evidence-explanation">NEJM description of NOMID encompassing growth retardation and developmental delay as part of the multisystem disease burden.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5065,6 +5344,8 @@
                 
                 <div class="evidence-explanation">Chinese NLRP3-AID cohort documenting growth retardation in 44.4% of patients, consistent with FREQUENT frequency classification.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5084,6 +5365,8 @@
                 
                 
                 <div class="evidence-explanation">Case report documenting growth failure as part of the clinical presentation of CINCA/NOMID in an infant.</div>
+                
+                
                 
             </div>
             
@@ -5176,6 +5459,8 @@
                 
                 <div class="evidence-explanation">Original identification of CIAS1/NLRP3 as the causative gene for CAPS by Hoffman et al. 2001.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5195,6 +5480,8 @@
                 
                 
                 <div class="evidence-explanation">Large pediatric cohort expanding the NLRP3 mutation spectrum with 8 novel variants, including documentation of somatic mosaicism (F311V).</div>
+                
+                
                 
             </div>
             
@@ -5317,6 +5604,8 @@
                 
                 <div class="evidence-explanation">Landmark NEJM trial of 18 NOMID patients demonstrating rapid and sustained response to anakinra with normalization of inflammatory markers and improvement of MRI-documented cochlear and leptomeningeal lesions.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5336,6 +5625,8 @@
                 
                 
                 <div class="evidence-explanation">Case report demonstrating that early initiation of IL-1 inhibition (anakinra followed by canakinumab) in a CINCA patient with somatic mosaicism prevented development of chronic sequelae over 12 years of follow-up.</div>
+                
+                
                 
             </div>
             
@@ -5446,6 +5737,8 @@
                 
                 <div class="evidence-explanation">Pediatric CAPS cohort demonstrating canakinumab efficacy across multiple organ domains over 10-20 months, while non-IL-1 therapies achieved only partial remission.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5465,6 +5758,8 @@
                 
                 
                 <div class="evidence-explanation">Neonatal case demonstrating rapid clinical response to canakinumab at 70 days of age, with immediate rash disappearance and gradual improvement of cholestasis, supporting early canakinumab use in severe neonatal CINCA.</div>
+                
+                
                 
             </div>
             
@@ -5568,6 +5863,8 @@
                 
                 <div class="evidence-explanation">Review describing the development and application of IL-1 targeted therapies including rilonacept for CAPS patients.</div>
                 
+                
+                
             </div>
             
             
@@ -5646,6 +5943,8 @@
                 
                 <div class="evidence-explanation">Original identification of CIAS1/NLRP3 mutations segregating in families, establishing the basis for genetic counseling about inheritance patterns in CAPS.</div>
                 
+                
+                
             </div>
             
             
@@ -5701,6 +6000,8 @@
                 
                 <div class="evidence-explanation">Original gene identification paper establishing cold exposure as a trigger across the CAPS spectrum, with FCAS being the most cold-sensitive phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -5733,6 +6034,7 @@
                 <div class="item-desc">Context: Median 174 mg/L at baseline (normal &lt;10 mg/L), normalizes with anakinra</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5758,6 +6060,8 @@
                 
                 <div class="evidence-explanation">NEJM trial documenting markedly elevated baseline SAA (median 174 mg/L) in NOMID patients which normalized rapidly with anakinra, establishing SAA as a key disease activity biomarker.</div>
                 
+                
+                
             </div>
             
             
@@ -5776,6 +6080,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Median 5.29 mg/dL at baseline, normalizes with anakinra</div>
+                
                 
                 
     
@@ -5803,6 +6108,8 @@
                 
                 <div class="evidence-explanation">NEJM trial documenting elevated CRP (median 5.29 mg/dL) in NOMID patients which decreased to 0.34 mg/dL with anakinra, confirming CRP as a reliable inflammatory marker.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5822,6 +6129,8 @@
                 
                 
                 <div class="evidence-explanation">Chinese cohort confirming universal CRP elevation during flares in NLRP3-AID patients, with persistent elevation in over half of patients even after fever resolution.</div>
+                
+                
                 
             </div>
             
@@ -5843,6 +6152,8 @@
                 
                 <div class="evidence-explanation">Neonatal case documenting markedly elevated CRP (6.4 mg/dL, rising to 15 mg/dL) at birth despite absence of infection, confirming intrauterine inflammatory activation.</div>
                 
+                
+                
             </div>
             
             
@@ -5861,6 +6172,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Markedly elevated, normalizes with anakinra</div>
+                
                 
                 
     
@@ -5888,6 +6200,8 @@
                 
                 <div class="evidence-explanation">NEJM trial documenting elevated ESR in NOMID patients which decreased with anakinra at month 3 and remained low at month 6.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5907,6 +6221,8 @@
                 
                 
                 <div class="evidence-explanation">Chinese cohort confirming universal ESR elevation during acute attacks across all 9 NLRP3-AID patients.</div>
+                
+                
                 
             </div>
             
@@ -5982,6 +6298,8 @@
                 
                 <div class="evidence-explanation">Original description of MWS sharing the NLRP3 genetic basis with FCAS, establishing the CAPS spectrum and the need to differentiate MWS from CINCA/NOMID by severity.</div>
                 
+                
+                
             </div>
             
             
@@ -6041,6 +6359,8 @@
                 
                 <div class="evidence-explanation">Original identification of CIAS1/NLRP3 mutations in FCAS families, establishing it as the mildest CAPS phenotype distinguished from CINCA by episodic cold-triggered symptoms only.</div>
                 
+                
+                
             </div>
             
             
@@ -6055,12 +6375,11 @@
             <div class="item-box differential-box">
                 <div class="item-name">
                     
-                    <span class="missing-disease-name" title="No Dismech page yet for this disease">Systemic juvenile idiopathic arthritis</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Juvenile_Idiopathic_Arthritis.html">Systemic juvenile idiopathic arthritis</a>
                     
                     
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0011429" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0011429" target="_blank">
                             MONDO:0011429
                         </a>
                     </span>
@@ -6099,6 +6418,8 @@
                 
                 
                 <div class="evidence-explanation">Pediatric cohort showing that non-IL-1 therapies commonly used for systemic JIA (prednisolone, methotrexate, tocilizumab) achieved only partial remission in CAPS, helping to distinguish CINCA from sJIA by differential treatment response.</div>
+                
+                
                 
             </div>
             
@@ -6198,6 +6519,8 @@
                 
                 <div class="evidence-explanation">Defines a CAPS-specific transcriptomic signature and identifies IL-1-responsive genes, relevant to understanding the molecular pathology of CINCA/NOMID.</div>
                 
+                
+                
             </div>
             
             
@@ -6272,6 +6595,8 @@
                 
                 
                 <div class="evidence-explanation">Directly relevant to CINCA somatic mosaicism pathogenesis, demonstrating that NLRP3-mutant cells drive the inflammatory phenotype and providing a platform for drug discovery.</div>
+                
+                
                 
             </div>
             
@@ -6366,6 +6691,8 @@
                 
                 <div class="evidence-explanation">Landmark NIH trial establishing anakinra as effective therapy for NOMID/CINCA, forming the basis for the published NEJM results (PMID:16899778).</div>
                 
+                
+                
             </div>
             
             
@@ -6440,6 +6767,8 @@
                 
                 <div class="evidence-explanation">NOMID/CINCA-specific canakinumab trial with comprehensive CNS outcome measures including lumbar puncture and MRI.</div>
                 
+                
+                
             </div>
             
             
@@ -6506,6 +6835,8 @@
                 
                 
                 <div class="evidence-explanation">Long-term canakinumab safety and efficacy data in CAPS patients including those with NOMID.</div>
+                
+                
                 
             </div>
             
@@ -6574,6 +6905,8 @@
                 
                 <div class="evidence-explanation">Pediatric-focused canakinumab trial relevant to CINCA/NOMID given its neonatal onset and need for early treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -6621,6 +6954,8 @@
                 
                 
                 <div class="evidence-explanation">Ongoing NIH natural history study providing longitudinal data on NOMID/CAPS disease course, outcomes, and treatment responses.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2723,6 +2914,8 @@
                 
                 <div class="evidence-explanation">The original discovery cohort identified de novo heterozygous YWHAG variants as the disease-associated inheritance pattern for early-onset epileptic encephalopathy.</div>
                 
+                
+                
             </div>
             
             
@@ -2849,6 +3042,8 @@
                 
                 <div class="evidence-explanation">Establishes YWHAG as the causal disease gene upstream of the downstream neuronal phenotypes represented in this entry.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2869,6 +3064,8 @@
                 
                 <div class="evidence-explanation">Supports severity enrichment for ligand-binding-domain missense alleles, including the mechanistically important Arg132 region.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2888,6 +3085,8 @@
                 
                 
                 <div class="evidence-explanation">Supports that pathogenic YWHAG variants can impair function through structural destabilization in addition to altered ligand-binding behavior.</div>
+                
+                
                 
             </div>
             
@@ -3016,6 +3215,8 @@
                 
                 <div class="evidence-explanation">Directly supports a ROCK-associated signaling/remodeling layer upstream of the cytoskeletal and calcium phenotypes in the YWHAG p.Arg132Cys cortical neuron model.</div>
                 
+                
+                
             </div>
             
             
@@ -3139,6 +3340,8 @@
                 
                 <div class="evidence-explanation">Directly supports latent cytoskeletal fragility in mutant cortical neurons and its partial lovastatin responsiveness.</div>
                 
+                
+                
             </div>
             
             
@@ -3240,6 +3443,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports elevated baseline calcium as a distinct homeostatic phenotype that is modified by ROCK inhibition and partially improved by lovastatin.</div>
+                
+                
                 
             </div>
             
@@ -3367,6 +3572,8 @@
                 
                 <div class="evidence-explanation">Directly supports reduced spontaneous calcium signaling and network activity as a phenotype distinct from the elevated baseline-calcium state.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3386,6 +3593,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports the partial decoupling between baseline calcium homeostasis and activity-dependent calcium signaling in mutant neurons.</div>
+                
+                
                 
             </div>
             
@@ -3421,7 +3630,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cytoskeletal instability in cortical neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"YWHAG p.Arg132Cys cortical neurons show early cytoskeletal abnormalities and latent fragility that becomes more evident under Trypsin-EDTA stress. This phenotype is partially ameliorated by lovastatin in the preprint model, supporting cytoskeletal instability as a central disease-relevant mechanism rather than a secondary observation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"cytoskeleton organization\"]}}, {\"id\": \"Elevated baseline intracellular calcium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant cortical neurons exhibit an elevated calcium baseline, indicating altered calcium homeostasis. In the p.Arg132Cys model, this baseline abnormality changes with maturation, is worsened by direct ROCK inhibition with Y27632, and is partially reduced by lovastatin treatment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"calcium ion homeostasis\"]}}, {\"id\": \"Internal-core destabilizing missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Variants such as p.Leu173Ser may impair YWHAG function by destabilizing the conserved internal hydrophobic core rather than primarily affecting the ligand-binding groove.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Ligand-binding domain missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variants in the phosphopeptide ligand-binding region are enriched among patients with the more severe DEE presentation.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ROCK-pathway dysregulation and maturation-dependent cytoskeletal remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In YWHAG p.Arg132Cys cortical neurons, transcriptomic dysregulation implicates the ROCK pathway and associated modulators, with biphasic maturation-dependent changes in cytoskeletal protein stability and calcium phenotypes. This node is kept distinct from the overt cytoskeletal fragility phenotype because the study suggests a signaling/remodeling layer upstream of the physical instability phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"Rho protein signal transduction\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Reduced calcium signaling and network activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite the elevated baseline calcium phenotype, YWHAG p.Arg132Cys cortical neurons have lower-frequency calcium spikes and reduced network activity. Lovastatin does not rescue calcium spike frequency or amplitude, supporting a partial decoupling between calcium homeostasis and activity-dependent calcium signaling in mutant neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"calcium-mediated signaling\", \"chemical synaptic transmission\"]}}, {\"id\": \"Variant-dependent YWHAG / 14-3-3gamma dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"YWHAG encodes the 14-3-3gamma scaffold protein, which coordinates phosphoserine-dependent signaling complexes important for neuronal development. Pathogenic missense variants can perturb the protein through at least two partially distinct mechanisms: recurrent ligand-binding-domain alleles associated with more severe DEE and structural-destabilizing alleles that disrupt the conserved internal hydrophobic core. The recurrent p.Arg132Cys ligand-binding-domain variant provides the best-studied bridge from human genetics to downstream neuronal mechanism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"cerebral cortex neuron\"], \"genes\": [\"YWHAG\"]}}, {\"id\": \"YWHAG variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"YWHAG\"], \"association\": \"Pathogenic mutations\", \"variant_count\": 2}}, {\"id\": \"p.Arg132Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent pathogenic YWHAG missense variant in the ligand-binding domain and the allele modeled in the current isogenic iPSC-derived cortical-neuron preprint.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"YWHAG\"], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Variant-dependent YWHAG / 14-3-3gamma dysfunction\", \"target\": \"ROCK-pathway dysregulation and maturation-dependent cytoskeletal remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ROCK-pathway dysregulation and maturation-dependent cytoskeletal remodeling\", \"target\": \"Cytoskeletal instability in cortical neurons\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytoskeletal instability in cortical neurons\", \"target\": \"Elevated baseline intracellular calcium\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytoskeletal instability in cortical neurons\", \"target\": \"Reduced calcium signaling and network activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"YWHAG variants\", \"target\": \"Variant-dependent YWHAG / 14-3-3gamma dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg132Cys\", \"target\": \"YWHAG variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Ligand-binding domain missense variants\", \"target\": \"YWHAG variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Internal-core destabilizing missense variants\", \"target\": \"YWHAG variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cytoskeletal instability in cortical neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"YWHAG p.Arg132Cys cortical neurons show early cytoskeletal abnormalities and latent fragility that becomes more evident under Trypsin-EDTA stress. This phenotype is partially ameliorated by lovastatin in the preprint model, supporting cytoskeletal instability as a central disease-relevant mechanism rather than a secondary observation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"cytoskeleton organization\"]}}, {\"id\": \"Elevated baseline intracellular calcium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant cortical neurons exhibit an elevated calcium baseline, indicating altered calcium homeostasis. In the p.Arg132Cys model, this baseline abnormality changes with maturation, is worsened by direct ROCK inhibition with Y27632, and is partially reduced by lovastatin treatment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"calcium ion homeostasis\"]}}, {\"id\": \"Internal-core destabilizing missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Variants such as p.Leu173Ser may impair YWHAG function by destabilizing the conserved internal hydrophobic core rather than primarily affecting the ligand-binding groove.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Ligand-binding domain missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variants in the phosphopeptide ligand-binding region are enriched among patients with the more severe DEE presentation.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ROCK-pathway dysregulation and maturation-dependent cytoskeletal remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In YWHAG p.Arg132Cys cortical neurons, transcriptomic dysregulation implicates the ROCK pathway and associated modulators, with biphasic maturation-dependent changes in cytoskeletal protein stability and calcium phenotypes. This node is kept distinct from the overt cytoskeletal fragility phenotype because the study suggests a signaling/remodeling layer upstream of the physical instability phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"Rho protein signal transduction\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Reduced calcium signaling and network activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite the elevated baseline calcium phenotype, YWHAG p.Arg132Cys cortical neurons have lower-frequency calcium spikes and reduced network activity. Lovastatin does not rescue calcium spike frequency or amplitude, supporting a partial decoupling between calcium homeostasis and activity-dependent calcium signaling in mutant neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"calcium-mediated signaling\", \"chemical synaptic transmission\"]}}, {\"id\": \"Variant-dependent YWHAG / 14-3-3gamma dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"YWHAG encodes the 14-3-3gamma scaffold protein, which coordinates phosphoserine-dependent signaling complexes important for neuronal development. Pathogenic missense variants can perturb the protein through at least two partially distinct mechanisms: recurrent ligand-binding-domain alleles associated with more severe DEE and structural-destabilizing alleles that disrupt the conserved internal hydrophobic core. The recurrent p.Arg132Cys ligand-binding-domain variant provides the best-studied bridge from human genetics to downstream neuronal mechanism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"cerebral cortex neuron\"], \"genes\": [\"YWHAG\"]}}, {\"id\": \"YWHAG variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"YWHAG\"], \"presence\": \"Positive\", \"association\": \"Pathogenic mutations\", \"variant_count\": 2}}, {\"id\": \"p.Arg132Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent pathogenic YWHAG missense variant in the ligand-binding domain and the allele modeled in the current isogenic iPSC-derived cortical-neuron preprint.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"YWHAG\"], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Variant-dependent YWHAG / 14-3-3gamma dysfunction\", \"target\": \"ROCK-pathway dysregulation and maturation-dependent cytoskeletal remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ROCK-pathway dysregulation and maturation-dependent cytoskeletal remodeling\", \"target\": \"Cytoskeletal instability in cortical neurons\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytoskeletal instability in cortical neurons\", \"target\": \"Elevated baseline intracellular calcium\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytoskeletal instability in cortical neurons\", \"target\": \"Reduced calcium signaling and network activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"YWHAG variants\", \"target\": \"Variant-dependent YWHAG / 14-3-3gamma dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg132Cys\", \"target\": \"YWHAG variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Ligand-binding domain missense variants\", \"target\": \"YWHAG variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Internal-core destabilizing missense variants\", \"target\": \"YWHAG variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3485,6 +3694,8 @@
                 
                 <div class="evidence-explanation">Directly supports early-onset epilepsy as a defining clinical feature of DEE56.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3504,6 +3715,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the breadth of the seizure phenotype and the prominence of febrile seizures in this syndrome.</div>
+                
+                
                 
             </div>
             
@@ -3563,6 +3776,8 @@
                 
                 <div class="evidence-explanation">Supports intellectual disability as one of the most frequent non-seizure manifestations in reported YWHAG cohorts.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3582,6 +3797,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the developmental-delay to mild-intellectual-disability spectrum in the larger pooled cohort.</div>
+                
+                
                 
             </div>
             
@@ -3641,6 +3858,8 @@
                 
                 <div class="evidence-explanation">Supports behavioral abnormality as a very frequent non-seizure feature in the largest dedicated YWHAG cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3660,6 +3879,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the specific spectrum of reported behavioral comorbidities in DEE56.</div>
+                
+                
                 
             </div>
             
@@ -3718,6 +3939,8 @@
                 
                 
                 <div class="evidence-explanation">Supports ataxia as a recurrent but non-obligate neurologic comorbidity.</div>
+                
+                
                 
             </div>
             
@@ -3778,6 +4001,8 @@
                 
                 <div class="evidence-explanation">Supports the specific association between ligand-binding-domain missense alleles and the more severe DEE end of the YWHAG spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3797,6 +4022,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a second molecular mechanism in which pathogenic alleles impair YWHAG by destabilizing the protein core.</div>
+                
+                
                 
             </div>
             

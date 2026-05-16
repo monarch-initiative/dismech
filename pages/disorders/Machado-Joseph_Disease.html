@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2724,6 +2915,8 @@
                 
                 <div class="evidence-explanation">Establishes MJD/SCA3 as an autosomal dominant neurodegenerative disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2743,6 +2936,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms monogenic autosomal dominant etiology driven by ATXN3 mutation.</div>
+                
+                
                 
             </div>
             
@@ -2839,6 +3034,8 @@
                 
                 <div class="evidence-explanation">Supports the clinical subtype classification system for MJD, with Type 1 characterized by early onset, pyramidal signs, and dystonia.</div>
                 
+                
+                
             </div>
             
             
@@ -2898,6 +3095,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the clinical subtype framework; Type 2 is the classic and most common presentation with cerebellar ataxia and ophthalmoplegia.</div>
+                
+                
                 
             </div>
             
@@ -2959,6 +3158,8 @@
                 
                 <div class="evidence-explanation">Supports the clinical subtype classification; Type 3 is distinguished by late onset and peripheral neuropathy/anterior horn cell disease.</div>
                 
+                
+                
             </div>
             
             
@@ -3018,6 +3219,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the phenotypic heterogeneity framework; Type 4 (parkinsonism- predominant) was added to the original 3-type classification as a recognized rare variant.</div>
+                
+                
                 
             </div>
             
@@ -3152,6 +3355,8 @@
                 
                 <div class="evidence-explanation">Establishes that polyQ-expanded ataxin-3 aggregation is the initiating toxic event.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3172,6 +3377,8 @@
                 
                 <div class="evidence-explanation">Confirms the toxic gain-of-function mechanism through polyQ-driven misfolding and aggregation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3191,6 +3398,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates nuclear accumulation and aggresome formation in a human cellular model of SCA3.</div>
+                
+                
                 
             </div>
             
@@ -3364,6 +3573,8 @@
                 
                 <div class="evidence-explanation">Supports UPS/autophagy failure as a key pathogenic hub, validated by the efficacy of proteostasis-targeting therapeutic strategies.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3383,6 +3594,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates impaired protein quality control as a hallmark feature of SCA3 across human cell differentiation stages.</div>
+                
+                
                 
             </div>
             
@@ -3496,6 +3709,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that oligodendrocyte maturation deficits are a direct and early consequence of mutant ATXN3 toxic gain-of-function.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3515,6 +3730,8 @@
                 
                 
                 <div class="evidence-explanation">MRS-based neurochemical evidence in SCA3 mice implicates oligodendrocyte abnormalities as a contributor to white matter pathology.</div>
+                
+                
                 
             </div>
             
@@ -3679,6 +3896,8 @@
                 
                 <div class="evidence-explanation">Directly enumerates the multifocal anatomic systems affected in MJD/SCA3, supporting the multifocal degeneration concept.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3699,6 +3918,8 @@
                 
                 <div class="evidence-explanation">Defines the canonical anatomic targets of SCA3 neurodegeneration: brainstem, cerebellum, spinal cord, and substantia nigra.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3718,6 +3939,8 @@
                 
                 
                 <div class="evidence-explanation">Supports use of mouse models to understand early-stage multifocal neurodegeneration in SCA3.</div>
+                
+                
                 
             </div>
             
@@ -3818,6 +4041,8 @@
                 
                 <div class="evidence-explanation">Establishes the spinal cord as a molecularly vulnerable region in SCA3, complementing the existing cerebellum/brainstem/substantia nigra model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3837,6 +4062,8 @@
                 
                 
                 <div class="evidence-explanation">Links spinal cord pathology to knock-in mouse RNA-splicing changes, particularly in oligodendrocyte-associated genes.</div>
+                
+                
                 
             </div>
             
@@ -3872,7 +4099,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATXN3 CAG repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ATXN3\"], \"association\": \"Pathogenic CAG trinucleotide repeat expansion in exon 10\"}}, {\"id\": \"Antisense oligonucleotide (ASO) therapy targeting ATXN3\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intracerebroventricularly delivered antisense oligonucleotides targeting ATXN3 achieve sustained reduction of polyQ-expanded ataxin-3 in the CNS and rescue motor, neuropathological, and neurochemical deficits in SCA3 mouse models. This represents a genetically targeted disease-modifying strategy with strong preclinical support; the BIIB132 intrathecal ASO Phase 1 program for SCA3 reached clinical testing but is currently terminated on ClinicalTrials.gov.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"antisense oligonucleotide\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebellar dysarthria is universal across MJD/SCA3 subtypes, reflecting brainstem (pons, cranial nerve motor nuclei) and cerebellar involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait and balance impairment is the cardinal clinical feature of MJD/SCA3 and is present across all subtypes. It results from cerebellar degeneration, particularly of the dentate nucleus and spinocerebellar tracts.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002066\"}}, {\"id\": \"Impaired ATXN3 deubiquitinase activity and proteostasis failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normal ataxin-3 functions as a deubiquitinase (DUB), cleaving K48- and K63-linked polyubiquitin chains to regulate proteasomal delivery. The polyQ expansion abrogates this catalytic function and overwhelms the ubiquitin-proteasome system (UPS) and autophagy-lysosomal pathway, causing misfolded protein accumulation throughout the neurodegenerative cascade.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\", \"motor neuron\"], \"biological_processes\": [\"protein deubiquitination\", \"autophagy\", \"protein folding\"]}}, {\"id\": \"Intravenous trehalose (SLS-005)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Trehalose injection (SLS-005) is an investigational pharmacotherapy tested in a Phase 2b/3 spinocerebellar ataxia trial, modeled here as a proteostasis/autophagy-oriented intervention relevant to SCA3/MJD.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"trehalose\"]}}, {\"id\": \"Multifocal neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MJD/SCA3 is characterized by multifocal degeneration extending beyond the cerebellum to affect the brainstem (pons, cranial nerve nuclei), spinal cord anterior horn cells, substantia nigra, and dorsal root ganglia. This wide anatomic distribution underlies the subtype-specific clinical differences: brainstem involvement drives ophthalmoplegia and dysarthria; anterior horn degeneration drives amyotrophy in Type 3; substantia nigra loss drives parkinsonism in Type 4; cerebellar dentate nucleus degeneration drives ataxia across all subtypes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\", \"motor neuron\", \"dopaminergic neuron\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"cerebellum\", \"brainstem\", \"substantia nigra\"]}}, {\"id\": \"Oligodendrocyte dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In addition to neuronal pathology, mutant ATXN3 causes early and progressive oligodendrocyte dysfunction in SCA3. Oligodendrocytes display some of the earliest deficits, including impaired maturation, which contributes to white matter pathology and demyelination. This non-neuronal contribution is modifiable with anti-ATXN3 ASO therapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"]}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Balance and coordination training as part of the multidisciplinary rehabilitative approach. Regular physical therapy may slow functional decline in ataxia patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PolyQ-expanded ataxin-3 misfolding and nuclear aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CAG repeat expansion in exon 10 of ATXN3 produces an aberrantly elongated polyglutamine tract in ataxin-3. The mutant protein misfolds and forms intranuclear inclusions, which are a pathological hallmark of MJD/SCA3. These aggregates sequester transcription factors, co-regulators, and ubiquitin-pathway components, initiating a cascade of cellular toxicity.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"response to unfolded protein\"], \"genes\": [\"ATXN3\"], \"locations\": [\"cerebellum\", \"brainstem\"]}}, {\"id\": \"Spinal cord transcriptomic dysregulation and RNA splicing defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recent human and knock-in mouse transcriptomic studies identify the spinal cord as an early pathogenic region in SCA3, with progressive gene-expression changes affecting lipid metabolism, inflammation, cellular structure, nucleic acid processing, and aberrant RNA splicing. The weak overlap with Atxn3 knockout spinal cord signatures supports mutant ATXN3 toxic gain-of-function, rather than simple ATXN3 loss-of-function, as the driver of this regional pathology.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"locations\": [\"spinal cord\"]}}, {\"id\": \"Supportive and rehabilitative care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multidisciplinary symptomatic management with physical therapy, speech therapy, occupational therapy, mobility aids, and swallowing support remains the standard of care. There is no approved disease-modifying therapy.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"PolyQ-expanded ataxin-3 misfolding and nuclear aggregation\", \"target\": \"Impaired ATXN3 deubiquitinase activity and proteostasis failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired ATXN3 deubiquitinase activity and proteostasis failure\", \"target\": \"Multifocal neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oligodendrocyte dysfunction\", \"target\": \"Multifocal neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal cord transcriptomic dysregulation and RNA splicing defects\", \"target\": \"Multifocal neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antisense oligonucleotide (ASO) therapy targeting ATXN3\", \"target\": \"PolyQ-expanded ataxin-3 misfolding and nuclear aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antisense oligonucleotide (ASO) therapy targeting ATXN3\", \"target\": \"Oligodendrocyte dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravenous trehalose (SLS-005)\", \"target\": \"Impaired ATXN3 deubiquitinase activity and proteostasis failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous trehalose (SLS-005)\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATXN3 CAG repeat expansion\", \"target\": \"PolyQ-expanded ataxin-3 misfolding and nuclear aggregation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATXN3 CAG repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ATXN3\"], \"presence\": \"Positive\", \"association\": \"Pathogenic CAG trinucleotide repeat expansion in exon 10\"}}, {\"id\": \"Antisense oligonucleotide (ASO) therapy targeting ATXN3\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intracerebroventricularly delivered antisense oligonucleotides targeting ATXN3 achieve sustained reduction of polyQ-expanded ataxin-3 in the CNS and rescue motor, neuropathological, and neurochemical deficits in SCA3 mouse models. This represents a genetically targeted disease-modifying strategy with strong preclinical support; the BIIB132 intrathecal ASO Phase 1 program for SCA3 reached clinical testing but is currently terminated on ClinicalTrials.gov.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"antisense oligonucleotide\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebellar dysarthria is universal across MJD/SCA3 subtypes, reflecting brainstem (pons, cranial nerve motor nuclei) and cerebellar involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait and balance impairment is the cardinal clinical feature of MJD/SCA3 and is present across all subtypes. It results from cerebellar degeneration, particularly of the dentate nucleus and spinocerebellar tracts.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002066\"}}, {\"id\": \"Impaired ATXN3 deubiquitinase activity and proteostasis failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normal ataxin-3 functions as a deubiquitinase (DUB), cleaving K48- and K63-linked polyubiquitin chains to regulate proteasomal delivery. The polyQ expansion abrogates this catalytic function and overwhelms the ubiquitin-proteasome system (UPS) and autophagy-lysosomal pathway, causing misfolded protein accumulation throughout the neurodegenerative cascade.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\", \"motor neuron\"], \"biological_processes\": [\"protein deubiquitination\", \"autophagy\", \"protein folding\"]}}, {\"id\": \"Intravenous trehalose (SLS-005)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Trehalose injection (SLS-005) is an investigational pharmacotherapy tested in a Phase 2b/3 spinocerebellar ataxia trial, modeled here as a proteostasis/autophagy-oriented intervention relevant to SCA3/MJD.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"trehalose\"]}}, {\"id\": \"Multifocal neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MJD/SCA3 is characterized by multifocal degeneration extending beyond the cerebellum to affect the brainstem (pons, cranial nerve nuclei), spinal cord anterior horn cells, substantia nigra, and dorsal root ganglia. This wide anatomic distribution underlies the subtype-specific clinical differences: brainstem involvement drives ophthalmoplegia and dysarthria; anterior horn degeneration drives amyotrophy in Type 3; substantia nigra loss drives parkinsonism in Type 4; cerebellar dentate nucleus degeneration drives ataxia across all subtypes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\", \"motor neuron\", \"dopaminergic neuron\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"cerebellum\", \"brainstem\", \"substantia nigra\"]}}, {\"id\": \"Oligodendrocyte dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In addition to neuronal pathology, mutant ATXN3 causes early and progressive oligodendrocyte dysfunction in SCA3. Oligodendrocytes display some of the earliest deficits, including impaired maturation, which contributes to white matter pathology and demyelination. This non-neuronal contribution is modifiable with anti-ATXN3 ASO therapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"]}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Balance and coordination training as part of the multidisciplinary rehabilitative approach. Regular physical therapy may slow functional decline in ataxia patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PolyQ-expanded ataxin-3 misfolding and nuclear aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CAG repeat expansion in exon 10 of ATXN3 produces an aberrantly elongated polyglutamine tract in ataxin-3. The mutant protein misfolds and forms intranuclear inclusions, which are a pathological hallmark of MJD/SCA3. These aggregates sequester transcription factors, co-regulators, and ubiquitin-pathway components, initiating a cascade of cellular toxicity.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"response to unfolded protein\"], \"genes\": [\"ATXN3\"], \"locations\": [\"cerebellum\", \"brainstem\"]}}, {\"id\": \"Spinal cord transcriptomic dysregulation and RNA splicing defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recent human and knock-in mouse transcriptomic studies identify the spinal cord as an early pathogenic region in SCA3, with progressive gene-expression changes affecting lipid metabolism, inflammation, cellular structure, nucleic acid processing, and aberrant RNA splicing. The weak overlap with Atxn3 knockout spinal cord signatures supports mutant ATXN3 toxic gain-of-function, rather than simple ATXN3 loss-of-function, as the driver of this regional pathology.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"locations\": [\"spinal cord\"]}}, {\"id\": \"Supportive and rehabilitative care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multidisciplinary symptomatic management with physical therapy, speech therapy, occupational therapy, mobility aids, and swallowing support remains the standard of care. There is no approved disease-modifying therapy.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"PolyQ-expanded ataxin-3 misfolding and nuclear aggregation\", \"target\": \"Impaired ATXN3 deubiquitinase activity and proteostasis failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired ATXN3 deubiquitinase activity and proteostasis failure\", \"target\": \"Multifocal neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oligodendrocyte dysfunction\", \"target\": \"Multifocal neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal cord transcriptomic dysregulation and RNA splicing defects\", \"target\": \"Multifocal neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antisense oligonucleotide (ASO) therapy targeting ATXN3\", \"target\": \"PolyQ-expanded ataxin-3 misfolding and nuclear aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antisense oligonucleotide (ASO) therapy targeting ATXN3\", \"target\": \"Oligodendrocyte dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravenous trehalose (SLS-005)\", \"target\": \"Impaired ATXN3 deubiquitinase activity and proteostasis failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous trehalose (SLS-005)\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATXN3 CAG repeat expansion\", \"target\": \"PolyQ-expanded ataxin-3 misfolding and nuclear aggregation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3954,6 +4181,8 @@
                 
                 <div class="evidence-explanation">Establishes dysphagia as a frequent and clinically significant SCA3 phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3973,6 +4202,8 @@
                 
                 
                 <div class="evidence-explanation">Provides cohort-level human evidence that dysphagia is common in SCA3 and progresses with disease duration.</div>
+                
+                
                 
             </div>
             
@@ -4037,6 +4268,8 @@
                 
                 <div class="evidence-explanation">Oculomotor involvement supports nystagmus as part of the MJD phenotype.</div>
                 
+                
+                
             </div>
             
             
@@ -4100,6 +4333,8 @@
                 
                 <div class="evidence-explanation">Pyramidal system involvement directly supports spasticity as a defining feature of the disease, most prominent in Type 1.</div>
                 
+                
+                
             </div>
             
             
@@ -4153,6 +4388,8 @@
                 
                 
                 <div class="evidence-explanation">Motor neuron involvement provides the mechanistic basis for muscle weakness and amyotrophy in Type 3.</div>
+                
+                
                 
             </div>
             
@@ -4217,6 +4454,8 @@
                 
                 <div class="evidence-explanation">Ataxia is the defining disease class, with gait ataxia as the cardinal manifestation in MJD/SCA3.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4236,6 +4475,8 @@
                 
                 
                 <div class="evidence-explanation">Cerebellar involvement directly produces gait ataxia as the primary symptom.</div>
+                
+                
                 
             </div>
             
@@ -4291,6 +4532,8 @@
                 
                 <div class="evidence-explanation">Dysarthria is a universal feature of SCA3 reflecting the brainstem and cerebellar degeneration that defines this ataxia.</div>
                 
+                
+                
             </div>
             
             
@@ -4344,6 +4587,8 @@
                 
                 
                 <div class="evidence-explanation">Extrapyramidal system involvement provides the mechanistic basis for dystonia in Type 1 MJD.</div>
+                
+                
                 
             </div>
             
@@ -4399,6 +4644,8 @@
                 
                 <div class="evidence-explanation">Motor neuron system involvement underpins the peripheral neuropathy and amyotrophy that define Type 3 MJD.</div>
                 
+                
+                
             </div>
             
             
@@ -4452,6 +4699,8 @@
                 
                 
                 <div class="evidence-explanation">Motor neuron involvement accounts for the lower motor neuron features including areflexia seen in Type 3.</div>
+                
+                
                 
             </div>
             
@@ -4507,6 +4756,8 @@
                 
                 <div class="evidence-explanation">Extrapyramidal system degeneration (including substantia nigra) is the mechanistic basis for parkinsonism in Type 4.</div>
                 
+                
+                
             </div>
             
             
@@ -4561,6 +4812,8 @@
                 
                 <div class="evidence-explanation">Human clinical review evidence supports cerebellar/dentate involvement underlying the cerebellar atrophy phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4580,6 +4833,8 @@
                 
                 
                 <div class="evidence-explanation">Neurochemical and structural cerebellar changes in SCA3 mice parallel human disease, supporting cerebellar atrophy as a core imaging feature.</div>
+                
+                
                 
             </div>
             
@@ -4634,6 +4889,8 @@
                 
                 
                 <div class="evidence-explanation">Cerebellar involvement produces intention tremor as part of the ataxia syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4698,6 +4955,8 @@
                 
                 <div class="evidence-explanation">Cerebellar involvement directly produces limb ataxia.</div>
                 
+                
+                
             </div>
             
             
@@ -4751,6 +5010,8 @@
                 
                 
                 <div class="evidence-explanation">Oculomotor system involvement is explicitly stated as a defining feature of MJD, supporting ophthalmoplegia as a core phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4837,6 +5098,8 @@
                 
                 <div class="evidence-explanation">Defines the pathogenic CAG repeat range for ATXN3 in MJD/SCA3.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4857,6 +5120,8 @@
                 
                 <div class="evidence-explanation">Confirms the exact molecular location of the pathogenic repeat expansion.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4876,6 +5141,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms ATXN3 CAG expansion as the sole causative mutation for MJD/SCA3.</div>
+                
+                
                 
             </div>
             
@@ -4985,6 +5252,8 @@
                 
                 <div class="evidence-explanation">Confirms absence of disease-modifying therapy, supporting supportive care as the current standard of care.</div>
                 
+                
+                
             </div>
             
             
@@ -5083,6 +5352,8 @@
                 
                 <div class="evidence-explanation">Directly demonstrates that ASO-mediated ATXN3 suppression prevents nuclear accumulation of the toxic polyQ-expanded protein.</div>
                 
+                
+                
             </div>
             
             
@@ -5126,6 +5397,8 @@
                 
                 <div class="evidence-explanation">Establishes that ASO therapy rescues oligodendrocyte dysfunction, expanding its benefit beyond neurons to glia.</div>
                 
+                
+                
             </div>
             
             
@@ -5165,6 +5438,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that ASO therapy rescues both motor behavior and Purkinje cell electrophysiology in a preclinical SCA3 model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5185,6 +5460,8 @@
                 
                 <div class="evidence-explanation">Shows that ASO treatment reverses measurable neurochemical biomarkers, supporting clinical translation with MRS endpoints.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5204,6 +5481,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates broad CNS distribution and effective ATXN3 suppression with ASOs across key neuroanatomic targets in SCA3 mouse models.</div>
+                
+                
                 
             </div>
             
@@ -5293,6 +5572,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the context in which symptomatic interventions including physical therapy are employed in the absence of disease-modifying treatment.</div>
+                
+                
                 
             </div>
             
@@ -5390,6 +5671,8 @@
                 
                 <div class="evidence-explanation">Documents clinical testing of intravenous trehalose in adult spinocerebellar ataxia, including the SCA3-relevant trial listed in the clinical trials section.</div>
                 
+                
+                
             </div>
             
             
@@ -5438,6 +5721,8 @@
                 
                 
                 <div class="evidence-explanation">Supports including trehalose as a clinical-stage investigational treatment relevant to this SCA3/MJD entry.</div>
+                
+                
                 
             </div>
             
@@ -5559,6 +5844,8 @@
                 
                 <div class="evidence-explanation">Supports inclusion of this dataset as an ASO-responsive oligodendrocyte transcriptomic resource for SCA3.</div>
                 
+                
+                
             </div>
             
             
@@ -5650,6 +5937,8 @@
                 
                 <div class="evidence-explanation">Supports inclusion of this dataset as a spinal-cord-focused transcriptomic resource for SCA3 mechanism and biomarker studies.</div>
                 
+                
+                
             </div>
             
             
@@ -5739,6 +6028,8 @@
                 
                 <div class="evidence-explanation">Supports inclusion of this dataset as a patient-derived isogenic iPSC model resource for SCA3.</div>
                 
+                
+                
             </div>
             
             
@@ -5810,6 +6101,8 @@
                 
                 <div class="evidence-explanation">Documents that ATXN3-targeted ASO therapy reached human Phase 1 testing in SCA3.</div>
                 
+                
+                
             </div>
             
             
@@ -5869,6 +6162,8 @@
                 
                 <div class="evidence-explanation">Documents SLS-005 as a clinical-stage interventional trial that included adults with SCA3.</div>
                 
+                
+                
             </div>
             
             
@@ -5927,6 +6222,8 @@
                 
                 
                 <div class="evidence-explanation">Captures a current late-stage symptomatic treatment trial relevant to SCA3 among the included hereditary ataxias.</div>
+                
+                
                 
             </div>
             

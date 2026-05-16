@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2701,6 +2892,8 @@
                 
                 <div class="evidence-explanation">Familial clustering supports genetic predisposition without Mendelian inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -2977,6 +3170,8 @@
                 
                 <div class="evidence-explanation">This case-control SNP scan identifies the truncating BTNL2 splice variant rs2076530 as a sarcoidosis risk factor independent of HLA-DRB1, with a defined molecular consequence (loss of membrane-anchored co-inhibitory protein).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2997,6 +3192,8 @@
                 
                 <div class="evidence-explanation">GWAS plus replication establishes ANXA11 as a major sarcoidosis susceptibility locus; the lead missense R230C (rs1049550) variant defined in this work is the molecular entry point for the apoptosis/proliferation arm of the pathograph.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3016,6 +3213,8 @@
                 
                 
                 <div class="evidence-explanation">Functional context for why ANXA11 risk variants are mechanistically relevant - the gene regulates apoptosis and proliferation, which are precisely the macrophage processes dysregulated in granuloma maintenance.</div>
+                
+                
                 
             </div>
             
@@ -3170,6 +3369,8 @@
                 
                 <div class="evidence-explanation">Direct demonstration that lung-resident T cells from sarcoidosis patients recognize mycobacterial antigens, supporting an antigen-driven step linking the susceptibility node to T-cell activation.</div>
                 
+                
+                
             </div>
             
             
@@ -3323,6 +3524,8 @@
                 
                 <div class="evidence-explanation">Reviews the paradigm shift identifying Th17.1 cells (not classical Th1) as the dominant IFN-gamma source in sarcoidosis, anchoring this node mechanistically.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3343,6 +3546,8 @@
                 
                 <div class="evidence-explanation">Direct support that Th17.1 polarization marks the pathogenic, progression-prone arm of sarcoidosis and is the upstream effector that drives macrophage transformation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3362,6 +3567,8 @@
                 
                 
                 <div class="evidence-explanation">Quantitative evidence that the IFN-gamma+ Th17 (Th17.1) compartment is enriched in lung lavage of sarcoidosis patients and tracks with radiographic stage.</div>
+                
+                
                 
             </div>
             
@@ -3566,6 +3773,8 @@
                 
                 <div class="evidence-explanation">Conditional Tsc2 deletion in mouse myeloid cells is sufficient to recapitulate sarcoid-like granulomas, mechanistically anchoring macrophage-intrinsic mTORC1 hyperactivation as a granuloma-initiating step.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3586,6 +3795,8 @@
                 
                 <div class="evidence-explanation">Re-analysis of human sarcoidosis biopsies translates the mouse mechanism - mTORC1 activity, macrophage proliferation, and glycolysis distinguish progressive from self-limiting disease in patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3605,6 +3816,8 @@
                 
                 
                 <div class="evidence-explanation">Independent confirmation that PI3K/Akt (upstream of mTORC1) is activated in pulmonary sarcoidosis BAL cells, supporting parallel relevance of this metabolic axis in human disease.</div>
+                
+                
                 
             </div>
             
@@ -3773,6 +3986,8 @@
                 
                 <div class="evidence-explanation">This review confirms the characteristic non-caseating granuloma formation in sarcoidosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3792,6 +4007,8 @@
                 
                 
                 <div class="evidence-explanation">This 2024 JCI mechanistic review frames sarcoidosis as a granuloma-defined immune-mediated disease and is the source for the integrated antigen-T-cell-macrophage causal chain summarized here.</div>
+                
+                
                 
             </div>
             
@@ -3910,6 +4127,8 @@
                 
                 <div class="evidence-explanation">Mechanistic case-based report explicitly attributing sarcoid hypercalcemia to macrophage-driven extrarenal CYP27B1 expression and PTHrP, defining the molecular bridge from granuloma to the hypercalcemia phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3929,6 +4148,8 @@
                 
                 
                 <div class="evidence-explanation">A non-sarcoidosis granulomatous condition independently demonstrates that ectopic CYP27B1 expression in tissue macrophages causes hypercalcemia, generalizing the macrophage-calcitriol mechanism.</div>
+                
+                
                 
             </div>
             
@@ -4018,6 +4239,8 @@
                 
                 
                 <div class="evidence-explanation">Single-cell RNA-seq demonstrates TREM2+ macrophages expressing ACE are enriched in sarcoid granulomas, directly supporting the macrophage origin of serum ACE elevation.</div>
+                
+                
                 
             </div>
             
@@ -4136,6 +4359,8 @@
                 
                 <div class="evidence-explanation">This review directly supports progression from pulmonary sarcoidosis to fibrocystic and fibrotic lung disease in a substantial subset of patients.</div>
                 
+                
+                
             </div>
             
             
@@ -4170,7 +4395,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antigen Recognition and CD4+ T-Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Susceptibility alleles allow MHC class II presentation of poorly degradable antigens (mycobacterial KatG, ESAT-6, Ag85A, sodA, HSP; propionibacterial proteins; or environmental particulates) to CD4+ T cells, which expand clonally and acquire a Th1/Th17.1 effector program with high IFN-gamma production.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive helper T cell\", \"alveolar macrophage\"], \"biological_processes\": [\"antigen processing and presentation of peptide antigen via MHC class II\", \"T cell activation\"]}}, {\"id\": \"Elevated ACE\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fibrotic Tissue Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In approximately 10-30% of patients with chronic disease, persistent granulomatous inflammation transitions to a profibrotic state characterized by TGF-beta signaling, fibroblast/myofibroblast activation, and excessive extracellular matrix deposition. The end result is irreversible parenchymal fibrosis with restrictive physiology, fibrocystic remodeling, and respiratory failure. This node conforms to the conserved fibrotic response module.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sarcoidosis is a polygenic immune disorder. Risk-associated variants in HLA class II (DRB1 lineages), the truncating splice variant rs2076530 in BTNL2 (a T-cell co-inhibitory butyrophilin-like immunoglobulin superfamily member), the missense ANXA11 R230C (rs1049550), NOTCH4, and IL27RA collectively shift antigen presentation, T-cell co-stimulation/inhibition, and macrophage apoptosis thresholds, predisposing to exaggerated granulomatous response on antigen encounter.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive helper T cell\"], \"biological_processes\": [\"antigen processing and presentation\"]}}, {\"id\": \"Granuloma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-caseating granulomas consist of organized collections of activated macrophages (epithelioid cells), multinucleated giant cells, and CD4+ T cells. Th1/Th17.1 immune responses drive granuloma development in response to persistent antigens. Granulomas are the defining histopathologic lesion that mediates the downstream organ-level phenotypes of sarcoidosis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelioid macrophage\", \"multinucleated giant cell\", \"CD4-positive helper T cell\"], \"biological_processes\": [\"granuloma formation\"]}}, {\"id\": \"Hypercalcemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"JAK Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Janus kinase inhibitors (tofacitinib, ruxolitinib) are emerging steroid-sparing options that target IFN-gamma/JAK-STAT signalling downstream of Th17.1 cells. Pilot studies in corticosteroid-dependent and cutaneous sarcoidosis report benefit; larger trials are ongoing.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Macrophage ACE Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epithelioid macrophages within granulomas constitutively express angiotensin-converting enzyme (ACE), and serum ACE elevation reflects total granuloma burden. Single-cell RNA-seq of cutaneous sarcoid granulomas has identified TREM2-positive ACE-expressing macrophages as a granuloma-resident population, supporting macrophage origin of the serum biomarker.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelioid macrophage\"]}}, {\"id\": \"Macrophage Activation and mTORC1 Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic antigenic stimulation drives macrophage hypertrophy, proliferation, and transformation into epithelioid cells. A macrophage-intrinsic increase in mTORC1 signaling (genetically modeled by Tsc2 deletion) is sufficient to initiate and sustain non-caseating granulomas, via CDK4-dependent proliferation, glycolytic reprogramming, and suppression of macrophage apoptosis. mTORC1 activation is enriched in progressive human sarcoidosis lesions.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelioid macrophage\", \"macrophage\"], \"biological_processes\": [\"TORC1 signaling\", \"macrophage activation\", \"glycolytic process\", \"negative regulation of macrophage apoptotic process\"]}}, {\"id\": \"Macrophage Calcitriol Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated monocytes and macrophages within sarcoid granulomas express 1-alpha-hydroxylase (CYP27B1), converting 25-hydroxyvitamin D to 1,25-dihydroxyvitamin D outside normal PTH/FGF23 regulation. This extrarenal calcitriol synthesis, with optional PTHrP secretion, drives intestinal calcium absorption and bone resorption, producing hypercalcemia and hypercalciuria.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"vitamin D metabolic process\"]}}, {\"id\": \"Methotrexate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most commonly used steroid-sparing agent for chronic sarcoidosis. Allows reduction of corticosteroid dose while maintaining disease control. The PREDMETH trial (NEJM 2025) demonstrated noninferiority of methotrexate to prednisone for 24-week change in % predicted FVC, supporting methotrexate as a first-line option in selected patients.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"Pulmonary Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irreversible parenchymal fibrosis in approximately 10-30% of patients with chronic disease, producing restrictive lung physiology, fibrocystic remodeling, and respiratory failure.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Pulmonary Sarcoidosis\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002206\"}}, {\"id\": \"Th17.1 Polarization and IFN-gamma Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasticity within the Th17 lineage produces IFN-gamma-producing Th17.1 cells that are the dominant source of IFN-gamma in pulmonary sarcoidosis and correlate with progressive (non-Lofgren) disease. Concurrent Treg dysfunction (impaired survival, altered CTLA-4 expression) removes the brake on this effector response.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"T-helper 17 cell\", \"regulatory T cell\"], \"biological_processes\": [\"T-helper 17 type immune response\", \"regulatory T cell apoptotic process\"]}}, {\"id\": \"mTOR Inhibitor Therapy (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhibition of mTORC1 with rapamycin/everolimus completely resolved granulomas in Tsc2-deficient mouse models and successful single-patient use of rapamycin has been reported. Currently investigational in human sarcoidosis but mechanistically targeted at the macrophage-intrinsic granuloma maintenance arm.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Genetic Susceptibility\", \"target\": \"Antigen Recognition and CD4+ T-Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antigen Recognition and CD4+ T-Cell Activation\", \"target\": \"Th17.1 Polarization and IFN-gamma Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Th17.1 Polarization and IFN-gamma Production\", \"target\": \"Macrophage Activation and mTORC1 Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Activation and mTORC1 Hyperactivation\", \"target\": \"Granuloma Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Granuloma Formation\", \"target\": \"Macrophage Calcitriol Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Granuloma Formation\", \"target\": \"Macrophage ACE Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Granuloma Formation\", \"target\": \"Fibrotic Tissue Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Calcitriol Production\", \"target\": \"Hypercalcemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage ACE Production\", \"target\": \"Elevated ACE\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrotic Tissue Remodeling\", \"target\": \"Pulmonary Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Methotrexate\", \"target\": \"Th17.1 Polarization and IFN-gamma Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK Inhibitor Therapy\", \"target\": \"Th17.1 Polarization and IFN-gamma Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"mTOR Inhibitor Therapy (Investigational)\", \"target\": \"Macrophage Activation and mTORC1 Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antigen Recognition and CD4+ T-Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Susceptibility alleles allow MHC class II presentation of poorly degradable antigens (mycobacterial KatG, ESAT-6, Ag85A, sodA, HSP; propionibacterial proteins; or environmental particulates) to CD4+ T cells, which expand clonally and acquire a Th1/Th17.1 effector program with high IFN-gamma production.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive helper T cell\", \"alveolar macrophage\"], \"biological_processes\": [\"antigen processing and presentation of peptide antigen via MHC class II\", \"T cell activation\"]}}, {\"id\": \"Elevated ACE\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Fibrotic Tissue Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In approximately 10-30% of patients with chronic disease, persistent granulomatous inflammation transitions to a profibrotic state characterized by TGF-beta signaling, fibroblast/myofibroblast activation, and excessive extracellular matrix deposition. The end result is irreversible parenchymal fibrosis with restrictive physiology, fibrocystic remodeling, and respiratory failure. This node conforms to the conserved fibrotic response module.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sarcoidosis is a polygenic immune disorder. Risk-associated variants in HLA class II (DRB1 lineages), the truncating splice variant rs2076530 in BTNL2 (a T-cell co-inhibitory butyrophilin-like immunoglobulin superfamily member), the missense ANXA11 R230C (rs1049550), NOTCH4, and IL27RA collectively shift antigen presentation, T-cell co-stimulation/inhibition, and macrophage apoptosis thresholds, predisposing to exaggerated granulomatous response on antigen encounter.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive helper T cell\"], \"biological_processes\": [\"antigen processing and presentation\"]}}, {\"id\": \"Granuloma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-caseating granulomas consist of organized collections of activated macrophages (epithelioid cells), multinucleated giant cells, and CD4+ T cells. Th1/Th17.1 immune responses drive granuloma development in response to persistent antigens. Granulomas are the defining histopathologic lesion that mediates the downstream organ-level phenotypes of sarcoidosis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelioid macrophage\", \"multinucleated giant cell\", \"CD4-positive helper T cell\"], \"biological_processes\": [\"granuloma formation\"]}}, {\"id\": \"Hypercalcemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"JAK Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Janus kinase inhibitors (tofacitinib, ruxolitinib) are emerging steroid-sparing options that target IFN-gamma/JAK-STAT signalling downstream of Th17.1 cells. Pilot studies in corticosteroid-dependent and cutaneous sarcoidosis report benefit; larger trials are ongoing.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Macrophage ACE Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epithelioid macrophages within granulomas constitutively express angiotensin-converting enzyme (ACE), and serum ACE elevation reflects total granuloma burden. Single-cell RNA-seq of cutaneous sarcoid granulomas has identified TREM2-positive ACE-expressing macrophages as a granuloma-resident population, supporting macrophage origin of the serum biomarker.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelioid macrophage\"]}}, {\"id\": \"Macrophage Activation and mTORC1 Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic antigenic stimulation drives macrophage hypertrophy, proliferation, and transformation into epithelioid cells. A macrophage-intrinsic increase in mTORC1 signaling (genetically modeled by Tsc2 deletion) is sufficient to initiate and sustain non-caseating granulomas, via CDK4-dependent proliferation, glycolytic reprogramming, and suppression of macrophage apoptosis. mTORC1 activation is enriched in progressive human sarcoidosis lesions.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelioid macrophage\", \"macrophage\"], \"biological_processes\": [\"TORC1 signaling\", \"macrophage activation\", \"glycolytic process\", \"negative regulation of macrophage apoptotic process\"]}}, {\"id\": \"Macrophage Calcitriol Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated monocytes and macrophages within sarcoid granulomas express 1-alpha-hydroxylase (CYP27B1), converting 25-hydroxyvitamin D to 1,25-dihydroxyvitamin D outside normal PTH/FGF23 regulation. This extrarenal calcitriol synthesis, with optional PTHrP secretion, drives intestinal calcium absorption and bone resorption, producing hypercalcemia and hypercalciuria.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"vitamin D metabolic process\"]}}, {\"id\": \"Methotrexate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most commonly used steroid-sparing agent for chronic sarcoidosis. Allows reduction of corticosteroid dose while maintaining disease control. The PREDMETH trial (NEJM 2025) demonstrated noninferiority of methotrexate to prednisone for 24-week change in % predicted FVC, supporting methotrexate as a first-line option in selected patients.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"Pulmonary Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irreversible parenchymal fibrosis in approximately 10-30% of patients with chronic disease, producing restrictive lung physiology, fibrocystic remodeling, and respiratory failure.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Pulmonary Sarcoidosis\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002206\"}}, {\"id\": \"Th17.1 Polarization and IFN-gamma Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasticity within the Th17 lineage produces IFN-gamma-producing Th17.1 cells that are the dominant source of IFN-gamma in pulmonary sarcoidosis and correlate with progressive (non-Lofgren) disease. Concurrent Treg dysfunction (impaired survival, altered CTLA-4 expression) removes the brake on this effector response.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"T-helper 17 cell\", \"regulatory T cell\"], \"biological_processes\": [\"T-helper 17 type immune response\", \"regulatory T cell apoptotic process\"]}}, {\"id\": \"mTOR Inhibitor Therapy (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhibition of mTORC1 with rapamycin/everolimus completely resolved granulomas in Tsc2-deficient mouse models and successful single-patient use of rapamycin has been reported. Currently investigational in human sarcoidosis but mechanistically targeted at the macrophage-intrinsic granuloma maintenance arm.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Genetic Susceptibility\", \"target\": \"Antigen Recognition and CD4+ T-Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antigen Recognition and CD4+ T-Cell Activation\", \"target\": \"Th17.1 Polarization and IFN-gamma Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Th17.1 Polarization and IFN-gamma Production\", \"target\": \"Macrophage Activation and mTORC1 Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Activation and mTORC1 Hyperactivation\", \"target\": \"Granuloma Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Granuloma Formation\", \"target\": \"Macrophage Calcitriol Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Granuloma Formation\", \"target\": \"Macrophage ACE Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Granuloma Formation\", \"target\": \"Fibrotic Tissue Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Calcitriol Production\", \"target\": \"Hypercalcemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage ACE Production\", \"target\": \"Elevated ACE\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrotic Tissue Remodeling\", \"target\": \"Pulmonary Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Methotrexate\", \"target\": \"Th17.1 Polarization and IFN-gamma Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK Inhibitor Therapy\", \"target\": \"Th17.1 Polarization and IFN-gamma Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"mTOR Inhibitor Therapy (Investigational)\", \"target\": \"Macrophage Activation and mTORC1 Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4266,6 +4491,8 @@
                 
                 <div class="evidence-explanation">This Mayo Clinic review strongly supports intrathoracic involvement as the dominant manifestation of sarcoidosis, but only indirectly supports mediastinal lymphadenopathy specifically.</div>
                 
+                
+                
             </div>
             
             
@@ -4321,6 +4548,8 @@
                 
                 
                 <div class="evidence-explanation">Cohort screening study supports conduction abnormalities (QRS &gt;120 ms, including AV block) as defining cardiac sarcoidosis features.</div>
+                
+                
                 
             </div>
             
@@ -4378,6 +4607,8 @@
                 
                 <div class="evidence-explanation">Directly supports ventricular arrhythmia as a recognized cardiac sarcoidosis complication.</div>
                 
+                
+                
             </div>
             
             
@@ -4433,6 +4664,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports sudden cardiac death as a severe sarcoidosis complication driven by myocardial granulomatous involvement.</div>
+                
+                
                 
             </div>
             
@@ -4490,6 +4723,8 @@
                 
                 <div class="evidence-explanation">Directly supports hepatosplenomegaly as a clinical manifestation of hepatic sarcoidosis occurring in 5-30% of affected patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4509,6 +4744,8 @@
                 
                 
                 <div class="evidence-explanation">ACCESS cohort demonstrates liver involvement as a recognized organ manifestation of sarcoidosis with racial differences in frequency.</div>
+                
+                
                 
             </div>
             
@@ -4566,6 +4803,8 @@
                 
                 <div class="evidence-explanation">Hepatosplenomegaly directly supports splenomegaly as a clinical manifestation in hepatic sarcoidosis patients.</div>
                 
+                
+                
             </div>
             
             
@@ -4622,6 +4861,8 @@
                 
                 <div class="evidence-explanation">ACCESS cohort study directly demonstrates extrathoracic lymph node involvement as a recognized manifestation of sarcoidosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4639,6 +4880,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet definition lists peripheral lymph nodes as a typical presentation feature.</div>
+                
+                
                 
             </div>
             
@@ -4696,6 +4939,8 @@
                 
                 <div class="evidence-explanation">Heart failure directly supported as a severe complication of cardiac sarcoidosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4715,6 +4960,8 @@
                 
                 
                 <div class="evidence-explanation">Heart failure confirmed as an organ-specific manifestation of cardiac sarcoidosis.</div>
+                
+                
                 
             </div>
             
@@ -4781,6 +5028,8 @@
                 
                 <div class="evidence-explanation">This retrospective series directly supports uveitis as a common ocular manifestation among patients with ocular sarcoidosis.</div>
                 
+                
+                
             </div>
             
             
@@ -4846,6 +5095,8 @@
                 
                 <div class="evidence-explanation">Establishes CNS involvement frequency in sarcoidosis; cranial neuropathies including facial palsy are recognized presenting features.</div>
                 
+                
+                
             </div>
             
             
@@ -4910,6 +5161,8 @@
                 
                 
                 <div class="evidence-explanation">This review of Lofgren syndrome directly supports erythema nodosum as a recognized acute cutaneous manifestation of sarcoidosis.</div>
+                
+                
                 
             </div>
             
@@ -4994,6 +5247,8 @@
                 
                 <div class="evidence-explanation">This case report and literature review directly identifies lupus pernio as a cutaneous sarcoidosis manifestation characterized by infiltrated violaceous plaques.</div>
                 
+                
+                
             </div>
             
             
@@ -5059,6 +5314,8 @@
                 
                 <div class="evidence-explanation">Directly supports hypercalcemia as a phenotype of sarcoidosis with a defined macrophage-CYP27B1 mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -5115,6 +5372,8 @@
                 
                 <div class="evidence-explanation">Fever listed as a recognized constitutional symptom of sarcoidosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5132,6 +5391,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet definition includes fever as a typical clinical presentation feature.</div>
+                
+                
                 
             </div>
             
@@ -5198,6 +5459,8 @@
                 
                 <div class="evidence-explanation">Establishes small fiber neuropathy as a highly prevalent complication of sarcoidosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5217,6 +5480,8 @@
                 
                 
                 <div class="evidence-explanation">Lancet review recognizes small-fiber neurological impairment as an important persistent disabling symptom of sarcoidosis.</div>
+                
+                
                 
             </div>
             
@@ -5283,6 +5548,8 @@
                 
                 <div class="evidence-explanation">This 2024 American Family Physician review identifies dyspnea as a key presenting symptom that should raise suspicion for sarcoidosis.</div>
                 
+                
+                
             </div>
             
             
@@ -5338,6 +5605,8 @@
                 
                 
                 <div class="evidence-explanation">Dry cough is identified as a hallmark symptom that should raise clinical suspicion for sarcoidosis in younger adults.</div>
+                
+                
                 
             </div>
             
@@ -5413,6 +5682,8 @@
                 
                 <div class="evidence-explanation">Directly supports pulmonary fibrosis as a progression-related phenotype occurring in a substantial subset of sarcoidosis patients.</div>
                 
+                
+                
             </div>
             
             
@@ -5478,6 +5749,8 @@
                 
                 <div class="evidence-explanation">This review supports fatigue as a recognized constitutional symptom in sarcoidosis, but the wording is not strong enough on its own to justify a VERY_FREQUENT frequency assignment.</div>
                 
+                
+                
             </div>
             
             
@@ -5534,6 +5807,8 @@
                 
                 <div class="evidence-explanation">Systematic review and meta-analysis of 49 studies (8574 patients) establishes arthralgia pooled prevalence at 32% and sarcoid arthritis at 19%.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5553,6 +5828,8 @@
                 
                 
                 <div class="evidence-explanation">Epidemiologic review listing arthralgia as a recognized systemic symptom of sarcoidosis.</div>
+                
+                
                 
             </div>
             
@@ -5610,6 +5887,8 @@
                 
                 <div class="evidence-explanation">Night sweats listed among systemic symptoms of sarcoidosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5627,6 +5906,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet definition includes night sweats in typical presentation.</div>
+                
+                
                 
             </div>
             
@@ -5683,6 +5964,8 @@
                 
                 
                 <div class="evidence-explanation">Nature Reviews Disease Primers identifies chest pain as a frequent symptom of sarcoidosis.</div>
+                
+                
                 
             </div>
             
@@ -5749,6 +6032,8 @@
                 
                 <div class="evidence-explanation">Weight loss identified as a constitutional symptom of sarcoidosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5766,6 +6051,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet definition lists weight loss as a typical presentation feature.</div>
+                
+                
                 
             </div>
             
@@ -5831,6 +6118,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms renal involvement prevalence and identifies nephrocalcinosis as a common renal manifestation of sarcoidosis.</div>
+                
+                
                 
             </div>
             
@@ -5917,6 +6206,8 @@
                 
                 <div class="evidence-explanation">This large genetic association study directly supports HLA-DRB1 variation as a determinant of sarcoidosis susceptibility and clinical course.</div>
                 
+                
+                
             </div>
             
             
@@ -5960,6 +6251,8 @@
                 
                 <div class="evidence-explanation">This case-control study directly supports BTNL2 variation as a sarcoidosis susceptibility factor.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5979,6 +6272,8 @@
                 
                 
                 <div class="evidence-explanation">Defines the molecular consequence - the A risk allele creates a cryptic splice site producing a truncated BTNL2 protein lacking the membrane anchor, reducing T-cell co-inhibitory signalling.</div>
+                
+                
                 
             </div>
             
@@ -6023,6 +6318,8 @@
                 
                 <div class="evidence-explanation">Original GWAS implicating ANXA11 as a sarcoidosis susceptibility locus.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6043,6 +6340,8 @@
                 
                 <div class="evidence-explanation">Independent replication in a Greek cohort confirms the protective association of the ANXA11 rs1049550 A allele, reinforcing the locus.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6062,6 +6361,8 @@
                 
                 
                 <div class="evidence-explanation">Subgroup analysis links ANXA11 variation specifically to the uveitis phenotype, providing a genotype-phenotype edge from genetic susceptibility to ocular manifestation.</div>
+                
+                
                 
             </div>
             
@@ -6106,6 +6407,8 @@
                 
                 <div class="evidence-explanation">GWAS in African Americans identifies NOTCH4 as a genome-wide significant sarcoidosis susceptibility locus independent of other MHC loci.</div>
                 
+                
+                
             </div>
             
             
@@ -6149,6 +6452,8 @@
                 
                 <div class="evidence-explanation">Nature Reviews Disease Primers review supports a polygenic contribution to sarcoidosis susceptibility including cytokine receptor variants; IL27RA is one of the implicated loci.</div>
                 
+                
+                
             </div>
             
             
@@ -6191,6 +6496,8 @@
                 
                 
                 <div class="evidence-explanation">Defines the molecular mechanism by which TSC2 loss in macrophages activates mTORC1 and induces CDK4-driven granulomatous proliferation, the macrophage-intrinsic engine of sarcoid granuloma maintenance.</div>
+                
+                
                 
             </div>
             
@@ -6282,6 +6589,8 @@
                 
                 <div class="evidence-explanation">This Mayo Clinic review establishes glucocorticoids as the cornerstone of sarcoidosis treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6301,6 +6610,8 @@
                 
                 
                 <div class="evidence-explanation">This 2024 review confirms corticosteroids as first-line initial treatment for active sarcoidosis.</div>
+                
+                
                 
             </div>
             
@@ -6412,6 +6723,8 @@
                 
                 <div class="evidence-explanation">This evidence-based review directly supports methotrexate as a standard second-line steroid-sparing therapy in pulmonary sarcoidosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6431,6 +6744,8 @@
                 
                 
                 <div class="evidence-explanation">The PREDMETH NEJM 2025 noninferiority trial demonstrates methotrexate is noninferior to prednisone for FVC change in pulmonary sarcoidosis, supporting methotrexate as a viable first-line alternative.</div>
+                
+                
                 
             </div>
             
@@ -6511,6 +6826,8 @@
                 
                 
                 <div class="evidence-explanation">This evidence-based review directly supports anti-TNF therapy, especially infliximab, as an option for refractory sarcoidosis.</div>
+                
+                
                 
             </div>
             
@@ -6608,6 +6925,8 @@
                 
                 <div class="evidence-explanation">Open-label proof-of-concept trial (NCT03793439) demonstrates tofacitinib enables steroid tapering in corticosteroid-dependent pulmonary sarcoidosis, supporting JAK inhibitors as a steroid-sparing option.</div>
                 
+                
+                
             </div>
             
             
@@ -6704,6 +7023,8 @@
                 
                 <div class="evidence-explanation">Pharmacologic mTORC1 inhibition resolves granulomas in a sarcoid-like animal model, providing the rationale for mTOR-targeted human therapy.</div>
                 
+                
+                
             </div>
             
             
@@ -6758,6 +7079,8 @@
                 
                 <div class="evidence-explanation">This occupational case series review directly supports industrial dust and metal exposure as relevant environmental associations in sarcoidosis.</div>
                 
+                
+                
             </div>
             
             
@@ -6800,6 +7123,8 @@
                 
                 <div class="evidence-explanation">This pathology study directly supports mycobacterial and propionibacterial organisms as leading infectious candidates in sarcoidosis pathogenesis.</div>
                 
+                
+                
             </div>
             
             
@@ -6832,6 +7157,7 @@
                 <div class="item-desc">Context: Serum angiotensin-converting enzyme often elevated but not specific for diagnosis</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6857,6 +7183,8 @@
                 
                 <div class="evidence-explanation">This retrospective cohort directly supports frequent elevation of serum ACE in sarcoidosis while remaining compatible with its limited diagnostic specificity.</div>
                 
+                
+                
             </div>
             
             
@@ -6875,6 +7203,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Due to ectopic 1,25-dihydroxyvitamin D (calcitriol) production by granuloma macrophages</div>
+                
                 
                 
     
@@ -6902,6 +7231,8 @@
                 
                 <div class="evidence-explanation">This case-based report explicitly supports hypercalcemia in sarcoidosis and ties it to macrophage-driven calcitriol dysregulation within granulomatous tissue.</div>
                 
+                
+                
             </div>
             
             
@@ -6920,6 +7251,7 @@
                 </div>
                 
                 <div class="item-desc">Context: ESR and CRP may be elevated during active disease</div>
+                
                 
                 
     
@@ -6946,6 +7278,8 @@
                 
                 
                 <div class="evidence-explanation">This study directly supports ESR and CRP elevation in active cardiac sarcoidosis, partially supporting their broader use as inflammatory activity markers in sarcoidosis.</div>
+                
+                
                 
             </div>
             

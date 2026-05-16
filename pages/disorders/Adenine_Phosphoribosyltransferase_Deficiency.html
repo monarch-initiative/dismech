@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2777,6 +2968,8 @@
                 
                 <div class="evidence-explanation">Orphanet defines the core biochemical, stone, and crystal-nephropathy disease features.</div>
                 
+                
+                
             </div>
             
             
@@ -2853,6 +3046,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -3018,6 +3213,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies APRT loss of function as the disease-causing gene mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3037,6 +3234,8 @@
                 
                 
                 <div class="evidence-explanation">Human variant data support abolished APRT enzyme activity in affected homozygotes.</div>
+                
+                
                 
             </div>
             
@@ -3138,6 +3337,8 @@
                 
                 <div class="evidence-explanation">Human APRT registry paper describes XOR-mediated production of poorly soluble DHA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3157,6 +3358,8 @@
                 
                 
                 <div class="evidence-explanation">Human genetic study background confirms the biochemical conversion step.</div>
+                
+                
                 
             </div>
             
@@ -3230,6 +3433,8 @@
                 
                 <div class="evidence-explanation">Orphanet links urinary DHA overexcretion to stones and crystalline nephropathy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3249,6 +3454,8 @@
                 
                 
                 <div class="evidence-explanation">The review supports urinary DHA formation and hyperexcretion.</div>
+                
+                
                 
             </div>
             
@@ -3329,6 +3536,8 @@
                 
                 <div class="evidence-explanation">Orphanet supports urolithiasis as a direct consequence of urinary DHA hyperexcretion.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3348,6 +3557,8 @@
                 
                 
                 <div class="evidence-explanation">Human registry data support kidney stones as a major clinical presentation.</div>
+                
+                
                 
             </div>
             
@@ -3414,6 +3625,8 @@
                 
                 <div class="evidence-explanation">Mouse model data support crystal interaction with tubular epithelial cells.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3434,6 +3647,8 @@
                 
                 <div class="evidence-explanation">Mouse model data support direct tubular obstruction by large crystals.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3453,6 +3668,8 @@
                 
                 
                 <div class="evidence-explanation">Patient-biopsy findings show that the model mechanisms are clinically relevant.</div>
+                
+                
                 
             </div>
             
@@ -3554,6 +3771,8 @@
                 
                 <div class="evidence-explanation">Mouse model evidence supports inflammation and fibrosis downstream of crystal deposition.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3573,6 +3792,8 @@
                 
                 
                 <div class="evidence-explanation">Human registry discussion identifies chronic inflammation, fibrosis, and nephron loss in DHA nephropathy.</div>
+                
+                
                 
             </div>
             
@@ -3653,6 +3874,8 @@
                 
                 <div class="evidence-explanation">GeneReviews supports the renal outcome mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3672,6 +3895,8 @@
                 
                 
                 <div class="evidence-explanation">Human registry study links DHA nephropathy to stones and progressive CKD.</div>
+                
+                
                 
             </div>
             
@@ -3729,6 +3954,8 @@
                 
                 <div class="evidence-explanation">Patient kidney biopsies support characteristic crystal nephropathy histopathology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3748,6 +3975,8 @@
                 
                 
                 <div class="evidence-explanation">Human registry paper describes the chronic histopathologic injury pattern.</div>
+                
+                
                 
             </div>
             
@@ -3780,7 +4009,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APRT molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic APRT pathogenic variants reduce adenine phosphoribosyltransferase catalytic activity, impairing adenine salvage.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"purine-containing compound salvage\"], \"molecular_functions\": [\"adenine phosphoribosyltransferase activity\"], \"genes\": [\"APRT\"]}}, {\"id\": \"APRT variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"APRT\"], \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"Abnormal APRT enzyme activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"APRT enzyme activity is absent or markedly reduced in affected individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012379\"}}, {\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral obstructive DHA calculi and crystal nephropathy can cause AKI episodes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001919\"}}, {\"id\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Xanthine oxidoreductase oxidizes adenine to 2,8-dihydroxyadenine when APRT salvage is absent.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"purine nucleobase metabolic process\"]}}, {\"id\": \"Biallelic APRT loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Pathogenic APRT variants include missense, nonsense, frameshift, deletion, start-loss, and splice variants; affected homozygotes or compound heterozygotes have absent enzyme activity.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Crystal nephropathy can cause progressive chronic kidney disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"High fluid intake\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ample fluid intake is advised to dilute urinary solutes and support stone prevention alongside XOR inhibitor pharmacotherapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Increased urinary 2,8-dihydroxyadenine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Kidney replacement therapy for ESRD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dialysis and kidney transplantation are used for ESRD, but XOR inhibitor therapy remains recommended after transplantation to prevent recurrent DHA nephropathy in the allograft.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radiolucent DHA stones are a common presenting manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000787\"}}, {\"id\": \"Obstructive DHA stone disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Poorly soluble DHA forms urinary stones that can cause obstructive stone events, lower urinary tract symptoms, hematuria, pain, and obstructive AKI.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ongoing crystal nephropathy manifests clinically as recurrent nephrolithiasis, acute obstructive kidney injury, chronic kidney disease, and kidney failure in a subset of untreated or late-treated individuals.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria is a frequent renal manifestation in Orphanet\u0027s structured phenotype table.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Reduced APRT enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Renal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced renal function is frequent in APRT deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"Renal tubular crystal deposition and obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"2,8-DHA crystals deposit in renal tubules. Small crystals can be taken up by tubular epithelial cells, while larger crystals obstruct whole tubules.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Stage 5 chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of untreated or late-treated individuals develop kidney failure.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"Tubular injury inflammation and fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Crystal-induced tubular injury triggers inflammation and fibrosis, producing chronic tubulointerstitial injury and nephron loss.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Uric acid-like radiolucent nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"DHA stones may be misidentified clinically as uric acid stones.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000791\"}}, {\"id\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess 2,8-DHA is excreted in urine, where its low solubility produces characteristic crystalluria and radiolucent stones.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Xanthine oxidoreductase inhibitor pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allopurinol or febuxostat inhibits xanthine oxidoreductase, reducing conversion of adenine to 2,8-DHA, lowering urinary DHA burden, and reducing stone recurrence and kidney injury risk when taken at adequate dose.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"allopurinol\", \"febuxostat\"]}}], \"edges\": [{\"source\": \"APRT molecular function deficiency\", \"target\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"APRT molecular function deficiency\", \"target\": \"Reduced APRT enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"APRT molecular function deficiency\", \"target\": \"Abnormal APRT enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"target\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"target\": \"Increased urinary 2,8-dihydroxyadenine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"target\": \"Obstructive DHA stone disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"target\": \"Renal tubular crystal deposition and obstruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Obstructive DHA stone disease\", \"target\": \"Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Obstructive DHA stone disease\", \"target\": \"Uric acid-like radiolucent nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Obstructive DHA stone disease\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal tubular crystal deposition and obstruction\", \"target\": \"Tubular injury inflammation and fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tubular injury inflammation and fibrosis\", \"target\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tubular injury inflammation and fibrosis\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"target\": \"Renal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Xanthine oxidoreductase inhibitor pharmacotherapy\", \"target\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Xanthine oxidoreductase inhibitor pharmacotherapy\", \"target\": \"Nephrolithiasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Xanthine oxidoreductase inhibitor pharmacotherapy\", \"target\": \"Chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"High fluid intake\", \"target\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High fluid intake\", \"target\": \"Nephrolithiasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Kidney replacement therapy for ESRD\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"APRT variants\", \"target\": \"APRT molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic APRT loss-of-function variants\", \"target\": \"APRT variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APRT molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic APRT pathogenic variants reduce adenine phosphoribosyltransferase catalytic activity, impairing adenine salvage.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"purine-containing compound salvage\"], \"molecular_functions\": [\"adenine phosphoribosyltransferase activity\"], \"genes\": [\"APRT\"]}}, {\"id\": \"APRT variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"APRT\"], \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"Abnormal APRT enzyme activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"APRT enzyme activity is absent or markedly reduced in affected individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012379\"}}, {\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral obstructive DHA calculi and crystal nephropathy can cause AKI episodes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001919\"}}, {\"id\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Xanthine oxidoreductase oxidizes adenine to 2,8-dihydroxyadenine when APRT salvage is absent.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"purine nucleobase metabolic process\"]}}, {\"id\": \"Biallelic APRT loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Pathogenic APRT variants include missense, nonsense, frameshift, deletion, start-loss, and splice variants; affected homozygotes or compound heterozygotes have absent enzyme activity.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Crystal nephropathy can cause progressive chronic kidney disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"High fluid intake\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ample fluid intake is advised to dilute urinary solutes and support stone prevention alongside XOR inhibitor pharmacotherapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Increased urinary 2,8-dihydroxyadenine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Kidney replacement therapy for ESRD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dialysis and kidney transplantation are used for ESRD, but XOR inhibitor therapy remains recommended after transplantation to prevent recurrent DHA nephropathy in the allograft.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radiolucent DHA stones are a common presenting manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000787\"}}, {\"id\": \"Obstructive DHA stone disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Poorly soluble DHA forms urinary stones that can cause obstructive stone events, lower urinary tract symptoms, hematuria, pain, and obstructive AKI.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ongoing crystal nephropathy manifests clinically as recurrent nephrolithiasis, acute obstructive kidney injury, chronic kidney disease, and kidney failure in a subset of untreated or late-treated individuals.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria is a frequent renal manifestation in Orphanet\u0027s structured phenotype table.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Reduced APRT enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\"}}, {\"id\": \"Renal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced renal function is frequent in APRT deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"Renal tubular crystal deposition and obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"2,8-DHA crystals deposit in renal tubules. Small crystals can be taken up by tubular epithelial cells, while larger crystals obstruct whole tubules.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Stage 5 chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of untreated or late-treated individuals develop kidney failure.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"Tubular injury inflammation and fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Crystal-induced tubular injury triggers inflammation and fibrosis, producing chronic tubulointerstitial injury and nephron loss.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Uric acid-like radiolucent nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"DHA stones may be misidentified clinically as uric acid stones.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000791\"}}, {\"id\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess 2,8-DHA is excreted in urine, where its low solubility produces characteristic crystalluria and radiolucent stones.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Xanthine oxidoreductase inhibitor pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allopurinol or febuxostat inhibits xanthine oxidoreductase, reducing conversion of adenine to 2,8-DHA, lowering urinary DHA burden, and reducing stone recurrence and kidney injury risk when taken at adequate dose.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"allopurinol\", \"febuxostat\"]}}], \"edges\": [{\"source\": \"APRT molecular function deficiency\", \"target\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"APRT molecular function deficiency\", \"target\": \"Reduced APRT enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"APRT molecular function deficiency\", \"target\": \"Abnormal APRT enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"target\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"target\": \"Increased urinary 2,8-dihydroxyadenine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"target\": \"Obstructive DHA stone disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"target\": \"Renal tubular crystal deposition and obstruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Obstructive DHA stone disease\", \"target\": \"Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Obstructive DHA stone disease\", \"target\": \"Uric acid-like radiolucent nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Obstructive DHA stone disease\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal tubular crystal deposition and obstruction\", \"target\": \"Tubular injury inflammation and fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tubular injury inflammation and fibrosis\", \"target\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tubular injury inflammation and fibrosis\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"target\": \"Renal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive DHA crystal nephropathy and renal dysfunction\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Xanthine oxidoreductase inhibitor pharmacotherapy\", \"target\": \"Adenine conversion to 2,8-dihydroxyadenine\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Xanthine oxidoreductase inhibitor pharmacotherapy\", \"target\": \"Nephrolithiasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Xanthine oxidoreductase inhibitor pharmacotherapy\", \"target\": \"Chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"High fluid intake\", \"target\": \"Urinary 2,8-dihydroxyadenine crystalluria\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High fluid intake\", \"target\": \"Nephrolithiasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Kidney replacement therapy for ESRD\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"APRT variants\", \"target\": \"APRT molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic APRT loss-of-function variants\", \"target\": \"APRT variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3862,6 +4091,8 @@
                 
                 <div class="evidence-explanation">Orphanet records hypertension as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -3917,6 +4148,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records atrial fibrillation as occasional.</div>
+                
+                
                 
             </div>
             
@@ -3983,6 +4216,8 @@
                 
                 <div class="evidence-explanation">Orphanet records nephrolithiasis as frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4002,6 +4237,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews supports kidney stones as a major clinical manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4059,6 +4296,8 @@
                 
                 <div class="evidence-explanation">Orphanet records uric acid nephrolithiasis as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -4115,6 +4354,8 @@
                 
                 <div class="evidence-explanation">Orphanet records chronic kidney disease as frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4134,6 +4375,8 @@
                 
                 
                 <div class="evidence-explanation">Human cohort paper supports CKD as a disease manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4191,6 +4434,8 @@
                 
                 <div class="evidence-explanation">Orphanet records renal insufficiency as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -4247,6 +4492,8 @@
                 
                 <div class="evidence-explanation">Orphanet records acute kidney injury as frequent.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4266,6 +4513,8 @@
                 
                 
                 <div class="evidence-explanation">Registry data document AKI before treatment in pediatric-presenting patients.</div>
+                
+                
                 
             </div>
             
@@ -4323,6 +4572,8 @@
                 
                 <div class="evidence-explanation">Orphanet records stage 5 chronic kidney disease as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4342,6 +4593,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews supports kidney failure risk when treatment is inadequate.</div>
+                
+                
                 
             </div>
             
@@ -4399,6 +4652,8 @@
                 
                 <div class="evidence-explanation">Orphanet records proteinuria as frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -4454,6 +4709,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records dysuria as frequent.</div>
+                
+                
                 
             </div>
             
@@ -4511,6 +4768,8 @@
                 
                 <div class="evidence-explanation">Orphanet records urinary retention as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -4566,6 +4825,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records oliguria as occasional.</div>
+                
+                
                 
             </div>
             
@@ -4632,6 +4893,8 @@
                 
                 <div class="evidence-explanation">Orphanet records flank pain as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -4697,6 +4960,8 @@
                 
                 <div class="evidence-explanation">Orphanet reports abnormal enzyme/coenzyme activity as very frequent.</div>
                 
+                
+                
             </div>
             
             
@@ -4753,6 +5018,8 @@
                 
                 <div class="evidence-explanation">Orphanet records recurrent urinary tract infections as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4772,6 +5039,8 @@
                 
                 
                 <div class="evidence-explanation">Pediatric APRT registry paper describes recurrent urinary tract infections among clinical features.</div>
+                
+                
                 
             </div>
             
@@ -4829,6 +5098,8 @@
                 
                 <div class="evidence-explanation">Orphanet records macroscopic hematuria as occasional.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4848,6 +5119,8 @@
                 
                 
                 <div class="evidence-explanation">Pediatric registry background supports hematuria as a clinical feature.</div>
+                
+                
                 
             </div>
             
@@ -4905,6 +5178,8 @@
                 
                 <div class="evidence-explanation">Orphanet records urinary hesitancy as occasional.</div>
                 
+                
+                
             </div>
             
             
@@ -4960,6 +5235,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records abdominal colic as occasional.</div>
+                
+                
                 
             </div>
             
@@ -5052,6 +5329,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists APRT loss-of-function germline variants as disease causing.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5071,6 +5350,8 @@
                 
                 
                 <div class="evidence-explanation">Human registry paper supports biallelic APRT variants and absent enzyme activity as diagnostic.</div>
+                
+                
                 
             </div>
             
@@ -5190,6 +5471,8 @@
                 
                 <div class="evidence-explanation">Human genetic study background states the treatment mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -5248,6 +5531,8 @@
                 
                 <div class="evidence-explanation">GeneReviews supports allopurinol or febuxostat therapy for kidney outcomes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5268,6 +5553,8 @@
                 
                 <div class="evidence-explanation">Registry data support clinical benefit from early treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5287,6 +5574,8 @@
                 
                 
                 <div class="evidence-explanation">Registry data support reduced stone burden and slower CKD progression.</div>
+                
+                
                 
             </div>
             
@@ -5377,6 +5666,8 @@
                 
                 <div class="evidence-explanation">GeneReviews recommends ample fluid intake as part of management.</div>
                 
+                
+                
             </div>
             
             
@@ -5427,6 +5718,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews advises high fluid intake in APRT deficiency management.</div>
+                
+                
                 
             </div>
             
@@ -5518,6 +5811,8 @@
                 
                 <div class="evidence-explanation">GeneReviews supports dialysis and kidney transplantation for ESRD management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5537,6 +5832,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews supports continuing XOR inhibition after transplant.</div>
+                
+                
                 
             </div>
             
@@ -5574,6 +5871,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5599,6 +5897,8 @@
                 
                 <div class="evidence-explanation">GeneReviews identifies absent APRT enzyme activity as diagnostic.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5619,6 +5919,8 @@
                 
                 <div class="evidence-explanation">Orphanet supports APRT loss of function as the proximal biochemical defect.</div>
                 
+                
+                
             </div>
             
             
@@ -5638,6 +5940,7 @@
                 
                 <div class="item-desc">Context: 2,8-DHA is formed and hyperexcreted in urine, where crystalluria and stone formation provide diagnostic and treatment-monitoring readouts.
 </div>
+                
                 
                 
     
@@ -5665,6 +5968,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies urinary DHA hyperexcretion as the core biochemical abnormality.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5684,6 +5989,8 @@
                 
                 
                 <div class="evidence-explanation">Human registry paper describes urinary excess of DHA downstream of absent APRT activity.</div>
+                
+                
                 
             </div>
             

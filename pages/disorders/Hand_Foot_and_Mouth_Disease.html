@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2850,6 +3041,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that SCARB2 acts intracellularly for uncoating rather than as a cell-surface receptor.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2869,6 +3062,8 @@
                 
                 
                 <div class="evidence-explanation">Shows PSGL-1 is the primary attachment receptor on lymphocytes.</div>
+                
+                
                 
             </div>
             
@@ -2965,6 +3160,8 @@
                 
                 <div class="evidence-explanation">Supports systemic dissemination and neurotropism of enteroviruses following initial infection.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2984,6 +3181,8 @@
                 
                 
                 <div class="evidence-explanation">Multi-system complications (gastrointestinal, pulmonary, neurological) confirm systemic viral dissemination beyond the initial mucosal site.</div>
+                
+                
                 
             </div>
             
@@ -3119,6 +3318,8 @@
                 
                 <div class="evidence-explanation">Supports mucocutaneous tropism as the hallmark clinical manifestation.</div>
                 
+                
+                
             </div>
             
             
@@ -3234,6 +3435,8 @@
                 
                 
                 <div class="evidence-explanation">Reviews the interplay between innate immune sensing and EV-A71 immune evasion strategies.</div>
+                
+                
                 
             </div>
             
@@ -3362,6 +3565,8 @@
                 
                 <div class="evidence-explanation">Demonstrates IP-10-mediated BBB tight junction protein loss during CV-A16 infection.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3381,6 +3586,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms the IP-10/TNF-alpha axis as a mechanism of BBB disruption facilitating neuroinvasion.</div>
+                
+                
                 
             </div>
             
@@ -3509,6 +3716,8 @@
                 
                 <div class="evidence-explanation">Supports inflammatory brain injury as a core CNS event following enteroviral neuroinvasion.</div>
                 
+                
+                
             </div>
             
             
@@ -3615,6 +3824,8 @@
                 
                 <div class="evidence-explanation">Provides direct human clinical evidence of brainstem structural injury in fulminant EV71 infection.</div>
                 
+                
+                
             </div>
             
             
@@ -3678,6 +3889,8 @@
                 
                 
                 <div class="evidence-explanation">Supports autonomic dysregulation as a major intermediate event in severe EV71 brainstem disease.</div>
+                
+                
                 
             </div>
             
@@ -3771,6 +3984,8 @@
                 
                 <div class="evidence-explanation">Demonstrates elevated catecholamine levels in severe EV71 HFMD.</div>
                 
+                
+                
             </div>
             
             
@@ -3849,6 +4064,8 @@
                 
                 <div class="evidence-explanation">Demonstrates EV-A71-induced glycolytic reprogramming via ENO1 upregulation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3868,6 +4085,8 @@
                 
                 
                 <div class="evidence-explanation">Shows glycolysis inhibition as a potential host-directed therapeutic strategy.</div>
+                
+                
                 
             </div>
             
@@ -3995,6 +4214,8 @@
                 
                 <div class="evidence-explanation">Confirms myocardial impairment as a contributor to mortality in severe HFMD.</div>
                 
+                
+                
             </div>
             
             
@@ -4059,6 +4280,8 @@
                 
                 
                 <div class="evidence-explanation">Painful oral enanthem leads to reduced oral intake and poor appetite.</div>
+                
+                
                 
             </div>
             
@@ -4125,6 +4348,8 @@
                 
                 <div class="evidence-explanation">Confirms oral lesions as a hallmark feature of HFMD.</div>
                 
+                
+                
             </div>
             
             
@@ -4180,6 +4405,8 @@
                 
                 
                 <div class="evidence-explanation">Painful oral enanthem causes dysphagia and drooling in young children.</div>
+                
+                
                 
             </div>
             
@@ -4246,6 +4473,8 @@
                 
                 <div class="evidence-explanation">Confirms exanthem on palms and soles as a characteristic feature.</div>
                 
+                
+                
             </div>
             
             
@@ -4302,6 +4531,8 @@
                 
                 <div class="evidence-explanation">Directly documents aseptic meningitis occurring in children with EV-A71-associated HFMD-spectrum illness.</div>
                 
+                
+                
             </div>
             
             
@@ -4357,6 +4588,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates neuroinflammatory mechanisms underlying brainstem encephalitis in an animal model.</div>
+                
+                
                 
             </div>
             
@@ -4423,6 +4656,8 @@
                 
                 <div class="evidence-explanation">Confirms vesicular rash on hands and feet as a hallmark feature.</div>
                 
+                
+                
             </div>
             
             
@@ -4478,6 +4713,8 @@
                 
                 
                 <div class="evidence-explanation">CV-A6, known to cause onychomadesis, was identified in 17% of cases in this Indian cohort.</div>
+                
+                
                 
             </div>
             
@@ -4544,6 +4781,8 @@
                 
                 <div class="evidence-explanation">Fever is part of the self-limited illness requiring symptomatic treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -4600,6 +4839,8 @@
                 
                 <div class="evidence-explanation">Confirms neurogenic pulmonary edema as a major cause of death in severe HFMD.</div>
                 
+                
+                
             </div>
             
             
@@ -4655,6 +4896,8 @@
                 
                 
                 <div class="evidence-explanation">Painful oral enanthem causes reduced fluid intake, leading to dehydration in young children.</div>
+                
+                
                 
             </div>
             
@@ -4721,6 +4964,8 @@
                 
                 <div class="evidence-explanation">Irritability is a common presentation in young children with painful oral lesions.</div>
                 
+                
+                
             </div>
             
             
@@ -4777,6 +5022,8 @@
                 
                 <div class="evidence-explanation">Acute flaccid paralysis is among the severe neurological complications of EV-A71 HFMD.</div>
                 
+                
+                
             </div>
             
             
@@ -4832,6 +5079,8 @@
                 
                 
                 <div class="evidence-explanation">Seizures are part of the spectrum of neurological complications in severe HFMD.</div>
+                
+                
                 
             </div>
             
@@ -4898,6 +5147,8 @@
                 
                 <div class="evidence-explanation">Painful oral enanthem includes pharyngeal involvement causing sore throat.</div>
                 
+                
+                
             </div>
             
             
@@ -4962,6 +5213,8 @@
                 
                 
                 <div class="evidence-explanation">Malaise is part of the prodromal and acute symptomatology.</div>
+                
+                
                 
             </div>
             
@@ -5045,6 +5298,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates protective SCARB2 SNPs reducing risk of severe EV-A71 HFMD.</div>
+                
+                
                 
             </div>
             
@@ -5135,6 +5390,8 @@
                 
                 <div class="evidence-explanation">Supports supportive care as the mainstay of treatment given self-limiting nature.</div>
                 
+                
+                
             </div>
             
             
@@ -5213,6 +5470,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports acetaminophen or ibuprofen for symptomatic treatment of HFMD.</div>
+                
+                
                 
             </div>
             
@@ -5293,6 +5552,8 @@
                 
                 <div class="evidence-explanation">Confirms the efficacy and regulatory approval of the EV-A71 vaccine.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5312,6 +5573,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates real-world impact of EV-A71 vaccine on reducing EV-A71-associated HFMD.</div>
+                
+                
                 
             </div>
             
@@ -5367,6 +5630,8 @@
                 
                 <div class="evidence-explanation">The predominant age group (under 5) is the daycare and preschool population.</div>
                 
+                
+                
             </div>
             
             
@@ -5409,6 +5674,8 @@
                 
                 <div class="evidence-explanation">Confirms summer/autumn seasonality of HFMD epidemics.</div>
                 
+                
+                
             </div>
             
             
@@ -5450,6 +5717,8 @@
                 
                 
                 <div class="evidence-explanation">Highlights the role of hygiene in HFMD prevention.</div>
+                
+                
                 
             </div>
             
@@ -5542,6 +5811,8 @@
                 
                 <div class="evidence-explanation">The distinguishing feature of HFMD from herpangina is the presence of exanthem on palms and soles, which is absent in herpangina.</div>
                 
+                
+                
             </div>
             
             
@@ -5617,6 +5888,8 @@
                 
                 <div class="evidence-explanation">HFMD is distinguished from HSV gingivostomatitis by the characteristic exanthem on palms and soles, which is absent in HSV infection.</div>
                 
+                
+                
             </div>
             
             
@@ -5691,6 +5964,8 @@
                 
                 <div class="evidence-explanation">HFMD is distinguished from chickenpox by its acral distribution (hands and feet) versus the centripetal trunk-predominant distribution of varicella.</div>
                 
+                
+                
             </div>
             
             
@@ -5763,6 +6038,8 @@
                 
                 
                 <div class="evidence-explanation">HFMD vesicular lesions on hands and feet are distinguished from the target/iris-shaped lesions of erythema multiforme.</div>
+                
+                
                 
             </div>
             
@@ -5841,6 +6118,8 @@
                 
                 <div class="evidence-explanation">Supports this dataset as a severe-HFMD single-cell PBMC resource focused on monocyte/macrophage activation.</div>
                 
+                
+                
             </div>
             
             
@@ -5905,6 +6184,8 @@
                 
                 
                 <div class="evidence-explanation">Supports this dataset as a human motor-neuron single-cell transcriptomic resource relevant to EV-A71 neurotropism.</div>
+                
+                
                 
             </div>
             
@@ -5971,6 +6252,8 @@
                 
                 <div class="evidence-explanation">Supports this dataset as a mouse transcriptomic/modeling resource for CV-A10-associated onychomadesis after HFMD.</div>
                 
+                
+                
             </div>
             
             
@@ -6030,6 +6313,8 @@
                 
                 <div class="evidence-explanation">Evaluates long-term immune persistence of the approved EV-A71 vaccine.</div>
                 
+                
+                
             </div>
             
             
@@ -6076,6 +6361,8 @@
                 
                 
                 <div class="evidence-explanation">Documents early-phase EV-A71 vaccine development.</div>
+                
+                
                 
             </div>
             

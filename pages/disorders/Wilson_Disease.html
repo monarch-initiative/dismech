@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2724,6 +2915,8 @@
                 
                 <div class="evidence-explanation">Directly states autosomal recessive inheritance for Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2743,6 +2936,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s structured inheritance section independently classifies Wilson disease as autosomal recessive.</div>
+                
+                
                 
             </div>
             
@@ -2947,6 +3142,8 @@
                 <div class="evidence-explanation">This clinical review identifies impaired hepatocyte copper trafficking as the core upstream Wilson disease defect.
 </div>
                 
+                
+                
             </div>
             
             
@@ -3093,6 +3290,8 @@
                 
                 <div class="evidence-explanation">Confirms that impaired biliary copper excretion is the primary defect caused by ATP7B dysfunction.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3111,6 +3310,8 @@
                 
                 <div class="evidence-explanation">Supports ATP7B localization to the trans-Golgi network with biliary excretion function.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3128,6 +3329,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates copper-stimulated ATP7B trafficking to the canalicular membrane.</div>
+                
+                
                 
             </div>
             
@@ -3239,6 +3442,8 @@
                 
                 
                 <div class="evidence-explanation">Supports that ATP7B loads copper into apoceruloplasmin in the secretory pathway.</div>
+                
+                
                 
             </div>
             
@@ -3352,6 +3557,8 @@
                 
                 <div class="evidence-explanation">Supports multi-organ copper accumulation in Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3369,6 +3576,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms hepatic copper overflow into systemic circulation.</div>
+                
+                
                 
             </div>
             
@@ -3545,6 +3754,8 @@
                 
                 <div class="evidence-explanation">Explains the pathophysiology of systemic copper distribution from hepatic overflow.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3562,6 +3773,8 @@
                 
                 
                 <div class="evidence-explanation">Supports toxic effects of circulating free copper causing oxidative stress and excitotoxic injury.</div>
+                
+                
                 
             </div>
             
@@ -3817,6 +4030,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that excess copper generates ROS leading to oxidative stress and cellular injury.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3835,6 +4050,8 @@
                 
                 <div class="evidence-explanation">Supports mitochondrial dysfunction, ROS generation, and hepatocyte death with copper overload.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3852,6 +4069,8 @@
                 
                 
                 <div class="evidence-explanation">Supports progression from hepatic injury to fibrosis and cirrhosis.</div>
+                
+                
                 
             </div>
             
@@ -4002,6 +4221,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a distinct fibrogenic step in which copper-triggered signaling activates hepatic stellate cells and drives myofibroblast conversion.</div>
+                
+                
                 
             </div>
             
@@ -4182,6 +4403,8 @@
                 
                 
                 <div class="evidence-explanation">Supports extracellular matrix accumulation as the immediate downstream consequence of hepatic stellate-cell activation in Wilson disease liver fibrosis.</div>
+                
+                
                 
             </div>
             
@@ -4479,6 +4702,8 @@
                 
                 <div class="evidence-explanation">Supports copper deposition driving brain damage with characteristic striatal lesions.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4496,6 +4721,8 @@
                 
                 
                 <div class="evidence-explanation">Supports reactive astrogliosis and basal ganglia/putamen involvement.</div>
+                
+                
                 
             </div>
             
@@ -4516,6 +4743,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates CNS inflammatory cytokines and microglial activation in a Wilson disease mouse model.</div>
+                
+                
                 
             </div>
             
@@ -4590,6 +4819,8 @@
                 
                 <div class="evidence-explanation">Supports cuproptosis as a proposed mechanistic contributor in Wilson disease, but not yet as a definitively established pathway in patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4607,6 +4838,8 @@
                 
                 
                 <div class="evidence-explanation">A recent mechanistic review links abnormal lipoylation and TCA-cycle dysfunction to Wilson disease liver injury, providing hypothesis-level support for cuproptosis-related biology.</div>
+                
+                
                 
             </div>
             
@@ -4681,6 +4914,8 @@
                 
                 <div class="evidence-explanation">Supports that secondary hepatic iron overload can occur in Wilson disease, which provides biologic plausibility for ferroptosis but does not directly prove it.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4698,6 +4933,8 @@
                 
                 
                 <div class="evidence-explanation">Supports ferroptosis as an emerging inference from observed hepatic iron deposition rather than a directly proven disease mechanism.</div>
+                
+                
                 
             </div>
             
@@ -4733,7 +4970,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"24-Hour Urinary Copper\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ATP7B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ATP7B\"], \"association\": \"Causative\"}}, {\"id\": \"ATP7B Copper-Trafficking Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of hepatocyte ATP7B copper-trafficking function is the shared upstream defect that impairs both copper excretion into bile and copper incorporation into apoceruloplasmin in the secretory pathway.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"copper ion transport\"], \"molecular_functions\": [\"P-type monovalent copper transporter activity\"], \"genes\": [\"ATP7B\"]}}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Abnormality Of The Menstrual Cycle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000140\"}}, {\"id\": \"Acute Hepatic Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006554\"}}, {\"id\": \"Acute Hepatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200119\"}}, {\"id\": \"Aggressive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0001369\"}}, {\"id\": \"Ascites\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001541\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002653\"}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002067\"}}, {\"id\": \"Bruising Susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000978\"}}, {\"id\": \"Cardiac Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Ceruloplasmin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chorea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002072\"}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Clumsiness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002312\"}}, {\"id\": \"Cuproptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper-dependent cell death has been proposed in Wilson disease, involving binding of copper to lipoylated enzymes in the tricarboxylic acid (TCA) cycle and leading to proteotoxic stress and mitochondrial dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cuproptosis\"]}}, {\"id\": \"D-Penicillamine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Copper chelator, first-line therapy, promotes urinary copper excretion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Drooling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002307\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Elevated Circulating Hepatic Transaminase Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Excessive Hepatic ECM Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Collagen-secreting myofibroblasts deposit excessive extracellular matrix in the liver, progressively distorting architecture and promoting cirrhosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myofibroblast cell\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen biosynthetic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Excessive Salivation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003781\"}}, {\"id\": \"Failure To Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Ferroptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Iron-related cell death pathway involving phospholipid peroxidation. Secondary hepatic iron overload has been documented in a subset of Wilson disease patients, raising the possibility of ferroptotic injury alongside copper-mediated toxicity.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ferroptosis\"]}}, {\"id\": \"Focal T2 Hyperintense Brainstem Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012748\"}}, {\"id\": \"Gait Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Hepatic Copper\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic Copper Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired biliary excretion causes progressive copper retention in hepatocytes. When hepatic storage capacity is exceeded, copper is released into the circulation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic Steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatic Stellate Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper-injured liver tissue activates pro-fibrotic signaling, including TGF-beta and NF-kappaB pathways, which stimulate hepatic stellate cells to transdifferentiate toward collagen-secreting myofibroblasts.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatic stellate cell\", \"myofibroblast cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012115\"}}, {\"id\": \"Hepatocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper accumulation in hepatocytes causes oxidative stress, mitochondrial dysfunction, and cell death. Severe injury can manifest as hepatitis, jaundice, hepatomegaly, and acute liver failure. Copper overload also activates autophagy and mitophagy-based mitochondrial quality control responses.\\n\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"mitophagy\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Impaired Biliary Copper Excretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATP7B mutations impair copper excretion into bile. ATP7B normally resides in the trans-Golgi network and traffics to the bile canalicular membrane when intracellular copper is elevated. Loss of ATP7B function prevents this copper export pathway.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"copper ion transport\"], \"molecular_functions\": [\"P-type monovalent copper transporter activity\"], \"genes\": [\"ATP7B\"]}}, {\"id\": \"Impaired Ceruloplasmin Loading\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATP7B normally loads copper into apoceruloplasmin in the trans-Golgi network. Loss of ATP7B function results in secretion of copper-free apoceruloplasmin, which is rapidly degraded, leading to the characteristic low serum ceruloplasmin levels.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"copper ion homeostasis\"], \"molecular_functions\": [\"P-type monovalent copper transporter activity\"], \"genes\": [\"ATP7B\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0001249\"}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Joint Swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0001386\"}}, {\"id\": \"Kayser-Fleischer Rings\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0200032\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Curative for hepatic Wilson disease, reverses copper metabolism defect.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Low Copper Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive dietary measure; liver and shellfish are the foods most consistently recommended for avoidance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper deposition is thought to drive brain cellular damage with characteristic striatal/basal ganglia lesions. Reactive astrogliosis and microglial activation with increased CNS inflammatory cytokines indicate neuroinflammation contributing to movement and psychiatric symptoms.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"astrocyte\", \"microglial cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"collection of basal ganglia\", \"putamen\"]}}, {\"id\": \"Non-Ceruloplasmin-Bound Serum Copper\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Osteopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000938\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001300\"}}, {\"id\": \"Pathologic Fracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0002756\"}}, {\"id\": \"Personality Changes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000751\"}}, {\"id\": \"Proximal Lower Limb Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0008994\"}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0000989\"}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000709\"}}, {\"id\": \"Renal Tubular Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000124\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002063\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Sunflower Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:6000642\"}}, {\"id\": \"Systemic Copper Distribution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When hepatic copper storage capacity is exceeded, free copper enters the circulation and deposits in the brain, kidneys, eyes, heart, muscles, and bones, causing multi-organ injury.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tetrathiomolybdate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational copper chelator that markedly reduces intestinal copper uptake and lowers hepatic and brain copper exposure.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tetrathiomolybdate\"]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Trientine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative copper chelator, better tolerated than penicillamine.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001824\"}}, {\"id\": \"Zinc Acetate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Blocks intestinal copper absorption, maintenance therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"zinc acetate\"]}}], \"edges\": [{\"source\": \"ATP7B Copper-Trafficking Defect\", \"target\": \"Impaired Biliary Copper Excretion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ATP7B Copper-Trafficking Defect\", \"target\": \"Impaired Ceruloplasmin Loading\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Biliary Copper Excretion\", \"target\": \"Hepatic Copper Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Ceruloplasmin Loading\", \"target\": \"Ceruloplasmin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Copper Accumulation\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Copper Accumulation\", \"target\": \"Systemic Copper Distribution\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Copper Accumulation\", \"target\": \"Hepatic Copper\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Non-Ceruloplasmin-Bound Serum Copper\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"24-Hour Urinary Copper\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Kayser-Fleischer Rings\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Renal Tubular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Cardiac Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Osteopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Sunflower Cataract\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Abnormality Of The Menstrual Cycle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Joint Swelling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Pathologic Fracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatic Stellate Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Acute Hepatic Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Cuproptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Ferroptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatic Steatosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Acute Hepatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Elevated Circulating Hepatic Transaminase Concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Failure To Thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Excessive Hepatic ECM Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Ascites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Bruising Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Bradykinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Chorea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Drooling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Personality Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Gait Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Clumsiness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Excessive Salivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Proximal Lower Limb Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Focal T2 Hyperintense Brainstem Lesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Aggressive Behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"D-Penicillamine\", \"target\": \"Systemic Copper Distribution\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Trientine\", \"target\": \"Systemic Copper Distribution\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Zinc Acetate\", \"target\": \"Hepatic Copper Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low Copper Diet\", \"target\": \"Hepatic Copper Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tetrathiomolybdate\", \"target\": \"Systemic Copper Distribution\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Impaired Biliary Copper Excretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ATP7B\", \"target\": \"ATP7B Copper-Trafficking Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP7B\", \"target\": \"Impaired Biliary Copper Excretion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP7B\", \"target\": \"Impaired Ceruloplasmin Loading\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"24-Hour Urinary Copper\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated\"}}, {\"id\": \"ATP7B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ATP7B\"], \"association\": \"Causative\"}}, {\"id\": \"ATP7B Copper-Trafficking Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of hepatocyte ATP7B copper-trafficking function is the shared upstream defect that impairs both copper excretion into bile and copper incorporation into apoceruloplasmin in the secretory pathway.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"copper ion transport\"], \"molecular_functions\": [\"P-type monovalent copper transporter activity\"], \"genes\": [\"ATP7B\"]}}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Abnormality Of The Menstrual Cycle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000140\"}}, {\"id\": \"Acute Hepatic Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006554\"}}, {\"id\": \"Acute Hepatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200119\"}}, {\"id\": \"Aggressive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0001369\"}}, {\"id\": \"Ascites\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001541\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002653\"}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002067\"}}, {\"id\": \"Bruising Susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000978\"}}, {\"id\": \"Cardiac Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Ceruloplasmin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Decreased\"}}, {\"id\": \"Chorea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002072\"}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Clumsiness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002312\"}}, {\"id\": \"Cuproptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper-dependent cell death has been proposed in Wilson disease, involving binding of copper to lipoylated enzymes in the tricarboxylic acid (TCA) cycle and leading to proteotoxic stress and mitochondrial dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cuproptosis\"]}}, {\"id\": \"D-Penicillamine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Copper chelator, first-line therapy, promotes urinary copper excretion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Drooling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002307\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Elevated Circulating Hepatic Transaminase Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Excessive Hepatic ECM Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Collagen-secreting myofibroblasts deposit excessive extracellular matrix in the liver, progressively distorting architecture and promoting cirrhosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myofibroblast cell\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen biosynthetic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Excessive Salivation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003781\"}}, {\"id\": \"Failure To Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Ferroptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Iron-related cell death pathway involving phospholipid peroxidation. Secondary hepatic iron overload has been documented in a subset of Wilson disease patients, raising the possibility of ferroptotic injury alongside copper-mediated toxicity.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ferroptosis\"]}}, {\"id\": \"Focal T2 Hyperintense Brainstem Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012748\"}}, {\"id\": \"Gait Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Hepatic Copper\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Hepatic Copper Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired biliary excretion causes progressive copper retention in hepatocytes. When hepatic storage capacity is exceeded, copper is released into the circulation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic Steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatic Stellate Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper-injured liver tissue activates pro-fibrotic signaling, including TGF-beta and NF-kappaB pathways, which stimulate hepatic stellate cells to transdifferentiate toward collagen-secreting myofibroblasts.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatic stellate cell\", \"myofibroblast cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012115\"}}, {\"id\": \"Hepatocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper accumulation in hepatocytes causes oxidative stress, mitochondrial dysfunction, and cell death. Severe injury can manifest as hepatitis, jaundice, hepatomegaly, and acute liver failure. Copper overload also activates autophagy and mitophagy-based mitochondrial quality control responses.\\n\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"mitophagy\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Impaired Biliary Copper Excretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATP7B mutations impair copper excretion into bile. ATP7B normally resides in the trans-Golgi network and traffics to the bile canalicular membrane when intracellular copper is elevated. Loss of ATP7B function prevents this copper export pathway.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"copper ion transport\"], \"molecular_functions\": [\"P-type monovalent copper transporter activity\"], \"genes\": [\"ATP7B\"]}}, {\"id\": \"Impaired Ceruloplasmin Loading\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATP7B normally loads copper into apoceruloplasmin in the trans-Golgi network. Loss of ATP7B function results in secretion of copper-free apoceruloplasmin, which is rapidly degraded, leading to the characteristic low serum ceruloplasmin levels.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"copper ion homeostasis\"], \"molecular_functions\": [\"P-type monovalent copper transporter activity\"], \"genes\": [\"ATP7B\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0001249\"}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Joint Swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0001386\"}}, {\"id\": \"Kayser-Fleischer Rings\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0200032\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Curative for hepatic Wilson disease, reverses copper metabolism defect.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Low Copper Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive dietary measure; liver and shellfish are the foods most consistently recommended for avoidance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper deposition is thought to drive brain cellular damage with characteristic striatal/basal ganglia lesions. Reactive astrogliosis and microglial activation with increased CNS inflammatory cytokines indicate neuroinflammation contributing to movement and psychiatric symptoms.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"astrocyte\", \"microglial cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"collection of basal ganglia\", \"putamen\"]}}, {\"id\": \"Non-Ceruloplasmin-Bound Serum Copper\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated\"}}, {\"id\": \"Osteopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000938\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001300\"}}, {\"id\": \"Pathologic Fracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0002756\"}}, {\"id\": \"Personality Changes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000751\"}}, {\"id\": \"Proximal Lower Limb Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0008994\"}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"term_id\": \"HP:0000989\"}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000709\"}}, {\"id\": \"Renal Tubular Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000124\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002063\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Sunflower Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:6000642\"}}, {\"id\": \"Systemic Copper Distribution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When hepatic copper storage capacity is exceeded, free copper enters the circulation and deposits in the brain, kidneys, eyes, heart, muscles, and bones, causing multi-organ injury.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tetrathiomolybdate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational copper chelator that markedly reduces intestinal copper uptake and lowers hepatic and brain copper exposure.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tetrathiomolybdate\"]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Trientine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative copper chelator, better tolerated than penicillamine.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001824\"}}, {\"id\": \"Zinc Acetate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Blocks intestinal copper absorption, maintenance therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"zinc acetate\"]}}], \"edges\": [{\"source\": \"ATP7B Copper-Trafficking Defect\", \"target\": \"Impaired Biliary Copper Excretion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ATP7B Copper-Trafficking Defect\", \"target\": \"Impaired Ceruloplasmin Loading\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Biliary Copper Excretion\", \"target\": \"Hepatic Copper Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Ceruloplasmin Loading\", \"target\": \"Ceruloplasmin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Copper Accumulation\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Copper Accumulation\", \"target\": \"Systemic Copper Distribution\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Copper Accumulation\", \"target\": \"Hepatic Copper\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Non-Ceruloplasmin-Bound Serum Copper\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"24-Hour Urinary Copper\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Kayser-Fleischer Rings\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Renal Tubular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Cardiac Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Osteopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Sunflower Cataract\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Abnormality Of The Menstrual Cycle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Joint Swelling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Copper Distribution\", \"target\": \"Pathologic Fracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatic Stellate Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Acute Hepatic Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Cuproptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Ferroptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatic Steatosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Acute Hepatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Elevated Circulating Hepatic Transaminase Concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Failure To Thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Excessive Hepatic ECM Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Ascites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excessive Hepatic ECM Deposition\", \"target\": \"Bruising Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Bradykinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Chorea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Drooling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Personality Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Gait Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Clumsiness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Excessive Salivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Proximal Lower Limb Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Focal T2 Hyperintense Brainstem Lesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegeneration\", \"target\": \"Aggressive Behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"D-Penicillamine\", \"target\": \"Systemic Copper Distribution\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Trientine\", \"target\": \"Systemic Copper Distribution\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Zinc Acetate\", \"target\": \"Hepatic Copper Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low Copper Diet\", \"target\": \"Hepatic Copper Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tetrathiomolybdate\", \"target\": \"Systemic Copper Distribution\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Impaired Biliary Copper Excretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ATP7B\", \"target\": \"ATP7B Copper-Trafficking Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP7B\", \"target\": \"Impaired Biliary Copper Excretion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP7B\", \"target\": \"Impaired Ceruloplasmin Loading\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4833,6 +5070,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies bruising susceptibility as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -4890,6 +5129,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies thrombocytopenia as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -4949,6 +5190,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies anemia as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5005,6 +5248,8 @@
                 
                 <div class="evidence-explanation">Supports hemolytic anemia as a recognized hematologic manifestation of Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5022,6 +5267,8 @@
                 
                 
                 <div class="evidence-explanation">Provides direct case-based evidence of severe hemolytic anemia in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -5088,6 +5335,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table lists splenomegaly as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5142,6 +5391,8 @@
                 
                 <div class="evidence-explanation">Supports cardiomyopathy as a recognized but uncommon cardiac complication of Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5193,6 +5444,8 @@
                 
                 
                 <div class="evidence-explanation">Population-level claims data support heart failure as an important cardiac complication of Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -5247,6 +5500,8 @@
                 
                 
                 <div class="evidence-explanation">Supports arrhythmia risk as a clinically relevant cardiac manifestation in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -5313,6 +5568,8 @@
                 
                 <div class="evidence-explanation">Pediatric cohort data directly support hepatomegaly as an occasional presenting phenotype in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5378,6 +5635,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies hepatomegaly as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5434,6 +5693,8 @@
                 
                 <div class="evidence-explanation">Large case-series data identify jaundice among the common presenting symptoms of Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5453,6 +5714,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies jaundice as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -5510,6 +5773,8 @@
                 
                 <div class="evidence-explanation">Liver biopsy review data support hepatic steatosis as a common histopathological phenotype in Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5529,6 +5794,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies hepatic steatosis as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -5586,6 +5853,8 @@
                 
                 <div class="evidence-explanation">Cohort data support cirrhosis as a common presenting hepatic phenotype in Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5603,6 +5872,8 @@
                 
                 
                 <div class="evidence-explanation">End-stage liver disease including cirrhosis is a major complication requiring transplantation.</div>
+                
+                
                 
             </div>
             
@@ -5669,6 +5940,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies cirrhosis as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5727,6 +6000,8 @@
                 
                 <div class="evidence-explanation">Supports acute hepatic failure as a recognized presenting hepatic manifestation in Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5744,6 +6019,8 @@
                 
                 
                 <div class="evidence-explanation">Supports that Wilson disease-associated acute liver failure is a severe presentation that frequently requires transplantation.</div>
+                
+                
                 
             </div>
             
@@ -5801,6 +6078,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies ascites as occasional in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5857,6 +6136,8 @@
                 
                 <div class="evidence-explanation">Liver biopsy findings of portal and lobular inflammation are consistent with hepatitis as a very frequent hepatic presentation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5874,6 +6155,8 @@
                 
                 
                 <div class="evidence-explanation">Wilson disease liver pathology frequently mimics hepatitis patterns, confirming hepatitis-like presentation.</div>
+                
+                
                 
             </div>
             
@@ -5894,6 +6177,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table independently classifies hepatitis as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -5949,6 +6234,8 @@
                 
                 <div class="evidence-explanation">Dysphagia is explicitly listed as a neurological manifestation of Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5966,6 +6253,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms dysphagia among the core neurologic manifestations.</div>
+                
+                
                 
             </div>
             
@@ -6021,6 +6310,8 @@
                 
                 <div class="evidence-explanation">HPOA-linked case-series evidence supports vomiting as a gastrointestinal manifestation reported in Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6040,6 +6331,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies vomiting as occasional in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -6106,6 +6399,8 @@
                 
                 <div class="evidence-explanation">Large-cohort data confirm frequent Kayser-Fleischer ring detection in diagnosed Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6123,6 +6418,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms Kayser-Fleischer rings as a key clinical feature of Wilson&#39;s disease due to copper deposition in the eyes.</div>
+                
+                
                 
             </div>
             
@@ -6188,6 +6485,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies Kayser-Fleischer ring as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -6256,6 +6555,8 @@
                 
                 <div class="evidence-explanation">Supports renal tubular dysfunction in Wilson disease through direct evidence of a high prevalence of renal tubular acidosis.</div>
                 
+                
+                
             </div>
             
             
@@ -6321,6 +6622,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies excessive salivation as occasional in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -6372,6 +6675,8 @@
                 
                 
                 <div class="evidence-explanation">Large case-series data identify drooling as one of the more common presenting symptoms of Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -6473,6 +6778,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies pruritus as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -6539,6 +6846,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies elevated circulating hepatic transaminase concentration as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -6631,6 +6940,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies joint swelling as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -6695,6 +7006,8 @@
                 
                 
                 <div class="evidence-explanation">Supports rigidity as part of the neurologic movement phenotype spectrum.</div>
+                
+                
                 
             </div>
             
@@ -6786,6 +7099,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies arthritis as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -6880,6 +7195,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies pathologic fracture as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -6936,6 +7253,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis supports frequent low bone density and osteoporosis in Wilson disease populations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6953,6 +7272,8 @@
                 
                 
                 <div class="evidence-explanation">Supports reduced bone mineral density as a real skeletal manifestation in Wilson disease cohorts.</div>
+                
+                
                 
             </div>
             
@@ -6973,6 +7294,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies osteoporosis as frequent in Wilson disease, matching the meta-analysis-supported frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7026,6 +7349,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis supports osteopenia as a common bone phenotype in Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7043,6 +7368,8 @@
                 
                 
                 <div class="evidence-explanation">Independent cohort data support low bone mass in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -7144,6 +7471,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies intellectual disability as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -7202,6 +7531,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies seizure as occasional in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -7257,6 +7588,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies gait disturbance as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -7314,6 +7647,8 @@
                 
                 <div class="evidence-explanation">Cohort data directly identify tremor as a common neurologic manifestation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7331,6 +7666,8 @@
                 
                 
                 <div class="evidence-explanation">Supports tremor as part of the core neurologic phenotype spectrum.</div>
+                
+                
                 
             </div>
             
@@ -7351,6 +7688,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies tremor as frequent in Wilson disease, matching the curated frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7406,6 +7745,8 @@
                 
                 <div class="evidence-explanation">Cohort data support dystonia as the most common neurologic manifestation in this series.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7423,6 +7764,8 @@
                 
                 
                 <div class="evidence-explanation">Supports dystonia as a core feature of neurologic Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -7443,6 +7786,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies dystonia as frequent in Wilson disease, matching the curated frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7500,6 +7845,8 @@
                 
                 <div class="evidence-explanation">Cohort data directly report parkinsonism among predominant neurologic presentations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7517,6 +7864,8 @@
                 
                 
                 <div class="evidence-explanation">Supports parkinsonian-spectrum motor features in neurologic Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -7572,6 +7921,8 @@
                 
                 <div class="evidence-explanation">Supports bradykinesia as part of the neurologic movement phenotype spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -7625,6 +7976,8 @@
                 
                 
                 <div class="evidence-explanation">Supports chorea as part of the neurologic movement phenotype spectrum.</div>
+                
+                
                 
             </div>
             
@@ -7682,6 +8035,8 @@
                 
                 <div class="evidence-explanation">Dysarthria is explicitly listed as a neurological manifestation of Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7699,6 +8054,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms dysarthria among core neurologic Wilson disease features.</div>
+                
+                
                 
             </div>
             
@@ -7765,6 +8122,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies dysarthria as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -7821,6 +8180,8 @@
                 
                 <div class="evidence-explanation">Ataxia is explicitly listed as a neurological manifestation of Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -7875,6 +8236,8 @@
                 
                 <div class="evidence-explanation">Supports anxiety as a recognized psychiatric manifestation of Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7894,6 +8257,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies anxiety as occasional in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -7951,6 +8316,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Cohort data support aggressive behavior as part of the frequent personality-change presentation in symptomatic Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -8017,6 +8384,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies aggressive behavior as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -8074,6 +8443,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Cohort data directly support depression as a common psychiatric manifestation in symptomatic Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -8140,6 +8511,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies depression as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -8196,6 +8569,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Supports psychosis as a recognized, less frequent psychiatric presentation of Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8215,6 +8590,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies psychosis as occasional in Wilson disease, matching the curated frequency band.</div>
+                
+                
                 
             </div>
             
@@ -8272,6 +8649,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Directly supports personality change as a common psychiatric presentation in symptomatic Wilson disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8291,6 +8670,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies personality changes as frequent in Wilson disease, matching the curated frequency band.</div>
+                
+                
                 
             </div>
             
@@ -8357,6 +8738,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies abdominal pain as occasional in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -8413,6 +8796,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies bone pain as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -8466,6 +8851,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Large case-series data identify arthralgia among the more common presenting symptoms of Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -8531,6 +8918,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies arthralgia as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -8599,6 +8988,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies failure to thrive as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -8656,6 +9047,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies weight loss as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -8722,6 +9115,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies acute hepatitis as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -8777,6 +9172,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table records sunflower cataract as a very rare ocular manifestation of Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -8834,6 +9231,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies abnormality of the menstrual cycle as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -8889,6 +9288,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies clumsiness as very frequent in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -8981,6 +9382,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies proximal muscle weakness in lower limbs as very frequent in Wilson disease.</div>
                 
+                
+                
             </div>
             
             
@@ -9038,6 +9441,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table classifies focal T2 hyperintense brainstem lesion as occasional in Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -9128,6 +9533,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Establishes ATP7B mutations as the causative genetic defect in Wilson&#39;s disease with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9145,6 +9552,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Confirms large number of ATP7B mutations causing Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -9165,6 +9574,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Orphanet&#39;s structured gene table identifies ATP7B loss-of-function germline mutations as disease-causing for Wilson disease.</div>
+                
+                
                 
             </div>
             
@@ -9266,6 +9677,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Directly supports D-penicillamine as a chelator that removes circulating copper and increases urinary excretion.</div>
                 
+                
+                
             </div>
             
             
@@ -9303,6 +9716,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Establishes D-penicillamine as first-line chelation therapy with evidence for improved prognosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9320,6 +9735,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Large cohort data show treatment-associated neurological worsening can occur, supporting close neurologic monitoring during chelation.</div>
+                
+                
                 
             </div>
             
@@ -9407,6 +9824,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Supports copper chelation as a strategy that lowers free copper toxicity, which is the systemic mechanism targeted by trientine.</div>
                 
+                
+                
             </div>
             
             
@@ -9443,6 +9862,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Directly supports trientine efficacy in treated Wilson disease cohorts.</div>
+                
+                
                 
             </div>
             
@@ -9542,6 +9963,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Supports zinc therapy as reducing gut copper absorption, thereby limiting downstream copper accumulation.</div>
                 
+                
+                
             </div>
             
             
@@ -9578,6 +10001,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Confirms zinc therapy works by reducing intestinal copper absorption.</div>
+                
+                
                 
             </div>
             
@@ -9665,6 +10090,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Supports low copper intake as an adjunctive way to prevent copper re-accumulation rather than primary disease reversal.</div>
                 
+                
+                
             </div>
             
             
@@ -9701,6 +10128,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Supports a limited adjunctive low-copper diet while explicitly cautioning against overstating the value of strict dietary restriction.</div>
+                
+                
                 
             </div>
             
@@ -9800,6 +10229,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Human tracer data directly support TTM as reducing organ copper exposure, including liver and brain exposure.</div>
                 
+                
+                
             </div>
             
             
@@ -9836,6 +10267,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Human tracer studies support tetrathiomolybdate as an investigational therapy that reduces organ copper exposure primarily by blocking intestinal uptake.</div>
+                
+                
                 
             </div>
             
@@ -9923,6 +10356,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Supports transplantation as replacing the hepatic genetic defect that causes impaired copper excretion.</div>
                 
+                
+                
             </div>
             
             
@@ -9960,6 +10395,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Supports liver transplantation as the predominant life-saving therapy for Wilson disease presenting with acute liver failure.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9977,6 +10414,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Confirms liver transplantation as curative treatment that replaces the defective gene.</div>
+                
+                
                 
             </div>
             
@@ -10030,6 +10469,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Supports dietary copper reduction as an adjunctive measure, while implying that diet alone is not the main determinant of disease control.</div>
                 
+                
+                
             </div>
             
             
@@ -10062,6 +10503,7 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 <div class="item-desc">Context: Low in over 90 percent of patients (less than 20 mg/dL)</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -10085,6 +10527,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Directly supports low serum ceruloplasmin as a diagnostic biochemical feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -10105,6 +10549,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Orphanet&#39;s HPO table independently annotates decreased circulating ceruloplasmin concentration as a frequent Wilson disease feature.</div>
                 
+                
+                
             </div>
             
             
@@ -10123,6 +10569,7 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 </div>
                 
                 <div class="item-desc">Context: Free copper fraction is elevated and used both diagnostically and for treatment monitoring</div>
+                
                 
                 
     
@@ -10148,6 +10595,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Supports non-ceruloplasmin-bound copper as a commonly met diagnostic biomarker criterion.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -10165,6 +10614,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Supports NCC as an established Wilson disease monitoring biomarker during chelation therapy.</div>
+                
+                
                 
             </div>
             
@@ -10184,6 +10635,7 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 </div>
                 
                 <div class="item-desc">Context: Elevated urinary copper is diagnostic and is also followed during chelation therapy</div>
+                
                 
                 
     
@@ -10209,6 +10661,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Directly supports increased urinary copper excretion as a diagnostic biochemical feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -10226,6 +10680,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Supports 24-hour urinary copper excretion as a standard biomarker used to monitor Wilson disease therapy.</div>
+                
+                
                 
             </div>
             
@@ -10245,6 +10701,7 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 </div>
                 
                 <div class="item-desc">Context: Liver biopsy with elevated copper is diagnostic</div>
+                
                 
                 
     
@@ -10269,6 +10726,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Directly supports increased hepatic copper content as a key diagnostic criterion.</div>
+                
+                
                 
             </div>
             
@@ -10350,6 +10809,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 <div class="evidence-explanation">Directly states that Wilson disease liver pathology can mimic autoimmune hepatitis.</div>
                 
+                
+                
             </div>
             
             
@@ -10414,6 +10875,8 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
                 
                 
                 <div class="evidence-explanation">Confirms histological overlap between Wilson disease and steatohepatitis.</div>
+                
+                
                 
             </div>
             

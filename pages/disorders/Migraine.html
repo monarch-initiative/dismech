@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2753,6 +2944,8 @@
                 
                 <div class="evidence-explanation">Population study establishes migraine with aura as a distinct subtype with 5% lifetime prevalence.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2770,6 +2963,8 @@
                 
                 
                 <div class="evidence-explanation">Visual symptoms are the predominant aura type, occurring in 90% of migraine with aura cases.</div>
+                
+                
                 
             </div>
             
@@ -2827,6 +3022,8 @@
                 
                 <div class="evidence-explanation">Migraine without aura is the most common form with 8% lifetime prevalence and strong female predominance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2844,6 +3041,8 @@
                 
                 
                 <div class="evidence-explanation">Migraine without aura shows stronger female predominance than migraine with aura.</div>
+                
+                
                 
             </div>
             
@@ -2901,6 +3100,8 @@
                 
                 <div class="evidence-explanation">Chronic migraine is recognized as a distinct subtype requiring different treatment approaches.</div>
                 
+                
+                
             </div>
             
             
@@ -2956,6 +3157,8 @@
                 
                 
                 <div class="evidence-explanation">Vestibular migraine is established as a distinct underdiagnosed migraine phenotype.</div>
+                
+                
                 
             </div>
             
@@ -3046,6 +3249,8 @@
                 
                 <div class="evidence-explanation">Establishes CSD as the neurophysiological basis of migraine aura and its role in activating trigeminal pain pathways.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3064,6 +3269,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that CSDs directly induce headache-related behaviors in animal models, supporting CSD&#39;s role in headache initiation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3081,6 +3288,8 @@
                 
                 
                 <div class="evidence-explanation">Shows that pannexin-1 channels mediate CSD-induced neuroinflammatory signaling and headache behaviors, identifying a key mechanism linking CSD to pain.</div>
+                
+                
                 
             </div>
             
@@ -3157,6 +3366,8 @@
                 
                 <div class="evidence-explanation">Confirms that CSD drives trigeminovascular activation leading to headache phase in migraine.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3175,6 +3386,8 @@
                 
                 <div class="evidence-explanation">Shows that meningeal inflammation activates and sensitizes trigeminal nociceptors, producing headache.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3192,6 +3405,8 @@
                 
                 
                 <div class="evidence-explanation">Describes the pathway by which brain parenchymal inflammation extends to activate pain-sensitive meningeal structures and trigeminal afferents.</div>
+                
+                
                 
             </div>
             
@@ -3242,6 +3457,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that P2X7 and Pannexin 1 signaling specifically mediate mechanical sensitization (allodynia) of meningeal afferents, a key component of central sensitization.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3259,6 +3476,8 @@
                 
                 
                 <div class="evidence-explanation">Explains how sensitization leads to allodynia where normally innocuous stimuli become painful during migraine attacks.</div>
+                
+                
                 
             </div>
             
@@ -3309,6 +3528,8 @@
                 
                 <div class="evidence-explanation">Clinical efficacy of CGRP-targeting therapies validates the central role of the CGRP pathway in migraine pathophysiology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3327,6 +3548,8 @@
                 
                 <div class="evidence-explanation">Identifies CGRP as a key validated target in migraine treatment based on understanding of disease pathophysiology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3344,6 +3567,8 @@
                 
                 
                 <div class="evidence-explanation">Notes that while CGRP pathway is important, treatment resistance in some patients indicates involvement of additional pathways beyond CGRP.</div>
+                
+                
                 
             </div>
             
@@ -3436,6 +3661,8 @@
                 
                 <div class="evidence-explanation">Neuroinflammatory responses to CSD contribute to the full range of migraine symptoms including autonomic features like nausea through central nervous system activation.</div>
                 
+                
+                
             </div>
             
             
@@ -3501,6 +3728,8 @@
                 
                 <div class="evidence-explanation">Establishes vestibular migraine as a recognized migraine phenotype where vertigo is a prominent symptom.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3518,6 +3747,8 @@
                 
                 
                 <div class="evidence-explanation">Links vestibular symptoms to abnormal sensory processing and CGRP signaling in vestibular pathways.</div>
+                
+                
                 
             </div>
             
@@ -3582,6 +3813,8 @@
                 
                 <div class="evidence-explanation">Describes the neuroanatomical basis for photophobia in migraine through visual-pain pathway interactions.</div>
                 
+                
+                
             </div>
             
             
@@ -3637,6 +3870,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that visual auras in migraine are associated with inflammatory activity localized to the occipital cortex, the brain region responsible for visual processing.</div>
+                
+                
                 
             </div>
             
@@ -3703,6 +3938,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that cortical spreading depression directly induces headache-related behaviors in animal models.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3720,6 +3957,8 @@
                 
                 
                 <div class="evidence-explanation">Explains the mechanistic pathway from neuronal stress to the characteristic lasting headaches of migraine.</div>
+                
+                
                 
             </div>
             
@@ -3774,6 +4013,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that phonophobia in migraine is associated with sensitization of brainstem auditory neurons, as evidenced by higher brainstem auditory evoked potential amplitudes.</div>
+                
+                
                 
             </div>
             
@@ -3858,6 +4099,8 @@
                 
                 <div class="evidence-explanation">CACNA1A encodes a voltage-gated calcium channel involved in ion transport and neurotransmitter release, and is one of the established causative genes for familial hemiplegic migraine.</div>
                 
+                
+                
             </div>
             
             
@@ -3898,6 +4141,8 @@
                 
                 
                 <div class="evidence-explanation">ATP1A2 encodes a Na+/K+-ATPase involved in ion transport, and is one of the established causative genes for familial hemiplegic migraine type 2.</div>
+                
+                
                 
             </div>
             
@@ -3940,6 +4185,8 @@
                 
                 <div class="evidence-explanation">SCN1A encodes a voltage-gated sodium channel involved in ion transport, and is one of the established causative genes for familial hemiplegic migraine type 3.</div>
                 
+                
+                
             </div>
             
             
@@ -3980,6 +4227,8 @@
                 
                 
                 <div class="evidence-explanation">TRPM8 is expressed in pain-related neural circuitry and genetic variants near TRPM8 are associated with altered migraine risk.</div>
+                
+                
                 
             </div>
             
@@ -4022,6 +4271,8 @@
                 
                 <div class="evidence-explanation">GWAS of 5,122 migraineurs identified LRP1 SNP rs11172113 as genome-wide significant for migraine susceptibility.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4039,6 +4290,8 @@
                 
                 
                 <div class="evidence-explanation">LRP1&#39;s role in neuronal glutamate signaling provides mechanistic link to migraine.</div>
+                
+                
                 
             </div>
             
@@ -4099,6 +4352,8 @@
                 
                 <div class="evidence-explanation">Clinical efficacy of triptans in treating migraine attacks validates their role as first-line acute treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -4145,6 +4400,8 @@
                 
                 
                 <div class="evidence-explanation">NSAIDs are widely used for migraine attacks due to their favorable efficacy and side effect profile, particularly for mild to moderate attacks.</div>
+                
+                
                 
             </div>
             
@@ -4193,6 +4450,8 @@
                 
                 <div class="evidence-explanation">CGRP antagonists (gepants) are a class of CGRP inhibitors that have demonstrated effectiveness in migraine management.</div>
                 
+                
+                
             </div>
             
             
@@ -4240,6 +4499,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis of 108 RCTs confirms propranolol efficacy for migraine prevention with high-quality evidence.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4257,6 +4518,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review establishes beta-blockers as effective first-line preventive therapy.</div>
+                
+                
                 
             </div>
             
@@ -4305,6 +4568,8 @@
                 
                 <div class="evidence-explanation">Clinical trials have established the efficacy of topiramate for migraine prevention.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4322,6 +4587,8 @@
                 
                 
                 <div class="evidence-explanation">Explains the mechanism by which topiramate prevents migraine through effects on trigeminovascular pathways and cortical spreading depression.</div>
+                
+                
                 
             </div>
             
@@ -4370,6 +4637,8 @@
                 
                 <div class="evidence-explanation">Clinical trials have established the efficacy of valproate/valproic acid for migraine prevention.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4387,6 +4656,8 @@
                 
                 
                 <div class="evidence-explanation">Explains the mechanism by which valproate prevents migraine through effects on trigeminovascular pathways and cortical spreading depression.</div>
+                
+                
                 
             </div>
             
@@ -4435,6 +4706,8 @@
                 
                 <div class="evidence-explanation">Anti-CGRP monoclonal antibodies have demonstrated clinical efficacy in treating migraine, supporting their use as preventive therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4452,6 +4725,8 @@
                 
                 
                 <div class="evidence-explanation">CGRP monoclonal antibodies are CGRP inhibitors that target this key migraine pathway.</div>
+                
+                
                 
             </div>
             
@@ -4500,6 +4775,8 @@
                 
                 <div class="evidence-explanation">Network meta-analysis of 24 RCTs demonstrates botulinum toxin A has the best efficacy and safety profile among chronic migraine preventive treatments.</div>
                 
+                
+                
             </div>
             
             
@@ -4546,6 +4823,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical studies have demonstrated the effectiveness of neuromodulation devices in migraine management.</div>
+                
+                
                 
             </div>
             
@@ -4599,6 +4878,8 @@
                 
                 <div class="evidence-explanation">Systematic review confirms stress as a trigger for migraine headaches.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4616,6 +4897,8 @@
                 
                 
                 <div class="evidence-explanation">Epidemiological study identifies stress as the most common precipitating factor for both migraine subtypes.</div>
+                
+                
                 
             </div>
             
@@ -4657,6 +4940,8 @@
                 
                 <div class="evidence-explanation">Sleep disturbance is among the common precipitating factors identified in population studies of migraine.</div>
                 
+                
+                
             </div>
             
             
@@ -4697,6 +4982,8 @@
                 
                 <div class="evidence-explanation">Estrogen withdrawal is established as the hormonal trigger for menstrual migraine.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4715,6 +5002,8 @@
                 
                 <div class="evidence-explanation">Half of female migraineurs have increased risk during premenstrual estrogen decline.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4732,6 +5021,8 @@
                 
                 
                 <div class="evidence-explanation">Population study confirms hormonal factors including menstruation and oral contraceptives as migraine triggers.</div>
+                
+                
                 
             </div>
             
@@ -4801,6 +5092,7 @@
                 <div class="item-desc">Context: During attacks</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4824,6 +5116,8 @@
                 
                 <div class="evidence-explanation">Confirms the central role of CGRP in migraine pathophysiology and its elevation during attacks.</div>
                 
+                
+                
             </div>
             
             
@@ -4842,6 +5136,7 @@
                 </div>
                 
                 <div class="item-desc">Context: May contribute to attacks</div>
+                
                 
                 
     
@@ -4867,6 +5162,8 @@
                 
                 <div class="evidence-explanation">Serotonergic system is the most convincingly implicated neurotransmitter system in migraine.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4884,6 +5181,8 @@
                 
                 
                 <div class="evidence-explanation">Low serotonin disposition is associated with migraine susceptibility and attacks.</div>
+                
+                
                 
             </div>
             
@@ -4969,6 +5268,8 @@
                 
                 <div class="evidence-explanation">This Phase III trial directly evaluates a combination approach targeting two major migraine pathways (CGRP and acetylcholine) for chronic migraine prevention.</div>
                 
+                
+                
             </div>
             
             
@@ -5042,6 +5343,8 @@
                 
                 <div class="evidence-explanation">This Phase III trial evaluates atogepant, a CGRP antagonist, for acute migraine treatment, providing clinical evidence for transitioning this preventive agent to acute attack management.</div>
                 
+                
+                
             </div>
             
             
@@ -5100,6 +5403,8 @@
                 
                 
                 <div class="evidence-explanation">This Phase II trial investigates a novel interventional procedure targeting meningeal pain pathways in chronic migraine, providing clinical evidence for direct vascular intervention approaches.</div>
+                
+                
                 
             </div>
             

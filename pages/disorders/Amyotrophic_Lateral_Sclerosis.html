@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2893,6 +3084,8 @@
                 
                 <div class="evidence-explanation">Orphanet definition confirms progressive motor neuron degeneration across cortex, brainstem, and spinal cord.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2911,6 +3104,8 @@
                 
                 <div class="evidence-explanation">Single-cell analysis confirms motor neuron vulnerability in ALS and identifies vulnerable populations in cortical layer 5.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2928,6 +3123,8 @@
                 
                 
                 <div class="evidence-explanation">Review summarizes canonical ALS pathology of progressive upper and lower motor neuron degeneration causing loss of voluntary movement.</div>
+                
+                
                 
             </div>
             
@@ -3015,6 +3212,8 @@
                 
                 <div class="evidence-explanation">Review confirms ubiquitin-positive inclusions as a common pathological feature in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -3075,6 +3274,8 @@
                 
                 <div class="evidence-explanation">Original discovery paper establishing C9orf72 repeat expansion as a major cause of both FTD and ALS with dual mechanisms.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3092,6 +3293,8 @@
                 
                 
                 <div class="evidence-explanation">Review links expanding ALS genetic discoveries, including C9orf72, to the development of targeted molecular therapies.</div>
+                
+                
                 
             </div>
             
@@ -3190,6 +3393,8 @@
                 
                 <div class="evidence-explanation">Trial of riluzole, an antiglutamate agent, supports role of glutamate excitotoxicity in ALS pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3207,6 +3412,8 @@
                 
                 
                 <div class="evidence-explanation">Recent mechanistic review highlights glutamate-mediated excitotoxicity as a key pathogenic process and therapeutic target in ALS.</div>
+                
+                
                 
             </div>
             
@@ -3292,6 +3499,8 @@
                 
                 <div class="evidence-explanation">Discovery of SOD1 mutations in familial ALS implicates oxidative stress in disease pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3310,6 +3519,8 @@
                 
                 <div class="evidence-explanation">Review emphasizes oxidative stress as a targetable pathogenic mechanism and discusses antioxidant therapeutic strategies in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3327,6 +3538,8 @@
                 
                 
                 <div class="evidence-explanation">Therapeutic strategies review highlights oxidative stress among key pathological mechanisms contributing to ALS.</div>
+                
+                
                 
             </div>
             
@@ -3420,6 +3633,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms immune cell involvement in ALS pathophysiology with T-cell recruitment to affected areas.</div>
+                
+                
                 
             </div>
             
@@ -3529,6 +3744,8 @@
                 
                 <div class="evidence-explanation">Review summarizes how microglial TREM2 function shapes ALS progression and highlights its role in microglial activation.</div>
                 
+                
+                
             </div>
             
             
@@ -3626,6 +3843,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms axonal transport defects as early pathogenic events in ALS.</div>
+                
+                
                 
             </div>
             
@@ -3731,6 +3950,8 @@
                 
                 
                 <div class="evidence-explanation">Review describes TBK1&#39;s role in autophagy and confirms multiple ALS genes function in autophagy pathways.</div>
+                
+                
                 
             </div>
             
@@ -3854,6 +4075,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists dysphagia as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3872,6 +4095,8 @@
                 
                 <div class="evidence-explanation">StatPearls article highlights dysphagia as a common bulbar manifestation in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3889,6 +4114,8 @@
                 
                 
                 <div class="evidence-explanation">Dysphagia-focused review reports that swallowing difficulty affects the majority of ALS patients.</div>
+                
+                
                 
             </div>
             
@@ -3953,6 +4180,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists drooling as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3970,6 +4199,8 @@
                 
                 
                 <div class="evidence-explanation">Meta-analysis establishes pooled sialorrhea prevalence of 30.8% in ALS patients.</div>
+                
+                
                 
             </div>
             
@@ -4024,6 +4255,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists xerostomia as frequent in ALS.</div>
+                
+                
                 
             </div>
             
@@ -4088,6 +4321,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists generalized muscle weakness as very frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4105,6 +4340,8 @@
                 
                 
                 <div class="evidence-explanation">Review summarizes progressive motor neuron degeneration causing loss of voluntary movement.</div>
+                
+                
                 
             </div>
             
@@ -4160,6 +4397,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists spasticity as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4177,6 +4416,8 @@
                 
                 
                 <div class="evidence-explanation">StatPearls article confirms spasticity as a cardinal upper motor neuron sign in ALS.</div>
+                
+                
                 
             </div>
             
@@ -4232,6 +4473,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists respiratory failure (HP:0002878) as frequent; this entry uses the more specific HP:0002747 (respiratory insufficiency due to muscle weakness) which captures the neuromuscular etiology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4249,6 +4492,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical overview states respiratory failure is the usual terminal event in ALS.</div>
+                
+                
                 
             </div>
             
@@ -4304,6 +4549,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists skeletal muscle atrophy as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4321,6 +4568,8 @@
                 
                 
                 <div class="evidence-explanation">Review details muscle atrophy as a key lower motor neuron sign in ALS.</div>
+                
+                
                 
             </div>
             
@@ -4376,6 +4625,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists muscle spasm as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -4429,6 +4680,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists spastic paraparesis as occasional in ALS.</div>
+                
+                
                 
             </div>
             
@@ -4493,6 +4746,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists fasciculations as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4510,6 +4765,8 @@
                 
                 
                 <div class="evidence-explanation">Review confirms fasciculations are an early marker of lower motor neuron dysfunction in ALS.</div>
+                
+                
                 
             </div>
             
@@ -4565,6 +4822,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists hyperreflexia as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4582,6 +4841,8 @@
                 
                 
                 <div class="evidence-explanation">StatPearls review lists hyperactive reflexes as a core upper motor neuron finding in ALS.</div>
+                
+                
                 
             </div>
             
@@ -4637,6 +4898,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists dysarthria as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4654,6 +4917,8 @@
                 
                 
                 <div class="evidence-explanation">Review notes bulbar dysfunction in ALS commonly presents with dysarthria and dysphagia.</div>
+                
+                
                 
             </div>
             
@@ -4709,6 +4974,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists paralysis as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -4763,6 +5030,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists depression as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4780,6 +5049,8 @@
                 
                 
                 <div class="evidence-explanation">Nutrition review identifies depression as a contributing symptom in ALS.</div>
+                
+                
                 
             </div>
             
@@ -4835,6 +5106,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists anxiety as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4852,6 +5125,8 @@
                 
                 
                 <div class="evidence-explanation">Nutrition review lists anxiety among symptoms contributing to malnutrition in ALS.</div>
+                
+                
                 
             </div>
             
@@ -4907,6 +5182,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists atypical behavior as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4924,6 +5201,8 @@
                 
                 
                 <div class="evidence-explanation">StatPearls review confirms behavioral changes from frontotemporal dysfunction in ALS patients.</div>
+                
+                
                 
             </div>
             
@@ -4979,6 +5258,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists cognitive impairment as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4996,6 +5277,8 @@
                 
                 
                 <div class="evidence-explanation">Population-based study reports cognitive impairment in up to 50% of ALS cases.</div>
+                
+                
                 
             </div>
             
@@ -5050,6 +5333,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists sleep disturbance as occasional in ALS.</div>
+                
+                
                 
             </div>
             
@@ -5114,6 +5399,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists dyspnea as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -5167,6 +5454,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists orthopnea as occasional in ALS.</div>
+                
+                
                 
             </div>
             
@@ -5231,6 +5520,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists fatigue as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5248,6 +5539,8 @@
                 
                 
                 <div class="evidence-explanation">Nutrition review identifies fatigue as a contributing symptom to malnutrition risk in ALS.</div>
+                
+                
                 
             </div>
             
@@ -5303,6 +5596,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists pain as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5320,6 +5615,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review and meta-analysis establishes pain prevalence of 60% across ALS populations.</div>
+                
+                
                 
             </div>
             
@@ -5384,6 +5681,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists weight loss as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5401,6 +5700,8 @@
                 
                 
                 <div class="evidence-explanation">Nutrition review confirms ALS carries high risk of malnutrition and weight loss.</div>
+                
+                
                 
             </div>
             
@@ -5465,6 +5766,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists neurodegeneration as very frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5482,6 +5785,8 @@
                 
                 
                 <div class="evidence-explanation">Lancet Seminar identifies ALS as a fatal CNS neurodegenerative disease.</div>
+                
+                
                 
             </div>
             
@@ -5537,6 +5842,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists motor neuron atrophy as very frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -5591,6 +5898,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists Babinski sign as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5608,6 +5917,8 @@
                 
                 
                 <div class="evidence-explanation">StatPearls review confirms positive Babinski sign as an upper motor neuron finding in ALS.</div>
+                
+                
                 
             </div>
             
@@ -5663,6 +5974,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists Hoffmann sign as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -5716,6 +6029,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists dysphonia as frequent in ALS.</div>
+                
+                
                 
             </div>
             
@@ -5771,6 +6086,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists fatigable weakness of bulbar muscles as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -5824,6 +6141,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists fatigable weakness of swallowing muscles as frequent in ALS.</div>
+                
+                
                 
             </div>
             
@@ -5879,6 +6198,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists fatigable weakness of respiratory muscles as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -5932,6 +6253,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists abnormality on pulmonary function testing as frequent in ALS.</div>
+                
+                
                 
             </div>
             
@@ -5987,6 +6310,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists distal amyotrophy as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -6040,6 +6365,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists progressive distal muscular atrophy as frequent in ALS.</div>
+                
+                
                 
             </div>
             
@@ -6095,6 +6422,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists upper limb muscle weakness as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6112,6 +6441,8 @@
                 
                 
                 <div class="evidence-explanation">StatPearls review confirms asymmetric limb weakness as the most common presentation.</div>
+                
+                
                 
             </div>
             
@@ -6167,6 +6498,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists lower limb muscle weakness as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -6220,6 +6553,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists tongue fasciculations as occasional in ALS.</div>
+                
+                
                 
             </div>
             
@@ -6275,6 +6610,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists tongue atrophy as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -6328,6 +6665,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists foot dorsiflexor weakness as occasional in ALS.</div>
+                
+                
                 
             </div>
             
@@ -6383,6 +6722,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists steppage gait as occasional in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -6436,6 +6777,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists cachexia as occasional in ALS.</div>
+                
+                
                 
             </div>
             
@@ -6491,6 +6834,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists emotional lability as frequent in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6508,6 +6853,8 @@
                 
                 
                 <div class="evidence-explanation">StatPearls review describes pseudobulbar affect as dysregulated emotional responses in ALS patients.</div>
+                
+                
                 
             </div>
             
@@ -6563,6 +6910,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists frontotemporal dementia as occasional in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6581,6 +6930,8 @@
                 
                 <div class="evidence-explanation">StatPearls review reports approximately 15% of ALS patients develop frontotemporal dementia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6598,6 +6949,8 @@
                 
                 
                 <div class="evidence-explanation">Review describes ALS-FTD clinical continuum with overlapping genetics and pathology.</div>
+                
+                
                 
             </div>
             
@@ -6653,6 +7006,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists language impairment as occasional in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6670,6 +7025,8 @@
                 
                 
                 <div class="evidence-explanation">ALS clinical features review describes progressive language deficits within the ALS-FTD spectrum.</div>
+                
+                
                 
             </div>
             
@@ -6725,6 +7082,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists jaw hyperreflexia as occasional in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -6778,6 +7137,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists laryngospasm as very rare in ALS.</div>
+                
+                
                 
             </div>
             
@@ -6868,6 +7229,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists C9ORF72 as harboring disease-causing germline mutations in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6885,6 +7248,8 @@
                 
                 
                 <div class="evidence-explanation">Original discovery paper establishing C9orf72 as the most common genetic cause of familial ALS.</div>
+                
+                
                 
             </div>
             
@@ -6933,6 +7298,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists SOD1 as harboring disease-causing germline mutations in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6950,6 +7317,8 @@
                 
                 
                 <div class="evidence-explanation">Original discovery paper identifying SOD1 mutations as a cause of familial ALS.</div>
+                
+                
                 
             </div>
             
@@ -6998,6 +7367,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists TARDBP as harboring disease-causing germline mutations in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7015,6 +7386,8 @@
                 
                 
                 <div class="evidence-explanation">Gene therapy review highlights TARDBP among the most common ALS genes targeted by therapeutic strategies.</div>
+                
+                
                 
             </div>
             
@@ -7063,6 +7436,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists FUS as harboring disease-causing germline mutations in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7080,6 +7455,8 @@
                 
                 
                 <div class="evidence-explanation">Review notes FUS among the four most common ALS genes and discusses gene-targeted therapies.</div>
+                
+                
                 
             </div>
             
@@ -7122,6 +7499,8 @@
                 
                 <div class="evidence-explanation">Orphanet lists NEK1 as a major susceptibility factor in ALS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7139,6 +7518,8 @@
                 
                 
                 <div class="evidence-explanation">Large-scale genetic study identifying NEK1 variants as risk factors for ALS.</div>
+                
+                
                 
             </div>
             
@@ -7183,6 +7564,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the ARHGEF28-amyotrophic lateral sclerosis gene-disease relationship as limited with semidominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7225,6 +7608,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the ARPP21-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7269,6 +7654,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the CAV1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7311,6 +7698,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the CAV2-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7355,6 +7744,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the CFAP410-amyotrophic lateral sclerosis gene-disease relationship as limited with semidominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7397,6 +7788,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the DCTN1-amyotrophic lateral sclerosis gene-disease relationship as moderate with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7441,6 +7834,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the DNAJC7-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7483,6 +7878,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the GLE1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7527,6 +7924,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the GLT8D1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7569,6 +7968,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the LGALSL-amyotrophic lateral sclerosis gene-disease relationship as limited with undetermined inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7613,6 +8014,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the NEFH-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7655,6 +8058,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the NUP50-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7699,6 +8104,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the PRPH-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7741,6 +8148,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the SPTLC2-amyotrophic lateral sclerosis gene-disease relationship as strong with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7785,6 +8194,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the SS18L1-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7827,6 +8238,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the TAF15-amyotrophic lateral sclerosis gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7928,6 +8341,8 @@
                 
                 <div class="evidence-explanation">Landmark trial demonstrating riluzole&#39;s survival benefit in ALS patients.</div>
                 
+                
+                
             </div>
             
             
@@ -8016,6 +8431,8 @@
                 
                 <div class="evidence-explanation">Phase 3 trial demonstrating edaravone slows functional decline in early-stage ALS patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8033,6 +8450,8 @@
                 
                 
                 <div class="evidence-explanation">Real-world cohort study found long-term intravenous edaravone well tolerated but without additional disease-modifying benefit versus standard therapy.</div>
+                
+                
                 
             </div>
             
@@ -8122,6 +8541,8 @@
                 
                 <div class="evidence-explanation">Phase 1-2 trial demonstrating tofersen reduces CSF SOD1 levels in SOD1-ALS patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8139,6 +8560,8 @@
                 
                 
                 <div class="evidence-explanation">Translational review highlights recent advances enabling gene-targeted therapies like tofersen.</div>
+                
+                
                 
             </div>
             
@@ -8216,6 +8639,8 @@
                 
                 <div class="evidence-explanation">Randomized controlled trial demonstrated non-invasive ventilation improves quality of life and extends survival in ALS patients with preserved bulbar function.</div>
                 
+                
+                
             </div>
             
             
@@ -8291,6 +8716,8 @@
                 
                 
                 <div class="evidence-explanation">Review describes how rehabilitation including physical therapy helps maximize independence and function in ALS patients.</div>
+                
+                
                 
             </div>
             
@@ -8368,6 +8795,8 @@
                 
                 <div class="evidence-explanation">Review covers multidisciplinary rehabilitation including speech therapy for ALS patients.</div>
                 
+                
+                
             </div>
             
             
@@ -8443,6 +8872,8 @@
                 
                 
                 <div class="evidence-explanation">Dysphagia management review underscores PEG as an essential intervention when nutrition is compromised in ALS.</div>
+                
+                
                 
             </div>
             
@@ -8520,6 +8951,8 @@
                 
                 <div class="evidence-explanation">Rehabilitation review emphasizes multidisciplinary care as core to ALS management to optimize function and quality of life.</div>
                 
+                
+                
             </div>
             
             
@@ -8572,6 +9005,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis finds lead exposure positively associated with ALS risk across population-based studies.</div>
                 
+                
+                
             </div>
             
             
@@ -8611,6 +9046,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review and AHS cohort analysis report elevated ALS odds with pesticide exposure.</div>
+                
+                
                 
             </div>
             
@@ -8652,6 +9089,8 @@
                 
                 <div class="evidence-explanation">Gulf War veteran cohort showed nearly twofold higher ALS risk compared with non-deployed personnel.</div>
                 
+                
+                
             </div>
             
             
@@ -8692,6 +9131,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis of case-control and cohort studies indicates elevated ALS risk with smoking, especially among women.</div>
                 
+                
+                
             </div>
             
             
@@ -8724,6 +9165,7 @@
                 <div class="item-desc">Context: CSF and serum biomarker of axonal injury, elevated in ALS with prognostic value</div>
                 
                 
+                
     
     
             </div>
@@ -8737,6 +9179,7 @@
                 </div>
                 
                 <div class="item-desc">Context: CSF and serum biomarker of axonal injury</div>
+                
                 
                 
     
@@ -8804,6 +9247,8 @@
                 
                 <div class="evidence-explanation">StatPearls review lists CIDP among conditions that can mimic ALS and should be ruled out.</div>
                 
+                
+                
             </div>
             
             
@@ -8858,6 +9303,8 @@
                 
                 
                 <div class="evidence-explanation">The same review identifies multiple sclerosis as a diagnostic mimic of motor neuron disease.</div>
+                
+                
                 
             </div>
             
@@ -8914,6 +9361,8 @@
                 
                 
                 <div class="evidence-explanation">StatPearls review lists multifocal motor neuropathy with conduction block as an ALS mimic that must be ruled out.</div>
+                
+                
                 
             </div>
             
@@ -9003,6 +9452,8 @@
                 
                 <div class="evidence-explanation">Clinical overview notes degeneration across spinal motor systems; spinal cord baseline controls contextualize transcriptomic changes in ALS.</div>
                 
+                
+                
             </div>
             
             
@@ -9078,6 +9529,8 @@
                 
                 
                 <div class="evidence-explanation">Muscle weakness and atrophy are primary clinical consequences in ALS; healthy muscle RNA-seq provides comparative background for ALS muscle involvement.</div>
+                
+                
                 
             </div>
             

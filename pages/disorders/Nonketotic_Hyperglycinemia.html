@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2761,6 +2952,8 @@
                 
                 <div class="evidence-explanation">Supports a severe neonatal subtype with high early mortality.</div>
                 
+                
+                
             </div>
             
             
@@ -2819,6 +3012,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a later-surviving attenuated subtype with variable long-term neurodevelopmental outcomes.</div>
+                
+                
                 
             </div>
             
@@ -3021,6 +3216,8 @@
                 
                 <div class="evidence-explanation">Supports upstream genetic disruption of glycine cleavage system components in NKH.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3040,6 +3237,8 @@
                 
                 
                 <div class="evidence-explanation">Provides component-level mechanistic support for GCSH-linked variant NKH and lipoylation coupling.</div>
+                
+                
                 
             </div>
             
@@ -3158,6 +3357,8 @@
                 
                 <div class="evidence-explanation">Provides quantitative biochemical data on glycine accumulation in NKH patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3177,6 +3378,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms NKH as a neuro-metabolic disorder with severe neurological consequences.</div>
+                
+                
                 
             </div>
             
@@ -3311,6 +3514,8 @@
                 
                 <div class="evidence-explanation">Demonstrates SGOC metabolic rewiring in GLDC-deficient human iPSC models.</div>
                 
+                
+                
             </div>
             
             
@@ -3423,6 +3628,8 @@
                 
                 
                 <div class="evidence-explanation">Describes glycine&#39;s role at the NMDA receptor co-agonist site.</div>
+                
+                
                 
             </div>
             
@@ -3537,6 +3744,8 @@
                 
                 <div class="evidence-explanation">Demonstrates altered glial differentiation in NKH cell models.</div>
                 
+                
+                
             </div>
             
             
@@ -3648,6 +3857,8 @@
                 
                 <div class="evidence-explanation">Functional evidence demonstrates the GCSH role in protein lipoylation required for bioenergetic enzymes.</div>
                 
+                
+                
             </div>
             
             
@@ -3682,7 +3893,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMT pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AMT\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Altered glial lineage differentiation in GLDC-deficient neural progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLDC-deficient iPSC-derived neural progenitors shift toward a heterogeneous astrocyte lineage with increased radial glial markers and unexpected neuronal marker expression, linking GLDC-related metabolic defects to altered neurodevelopment.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"radial glial cell\"], \"biological_processes\": [\"astrocyte differentiation\"]}}, {\"id\": \"Anticonvulsant therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiepileptic drugs are used for seizure management in NKH. Sodium valproate is specifically contraindicated because it increases both CSF and plasma glycine levels, potentially worsening seizures. Appropriate anticonvulsant selection is critical in NKH management.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CSF glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CSF-to-plasma glycine ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GCSH pathogenic variants (variant NKH)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GCSH\"]}}, {\"id\": \"GCSH variant-driven lipoylation defects and bioenergetic failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic GCSH variants disrupt the H-protein role in mitochondrial protein lipoylation, producing combined NKH and lipoate deficiency with impaired bioenergetic enzyme function.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein lipoylation\"], \"genes\": [\"GCSH\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"GLDC pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLDC\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Varying degrees of developmental delay are near-universal among NKH survivors, ranging from mild delay in attenuated forms to severe intellectual disability in classical neonatal NKH.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycine cleavage system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in glycine cleavage system genes reduce mitochondrial glycine-cleavage enzymatic function.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycine decarboxylation via glycine cleavage system\", \"glycine catabolic process\", \"amino acid metabolic process\"], \"molecular_functions\": [\"aminomethyltransferase activity\"], \"genes\": [\"GLDC\", \"AMT\", \"GCSH\"]}}, {\"id\": \"Ketogenic diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is used as an alternative glycine-lowering strategy. In a multi-center series, six infants switching from high-dose benzoate to KD with low-dose benzoate showed approximately 28% lower plasma glycine, reduced brain glycine by MRS, and seizure reduction in half of patients. KD promotes glycine use as a gluconeogenic substrate.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"NMDA antagonist therapy (dextromethorphan/ketamine)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"NMDA receptor antagonists such as dextromethorphan and ketamine have been used to counteract presumed NMDA receptor overactivation by excess glycine. However, a 2024 expert reassessment finds insufficient evidence of added therapeutic benefit beyond glycine reduction strategies, and notes potential adverse behavioral effects. Controlled clinical studies have never been performed.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess glycine has historically been assumed to overactivate NMDA-type glutamatergic receptors through the NMDA co-agonist site. A 2024 expert reassessment notes that d-serine, another endogenous NMDA co-agonist, is markedly decreased in NKH and may instead contribute to underactivation, so the net direction of NMDA receptor signaling remains unresolved.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"]}}, {\"id\": \"Plasma glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are among the most common presenting features of NKH, occurring in 75% of patients in a Chinese cohort (15/20). EEG evaluations show burst suppression and hypsarrhythmia patterns. Seizures are attributed to both NMDA receptor dysregulation and direct glycine toxicity.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Serine-glycine-one-carbon metabolic disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The GCS provides one-carbon units for folate-linked one-carbon metabolism. In patient-derived iPSC models, GLDC deficiency causes a metabolic switch to altered serine-glycine-one-carbon metabolism with coordinated cell-growth and cell-cycle responses, suggesting that NKH biology extends beyond simple glycine excitotoxicity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"one-carbon metabolic process\", \"folic acid metabolic process\"]}}, {\"id\": \"Sodium benzoate therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium benzoate is the mainstay of glycine reduction therapy in NKH. Benzoate conjugates with glycine and is excreted in urine as hippurate, thereby lowering plasma glycine. Clinical targets commonly aim for plasma glycine approximately 120-300 umol/L.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Systemic and CNS glycine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient glycine cleavage system activity leads to systemic and CNS glycine accumulation. In a Chinese cohort of 20 NKH patients, median CSF glycine was 135.2 umol/L and median plasma glycine was 998.2 umol/L, with a median CSF/plasma glycine ratio of 0.16. The diagnostic hallmark is a CSF-to-plasma glycine ratio greater than 0.08 (normal less than 0.04).\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"amino acid metabolic process\"]}}], \"edges\": [{\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"Systemic and CNS glycine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"GCSH variant-driven lipoylation defects and bioenergetic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"Plasma glycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"CSF glycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"CSF-to-plasma glycine ratio\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"Serine-glycine-one-carbon metabolic disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serine-glycine-one-carbon metabolic disruption\", \"target\": \"Altered glial lineage differentiation in GLDC-deficient neural progenitors\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Altered glial lineage differentiation in GLDC-deficient neural progenitors\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GCSH variant-driven lipoylation defects and bioenergetic failure\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sodium benzoate therapy\", \"target\": \"Systemic and CNS glycine accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Systemic and CNS glycine accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"NMDA antagonist therapy (dextromethorphan/ketamine)\", \"target\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GLDC pathogenic variants\", \"target\": \"Glycine cleavage system dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AMT pathogenic variants\", \"target\": \"Glycine cleavage system dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCSH pathogenic variants (variant NKH)\", \"target\": \"GCSH variant-driven lipoylation defects and bioenergetic failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCSH pathogenic variants (variant NKH)\", \"target\": \"Glycine cleavage system dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMT pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AMT\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Altered glial lineage differentiation in GLDC-deficient neural progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLDC-deficient iPSC-derived neural progenitors shift toward a heterogeneous astrocyte lineage with increased radial glial markers and unexpected neuronal marker expression, linking GLDC-related metabolic defects to altered neurodevelopment.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"radial glial cell\"], \"biological_processes\": [\"astrocyte differentiation\"]}}, {\"id\": \"Anticonvulsant therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiepileptic drugs are used for seizure management in NKH. Sodium valproate is specifically contraindicated because it increases both CSF and plasma glycine levels, potentially worsening seizures. Appropriate anticonvulsant selection is critical in NKH management.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CSF glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"CSF-to-plasma glycine ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"GCSH pathogenic variants (variant NKH)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GCSH\"]}}, {\"id\": \"GCSH variant-driven lipoylation defects and bioenergetic failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic GCSH variants disrupt the H-protein role in mitochondrial protein lipoylation, producing combined NKH and lipoate deficiency with impaired bioenergetic enzyme function.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein lipoylation\"], \"genes\": [\"GCSH\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"GLDC pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLDC\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Varying degrees of developmental delay are near-universal among NKH survivors, ranging from mild delay in attenuated forms to severe intellectual disability in classical neonatal NKH.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycine cleavage system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in glycine cleavage system genes reduce mitochondrial glycine-cleavage enzymatic function.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycine decarboxylation via glycine cleavage system\", \"glycine catabolic process\", \"amino acid metabolic process\"], \"molecular_functions\": [\"aminomethyltransferase activity\"], \"genes\": [\"GLDC\", \"AMT\", \"GCSH\"]}}, {\"id\": \"Ketogenic diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is used as an alternative glycine-lowering strategy. In a multi-center series, six infants switching from high-dose benzoate to KD with low-dose benzoate showed approximately 28% lower plasma glycine, reduced brain glycine by MRS, and seizure reduction in half of patients. KD promotes glycine use as a gluconeogenic substrate.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"NMDA antagonist therapy (dextromethorphan/ketamine)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"NMDA receptor antagonists such as dextromethorphan and ketamine have been used to counteract presumed NMDA receptor overactivation by excess glycine. However, a 2024 expert reassessment finds insufficient evidence of added therapeutic benefit beyond glycine reduction strategies, and notes potential adverse behavioral effects. Controlled clinical studies have never been performed.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess glycine has historically been assumed to overactivate NMDA-type glutamatergic receptors through the NMDA co-agonist site. A 2024 expert reassessment notes that d-serine, another endogenous NMDA co-agonist, is markedly decreased in NKH and may instead contribute to underactivation, so the net direction of NMDA receptor signaling remains unresolved.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"]}}, {\"id\": \"Plasma glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are among the most common presenting features of NKH, occurring in 75% of patients in a Chinese cohort (15/20). EEG evaluations show burst suppression and hypsarrhythmia patterns. Seizures are attributed to both NMDA receptor dysregulation and direct glycine toxicity.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Serine-glycine-one-carbon metabolic disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The GCS provides one-carbon units for folate-linked one-carbon metabolism. In patient-derived iPSC models, GLDC deficiency causes a metabolic switch to altered serine-glycine-one-carbon metabolism with coordinated cell-growth and cell-cycle responses, suggesting that NKH biology extends beyond simple glycine excitotoxicity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"one-carbon metabolic process\", \"folic acid metabolic process\"]}}, {\"id\": \"Sodium benzoate therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium benzoate is the mainstay of glycine reduction therapy in NKH. Benzoate conjugates with glycine and is excreted in urine as hippurate, thereby lowering plasma glycine. Clinical targets commonly aim for plasma glycine approximately 120-300 umol/L.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Systemic and CNS glycine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient glycine cleavage system activity leads to systemic and CNS glycine accumulation. In a Chinese cohort of 20 NKH patients, median CSF glycine was 135.2 umol/L and median plasma glycine was 998.2 umol/L, with a median CSF/plasma glycine ratio of 0.16. The diagnostic hallmark is a CSF-to-plasma glycine ratio greater than 0.08 (normal less than 0.04).\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"amino acid metabolic process\"]}}], \"edges\": [{\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"Systemic and CNS glycine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"GCSH variant-driven lipoylation defects and bioenergetic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"Plasma glycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"CSF glycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"CSF-to-plasma glycine ratio\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"Serine-glycine-one-carbon metabolic disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serine-glycine-one-carbon metabolic disruption\", \"target\": \"Altered glial lineage differentiation in GLDC-deficient neural progenitors\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Altered glial lineage differentiation in GLDC-deficient neural progenitors\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GCSH variant-driven lipoylation defects and bioenergetic failure\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sodium benzoate therapy\", \"target\": \"Systemic and CNS glycine accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Systemic and CNS glycine accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"NMDA antagonist therapy (dextromethorphan/ketamine)\", \"target\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GLDC pathogenic variants\", \"target\": \"Glycine cleavage system dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AMT pathogenic variants\", \"target\": \"Glycine cleavage system dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCSH pathogenic variants (variant NKH)\", \"target\": \"GCSH variant-driven lipoylation defects and bioenergetic failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCSH pathogenic variants (variant NKH)\", \"target\": \"Glycine cleavage system dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3764,6 +3975,8 @@
                 
                 <div class="evidence-explanation">Documents hypotonia in 55% of NKH patients in this cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -3829,6 +4042,8 @@
                 
                 <div class="evidence-explanation">Quantifies seizure frequency at 75% in an NKH cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -3884,6 +4099,8 @@
                 
                 
                 <div class="evidence-explanation">Lethargy observed in 70% of NKH patients.</div>
+                
+                
                 
             </div>
             
@@ -3941,6 +4158,8 @@
                 
                 <div class="evidence-explanation">Developmental delay documented in NKH survivors.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3960,6 +4179,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms intellectual disability across the spectrum in attenuated NKH.</div>
+                
+                
                 
             </div>
             
@@ -4017,6 +4238,8 @@
                 
                 <div class="evidence-explanation">Directly documents intellectual disability levels in attenuated NKH.</div>
                 
+                
+                
             </div>
             
             
@@ -4072,6 +4295,8 @@
                 
                 
                 <div class="evidence-explanation">Documents corpus callosum dysplasia in 36% of NKH patients with MRI data.</div>
+                
+                
                 
             </div>
             
@@ -4129,6 +4354,8 @@
                 
                 <div class="evidence-explanation">White matter abnormalities in 21% of NKH patients with MRI.</div>
                 
+                
+                
             </div>
             
             
@@ -4184,6 +4411,8 @@
                 
                 
                 <div class="evidence-explanation">Burst suppression documented in 50% of NKH patients with EEG.</div>
+                
+                
                 
             </div>
             
@@ -4241,6 +4470,8 @@
                 
                 <div class="evidence-explanation">Documents high ADHD-like behavior frequency in attenuated NKH.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4260,6 +4491,8 @@
                 
                 
                 <div class="evidence-explanation">Explores associations with dextromethorphan but not glycine levels.</div>
+                
+                
                 
             </div>
             
@@ -4326,6 +4559,8 @@
                 
                 <div class="evidence-explanation">Apnea documented in 45% of NKH patients.</div>
                 
+                
+                
             </div>
             
             
@@ -4381,6 +4616,8 @@
                 
                 
                 <div class="evidence-explanation">Apnea in 45% of NKH patients supports neonatal respiratory distress as a frequent feature.</div>
+                
+                
                 
             </div>
             
@@ -4510,6 +4747,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the GLDC-glycine encephalopathy gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -4559,6 +4798,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the AMT-glycine encephalopathy gene-disease relationship as definitive with autosomal recessive inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -4606,6 +4847,8 @@
                 
                 <div class="evidence-explanation">Documents pathogenic GCSH variants with broad clinical spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4625,6 +4868,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates functional consequences of GCSH variants.</div>
+                
+                
                 
             </div>
             
@@ -4727,6 +4972,8 @@
                 
                 <div class="evidence-explanation">The abstract frames current NKH treatment as glycine-reduction therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4746,6 +4993,8 @@
                 
                 
                 <div class="evidence-explanation">The adjacent abstract text identifies high-dose sodium benzoate as the current glycine-reduction therapy.</div>
+                
+                
                 
             </div>
             
@@ -4786,6 +5035,8 @@
                 
                 <div class="evidence-explanation">Establishes sodium benzoate as standard glycine reduction therapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4805,6 +5056,8 @@
                 
                 
                 <div class="evidence-explanation">Provides quantitative data on benzoate therapy effectiveness as comparator.</div>
+                
+                
                 
             </div>
             
@@ -4893,6 +5146,8 @@
                 
                 <div class="evidence-explanation">The study conclusion supports ketogenic diet as a glycine-lowering treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -4932,6 +5187,8 @@
                 
                 <div class="evidence-explanation">Demonstrates KD effectiveness for glycine reduction.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4951,6 +5208,8 @@
                 
                 
                 <div class="evidence-explanation">Supports KD as an effective glycine reduction strategy.</div>
+                
+                
                 
             </div>
             
@@ -5039,6 +5298,8 @@
                 
                 <div class="evidence-explanation">The reassessment identifies the treatment class as NMDA-type receptor antagonists while concluding that clinical benefit remains unproven.</div>
                 
+                
+                
             </div>
             
             
@@ -5078,6 +5339,8 @@
                 
                 <div class="evidence-explanation">Expert reassessment finds no clear evidence of therapeutic benefit.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5098,6 +5361,8 @@
                 
                 <div class="evidence-explanation">Recommends reevaluation of NMDA antagonist use due to potential adverse effects.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5117,6 +5382,8 @@
                 
                 
                 <div class="evidence-explanation">Dextromethorphan use associated with maladaptive behaviors in attenuated NKH.</div>
+                
+                
                 
             </div>
             
@@ -5209,6 +5476,8 @@
                 
                 
                 <div class="evidence-explanation">High seizure frequency (75%) supports the need for anticonvulsant therapy, though the snippet does not specify which anticonvulsants are used.</div>
+                
+                
                 
             </div>
             
@@ -5336,6 +5605,8 @@
                 
                 <div class="evidence-explanation">Demonstrates the value of molecular diagnosis for genetic counseling in NKH families.</div>
                 
+                
+                
             </div>
             
             
@@ -5372,6 +5643,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5397,6 +5669,8 @@
                 
                 <div class="evidence-explanation">Quantifies plasma glycine elevation in NKH patients.</div>
                 
+                
+                
             </div>
             
             
@@ -5416,6 +5690,7 @@
                 
                 <div class="item-desc">Context: CSF glycine is markedly elevated in NKH patients. Median CSF glycine was 135.2 umol/L (range 6.3-546.3) in a Chinese cohort. The CSF-to-plasma glycine ratio is the key diagnostic marker, with values above 0.08 considered diagnostic (normal below 0.04).
 </div>
+                
                 
                 
     
@@ -5443,6 +5718,8 @@
                 
                 <div class="evidence-explanation">Documents CSF glycine elevation and diagnostic CSF/plasma ratio.</div>
                 
+                
+                
             </div>
             
             
@@ -5462,6 +5739,7 @@
                 
                 <div class="item-desc">Context: The CSF-to-plasma glycine ratio is the hallmark diagnostic biomarker for NKH. Values above 0.08 are diagnostic (normal below 0.04). In a Chinese cohort, the median ratio was 0.16 (range 0.03-0.60). This ratio reflects the CNS burden of glycine accumulation and is more diagnostically specific than absolute glycine levels alone.
 </div>
+                
                 
                 
     
@@ -5489,6 +5767,8 @@
                 
                 <div class="evidence-explanation">Provides the key diagnostic ratio data for NKH.</div>
                 
+                
+                
             </div>
             
             
@@ -5508,6 +5788,7 @@
                 
                 <div class="item-desc">Context: D-serine, an alternative endogenous NMDA receptor co-agonist, is markedly decreased in NKH. This may contribute to underactivation of NMDA-type glutamatergic receptors and complicates the assumption that NMDA receptors are simply overactivated.
 </div>
+                
                 
                 
     
@@ -5534,6 +5815,8 @@
                 
                 
                 <div class="evidence-explanation">Documents d-serine deficiency in NKH challenging the NMDA overactivation model.</div>
+                
+                
                 
             </div>
             

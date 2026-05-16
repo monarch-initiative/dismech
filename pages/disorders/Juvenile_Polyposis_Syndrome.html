@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2806,6 +2997,8 @@
                 
                 <div class="evidence-explanation">This review directly defines JPS as an autosomal dominant GI juvenile polyposis syndrome with colorectal cancer risk.</div>
                 
+                
+                
             </div>
             
             
@@ -2873,6 +3066,8 @@
                 
                 
                 <div class="evidence-explanation">This review provides a direct clinical criteria-style definition for JPS diagnosis.</div>
+                
+                
                 
             </div>
             
@@ -2955,6 +3150,8 @@
                 
                 <div class="evidence-explanation">This overview directly supports autosomal dominant inheritance for JPS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2974,6 +3171,8 @@
                 
                 
                 <div class="evidence-explanation">This BMPR1A carrier series supports variable expressivity across the juvenile polyposis spectrum.</div>
+                
+                
                 
             </div>
             
@@ -3060,6 +3259,8 @@
                 
                 <div class="evidence-explanation">This cohort study defines JPI as a severe PTEN-BMPR1A contiguous-deletion subtype within the juvenile polyposis spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3079,6 +3280,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the unusually severe infantile presentation and high-risk phenotype of JPI.</div>
+                
+                
                 
             </div>
             
@@ -3137,6 +3340,8 @@
                 
                 
                 <div class="evidence-explanation">This review identifies a clinically distinct SMAD4-associated overlap subtype combining JPS and HHT.</div>
+                
+                
                 
             </div>
             
@@ -3242,6 +3447,8 @@
                 
                 <div class="evidence-explanation">This overview identifies BMPR1A as a core causative gene in JPS.</div>
                 
+                
+                
             </div>
             
             
@@ -3330,6 +3537,8 @@
                 
                 <div class="evidence-explanation">This overview identifies SMAD4 as a core causative JPS gene.</div>
                 
+                
+                
             </div>
             
             
@@ -3417,6 +3626,8 @@
                 
                 
                 <div class="evidence-explanation">This supports PTEN-BMPR1A contiguous deletion as the initiating lesion for the severe infantile subtype of JPS.</div>
+                
+                
                 
             </div>
             
@@ -3533,6 +3744,8 @@
                 
                 
                 <div class="evidence-explanation">The abstract supports PI3K-AKT-mTOR pathway hyperactivation as a therapeutically actionable disease mechanism in juvenile polyposis of infancy.</div>
+                
+                
                 
             </div>
             
@@ -3719,6 +3932,8 @@
                 
                 <div class="evidence-explanation">This supports BMP/TGF-beta dysregulation as a central shared mechanism in BMPR1A- and SMAD4-mediated JPS.</div>
                 
+                
+                
             </div>
             
             
@@ -3862,6 +4077,8 @@
                 
                 <div class="evidence-explanation">This review supports the landscaper mechanism as a distinct stromal-epithelial pathophysiology in JPS.</div>
                 
+                
+                
             </div>
             
             
@@ -3979,6 +4196,8 @@
                 
                 <div class="evidence-explanation">This supports a distinct severe infantile enteropathic and pan-enteric polyposis mechanism within the JPS spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -4082,6 +4301,8 @@
                 
                 <div class="evidence-explanation">This supports hamartomatous juvenile polyp formation as a core pathophysiologic lesion of JPS.</div>
                 
+                
+                
             </div>
             
             
@@ -4181,6 +4402,8 @@
                 
                 <div class="evidence-explanation">This supports dysplasia-associated neoplastic progression as a distinct late mechanism in JPS.</div>
                 
+                
+                
             </div>
             
             
@@ -4238,6 +4461,8 @@
                 
                 <div class="evidence-explanation">This review directly supports epithelial dysplasia as an important histopathologic feature of JPS polyps.</div>
                 
+                
+                
             </div>
             
             
@@ -4282,6 +4507,8 @@
                 
                 
                 <div class="evidence-explanation">This comparative pathology study defines the characteristic microscopic morphology of JPS-associated hamartomatous polyps.</div>
+                
+                
                 
             </div>
             
@@ -4394,6 +4621,8 @@
                 
                 <div class="evidence-explanation">This review directly supports frequent GI bleeding in the common form of JPS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4413,6 +4642,8 @@
                 
                 
                 <div class="evidence-explanation">This case-based abstract confirms syndrome-level GI hamartomatous polyp disease in a patient presenting with clinically significant gastrointestinal bleeding.</div>
+                
+                
                 
             </div>
             
@@ -4470,6 +4701,8 @@
                 
                 <div class="evidence-explanation">This directly supports anemia as a common clinical consequence of JPS-associated polyp bleeding.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4489,6 +4722,8 @@
                 
                 
                 <div class="evidence-explanation">This case report provides direct human evidence that JPS can present with clinically significant anemia.</div>
+                
+                
                 
             </div>
             
@@ -4555,6 +4790,8 @@
                 
                 <div class="evidence-explanation">This overview supports telangiectasia as an occasional extra-intestinal manifestation within the JPS spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -4620,6 +4857,8 @@
                 
                 <div class="evidence-explanation">This directly supports juvenile GI polyposis as the obligate defining phenotype of JPS.</div>
                 
+                
+                
             </div>
             
             
@@ -4675,6 +4914,8 @@
                 
                 
                 <div class="evidence-explanation">This review directly supports diarrhea as a subtype-specific manifestation of juvenile polyposis of infancy within the JPS spectrum.</div>
+                
+                
                 
             </div>
             
@@ -4732,6 +4973,8 @@
                 
                 <div class="evidence-explanation">This review directly supports protein-losing enteropathy as a subtype-specific manifestation of juvenile polyposis of infancy.</div>
                 
+                
+                
             </div>
             
             
@@ -4787,6 +5030,8 @@
                 
                 
                 <div class="evidence-explanation">This review directly supports rectal prolapse as a subtype-specific manifestation of juvenile polyposis of infancy.</div>
+                
+                
                 
             </div>
             
@@ -4844,6 +5089,8 @@
                 
                 <div class="evidence-explanation">This overview directly supports frequent colorectal cancer risk within the JPS spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4863,6 +5110,8 @@
                 
                 
                 <div class="evidence-explanation">This review supports colorectal cancer as a major malignant outcome of JPS.</div>
+                
+                
                 
             </div>
             
@@ -4919,6 +5168,8 @@
                 
                 
                 <div class="evidence-explanation">This directly supports stomach cancer as a specific malignant outcome associated with JPS.</div>
+                
+                
                 
             </div>
             
@@ -5005,6 +5256,8 @@
                 
                 <div class="evidence-explanation">This overview directly supports BMPR1A as a causative gene in JPS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5024,6 +5277,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the BMPR1A-juvenile polyposis syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5068,6 +5323,8 @@
                 
                 <div class="evidence-explanation">This overview directly supports SMAD4 as a causative JPS gene.</div>
                 
+                
+                
             </div>
             
             
@@ -5111,6 +5368,8 @@
                 
                 <div class="evidence-explanation">This supports PTEN as a subtype-specific contiguous deletion partner in juvenile polyposis of infancy.</div>
                 
+                
+                
             </div>
             
             
@@ -5153,6 +5412,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the ENG-juvenile polyposis syndrome gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5243,6 +5504,8 @@
                 
                 <div class="evidence-explanation">This overview supports endoscopic surveillance as the central preventive management strategy in JPS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5262,6 +5525,8 @@
                 
                 
                 <div class="evidence-explanation">This supports endoscopic polypectomy as an established therapeutic option in JPS management.</div>
+                
+                
                 
             </div>
             
@@ -5340,6 +5605,8 @@
                 
                 <div class="evidence-explanation">This review supports surgery as a common management approach for JPS colonic polyp burden.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5359,6 +5626,8 @@
                 
                 
                 <div class="evidence-explanation">This case report provides direct human evidence that severe gastric JPS can require definitive surgical resection.</div>
+                
+                
                 
             </div>
             
@@ -5437,6 +5706,8 @@
                 
                 <div class="evidence-explanation">This multicenter cohort supports pathway-specific mTOR inhibitor therapy for the severe PTEN-BMPR1A deletion subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -5513,6 +5784,8 @@
                 
                 
                 <div class="evidence-explanation">This supports genetic counseling and cascade surveillance as core management actions for familial JPS.</div>
+                
+                
                 
             </div>
             
@@ -5605,6 +5878,8 @@
                 
                 <div class="evidence-explanation">This overview explicitly identifies Peutz-Jeghers syndrome as a key exclusion in the differential diagnosis of JPS.</div>
                 
+                
+                
             </div>
             
             
@@ -5675,6 +5950,8 @@
                 
                 <div class="evidence-explanation">This overview explicitly identifies Cowden syndrome as another important hamartomatous polyposis differential.</div>
                 
+                
+                
             </div>
             
             
@@ -5744,6 +6021,8 @@
                 
                 
                 <div class="evidence-explanation">This FAP review explicitly identifies familial juvenile polyps among the key multiple-polyp differentials, supporting classic FAP as a clinically relevant bidirectional differential diagnosis for JPS.</div>
+                
+                
                 
             </div>
             
@@ -5849,6 +6128,8 @@
                 
                 <div class="evidence-explanation">This supports the dataset&#39;s value for direct transcriptomic comparison between gastric JPS and Ménétrier&#39;s disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5868,6 +6149,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the dataset as a resource for pathway-level analysis of shared gastric disease biology in JPS.</div>
+                
+                
                 
             </div>
             
@@ -5912,6 +6195,8 @@
                 
                 
                 <div class="evidence-explanation">This supports inclusion of the GEO series as a JPS-relevant human stomach transcriptomic dataset.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2756,6 +2947,8 @@
                 
                 <div class="evidence-explanation">This excerpt confirms that adenosquamous carcinoma displays features of both adenocarcinoma and squamous cell carcinoma.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2773,6 +2966,8 @@
                 
                 
                 <div class="evidence-explanation">This literature supports the statement by explaining that adenosquamous carcinoma (ASC) contains both adenocarcinoma (AC) and squamous cell carcinoma (SCC) components.</div>
+                
+                
                 
             </div>
             
@@ -2830,6 +3025,8 @@
                 
                 <div class="evidence-explanation">This reference supports that NSCLC with ALK gene rearrangements is a subtype that is responsive to ALK inhibitors.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2848,6 +3045,8 @@
                 
                 <div class="evidence-explanation">This article mentions the impact of ALK mutations and the necessity to identify NSCLCs harboring these mutations due to their sensitivity to specific agents like ALK inhibitors.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2865,6 +3064,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses the success and approval of ALK inhibitors like Crizotinib and Ceritinib for the treatment of ALK-rearranged NSCLC, supporting the claim.</div>
+                
+                
                 
             </div>
             
@@ -2924,6 +3125,8 @@
                 
                 <div class="evidence-explanation">This excerpt confirms that NSCLC with activating EGFR mutations (such as exon 19 deletions or L858R mutations) are responsive to EGFR TKIs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2942,6 +3145,8 @@
                 
                 <div class="evidence-explanation">This statement supports the idea that NSCLC with EGFR mutations are responsive to EGFR inhibitors.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2959,6 +3164,8 @@
                 
                 
                 <div class="evidence-explanation">Osimertinib, an EGFR inhibitor, being the standard-of-care for EGFR-mutant NSCLC indicates that this subtype is responsive to EGFR inhibitors.</div>
+                
+                
                 
             </div>
             
@@ -3070,6 +3277,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that mutations in genes such as EGFR, ALK, ROS1, and BRAF are recognized as driving molecular alterations that underpin the malignant phenotype of non-small cell lung cancer.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3088,6 +3297,8 @@
                 
                 <div class="evidence-explanation">The reference supports that mutations in EGFR, ALK, and ROS1 genes serve as oncogenic drivers in non-small cell lung cancer, contributing to uncontrolled cell growth and survival.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3105,6 +3316,8 @@
                 
                 
                 <div class="evidence-explanation">This reference further lists EGFR, ALK, ROS1, and BRAF among the significantly mutated oncogenes in non-small cell lung cancer, thus supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -3180,6 +3393,8 @@
                 
                 <div class="evidence-explanation">The study indicates that non-small cell lung cancer (NSCLC) employs methods of immune evasion, which aligns with the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3198,6 +3413,8 @@
                 
                 <div class="evidence-explanation">The study describes immune evasion mechanisms such as HLA loss in NSCLC, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3215,6 +3432,8 @@
                 
                 
                 <div class="evidence-explanation">The study discusses how NSCLC cells evade the immune system by inactivating MHC-I antigen presentation, supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -3266,6 +3485,8 @@
                 
                 <div class="evidence-explanation">This reference discusses the requirement of angiogenesis in the growth and metastasis of non-small cell lung cancer (NSCLC).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3284,6 +3505,8 @@
                 
                 <div class="evidence-explanation">While the primary focus is not on angiogenesis, it mentions mechanisms of tumor growth and resistance, which can be linked to angiogenesis indirectly.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3301,6 +3524,8 @@
                 
                 
                 <div class="evidence-explanation">This reference indirectly supports the statement by talking about brain metastasis and tumor progression but does not specifically focus on angiogenesis.</div>
+                
+                
                 
             </div>
             
@@ -3555,6 +3780,8 @@
                 
                 <div class="evidence-explanation">While this article primarily deals with small cell lung cancer (SCLC), it does mention metastasis pattern to common sites such as liver and adrenal glands, indicating support for the general concept of lung cancer metastasizing to these distant organs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3573,6 +3800,8 @@
                 
                 <div class="evidence-explanation">This article supports the statement as it mentions that NSCLC can metastasize to the brain and adrenal glands.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3590,6 +3819,8 @@
                 
                 
                 <div class="evidence-explanation">This article further supports the statement by specifying the brain as a common site for metastasis of lung cancer.</div>
+                
+                
                 
             </div>
             
@@ -3647,6 +3878,8 @@
                 
                 
                 <div class="evidence-explanation">Abstract reports a NSCLC cohort dominated by adenocarcinoma.</div>
+                
+                
                 
             </div>
             
@@ -3742,6 +3975,8 @@
                 
                 <div class="evidence-explanation">The abstract mentions that recurrent pneumonias often occur due to airway obstruction, which can be a symptom of lung cancer.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3759,6 +3994,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the statement by indicating that airway obstruction, which can be caused by tumors, is a concern in respiratory emergencies in cancer patients.</div>
+                
+                
                 
             </div>
             
@@ -3825,6 +4062,8 @@
                 
                 <div class="evidence-explanation">The reference indicates that brain metastasis can occur in NSCLC patients, often without neurological symptoms. However, it does not specifically mention headache as an occasional symptom.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3843,6 +4082,8 @@
                 
                 <div class="evidence-explanation">The reference discusses paraneoplastic disorders affecting the nervous system but does not specifically mention headache as a symptom of NSCLC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3860,6 +4101,8 @@
                 
                 
                 <div class="evidence-explanation">The reference discusses brain metastases in NSCLC but does not specifically mention headache as an occasional symptom.</div>
+                
+                
                 
             </div>
             
@@ -3924,6 +4167,8 @@
                 
                 <div class="evidence-explanation">The study confirms that hemoptysis is a recognized condition associated with non-small cell lung cancer (NSCLC).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3942,6 +4187,8 @@
                 
                 <div class="evidence-explanation">The case report does not support the presence of hemoptysis in the specific instance of NSCLC described.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3959,6 +4206,8 @@
                 
                 
                 <div class="evidence-explanation">The study does not specifically focus on hemoptysis as a symptom of NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -4025,6 +4274,8 @@
                 
                 <div class="evidence-explanation">The reference states that bone cancer pain is common in patients with advanced lung cancer, including NSCLC, indicating bone metastases.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4042,6 +4293,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses the occurrence of bone metastases in NSCLC patients, which is linked to symptoms like bone pain.</div>
+                
+                
                 
             </div>
             
@@ -4097,6 +4350,8 @@
                 
                 <div class="evidence-explanation">The study highlights that cancer-related fatigue is a prevalent adverse reaction in elderly NSCLC patients undergoing chemotherapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4115,6 +4370,8 @@
                 
                 <div class="evidence-explanation">Fatigue is listed as one of the most common adverse effects of treatment for NSCLC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4132,6 +4389,8 @@
                 
                 
                 <div class="evidence-explanation">Fatigue is mentioned as a symptom that emerges in individuals with lung cancer, including NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -4191,6 +4450,8 @@
                 
                 <div class="evidence-explanation">The reference indicates that bone metastases are common in NSCLC patients, and skeletal-related events are frequent. However, it does not explicitly categorize bone pain as &#39;occasional.&#39;</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4209,6 +4470,8 @@
                 
                 <div class="evidence-explanation">The reference supports that bone pain is common in lung cancer with bone metastases, but it does not specify the frequency as &#39;occasional.&#39;</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4226,6 +4489,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the statement that bone pain is a common complication in advanced lung cancer with skeletal metastases, aligning with the note that it may indicate bone metastases.</div>
+                
+                
                 
             </div>
             
@@ -4281,6 +4546,8 @@
                 
                 <div class="evidence-explanation">The study lists pain as one of the prevalent symptoms but does not specify chest pain or its frequency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4298,6 +4565,8 @@
                 
                 
                 <div class="evidence-explanation">The study discusses bone cancer pain in the context of lung cancer metastasis but does not mention chest pain or its frequency.</div>
+                
+                
                 
             </div>
             
@@ -4362,6 +4631,8 @@
                 
                 <div class="evidence-explanation">The literature indicates that weight loss is a common symptom in Non-Small Cell Lung Cancer patients due to cancer cachexia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4379,6 +4650,8 @@
                 
                 
                 <div class="evidence-explanation">The literature mentions weight loss as a common systemic symptom associated with lung cancer, supporting its prevalence in Non-Small Cell Lung Cancer.</div>
+                
+                
                 
             </div>
             
@@ -4436,6 +4709,8 @@
                 
                 <div class="evidence-explanation">This study supports that persistent cough is common in NSCLC patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4454,6 +4729,8 @@
                 
                 <div class="evidence-explanation">This study confirms the high frequency of persistent cough in patients after lung cancer surgery, aligning with the statement that persistent cough is a common phenotype in NSCLC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4471,6 +4748,8 @@
                 
                 
                 <div class="evidence-explanation">While this study shows that cough is one of the symptoms among lung cancer patients, it does not explicitly address the commonality of persistent cough in NSCLC phenotypes.</div>
+                
+                
                 
             </div>
             
@@ -4555,6 +4834,8 @@
                 
                 <div class="evidence-explanation">The reference indicates that EGFR mutations, including activating mutations, are a frequent event, which matches the statement that such mutations occur occasionally.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4573,6 +4854,8 @@
                 
                 <div class="evidence-explanation">This study further supports the association of EGFR activating mutations in NSCLC and the effectiveness of targeted therapies, implying the commonality and impact of these mutations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4590,6 +4873,8 @@
                 
                 
                 <div class="evidence-explanation">The research recognizes the frequent mutations in EGFR, validating the association stated in the provided statement.</div>
+                
+                
                 
             </div>
             
@@ -4634,6 +4919,8 @@
                 
                 <div class="evidence-explanation">The literature describes ALK rearrangements occurring in 2-7% of NSCLC cases, supporting the statement that ALK rearrangements are occasional in frequency in NSCLC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4652,6 +4939,8 @@
                 
                 <div class="evidence-explanation">The mention of ALK rearrangements aligns with the statement indicating that they are a recognised genetic association in NSCLC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4669,6 +4958,8 @@
                 
                 
                 <div class="evidence-explanation">The literature identifies ALK rearrangements as part of more commonly recognized alterations/subtypes in NSCLC, supporting their occasional occurrence.</div>
+                
+                
                 
             </div>
             
@@ -4711,6 +5002,8 @@
                 
                 <div class="evidence-explanation">The literature states that ROS-1 rearrangement occurs in a small percentage of NSCLCs, supporting the statement that ROS1 gene rearrangements are occasional in NSCLC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4729,6 +5022,8 @@
                 
                 <div class="evidence-explanation">The literature mentions ROS1 rearrangements in the context of their association with thromboembolic events, indicating the presence and relevance of these genetic alterations in NSCLC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4746,6 +5041,8 @@
                 
                 
                 <div class="evidence-explanation">This reference confirms the presence of ROS1 rearrangements in a subgroup of NSCLC patients, which aligns with the statement regarding the occasional frequency of these rearrangements.</div>
+                
+                
                 
             </div>
             
@@ -4790,6 +5087,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that KRAS activating mutations are present in non-small cell lung cancer (NSCLC).</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4808,6 +5107,8 @@
                 
                 <div class="evidence-explanation">This reference supports the occurrence of KRAS mutations in NSCLC, indicating they are within a notable frequency and linked to specific subgroups.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4825,6 +5126,8 @@
                 
                 
                 <div class="evidence-explanation">This reference reiterates the frequent nature of KRAS mutations in NSCLC, aligning with the &#34;occasional&#34; frequency stated.</div>
+                
+                
                 
             </div>
             
@@ -4965,6 +5268,8 @@
                 
                 <div class="evidence-explanation">This indicates that lobectomy and pneumonectomy are standard surgical treatments for localized non-small cell lung cancer.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4982,6 +5287,8 @@
                 
                 
                 <div class="evidence-explanation">This further reinforces that lobectomy, a type of surgery, is a standard treatment for localized non-small cell lung cancer.</div>
+                
+                
                 
             </div>
             
@@ -5058,6 +5365,8 @@
                 
                 <div class="evidence-explanation">This supports the statement that platinum-based chemotherapy (specifically cisplatin) in combination with other agents is a treatment for NSCLC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5076,6 +5385,8 @@
                 
                 <div class="evidence-explanation">This supports the statement as it mentions that carboplatin, either alone or in combination with other agents, is used in the treatment of NSCLC.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5093,6 +5404,8 @@
                 
                 
                 <div class="evidence-explanation">The study provides evidence that both cisplatin and carboplatin, in combination with other agents, are used in the treatment of NSCLC.</div>
+                
+                
                 
             </div>
             
@@ -5173,6 +5486,8 @@
                 
                 <div class="evidence-explanation">The reference discusses EGFR, ALK, and ROS1 inhibitors as targeted therapies for non-small cell lung cancer.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5191,6 +5506,8 @@
                 
                 <div class="evidence-explanation">The reference discusses erlotinib and gefitinib as EGFR inhibitors used in the treatment of non-small cell lung cancer.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5208,6 +5525,8 @@
                 
                 
                 <div class="evidence-explanation">The reference confirms the use of erlotinib (EGFR inhibitor) and crizotinib (ALK and ROS1 inhibitor) in targeted therapy for non-small cell lung cancer.</div>
+                
+                
                 
             </div>
             
@@ -5288,6 +5607,8 @@
                 
                 <div class="evidence-explanation">The FDA has approved immune checkpoint inhibitors for first-line treatment of metastatic NSCLC with high PD-L1 expression, supporting the use of immunotherapy (including nivolumab and pembrolizumab) for these patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5306,6 +5627,8 @@
                 
                 <div class="evidence-explanation">The mention of PD-L1 immunohistochemistry being introduced for clinically selecting patients for anti-PD-1 therapies supports the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5323,6 +5646,8 @@
                 
                 
                 <div class="evidence-explanation">While it shows the effectiveness of checkpoint inhibitors, it is about treatment beyond progression and does not specifically address high PD-L1 expression.</div>
+                
+                
                 
             </div>
             
@@ -5401,6 +5726,8 @@
                 
                 <div class="evidence-explanation">Supports the use of RT for palliation of symptoms and metastatic sites, but does not specifically mention its use for localized disease.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5419,6 +5746,8 @@
                 
                 <div class="evidence-explanation">Supports the use of RT in palliation of symptoms and brain metastases.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5436,6 +5765,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the use of RT for locally advanced (localized) disease.</div>
+                
+                
                 
             </div>
             
@@ -5504,6 +5835,8 @@
                 
                 <div class="evidence-explanation">This reference explicitly mentions tobacco smoking as the main risk factor for non-small cell lung cancer.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5522,6 +5855,8 @@
                 
                 <div class="evidence-explanation">This study emphasizes the relationship between smoking and prognosis in different types of NSCLC, indicating that smoking is a significant factor.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5539,6 +5874,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses the carcinogenic effects of tobacco smoke, affirming its role as a risk factor for lung cancer.</div>
+                
+                
                 
             </div>
             
@@ -5595,6 +5932,8 @@
                 
                 <div class="evidence-explanation">There is evidence that radon exposure may increase lung cancer risk in smokers, but the evidence for non-smokers is unclear.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5613,6 +5952,8 @@
                 
                 <div class="evidence-explanation">This study discusses the increased risk of lung cancer associated with radon exposure for underground workers, which supports the link between radon and lung cancer risk.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5630,6 +5971,8 @@
                 
                 
                 <div class="evidence-explanation">The provided literature does not contain any detailed content to evaluate the support of the statement.</div>
+                
+                
                 
             </div>
             
@@ -5663,6 +6006,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5686,6 +6030,8 @@
                 
                 <div class="evidence-explanation">The reference discusses the use of CEA as a tumor marker in NSCLC, indicating its relevance and occasional elevated presence.</div>
                 
+                
+                
             </div>
             
             
@@ -5702,6 +6048,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
                     
                 </div>
+                
                 
                 
     
@@ -5726,6 +6073,8 @@
                 
                 
                 <div class="evidence-explanation">CYFRA 21-1 levels are elevated in NSCLC patients, supporting the statement of its occasional presence in a biochemical context.</div>
+                
+                
                 
             </div>
             

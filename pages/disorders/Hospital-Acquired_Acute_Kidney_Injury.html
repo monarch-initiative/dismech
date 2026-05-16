@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2982,6 +3173,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that regulated necrosis (necroptosis and ferroptosis) alongside apoptosis are central mechanisms of tubular injury in renal ischemia-reperfusion.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3001,6 +3194,8 @@
                 
                 
                 <div class="evidence-explanation">Postoperative AKI is a major contributor to hospital-acquired AKI, confirming ischemic tubular injury as a predominant mechanism.</div>
+                
+                
                 
             </div>
             
@@ -3132,6 +3327,8 @@
                 
                 <div class="evidence-explanation">Confirms that contrast media nephrotoxicity is a major contributor to hospital-acquired AKI.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3151,6 +3348,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that nephrotoxic drug exposure is a key risk factor for hospital-acquired AKI in older patients.</div>
+                
+                
                 
             </div>
             
@@ -3329,6 +3528,8 @@
                 
                 <div class="evidence-explanation">Describes the multifactorial pathogenesis of sepsis-associated AKI involving inflammation, coagulation, microvascular dysfunction, and tubular injury.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3349,6 +3550,8 @@
                 
                 <div class="evidence-explanation">Documents the high incidence of AKI in sepsis patients and its association with poor outcomes, supporting sepsis as a major driver of hospital-acquired AKI.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3368,6 +3571,8 @@
                 
                 
                 <div class="evidence-explanation">Review published in a veterinary journal synthesizing human data on sepsis-induced AKI prevalence in ICU patients.</div>
+                
+                
                 
             </div>
             
@@ -3468,6 +3673,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that mitochondrial DNA damage and reduced mitochondrial mass are present in the kidneys of sepsis-AKI patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3487,6 +3694,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates that impaired mitophagy leads to accumulation of damaged mitochondria in AKI, supporting mitochondrial dysfunction as a key pathogenic mechanism.</div>
+                
+                
                 
             </div>
             
@@ -3575,6 +3784,8 @@
                 
                 <div class="evidence-explanation">KDIGO criteria for AKI staging include oliguria as a key diagnostic feature alongside serum creatinine elevation.</div>
                 
+                
+                
             </div>
             
             
@@ -3628,6 +3839,8 @@
                 
                 
                 <div class="evidence-explanation">Large Veterans cohort study demonstrates that AKI causes new-onset or worsening proteinuria, with odds ratios of 1.20-1.39 across months of follow-up, and higher odds with more severe AKI stages.</div>
+                
+                
                 
             </div>
             
@@ -3692,6 +3905,8 @@
                 
                 <div class="evidence-explanation">AKI diagnosis relies on serum creatinine elevation according to standardized KDIGO criteria.</div>
                 
+                
+                
             </div>
             
             
@@ -3745,6 +3960,8 @@
                 
                 
                 <div class="evidence-explanation">Metabolic acidosis is a recognized complication of severe AKI requiring renal replacement therapy.</div>
+                
+                
                 
             </div>
             
@@ -3800,6 +4017,8 @@
                 
                 <div class="evidence-explanation">Hyperkalemia is a life-threatening complication of AKI and one of the established indications for initiating RRT.</div>
                 
+                
+                
             </div>
             
             
@@ -3854,6 +4073,8 @@
                 
                 <div class="evidence-explanation">Refractory fluid overload is a recognized complication of AKI and an indication for initiating renal replacement therapy.</div>
                 
+                
+                
             </div>
             
             
@@ -3907,6 +4128,8 @@
                 
                 
                 <div class="evidence-explanation">Azotemia (accumulation of nitrogenous wastes) is a core feature of AKI driving uremic complications.</div>
+                
+                
                 
             </div>
             
@@ -3993,6 +4216,8 @@
                 
                 <div class="evidence-explanation">GWAS of 54,488 AKI patients identified FTO locus as significantly associated with AKI susceptibility, though the effect was attenuated after adjustment for BMI and diabetes.</div>
                 
+                
+                
             </div>
             
             
@@ -4035,6 +4260,8 @@
                 
                 
                 <div class="evidence-explanation">SHROOM3 locus reached genome-wide significance as a protective factor against AKI, with colocalization to previous kidney function studies.</div>
+                
+                
                 
             </div>
             
@@ -4079,6 +4306,8 @@
                 
                 <div class="evidence-explanation">Systematic review of 16 AKI genetic studies found APOE as the only replicated genetic association across multiple studies.</div>
                 
+                
+                
             </div>
             
             
@@ -4122,6 +4351,8 @@
                 
                 <div class="evidence-explanation">NR5A2 variants showed consistent suggestive association with sepsis-AKI but did not reach genome-wide significance threshold.</div>
                 
+                
+                
             </div>
             
             
@@ -4164,6 +4395,8 @@
                 
                 
                 <div class="evidence-explanation">CHRNA7 variant showed consistent suggestive association with sepsis-AKI across three models but did not reach genome-wide significance.</div>
+                
+                
                 
             </div>
             
@@ -4255,6 +4488,8 @@
                 
                 <div class="evidence-explanation">Volume expansion with isotonic fluids is the most established preventive and therapeutic measure for AKI.</div>
                 
+                
+                
             </div>
             
             
@@ -4335,6 +4570,8 @@
                 
                 <div class="evidence-explanation">Electronic alerts and AKI bundles that include nephrotoxin avoidance improve outcomes in hospital-acquired AKI.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4354,6 +4591,8 @@
                 
                 
                 <div class="evidence-explanation">Continued nephrotoxic drug exposure after AKI onset worsens outcomes, supporting nephrotoxin avoidance as a key intervention.</div>
+                
+                
                 
             </div>
             
@@ -4433,6 +4672,8 @@
                 
                 <div class="evidence-explanation">RRT is the primary supportive therapy for severe sepsis-associated AKI, though optimal timing of initiation remains debated.</div>
                 
+                
+                
             </div>
             
             
@@ -4511,6 +4752,8 @@
                 
                 <div class="evidence-explanation">Multicomponent AKI care bundles combining electronic alerts, standardized protocols, and education provide the most effective improvements in AKI outcomes.</div>
                 
+                
+                
             </div>
             
             
@@ -4579,6 +4822,8 @@
                 
                 <div class="evidence-explanation">Nephrotoxic drug exposure is independently associated with both HA-AKI incidence and mortality.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4598,6 +4843,8 @@
                 
                 
                 <div class="evidence-explanation">Drug-related causes account for a large proportion of hospital-acquired AKI cases.</div>
+                
+                
                 
             </div>
             
@@ -4655,6 +4902,8 @@
                 
                 <div class="evidence-explanation">Identifies key risk factors for contrast-induced AKI, establishing contrast media as a significant cause of hospital-acquired AKI.</div>
                 
+                
+                
             </div>
             
             
@@ -4711,6 +4960,8 @@
                 
                 <div class="evidence-explanation">Establishes sepsis as a major environmental trigger for hospital-acquired AKI in critically ill patients.</div>
                 
+                
+                
             </div>
             
             
@@ -4766,6 +5017,8 @@
                 
                 
                 <div class="evidence-explanation">Describes the multi-hit model of postoperative AKI involving ischemia, inflammation, and nephrotoxins.</div>
+                
+                
                 
             </div>
             
@@ -4856,6 +5109,8 @@
                 
                 
                 <div class="evidence-explanation">This landmark trial of 2927 critically ill AKI patients demonstrated no mortality benefit of accelerated vs standard RRT initiation, with 43.9% vs 43.7% 90-day mortality respectively.</div>
+                
+                
                 
             </div>
             

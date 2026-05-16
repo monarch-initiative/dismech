@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2797,6 +2988,8 @@
                 
                 <div class="evidence-explanation">Supports OTCD as a urea-cycle enzyme deficiency disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2816,6 +3009,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms mitochondrial matrix localization of OTC enzyme.</div>
+                
+                
                 
             </div>
             
@@ -2938,6 +3133,8 @@
                 
                 <div class="evidence-explanation">Directly supports the enzymatic defect blocking citrulline synthesis.</div>
                 
+                
+                
             </div>
             
             
@@ -3031,6 +3228,8 @@
                 
                 <div class="evidence-explanation">Clinical OTCD evidence links impaired citrulline synthesis to increased blood ammonia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3050,6 +3249,8 @@
                 
                 
                 <div class="evidence-explanation">Human OTCD report summarizes the ammonia, glutamine, citrulline, and orotic-acid biochemical pattern.</div>
+                
+                
                 
             </div>
             
@@ -3228,6 +3429,8 @@
                 
                 <div class="evidence-explanation">Supports ammonia-driven CNS injury as a core downstream mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3248,6 +3451,8 @@
                 
                 <div class="evidence-explanation">Directly supports astrocyte-mediated ammonia neurotoxicity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3267,6 +3472,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the glutamine trapping hypothesis and osmotic astrocyte swelling mechanism.</div>
+                
+                
                 
             </div>
             
@@ -3363,6 +3570,8 @@
                 
                 <div class="evidence-explanation">Supports the neurotoxic role of ammonia when hepatic detoxification is impaired.</div>
                 
+                
+                
             </div>
             
             
@@ -3442,6 +3651,8 @@
                 
                 <div class="evidence-explanation">OTCD case-based evidence supports carbamoylphosphate shunting into pyrimidine synthesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3461,6 +3672,8 @@
                 
                 
                 <div class="evidence-explanation">Human OTCD report supports increased urinary orotic acid as a major biochemical hallmark.</div>
+                
+                
                 
             </div>
             
@@ -3496,7 +3709,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute hyperammonemia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rapid crisis-directed supportive management including protein restriction, glucose infusion, nitrogen scavengers, and emergent hemodialysis when ammonia exceeds 200 micromol/L.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ammonia-induced oxidative stress and mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia induces oxidative stress and mitochondrial dysfunction in the CNS, contributing to neuronal energy failure and cumulative neurodevelopmental impairment.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Arginine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-arginine supplementation to provide substrate for the urea cycle downstream of the OTC block.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-arginine\"]}}, {\"id\": \"Behavioral abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychiatric and behavioral disturbances including confusion, agitation, and psychotic-like episodes may be the presenting feature of late-onset disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When OTC cannot utilize carbamoyl phosphate for citrulline synthesis, substrate shunting into pyrimidine synthesis produces urinary pyrimidine byproducts and contributes to increased urine orotic acid in OTCD.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cerebral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain swelling secondary to ammonia-driven astrocyte osmotic changes; risk exceeds 55% when ammonia levels surpass 200 micromol/L.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002181\"}}, {\"id\": \"Citrulline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic coma during severe decompensation, particularly in neonatal-onset disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute encephalopathy during decompensation episodes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurodevelopmental delay risk after recurrent or severe crises.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glutamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver failure may occur during severe metabolic decompensation, particularly in early-onset cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked or intermittent plasma ammonia elevation, the cardinal biochemical feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent hyperammonemia causes astrocyte swelling and cerebral edema through glutamine accumulation. In brain, glutamine synthesis is the only route of ammonia detoxification, and excess glutamine acts as an osmolyte causing astrocyte swelling and cerebral edema.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"L-glutamine metabolic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Hyperglutaminemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma glutamine from excess ammonia detoxification via glutamine synthetase.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003217\"}}, {\"id\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced OTC activity lowers conversion of ornithine and carbamoyl phosphate to citrulline, decreasing urea cycle throughput and predisposing to hyperammonemia.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced arousal, progressing to coma in severe episodes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Curative metabolic option for selected severe phenotypes; restores full urea cycle capacity and eliminates hyperammonemic risk.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Low plasma citrulline\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced plasma citrulline reflecting impaired OTC enzymatic product formation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003572\"}}, {\"id\": \"Nitrogen scavenger therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmacologic ammonia-scavenging agents (sodium benzoate, sodium phenylbutyrate, glycerol phenylbutyrate) for chronic and acute management.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sodium benzoate\", \"sodium phenylbutyrate\", \"glycerol phenylbutyrate\"]}}, {\"id\": \"OTC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OTC\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"OTC variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"OTC\"]}}, {\"id\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic OTC variants reduce ornithine carbamoyltransferase enzymatic activity in hepatic mitochondria.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"ornithine carbamoyltransferase activity\"], \"genes\": [\"OTC\"], \"locations\": [\"liver\"]}}, {\"id\": \"Orotic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oroticaciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased urinary orotic acid accompanying carbamoylphosphate shunting into pyrimidine synthesis; a distinguishing feature from CPS1 deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003218\"}}, {\"id\": \"Protein-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary nitrogen control tailored to age and growth requirements to reduce ammonia production.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occurring during hyperammonemic crises.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Systemic ammonia accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired OTC-dependent ureagenesis allows blood ammonia to rise. Ammonia detoxification through glutamine synthesis raises glutamine and provides the proximal biochemical driver of hyperammonemic CNS injury.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Uracil\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Emesis associated with metabolic crisis and rising ammonia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"target\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Systemic ammonia accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Low plasma citrulline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Citrulline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Glutamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Hyperglutaminemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Ammonia-induced oxidative stress and mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Behavioral abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ammonia-induced oxidative stress and mitochondrial dysfunction\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"target\": \"Uracil\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"target\": \"Orotic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"target\": \"Oroticaciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Systemic ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Arginine supplementation\", \"target\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"OTC variants\", \"target\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OTC\", \"target\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute hyperammonemia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rapid crisis-directed supportive management including protein restriction, glucose infusion, nitrogen scavengers, and emergent hemodialysis when ammonia exceeds 200 micromol/L.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Increased\", \"term_id\": \"CHEBI:28938\", \"term_label\": \"ammonium\"}}, {\"id\": \"Ammonia-induced oxidative stress and mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia induces oxidative stress and mitochondrial dysfunction in the CNS, contributing to neuronal energy failure and cumulative neurodevelopmental impairment.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Arginine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-arginine supplementation to provide substrate for the urea cycle downstream of the OTC block.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-arginine\"]}}, {\"id\": \"Behavioral abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychiatric and behavioral disturbances including confusion, agitation, and psychotic-like episodes may be the presenting feature of late-onset disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When OTC cannot utilize carbamoyl phosphate for citrulline synthesis, substrate shunting into pyrimidine synthesis produces urinary pyrimidine byproducts and contributes to increased urine orotic acid in OTCD.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cerebral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain swelling secondary to ammonia-driven astrocyte osmotic changes; risk exceeds 55% when ammonia levels surpass 200 micromol/L.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002181\"}}, {\"id\": \"Citrulline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Decreased\", \"term_id\": \"CHEBI:18211\", \"term_label\": \"citrulline\"}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic coma during severe decompensation, particularly in neonatal-onset disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute encephalopathy during decompensation episodes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurodevelopmental delay risk after recurrent or severe crises.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glutamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Increased\", \"term_id\": \"CHEBI:28300\", \"term_label\": \"glutamine\"}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver failure may occur during severe metabolic decompensation, particularly in early-onset cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked or intermittent plasma ammonia elevation, the cardinal biochemical feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent hyperammonemia causes astrocyte swelling and cerebral edema through glutamine accumulation. In brain, glutamine synthesis is the only route of ammonia detoxification, and excess glutamine acts as an osmolyte causing astrocyte swelling and cerebral edema.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"L-glutamine metabolic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Hyperglutaminemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma glutamine from excess ammonia detoxification via glutamine synthetase.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003217\"}}, {\"id\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced OTC activity lowers conversion of ornithine and carbamoyl phosphate to citrulline, decreasing urea cycle throughput and predisposing to hyperammonemia.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced arousal, progressing to coma in severe episodes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Curative metabolic option for selected severe phenotypes; restores full urea cycle capacity and eliminates hyperammonemic risk.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Low plasma citrulline\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced plasma citrulline reflecting impaired OTC enzymatic product formation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003572\"}}, {\"id\": \"Nitrogen scavenger therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmacologic ammonia-scavenging agents (sodium benzoate, sodium phenylbutyrate, glycerol phenylbutyrate) for chronic and acute management.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sodium benzoate\", \"sodium phenylbutyrate\", \"glycerol phenylbutyrate\"]}}, {\"id\": \"OTC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OTC\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"OTC variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"OTC\"]}}, {\"id\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic OTC variants reduce ornithine carbamoyltransferase enzymatic activity in hepatic mitochondria.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"ornithine carbamoyltransferase activity\"], \"genes\": [\"OTC\"], \"locations\": [\"liver\"]}}, {\"id\": \"Orotic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Increased\", \"term_id\": \"CHEBI:16742\", \"term_label\": \"orotic acid\"}}, {\"id\": \"Oroticaciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased urinary orotic acid accompanying carbamoylphosphate shunting into pyrimidine synthesis; a distinguishing feature from CPS1 deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003218\"}}, {\"id\": \"Protein-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary nitrogen control tailored to age and growth requirements to reduce ammonia production.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occurring during hyperammonemic crises.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Systemic ammonia accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired OTC-dependent ureagenesis allows blood ammonia to rise. Ammonia detoxification through glutamine synthesis raises glutamine and provides the proximal biochemical driver of hyperammonemic CNS injury.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Uracil\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Increased\", \"term_id\": \"CHEBI:17568\", \"term_label\": \"uracil\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Emesis associated with metabolic crisis and rising ammonia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"target\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Systemic ammonia accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Low plasma citrulline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Citrulline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"target\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Glutamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic ammonia accumulation\", \"target\": \"Hyperglutaminemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Ammonia-induced oxidative stress and mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"target\": \"Behavioral abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ammonia-induced oxidative stress and mitochondrial dysfunction\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"target\": \"Uracil\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"target\": \"Orotic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate diversion to pyrimidine pathway\", \"target\": \"Oroticaciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Systemic ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Arginine supplementation\", \"target\": \"Impaired citrulline synthesis and reduced urea cycle flux\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Hyperammonemic cerebral injury via astrocyte swelling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"OTC variants\", \"target\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OTC\", \"target\": \"Ornithine carbamoyltransferase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3578,6 +3791,8 @@
                 
                 <div class="evidence-explanation">Directly supports vomiting as an early symptom in hyperammonemic decompensation.</div>
                 
+                
+                
             </div>
             
             
@@ -3633,6 +3848,8 @@
                 
                 
                 <div class="evidence-explanation">Directly reports liver failure as a clinical feature in early-onset OTCD.</div>
+                
+                
                 
             </div>
             
@@ -3701,6 +3918,8 @@
                 
                 <div class="evidence-explanation">Infant OTCD case evidence supports markedly elevated urinary orotic acid.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3720,6 +3939,8 @@
                 
                 
                 <div class="evidence-explanation">Human OTCD report identifies increased urinary orotic acid as a major biochemical hallmark.</div>
+                
+                
                 
             </div>
             
@@ -3786,6 +4007,8 @@
                 
                 <div class="evidence-explanation">Confirms hyperammonemia as a major clinical risk in OTCD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3805,6 +4028,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms hyperammonemia as the pivotal early clinical event in neonatal OTCD.</div>
+                
+                
                 
             </div>
             
@@ -3862,6 +4087,8 @@
                 
                 <div class="evidence-explanation">Directly names cerebral edema as a complication of hyperammonemia in OTCD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3881,6 +4108,8 @@
                 
                 
                 <div class="evidence-explanation">Quantifies the high risk of cerebral edema at severe ammonia levels.</div>
+                
+                
                 
             </div>
             
@@ -3938,6 +4167,8 @@
                 
                 <div class="evidence-explanation">Directly documents hyperglutaminemia in all early-onset OTCD cases.</div>
                 
+                
+                
             </div>
             
             
@@ -3993,6 +4224,8 @@
                 
                 
                 <div class="evidence-explanation">Documents low citrulline in early-onset OTCD, though not universally present.</div>
+                
+                
                 
             </div>
             
@@ -4059,6 +4292,8 @@
                 
                 <div class="evidence-explanation">Supports encephalopathic CNS dysfunction in OTCD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4078,6 +4313,8 @@
                 
                 
                 <div class="evidence-explanation">Directly identifies UCD-related hyperammonemia as a cause of metabolic encephalopathy.</div>
+                
+                
                 
             </div>
             
@@ -4135,6 +4372,8 @@
                 
                 <div class="evidence-explanation">Supports severe neurologic decline during OTCD decompensation episodes.</div>
                 
+                
+                
             </div>
             
             
@@ -4190,6 +4429,8 @@
                 
                 
                 <div class="evidence-explanation">Directly reports seizures as a clinical manifestation in early-onset OTCD.</div>
+                
+                
                 
             </div>
             
@@ -4247,6 +4488,8 @@
                 
                 <div class="evidence-explanation">Directly supports coma as a progression of hyperammonemia in OTCD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4266,6 +4509,8 @@
                 
                 
                 <div class="evidence-explanation">Case report documenting progression to coma in late-onset OTCD.</div>
+                
+                
                 
             </div>
             
@@ -4322,6 +4567,8 @@
                 
                 
                 <div class="evidence-explanation">Supports persistent neurodevelopmental impairment after severe OTCD CNS injury.</div>
+                
+                
                 
             </div>
             
@@ -4380,6 +4627,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical review evidence supports behavioral abnormalities in slower hyperammonemic states.</div>
+                
+                
                 
             </div>
             
@@ -4470,6 +4719,8 @@
                 
                 <div class="evidence-explanation">Supports OTC genetic etiology and inheritance architecture.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4490,6 +4741,8 @@
                 
                 <div class="evidence-explanation">Supports genotype-phenotype correlation with variable onset and severity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4509,6 +4762,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates functional assay-based classification of variant severity.</div>
+                
+                
                 
             </div>
             
@@ -4554,6 +4809,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the OTC-ornithine carbamoyltransferase deficiency gene-disease relationship as definitive with X-linked inheritance.</div>
+                
+                
                 
             </div>
             
@@ -4653,6 +4910,8 @@
                 
                 <div class="evidence-explanation">Systematic clinical review supports diet and treatment as ammonia-lowering strategies for urea-cycle defects.</div>
                 
+                
+                
             </div>
             
             
@@ -4692,6 +4951,8 @@
                 
                 <div class="evidence-explanation">Supports dietary treatment as a standard component of OTCD management, though acknowledging its limitations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4711,6 +4972,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms adapted nutrition as a core treatment component for UCD.</div>
+                
+                
                 
             </div>
             
@@ -4827,6 +5090,8 @@
                 
                 <div class="evidence-explanation">Clinical review evidence supports nitrogen scavengers as bypassing the urea cycle for nitrogen elimination.</div>
                 
+                
+                
             </div>
             
             
@@ -4866,6 +5131,8 @@
                 
                 <div class="evidence-explanation">Confirms scavenging agents as a standard treatment modality.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4885,6 +5152,8 @@
                 
                 
                 <div class="evidence-explanation">Supports pharmacologic treatment as standard care while noting its limitations.</div>
+                
+                
                 
             </div>
             
@@ -4985,6 +5254,8 @@
                 
                 <div class="evidence-explanation">Clinical review evidence supports arginine/citrulline supplementation as an alternative pathway support in UCD management.</div>
                 
+                
+                
             </div>
             
             
@@ -5023,6 +5294,8 @@
                 
                 
                 <div class="evidence-explanation">Documents L-arginine use in the systematic review of adult UCD case reports.</div>
+                
+                
                 
             </div>
             
@@ -5111,6 +5384,8 @@
                 
                 <div class="evidence-explanation">Clinical review evidence supports hemodialysis as a mechanism-targeted acute intervention against hyperammonemic cerebral injury.</div>
                 
+                
+                
             </div>
             
             
@@ -5150,6 +5425,8 @@
                 
                 <div class="evidence-explanation">Supports urgent supportive and ammonia-lowering intervention during crises.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5169,6 +5446,8 @@
                 
                 
                 <div class="evidence-explanation">Provides clinical threshold for emergent hemodialysis in acute hyperammonemia.</div>
+                
+                
                 
             </div>
             
@@ -5257,6 +5536,8 @@
                 
                 <div class="evidence-explanation">OTCD liver-transplant case review supports restoration of hepatic ammonia metabolism.</div>
                 
+                
+                
             </div>
             
             
@@ -5296,6 +5577,8 @@
                 
                 <div class="evidence-explanation">Directly supports liver transplantation as a disease-modifying option in severe OTCD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5316,6 +5599,8 @@
                 
                 <div class="evidence-explanation">Confirms liver transplantation as the only curative treatment while noting practical limitations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5335,6 +5620,8 @@
                 
                 
                 <div class="evidence-explanation">Documents liver transplantation as a life-saving intervention in OTCD.</div>
+                
+                
                 
             </div>
             
@@ -5414,6 +5701,8 @@
                 
                 <div class="evidence-explanation">Strongly supports the value of pre-pregnancy diagnosis and genetic counseling for carrier females.</div>
                 
+                
+                
             </div>
             
             
@@ -5449,6 +5738,7 @@
                 <div class="item-desc">Context: Hyperammonemia from impaired urea cycle in OTCD</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5474,6 +5764,8 @@
                 
                 <div class="evidence-explanation">Confirms hyperammonemia as the cardinal biochemical abnormality in OTCD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5494,6 +5786,8 @@
                 
                 <div class="evidence-explanation">Directly identifies elevated ammonia as a key diagnostic marker.</div>
                 
+                
+                
             </div>
             
             
@@ -5512,6 +5806,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Elevated plasma glutamine from ammonia detoxification via glutamine synthetase</div>
+                
                 
                 
     
@@ -5539,6 +5834,8 @@
                 
                 <div class="evidence-explanation">Directly documents elevated glutamine in all early-onset OTCD cases.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5559,6 +5856,8 @@
                 
                 <div class="evidence-explanation">Brain MRS data showing progressive glutamine accumulation correlating with clinical severity.</div>
                 
+                
+                
             </div>
             
             
@@ -5577,6 +5876,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Low or low-normal plasma citrulline from impaired OTC enzymatic product formation</div>
+                
                 
                 
     
@@ -5604,6 +5904,8 @@
                 
                 <div class="evidence-explanation">Documents low citrulline in a proportion of early-onset OTCD cases.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5624,6 +5926,8 @@
                 
                 <div class="evidence-explanation">Supports abnormal citrulline ratios as reliable screening markers.</div>
                 
+                
+                
             </div>
             
             
@@ -5642,6 +5946,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Increased urinary uracil accompanying carbamoylphosphate shunting to pyrimidine synthesis</div>
+                
                 
                 
     
@@ -5669,6 +5974,8 @@
                 
                 <div class="evidence-explanation">OTCD case evidence directly reports increased urinary uracil.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5689,6 +5996,8 @@
                 
                 <div class="evidence-explanation">Human OTCD report supports urinary uracil as a useful biomarker, particularly in late-onset disease.</div>
                 
+                
+                
             </div>
             
             
@@ -5707,6 +6016,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Elevated urinary orotic acid accompanying carbamoylphosphate shunting to pyrimidine synthesis</div>
+                
                 
                 
     
@@ -5734,6 +6044,8 @@
                 
                 <div class="evidence-explanation">Infant OTCD case evidence directly supports elevated urinary orotic acid.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5753,6 +6065,8 @@
                 
                 
                 <div class="evidence-explanation">Human OTCD report supports increased urine orotic acid as a hallmark biochemical abnormality.</div>
+                
+                
                 
             </div>
             

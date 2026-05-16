@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2808,6 +2999,8 @@
                 
                 <div class="evidence-explanation">Orphanet defines the core multisystem phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2827,6 +3020,8 @@
                 
                 
                 <div class="evidence-explanation">Contemporary patient cohort supports the ultra-rare multisystem disease framing.</div>
+                
+                
                 
             </div>
             
@@ -2906,6 +3101,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records autosomal recessive inheritance for alpha-mannosidosis.</div>
+                
+                
                 
             </div>
             
@@ -2999,6 +3196,8 @@
                 
                 <div class="evidence-explanation">Orphanet maps the infantile form to MONDO:0017732.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3018,6 +3217,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies MAN2B1 as the disease-causing gene for this subtype.</div>
+                
+                
                 
             </div>
             
@@ -3084,6 +3285,8 @@
                 
                 <div class="evidence-explanation">Orphanet maps the adult form to MONDO:0017733.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3103,6 +3306,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet identifies MAN2B1 as the disease-causing gene for this subtype.</div>
+                
+                
                 
             </div>
             
@@ -3277,6 +3482,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies MAN2B1 as the disease-causing gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3297,6 +3504,8 @@
                 
                 <div class="evidence-explanation">Review directly supports deficient lysosomal alpha-mannosidase activity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3316,6 +3525,8 @@
                 
                 
                 <div class="evidence-explanation">Genotype-phenotype cohort supports MAN2B1 variants causing loss of lysosomal enzyme activity.</div>
+                
+                
                 
             </div>
             
@@ -3533,6 +3744,8 @@
                 
                 <div class="evidence-explanation">Pediatric velmanase alfa study summarizes the storage substrate caused by enzyme deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3552,6 +3765,8 @@
                 
                 
                 <div class="evidence-explanation">Patient genotype-phenotype study used CSF oligosaccharides as a storage-related biochemical measure.</div>
+                
+                
                 
             </div>
             
@@ -3741,6 +3956,8 @@
                 
                 <div class="evidence-explanation">Review supports cognitive, speech, and psychiatric involvement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3760,6 +3977,8 @@
                 
                 
                 <div class="evidence-explanation">Patient cohort summarizes neurologic and motor manifestations.</div>
+                
+                
                 
             </div>
             
@@ -3881,6 +4100,8 @@
                 
                 
                 <div class="evidence-explanation">Review directly supports immunodeficiency with recurrent infections.</div>
+                
+                
                 
             </div>
             
@@ -4168,6 +4389,8 @@
                 
                 <div class="evidence-explanation">Review supports skeletal dysplasia and spinal/thoracic involvement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4187,6 +4410,8 @@
                 
                 
                 <div class="evidence-explanation">Cohort review supports craniofacial and musculoskeletal involvement.</div>
+                
+                
                 
             </div>
             
@@ -4246,6 +4471,8 @@
                 
                 <div class="evidence-explanation">The review supports alpha-mannosidosis as a lysosomal enzyme-deficiency storage disease.</div>
                 
+                
+                
             </div>
             
             
@@ -4277,7 +4504,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of the helix\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011039\"}}, {\"id\": \"Adult form mild intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Adult form recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Asthenia in alpha-mannosidosis subtypes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile form\", \"Adult form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025406\"}}, {\"id\": \"Ataxia in alpha-mannosidosis subtypes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile form\", \"Adult form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Avascular necrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010885\"}}, {\"id\": \"Biallelic MAN2B1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MAN2B1\"], \"association\": \"Causative\"}}, {\"id\": \"Bowing of the long bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006487\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Chronic otitis media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000389\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Corneal opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007957\"}}, {\"id\": \"Craniofacial hyperostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004493\"}}, {\"id\": \"Delayed skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002750\"}}, {\"id\": \"Dental malocclusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000689\"}}, {\"id\": \"Depressed nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Generalized abnormality of skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011354\"}}, {\"id\": \"Gingival overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000212\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hallucinations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000738\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation can normalize leukocyte enzyme activity and may stabilize cognitive function and improve hearing when performed early, but transplant candidacy and risk require specialist evaluation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hip dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001385\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypoplastic inferior ilia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008821\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Immune deficiency and recurrent infections\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune dysfunction is a core alpha-mannosidosis manifestation and is clinically expressed as recurrent infections, especially during childhood.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Increased intracranial pressure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002516\"}}, {\"id\": \"Increased urinary mannose-rich oligosaccharides\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Infantile form abnormal circulating enzyme concentration or activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012379\"}}, {\"id\": \"Infantile form abnormal skeletal morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011842\"}}, {\"id\": \"Infantile form cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Infantile form coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Infantile form delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Infantile form dysostosis multiplex\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000943\"}}, {\"id\": \"Infantile form facial shape deformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011334\"}}, {\"id\": \"Infantile form hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001433\"}}, {\"id\": \"Infantile form hypermetropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000540\"}}, {\"id\": \"Infantile form hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Infantile form hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Infantile form immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002721\"}}, {\"id\": \"Infantile form intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Infantile form mild intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Infantile form mixed hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000410\"}}, {\"id\": \"Infantile form motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Infantile form myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Infantile form myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Infantile form otitis media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000388\"}}, {\"id\": \"Infantile form pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002090\"}}, {\"id\": \"Infantile form recurrent gastroenteritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031123\"}}, {\"id\": \"Infantile form recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Infantile form short attention span\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000736\"}}, {\"id\": \"Infantile form specific learning disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001328\"}}, {\"id\": \"Infantile form strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Inguinal hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Kyphosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002808\"}}, {\"id\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in MAN2B1 reduce lysosomal alpha-mannosidase activity, impairing the lysosomal catabolism of glycoprotein-derived alpha-mannosides.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glycoprotein catabolic process\"], \"molecular_functions\": [\"alpha-mannosidase activity\"], \"genes\": [\"MAN2B1\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000158\"}}, {\"id\": \"Macrotia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000400\"}}, {\"id\": \"Mandibular prognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000303\"}}, {\"id\": \"Mannose-rich oligosaccharide lysosomal storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient lysosomal alpha-mannosidase activity causes accumulation of mannose-rich oligosaccharides in cells, body fluids, and cerebrospinal fluid, linking the enzyme defect to multisystem storage pathology.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycoprotein catabolic process\"]}}, {\"id\": \"Narrow palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000189\"}}, {\"id\": \"Neurodevelopmental and motor impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Central nervous system involvement produces intellectual disability, developmental delay, impaired speech, hypotonia, ataxia, and behavioral or psychiatric manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Oligosacchariduria in alpha-mannosidosis subtypes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile form\", \"Adult form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010471\"}}, {\"id\": \"Open bite\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010807\"}}, {\"id\": \"Prominent supraorbital ridges\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000336\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Reduced acid alpha-mannosidase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short neck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000470\"}}, {\"id\": \"Skeletal and craniofacial storage manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage disease produces progressive craniofacial coarsening and skeletal abnormalities including dysostosis multiplex, scoliosis, thoracic deformity, hip abnormalities, and delayed skeletal maturation.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"skeletal system\"]}}, {\"id\": \"Skeletal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002652\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Synostosis of joints\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100240\"}}, {\"id\": \"Velmanase alfa enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Velmanase alfa is recombinant human lysosomal alpha-mannosidase used as enzyme replacement therapy for non-neurological manifestations. Trials show sustained serum oligosaccharide clearance, immunologic improvement, and greater benefit when started in pediatric patients.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"velmanase alfa\"]}}, {\"id\": \"Widely spaced teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000687\"}}], \"edges\": [{\"source\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"target\": \"Mannose-rich oligosaccharide lysosomal storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"target\": \"Reduced acid alpha-mannosidase activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"target\": \"Infantile form abnormal circulating enzyme concentration or activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Neurodevelopmental and motor impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Immune deficiency and recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Skeletal and craniofacial storage manifestations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Increased urinary mannose-rich oligosaccharides\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Oligosacchariduria in alpha-mannosidosis subtypes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Corneal opacity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form cataract\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form strabismus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form hypermetropia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form myopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Generalized abnormality of skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Inguinal hernia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Hallucinations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Increased intracranial pressure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form short attention span\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Ataxia in alpha-mannosidosis subtypes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form mild intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Adult form mild intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form motor delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form specific learning disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form myopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Asthenia in alpha-mannosidosis subtypes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Chronic otitis media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form otitis media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form mixed hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Adult form recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form recurrent gastroenteritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Skeletal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Narrow palate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Gingival overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Mandibular prognathia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Prominent supraorbital ridges\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Macrotia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Short neck\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Widely spaced teeth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Dental malocclusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Hip dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Delayed skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Kyphosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Craniofacial hyperostosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Depressed nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Bowing of the long bones\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Hypoplastic inferior ilia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Open bite\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Avascular necrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Abnormality of the helix\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Synostosis of joints\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form dysostosis multiplex\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form facial shape deformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form abnormal skeletal morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Velmanase alfa enzyme replacement therapy\", \"target\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Velmanase alfa enzyme replacement therapy\", \"target\": \"Mannose-rich oligosaccharide lysosomal storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biallelic MAN2B1 pathogenic variants\", \"target\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of the helix\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011039\"}}, {\"id\": \"Adult form mild intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Adult form recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Asthenia in alpha-mannosidosis subtypes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile form\", \"Adult form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025406\"}}, {\"id\": \"Ataxia in alpha-mannosidosis subtypes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile form\", \"Adult form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Avascular necrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010885\"}}, {\"id\": \"Biallelic MAN2B1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MAN2B1\"], \"association\": \"Causative\"}}, {\"id\": \"Bowing of the long bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006487\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Chronic otitis media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000389\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Corneal opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007957\"}}, {\"id\": \"Craniofacial hyperostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004493\"}}, {\"id\": \"Delayed skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002750\"}}, {\"id\": \"Dental malocclusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000689\"}}, {\"id\": \"Depressed nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Generalized abnormality of skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011354\"}}, {\"id\": \"Gingival overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000212\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hallucinations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000738\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation can normalize leukocyte enzyme activity and may stabilize cognitive function and improve hearing when performed early, but transplant candidacy and risk require specialist evaluation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hip dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001385\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypoplastic inferior ilia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008821\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Immune deficiency and recurrent infections\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune dysfunction is a core alpha-mannosidosis manifestation and is clinically expressed as recurrent infections, especially during childhood.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Increased intracranial pressure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002516\"}}, {\"id\": \"Increased urinary mannose-rich oligosaccharides\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Infantile form abnormal circulating enzyme concentration or activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012379\"}}, {\"id\": \"Infantile form abnormal skeletal morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011842\"}}, {\"id\": \"Infantile form cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Infantile form coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Infantile form delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Infantile form dysostosis multiplex\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000943\"}}, {\"id\": \"Infantile form facial shape deformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011334\"}}, {\"id\": \"Infantile form hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001433\"}}, {\"id\": \"Infantile form hypermetropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000540\"}}, {\"id\": \"Infantile form hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Infantile form hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Infantile form immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002721\"}}, {\"id\": \"Infantile form intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Infantile form mild intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Infantile form mixed hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000410\"}}, {\"id\": \"Infantile form motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Infantile form myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Infantile form myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Infantile form otitis media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000388\"}}, {\"id\": \"Infantile form pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002090\"}}, {\"id\": \"Infantile form recurrent gastroenteritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031123\"}}, {\"id\": \"Infantile form recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Infantile form short attention span\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000736\"}}, {\"id\": \"Infantile form specific learning disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001328\"}}, {\"id\": \"Infantile form strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile form\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Inguinal hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Kyphosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002808\"}}, {\"id\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in MAN2B1 reduce lysosomal alpha-mannosidase activity, impairing the lysosomal catabolism of glycoprotein-derived alpha-mannosides.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glycoprotein catabolic process\"], \"molecular_functions\": [\"alpha-mannosidase activity\"], \"genes\": [\"MAN2B1\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000158\"}}, {\"id\": \"Macrotia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000400\"}}, {\"id\": \"Mandibular prognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000303\"}}, {\"id\": \"Mannose-rich oligosaccharide lysosomal storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient lysosomal alpha-mannosidase activity causes accumulation of mannose-rich oligosaccharides in cells, body fluids, and cerebrospinal fluid, linking the enzyme defect to multisystem storage pathology.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycoprotein catabolic process\"]}}, {\"id\": \"Narrow palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000189\"}}, {\"id\": \"Neurodevelopmental and motor impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Central nervous system involvement produces intellectual disability, developmental delay, impaired speech, hypotonia, ataxia, and behavioral or psychiatric manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Oligosacchariduria in alpha-mannosidosis subtypes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile form\", \"Adult form\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010471\"}}, {\"id\": \"Open bite\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010807\"}}, {\"id\": \"Prominent supraorbital ridges\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000336\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Reduced acid alpha-mannosidase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short neck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000470\"}}, {\"id\": \"Skeletal and craniofacial storage manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage disease produces progressive craniofacial coarsening and skeletal abnormalities including dysostosis multiplex, scoliosis, thoracic deformity, hip abnormalities, and delayed skeletal maturation.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"skeletal system\"]}}, {\"id\": \"Skeletal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002652\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Synostosis of joints\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100240\"}}, {\"id\": \"Velmanase alfa enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Velmanase alfa is recombinant human lysosomal alpha-mannosidase used as enzyme replacement therapy for non-neurological manifestations. Trials show sustained serum oligosaccharide clearance, immunologic improvement, and greater benefit when started in pediatric patients.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"velmanase alfa\"]}}, {\"id\": \"Widely spaced teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000687\"}}], \"edges\": [{\"source\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"target\": \"Mannose-rich oligosaccharide lysosomal storage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"target\": \"Reduced acid alpha-mannosidase activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"target\": \"Infantile form abnormal circulating enzyme concentration or activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Neurodevelopmental and motor impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Immune deficiency and recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Skeletal and craniofacial storage manifestations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Increased urinary mannose-rich oligosaccharides\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Oligosacchariduria in alpha-mannosidosis subtypes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Corneal opacity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form cataract\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form strabismus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form hypermetropia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form myopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Infantile form hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Generalized abnormality of skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mannose-rich oligosaccharide lysosomal storage\", \"target\": \"Inguinal hernia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Hallucinations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Increased intracranial pressure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form short attention span\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Ataxia in alpha-mannosidosis subtypes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form mild intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Adult form mild intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form motor delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form specific learning disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Infantile form myopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental and motor impairment\", \"target\": \"Asthenia in alpha-mannosidosis subtypes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Chronic otitis media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form otitis media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form mixed hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Adult form recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune deficiency and recurrent infections\", \"target\": \"Infantile form recurrent gastroenteritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Skeletal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Narrow palate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Gingival overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Mandibular prognathia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Prominent supraorbital ridges\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Macrotia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Short neck\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Widely spaced teeth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Dental malocclusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Hip dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Delayed skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Kyphosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Craniofacial hyperostosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Depressed nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Bowing of the long bones\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Hypoplastic inferior ilia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Open bite\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Avascular necrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Abnormality of the helix\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Synostosis of joints\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form dysostosis multiplex\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form facial shape deformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal and craniofacial storage manifestations\", \"target\": \"Infantile form abnormal skeletal morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Velmanase alfa enzyme replacement therapy\", \"target\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Velmanase alfa enzyme replacement therapy\", \"target\": \"Mannose-rich oligosaccharide lysosomal storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biallelic MAN2B1 pathogenic variants\", \"target\": \"MAN2B1 lysosomal alpha-mannosidase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4371,6 +4598,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4426,6 +4655,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4492,6 +4723,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4547,6 +4780,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4613,6 +4848,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4632,6 +4869,8 @@
                 
                 
                 <div class="evidence-explanation">Review supports hearing impairment as a core manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4689,6 +4928,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4745,6 +4986,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4800,6 +5043,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4866,6 +5111,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -4921,6 +5168,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -4978,6 +5227,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5033,6 +5284,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5090,6 +5343,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5145,6 +5400,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5202,6 +5459,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5257,6 +5516,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5323,6 +5584,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5378,6 +5641,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5435,6 +5700,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5454,6 +5721,8 @@
                 
                 
                 <div class="evidence-explanation">Cohort review supports facial coarsening as a clinical manifestation.</div>
+                
+                
                 
             </div>
             
@@ -5511,6 +5780,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5567,6 +5838,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5622,6 +5895,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5688,6 +5963,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5707,6 +5984,8 @@
                 
                 
                 <div class="evidence-explanation">Review supports recurrent infections as a common childhood manifestation.</div>
+                
+                
                 
             </div>
             
@@ -5764,6 +6043,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5819,6 +6100,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5876,6 +6159,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the adult subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -5931,6 +6216,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5997,6 +6284,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -6062,6 +6351,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -6117,6 +6408,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -6174,6 +6467,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -6230,6 +6525,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6249,6 +6546,8 @@
                 
                 
                 <div class="evidence-explanation">Review directly supports scoliosis as a skeletal manifestation.</div>
+                
+                
                 
             </div>
             
@@ -6306,6 +6605,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -6361,6 +6662,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -6418,6 +6721,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -6473,6 +6778,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -6530,6 +6837,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -6585,6 +6894,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -6651,6 +6962,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -6706,6 +7019,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -6763,6 +7078,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6782,6 +7099,8 @@
                 
                 
                 <div class="evidence-explanation">Cohort review supports intellectual disability as a clinical manifestation.</div>
+                
+                
                 
             </div>
             
@@ -6839,6 +7158,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -6894,6 +7215,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -6951,6 +7274,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -7006,6 +7331,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7063,6 +7390,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7082,6 +7411,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the adult subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7139,6 +7470,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -7195,6 +7528,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the adult subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -7250,6 +7585,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7316,6 +7653,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -7371,6 +7710,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7428,6 +7769,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -7483,6 +7826,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7540,6 +7885,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -7595,6 +7942,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7652,6 +8001,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -7707,6 +8058,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7764,6 +8117,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -7819,6 +8174,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7876,6 +8233,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -7931,6 +8290,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -7988,6 +8349,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -8043,6 +8406,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -8100,6 +8465,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -8155,6 +8522,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -8212,6 +8581,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8231,6 +8602,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the adult subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -8288,6 +8661,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -8343,6 +8718,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -8400,6 +8777,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             
@@ -8456,6 +8835,8 @@
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8475,6 +8856,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the adult subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -8531,6 +8914,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet provides the infantile subtype phenotype association and frequency band.</div>
+                
+                
                 
             </div>
             
@@ -8623,6 +9008,8 @@
                 
                 <div class="evidence-explanation">Orphanet identifies MAN2B1 as the disease-causing gene.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8643,6 +9030,8 @@
                 
                 <div class="evidence-explanation">The cohort confirmed MAN2B1 genotypes in all patients studied.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8662,6 +9051,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the MAN2B1-alpha-mannosidosis gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -8774,6 +9165,8 @@
                 
                 <div class="evidence-explanation">Pediatric trial identifies velmanase alfa as recombinant human lysosomal alpha-mannosidase.</div>
                 
+                
+                
             </div>
             
             
@@ -8817,6 +9210,8 @@
                 
                 <div class="evidence-explanation">Long-term extension data support biomarker clearance after velmanase alfa initiation.</div>
                 
+                
+                
             </div>
             
             
@@ -8856,6 +9251,8 @@
                 
                 <div class="evidence-explanation">Phase III trial directly evaluates velmanase alfa in alpha-mannosidosis patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -8875,6 +9272,8 @@
                 
                 
                 <div class="evidence-explanation">Long-term extension supports continued benefit and safety.</div>
+                
+                
                 
             </div>
             
@@ -8963,6 +9362,8 @@
                 
                 <div class="evidence-explanation">Allogeneic HCT restored leukocyte alpha-mannosidase activity in the reported cohort.</div>
                 
+                
+                
             </div>
             
             
@@ -9002,6 +9403,8 @@
                 
                 <div class="evidence-explanation">HCT cohort supports transplantation as a disease-modifying intervention.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9021,6 +9424,8 @@
                 
                 
                 <div class="evidence-explanation">The study emphasizes early treatment for optimal outcomes.</div>
+                
+                
                 
             </div>
             
@@ -9100,6 +9505,8 @@
                 
                 <div class="evidence-explanation">Review supports proactive supportive management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9119,6 +9526,8 @@
                 
                 
                 <div class="evidence-explanation">Review supports ENT and hearing-focused supportive care.</div>
+                
+                
                 
             </div>
             
@@ -9198,6 +9607,8 @@
                 
                 <div class="evidence-explanation">Review explicitly recommends genetic counseling.</div>
                 
+                
+                
             </div>
             
             
@@ -9234,6 +9645,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -9259,6 +9671,8 @@
                 
                 <div class="evidence-explanation">Review supports leukocyte or nucleated-cell alpha-mannosidase activity as a diagnostic assay.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9279,6 +9693,8 @@
                 
                 <div class="evidence-explanation">Orphanet records abnormal enzyme/coenzyme activity as very frequent in the infantile subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -9298,6 +9714,7 @@
                 
                 <div class="item-desc">Context: Urinary excretion of mannose-rich oligosaccharides is a suggestive storage biomarker, but it is not sufficient alone to establish the diagnosis.
 </div>
+                
                 
                 
     
@@ -9325,6 +9742,8 @@
                 
                 <div class="evidence-explanation">Review supports urinary mannose-rich oligosaccharides as a supportive biochemical marker.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9344,6 +9763,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records oligosacchariduria as very frequent in the infantile subtype.</div>
+                
+                
                 
             </div>
             

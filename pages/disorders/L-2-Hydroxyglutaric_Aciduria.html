@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2793,6 +2984,8 @@
                 
                 <div class="evidence-explanation">Directly links impaired L-2-HGDH metabolite-repair activity to L-2-HG accumulation in L2HGA patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2812,6 +3005,8 @@
                 
                 
                 <div class="evidence-explanation">Human case series confirms biallelic L2HGDH pathogenic variation in affected patients.</div>
+                
+                
                 
             </div>
             
@@ -2993,6 +3188,8 @@
                 
                 <div class="evidence-explanation">Directly supports L-2-HG accumulation as the biochemical hallmark of L2HGA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3012,6 +3209,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the magnitude of urinary L-2-HG elevation in L2HGA.</div>
+                
+                
                 
             </div>
             
@@ -3253,6 +3452,8 @@
                 
                 <div class="evidence-explanation">Mouse model demonstrates leukoencephalopathy, gliosis, neuroinflammation, and OPC expansion.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3272,6 +3473,8 @@
                 
                 
                 <div class="evidence-explanation">Human neuroimaging confirms the characteristic white matter and deep gray matter pattern.</div>
+                
+                
                 
             </div>
             
@@ -3419,6 +3622,8 @@
                 
                 <div class="evidence-explanation">Human neuroimaging supports basal ganglia and dentate involvement as part of the L2HGA lesion pattern.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3438,6 +3643,8 @@
                 
                 
                 <div class="evidence-explanation">The DBS case confirms bilateral basal ganglia involvement in a patient with severe L2HGA movement disorder.</div>
+                
+                
                 
             </div>
             
@@ -3565,6 +3772,8 @@
                 
                 <div class="evidence-explanation">In vitro neuronal cell model demonstrates metabolic reprogramming under L-2-HG exposure.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3584,6 +3793,8 @@
                 
                 
                 <div class="evidence-explanation">Experimental tissue evidence supports oxidative stress and energy-enzyme impairment downstream of elevated L-2-HG.</div>
+                
+                
                 
             </div>
             
@@ -3695,6 +3906,8 @@
                 
                 <div class="evidence-explanation">L-2-HGA-associated glioma did NOT show the G-CIMP hypermethylation phenotype expected from dioxygenase inhibition, unlike IDH-mutant tumors with D-2-HG accumulation. This argues against a simple epigenetic oncogenic mechanism in L-2-HGA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3714,6 +3927,8 @@
                 
                 
                 <div class="evidence-explanation">L2hgdh KO mice show increased histone methylation in brain, directly demonstrating that L-2-HG accumulation causes epigenetic dysregulation via inhibition of histone demethylases in vivo.</div>
+                
+                
                 
             </div>
             
@@ -3749,7 +3964,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Basal ganglia and cerebellar circuit involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L2HGA affects basal ganglia, globus pallidus/putamen/caudate, dentate nucleus, and cerebellar circuits on neuroimaging and neurological examination. These lesions provide a mechanistic bridge from the metabolic brain disease to extrapyramidal movement disorders and cerebellar signs.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglion\", \"globus pallidus\", \"putamen\", \"caudate nucleus\", \"dentate nucleus\", \"cerebellum\"]}}, {\"id\": \"Behavioral abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems are commonly reported in L2HGA patients and may be more prevalent than in other cerebral organic acidurias.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"CNS neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"L2HGA patients have a significantly increased lifetime risk of central nervous system tumors, including malignant glioma. Despite the theoretical epigenetic effects of L-2-HG on TET enzymes, L2HGA-associated tumors do not typically show IDH-mutant-like methylation profiles, suggesting a distinct oncogenetic mechanism.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0100836\"}}, {\"id\": \"Cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia is a hallmark feature of L2HGA, correlating with dentate nucleus and cerebellar white matter involvement on MRI. It manifests as gait instability, dysmetria, and intention tremor.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Chorea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Choreic movements may occur in L2HGA, particularly affecting the upper extremities, as part of the extrapyramidal movement disorder spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002072\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech difficulties including slurred speech are common in L2HGA, related to cerebellar and basal ganglia dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized dystonia occurs in L2HGA, relating to basal ganglia involvement. In severe cases, dystonia may be refractory to pharmacotherapy and require deep brain stimulation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG is a structural analog of alpha-ketoglutarate and can inhibit alpha-KG-dependent dioxygenases, including TET DNA hydroxylases and JmjC histone demethylases. In L2HGDH-deficient mouse brain, this manifests as increased histone methylation, linking metabolite accumulation to epigenetic perturbation.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA demethylation\"], \"molecular_functions\": [\"histone demethylase activity\"], \"locations\": [\"nucleus\"]}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide-based and unsteady gait is a common manifestation of cerebellar dysfunction in L2HGA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is present in the majority of L2HGA patients. Severity ranges from mild to severe and is progressive.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intention tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intention tremor is a cerebellar sign commonly observed in L2HGA, reflecting cerebellar and dentate nucleus dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002080\"}}, {\"id\": \"L-2-hydroxyglutarate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of L-2-hydroxyglutarate dehydrogenase activity impairs the metabolite-repair pathway that clears L-2-hydroxyglutarate (L-2-HG), an aberrant off-pathway metabolite produced from alpha-ketoglutarate by L-malate dehydrogenase. L-2-HG accumulates in body fluids, with urinary L-2-HG 10-300 times above normal and plasma and CSF also elevated.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L-2-hydroxyglutaric acid (CSF)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"L-2-hydroxyglutaric acid (plasma)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"L-2-hydroxyglutaric acid (urine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"L2HGDH enzymatic deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in L2HGDH reduce mitochondrial L-2-hydroxyglutarate dehydrogenase metabolite-repair activity, impairing conversion of L-2-hydroxyglutarate back to 2-ketoglutarate.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"genes\": [\"L2HGDH\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L2HGDH variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"L2HGDH\"], \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrocephaly has been reported in approximately 50-75% of L2HGA patients in various cohorts and is a useful diagnostic clue.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated L-2-HG perturbs mitochondrial bioenergetics, inhibits energy-buffering enzymes in experimental tissue systems, induces oxidative stress, and shifts neuronal cell metabolism toward anaerobic glycolysis.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\", \"glycolytic process\", \"response to oxidative stress\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Psychomotor retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor and cognitive milestones are typically the earliest presenting features of L2HGA in childhood.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy occurs in a significant proportion of L2HGA patients, with seizures reported in 30-75% of cases across different cohorts. Seizure types are variable.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper motor neuron signs including exaggerated tendon reflexes, clonus, and Babinski signs are common in L2HGA, reflecting corticospinal tract involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Subcortical leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI shows a characteristic pattern of subcortical white matter T2/FLAIR hyperintensity in a centripetal distribution, particularly involving the U-fibers, along with basal ganglia and dentate nuclei signal abnormalities. This pattern is highly specific for L2HGA.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002352\"}}, {\"id\": \"Urinary 2-OH-glutaric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG accumulation leads to selective vulnerability of subcortical cerebral white matter with basal ganglia and dentate nucleus involvement. In mouse models, L2HGDH deficiency causes progressive leukoencephalopathy with white matter abnormalities, extensive gliosis, microglia-mediated neuroinflammation, and expansion of oligodendrocyte progenitor cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\", \"oligodendrocyte precursor cell\", \"microglial cell\"], \"biological_processes\": [\"myelination\", \"reactive gliosis\"], \"locations\": [\"white matter\", \"basal ganglion\", \"dentate nucleus\"]}}, {\"id\": \"c.164G\u003eA (p.Gly55Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant affecting a conserved glycine residue, identified in a patient with severe dystonia requiring DBS intervention.\\n\", \"meta\": {\"genes\": [\"L2HGDH\"]}}, {\"id\": \"c.407delA and c.699_700insA compound heterozygous\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous frameshift mutations leading to premature termination codons and truncated FAD/NAD(P)-binding domain. Identified in a Chinese patient with psychomotor retardation and progressive ataxia.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"L2HGDH\"]}}, {\"id\": \"c.829C\u003eT (p.Arg227*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense variant creating a premature stop codon, identified in a consanguineous Pakistani family. Both affected sisters were homozygous.\\n\", \"meta\": {\"genes\": [\"L2HGDH\"]}}], \"edges\": [{\"source\": \"L2HGDH enzymatic deficiency\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (urine)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (CSF)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (plasma)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Urinary 2-OH-glutaric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"CNS neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Basal ganglia and cerebellar circuit involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Subcortical leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Psychomotor retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Behavioral abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Intention tremor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Chorea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L2HGDH variants\", \"target\": \"L2HGDH enzymatic deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.829C\u003eT (p.Arg227*)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.164G\u003eA (p.Gly55Asp)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.407delA and c.699_700insA compound heterozygous\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Basal ganglia and cerebellar circuit involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L2HGA affects basal ganglia, globus pallidus/putamen/caudate, dentate nucleus, and cerebellar circuits on neuroimaging and neurological examination. These lesions provide a mechanistic bridge from the metabolic brain disease to extrapyramidal movement disorders and cerebellar signs.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglion\", \"globus pallidus\", \"putamen\", \"caudate nucleus\", \"dentate nucleus\", \"cerebellum\"]}}, {\"id\": \"Behavioral abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems are commonly reported in L2HGA patients and may be more prevalent than in other cerebral organic acidurias.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"CNS neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"L2HGA patients have a significantly increased lifetime risk of central nervous system tumors, including malignant glioma. Despite the theoretical epigenetic effects of L-2-HG on TET enzymes, L2HGA-associated tumors do not typically show IDH-mutant-like methylation profiles, suggesting a distinct oncogenetic mechanism.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0100836\"}}, {\"id\": \"Cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia is a hallmark feature of L2HGA, correlating with dentate nucleus and cerebellar white matter involvement on MRI. It manifests as gait instability, dysmetria, and intention tremor.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Chorea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Choreic movements may occur in L2HGA, particularly affecting the upper extremities, as part of the extrapyramidal movement disorder spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002072\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech difficulties including slurred speech are common in L2HGA, related to cerebellar and basal ganglia dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized dystonia occurs in L2HGA, relating to basal ganglia involvement. In severe cases, dystonia may be refractory to pharmacotherapy and require deep brain stimulation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG is a structural analog of alpha-ketoglutarate and can inhibit alpha-KG-dependent dioxygenases, including TET DNA hydroxylases and JmjC histone demethylases. In L2HGDH-deficient mouse brain, this manifests as increased histone methylation, linking metabolite accumulation to epigenetic perturbation.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA demethylation\"], \"molecular_functions\": [\"histone demethylase activity\"], \"locations\": [\"nucleus\"]}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide-based and unsteady gait is a common manifestation of cerebellar dysfunction in L2HGA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is present in the majority of L2HGA patients. Severity ranges from mild to severe and is progressive.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intention tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intention tremor is a cerebellar sign commonly observed in L2HGA, reflecting cerebellar and dentate nucleus dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002080\"}}, {\"id\": \"L-2-hydroxyglutarate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of L-2-hydroxyglutarate dehydrogenase activity impairs the metabolite-repair pathway that clears L-2-hydroxyglutarate (L-2-HG), an aberrant off-pathway metabolite produced from alpha-ketoglutarate by L-malate dehydrogenase. L-2-HG accumulates in body fluids, with urinary L-2-HG 10-300 times above normal and plasma and CSF also elevated.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L-2-hydroxyglutaric acid (CSF)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"L-2-hydroxyglutaric acid (plasma)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"L-2-hydroxyglutaric acid (urine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"L2HGDH enzymatic deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in L2HGDH reduce mitochondrial L-2-hydroxyglutarate dehydrogenase metabolite-repair activity, impairing conversion of L-2-hydroxyglutarate back to 2-ketoglutarate.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"genes\": [\"L2HGDH\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L2HGDH variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"L2HGDH\"], \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrocephaly has been reported in approximately 50-75% of L2HGA patients in various cohorts and is a useful diagnostic clue.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated L-2-HG perturbs mitochondrial bioenergetics, inhibits energy-buffering enzymes in experimental tissue systems, induces oxidative stress, and shifts neuronal cell metabolism toward anaerobic glycolysis.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\", \"glycolytic process\", \"response to oxidative stress\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Psychomotor retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor and cognitive milestones are typically the earliest presenting features of L2HGA in childhood.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy occurs in a significant proportion of L2HGA patients, with seizures reported in 30-75% of cases across different cohorts. Seizure types are variable.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper motor neuron signs including exaggerated tendon reflexes, clonus, and Babinski signs are common in L2HGA, reflecting corticospinal tract involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Subcortical leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI shows a characteristic pattern of subcortical white matter T2/FLAIR hyperintensity in a centripetal distribution, particularly involving the U-fibers, along with basal ganglia and dentate nuclei signal abnormalities. This pattern is highly specific for L2HGA.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002352\"}}, {\"id\": \"Urinary 2-OH-glutaric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG accumulation leads to selective vulnerability of subcortical cerebral white matter with basal ganglia and dentate nucleus involvement. In mouse models, L2HGDH deficiency causes progressive leukoencephalopathy with white matter abnormalities, extensive gliosis, microglia-mediated neuroinflammation, and expansion of oligodendrocyte progenitor cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\", \"oligodendrocyte precursor cell\", \"microglial cell\"], \"biological_processes\": [\"myelination\", \"reactive gliosis\"], \"locations\": [\"white matter\", \"basal ganglion\", \"dentate nucleus\"]}}, {\"id\": \"c.164G\u003eA (p.Gly55Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant affecting a conserved glycine residue, identified in a patient with severe dystonia requiring DBS intervention.\\n\", \"meta\": {\"genes\": [\"L2HGDH\"]}}, {\"id\": \"c.407delA and c.699_700insA compound heterozygous\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous frameshift mutations leading to premature termination codons and truncated FAD/NAD(P)-binding domain. Identified in a Chinese patient with psychomotor retardation and progressive ataxia.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"L2HGDH\"]}}, {\"id\": \"c.829C\u003eT (p.Arg227*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense variant creating a premature stop codon, identified in a consanguineous Pakistani family. Both affected sisters were homozygous.\\n\", \"meta\": {\"genes\": [\"L2HGDH\"]}}], \"edges\": [{\"source\": \"L2HGDH enzymatic deficiency\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (urine)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (CSF)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (plasma)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Urinary 2-OH-glutaric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"CNS neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Basal ganglia and cerebellar circuit involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Subcortical leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Psychomotor retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Behavioral abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Intention tremor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Chorea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L2HGDH variants\", \"target\": \"L2HGDH enzymatic deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.829C\u003eT (p.Arg227*)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.164G\u003eA (p.Gly55Asp)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.407delA and c.699_700insA compound heterozygous\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3831,6 +4046,8 @@
                 
                 <div class="evidence-explanation">Reports macrocephaly in approximately 50% of L2HGA cases.</div>
                 
+                
+                
             </div>
             
             
@@ -3896,6 +4113,8 @@
                 
                 <div class="evidence-explanation">Upper motor neuron signs consistent with spasticity were present in both patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3915,6 +4134,8 @@
                 
                 
                 <div class="evidence-explanation">Pyramidal signs documented in the DBS case report.</div>
+                
+                
                 
             </div>
             
@@ -3981,6 +4202,8 @@
                 
                 <div class="evidence-explanation">Psychomotor delay leading to intellectual disability is a defining feature of L2HGA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4000,6 +4223,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms intellectual disability as one of the most common symptoms in a Turkish cohort.</div>
+                
+                
                 
             </div>
             
@@ -4057,6 +4282,8 @@
                 
                 <div class="evidence-explanation">Psychomotor delay is listed as a defining characteristic.</div>
                 
+                
+                
             </div>
             
             
@@ -4113,6 +4340,8 @@
                 
                 <div class="evidence-explanation">Seizures are part of the core clinical presentation described in this case series.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4132,6 +4361,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms epilepsy as a core feature of L2HGA alongside mental retardation and cerebellar ataxia.</div>
+                
+                
                 
             </div>
             
@@ -4189,6 +4420,8 @@
                 
                 <div class="evidence-explanation">Cerebellar dysfunction is described as a defining feature of L2HGA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4208,6 +4441,8 @@
                 
                 
                 <div class="evidence-explanation">Ataxia was present in both patients in this case series.</div>
+                
+                
                 
             </div>
             
@@ -4265,6 +4500,8 @@
                 
                 <div class="evidence-explanation">Describes generalized dystonia in a patient with L2HGA requiring DBS intervention.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4284,6 +4521,8 @@
                 
                 
                 <div class="evidence-explanation">Documents that dystonia in L2HGA can be pharmacoresistant, confirming its clinical significance as a distinct movement disorder phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4341,6 +4580,8 @@
                 
                 <div class="evidence-explanation">Dysarthria was present in both reported patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4360,6 +4601,8 @@
                 
                 
                 <div class="evidence-explanation">Slurred speech observed in the DBS case report patient.</div>
+                
+                
                 
             </div>
             
@@ -4417,6 +4660,8 @@
                 
                 <div class="evidence-explanation">Describes the characteristic centripetal subcortical white matter MRI pattern.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4436,6 +4681,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms the diagnostic specificity of the MRI pattern.</div>
+                
+                
                 
             </div>
             
@@ -4493,6 +4740,8 @@
                 
                 <div class="evidence-explanation">Intentional tremors documented in both patients.</div>
                 
+                
+                
             </div>
             
             
@@ -4548,6 +4797,8 @@
                 
                 
                 <div class="evidence-explanation">Documents increased behavioral problems in L2HGA compared to glutaric aciduria type I.</div>
+                
+                
                 
             </div>
             
@@ -4605,6 +4856,8 @@
                 
                 <div class="evidence-explanation">Choreic movements were documented in the DBS case report patient.</div>
                 
+                
+                
             </div>
             
             
@@ -4660,6 +4913,8 @@
                 
                 
                 <div class="evidence-explanation">Wide-based gait documented in L2HGA patient.</div>
+                
+                
                 
             </div>
             
@@ -4725,6 +4980,8 @@
                 
                 
                 <div class="evidence-explanation">Directly states increased CNS tumor risk in L2HGA patients.</div>
+                
+                
                 
             </div>
             
@@ -4817,6 +5074,8 @@
                 
                 <div class="evidence-explanation">Comprehensive review of genetic, enzymatic, and metabolic characterization of L2HGA.</div>
                 
+                
+                
             </div>
             
             
@@ -4907,6 +5166,8 @@
                 
                 <div class="evidence-explanation">Demonstrates significant biochemical response to riboflavin/levocarnitine in L2HGA cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4927,6 +5188,8 @@
                 
                 <div class="evidence-explanation">Documents some clinical improvement with riboflavin-based treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4946,6 +5209,8 @@
                 
                 
                 <div class="evidence-explanation">Reports halting of disease progression under riboflavin treatment.</div>
+                
+                
                 
             </div>
             
@@ -5025,6 +5290,8 @@
                 
                 <div class="evidence-explanation">Confirms levocarnitine as a component of standard treatment for L2HGA.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5044,6 +5311,8 @@
                 
                 
                 <div class="evidence-explanation">Documents use of levocarnitine in all L2HGA patients in this cohort.</div>
+                
+                
                 
             </div>
             
@@ -5123,6 +5392,8 @@
                 
                 <div class="evidence-explanation">Documents significant improvement with GPi-DBS in L2HGA-related dystonia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5142,6 +5413,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes GPi-DBS as a novel therapeutic option for L2HGA dystonia.</div>
+                
+                
                 
             </div>
             
@@ -5221,6 +5494,8 @@
                 
                 <div class="evidence-explanation">Some patients show improvement with comprehensive treatment approach, supporting role of ongoing supportive care.</div>
                 
+                
+                
             </div>
             
             
@@ -5298,6 +5573,8 @@
                 
                 
                 <div class="evidence-explanation">Carrier status in parents supports autosomal recessive counseling approach.</div>
+                
+                
                 
             </div>
             
@@ -5377,6 +5654,8 @@
                 
                 <div class="evidence-explanation">Diet is listed as one component of current treatment strategies.</div>
                 
+                
+                
             </div>
             
             
@@ -5455,6 +5734,8 @@
                 
                 <div class="evidence-explanation">Increased CNS tumor risk mandates ongoing neuroimaging surveillance.</div>
                 
+                
+                
             </div>
             
             
@@ -5491,6 +5772,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5516,6 +5798,8 @@
                 
                 <div class="evidence-explanation">Establishes L-2-HG accumulation in body fluids as the biochemical hallmark.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5536,6 +5820,8 @@
                 
                 <div class="evidence-explanation">Confirms elevated urinary L-2-HG with chiral differentiation establishing the L-enantiomer.</div>
                 
+                
+                
             </div>
             
             
@@ -5555,6 +5841,7 @@
                 
                 <div class="item-desc">Context: CSF L-2-HG is elevated with a CSF/plasma ratio that may exceed 1, consistent with preferential brain accumulation. CSF analysis provides additional diagnostic value and reflects the degree of CNS metabolite burden.
 </div>
+                
                 
                 
     
@@ -5582,6 +5869,8 @@
                 
                 <div class="evidence-explanation">CSF is one of the body fluids in which L-2-HG accumulates.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5602,6 +5891,8 @@
                 
                 <div class="evidence-explanation">Mouse model demonstrates preferential brain accumulation supporting elevated CSF levels.</div>
                 
+                
+                
             </div>
             
             
@@ -5621,6 +5912,7 @@
                 
                 <div class="item-desc">Context: Plasma L-2-HG levels are elevated in L2HGA but typically to a lesser degree than urinary and CSF concentrations. Plasma analysis can support diagnosis alongside urine organic acid studies.
 </div>
+                
                 
                 
     
@@ -5648,6 +5940,8 @@
                 
                 <div class="evidence-explanation">Plasma is one of the body fluids in which L-2-HG is elevated.</div>
                 
+                
+                
             </div>
             
             
@@ -5667,6 +5961,7 @@
                 
                 <div class="item-desc">Context: Significantly elevated urine 2-OH-glutaric acid level is a key diagnostic finding. The metabolite is detectable by standard urine organic acid chromatography and confirmable by chiral analysis.
 </div>
+                
                 
                 
     
@@ -5693,6 +5988,8 @@
                 
                 
                 <div class="evidence-explanation">Documents significantly elevated urinary 2-OH-glutaric acid in an L2HGA patient.</div>
+                
+                
                 
             </div>
             

@@ -17,6 +17,15 @@ provider_config:
     allowed_domains: []
     temperature: 0.1
 citation_count: 25
+trajectory_id: 0ab9e2d2-7601-4bbe-ba01-e26bfce94cfd
+artifact_count: 1
+artifacts:
+- filename: artifact-00.md
+  path: Dimethylglycine_Dehydrogenase_Deficiency-deep-research-falcon_artifacts/artifact-00.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-00
 ---
 
 ## Question

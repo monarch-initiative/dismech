@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2997,6 +3188,8 @@
                 
                 <div class="evidence-explanation">Moffitt et al. used virtual microdissection of gene expression data to identify classical and basal-like subtypes of PDAC, with classical having better prognosis.</div>
                 
+                
+                
             </div>
             
             
@@ -3054,6 +3247,8 @@
                 
                 
                 <div class="evidence-explanation">Moffitt et al. demonstrated basal-like subtype has significantly worse survival compared to classical subtype in PDAC.</div>
+                
+                
                 
             </div>
             
@@ -3235,6 +3430,8 @@
                 
                 <div class="evidence-explanation">This review confirms that 90-92% of PDAC harbor KRAS mutations that trigger canonical MAPK signaling, supporting the central role of KRAS in PDAC pathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3254,6 +3451,8 @@
                 
                 
                 <div class="evidence-explanation">This review confirms KRAS mutations as the initiating event in PanIN development, with additional tumor suppressor losses driving progression to invasive carcinoma.</div>
+                
+                
                 
             </div>
             
@@ -3394,6 +3593,8 @@
                 
                 
                 <div class="evidence-explanation">The landmark Jones et al. genomic analysis identified CDKN2A, SMAD4, and TP53 as core tumor suppressor genes in pancreatic cancer through global sequencing of 24 advanced pancreatic adenocarcinomas.</div>
+                
+                
                 
             </div>
             
@@ -3555,6 +3756,8 @@
                 
                 <div class="evidence-explanation">This review confirms that the PDAC TME inhibits drug delivery and enhances immune suppression, consistent with the role of the desmoplastic stroma in treatment resistance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3574,6 +3777,8 @@
                 
                 
                 <div class="evidence-explanation">This review describes the prominent stromal microenvironment in PDAC and its role in treatment resistance, supporting the desmoplastic stroma mechanism.</div>
+                
+                
                 
             </div>
             
@@ -3847,6 +4052,8 @@
                 
                 <div class="evidence-explanation">This review establishes immunosuppression as a hallmark of PDAC that contributes to metastasis and poor survival, supporting the immune evasion mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3866,6 +4073,8 @@
                 
                 
                 <div class="evidence-explanation">This describes the immune cell populations in PDAC metastatic niches including macrophages, neutrophils, and MDSCs that constitute the immunosuppressive microenvironment.</div>
+                
+                
                 
             </div>
             
@@ -4022,6 +4231,8 @@
                 
                 <div class="evidence-explanation">The Lancet seminar confirms pancreatic cancer as a highly fatal malignancy with approximately 10% 5-year survival.</div>
                 
+                
+                
             </div>
             
             
@@ -4104,6 +4315,8 @@
                 
                 <div class="evidence-explanation">This population-based study of metastatic PDAC directly identifies liver metastases as the most common distant metastatic site at diagnosis.</div>
                 
+                
+                
             </div>
             
             
@@ -4168,6 +4381,8 @@
                 
                 
                 <div class="evidence-explanation">Andersen et al. establish that PDAC causes new-onset diabetes through unknown mechanisms, demonstrating the bidirectional relationship between PDAC and diabetes.</div>
+                
+                
                 
             </div>
             
@@ -4234,6 +4449,8 @@
                 
                 <div class="evidence-explanation">The Lancet review notes that patients present with advanced disease due to vague early symptoms, consistent with abdominal pain as a common late presentation.</div>
                 
+                
+                
             </div>
             
             
@@ -4298,6 +4515,8 @@
                 
                 
                 <div class="evidence-explanation">Andersen et al. note that weight loss is a characteristic clinical feature of PDAC, distinguishing it from typical T2DM presentation.</div>
+                
+                
                 
             </div>
             
@@ -4390,6 +4609,8 @@
                 
                 <div class="evidence-explanation">Confirms KRAS mutations in 90-92% of PDAC and describes the structural challenges that have historically hampered therapeutic targeting of KRAS.</div>
                 
+                
+                
             </div>
             
             
@@ -4438,6 +4659,8 @@
                 
                 
                 <div class="evidence-explanation">Foundation Medicine genomic profiling of 9,444 advanced PDAC cases showed TP53 mutations in 80.2% of KRAS-mutated PDAC.</div>
+                
+                
                 
             </div>
             
@@ -4488,6 +4711,8 @@
                 
                 <div class="evidence-explanation">Foundation Medicine profiling showed SMAD4 mutations in 26.8% of KRAS-mutated PDAC. Higher rates reported in other studies reflect inclusion of homozygous deletions not captured by all assays.</div>
                 
+                
+                
             </div>
             
             
@@ -4537,6 +4762,8 @@
                 
                 <div class="evidence-explanation">Foundation Medicine profiling showed CDKN2A alterations in 56.2% of KRAS-mutated PDAC. Higher rates in other studies include epigenetic silencing.</div>
                 
+                
+                
             </div>
             
             
@@ -4585,6 +4812,8 @@
                 
                 
                 <div class="evidence-explanation">The POLO trial confirmed that BRCA-mutated PDAC patients represent a distinct subgroup that responds to PARP inhibition, validating the clinical relevance of BRCA2 mutations in PDAC.</div>
+                
+                
                 
             </div>
             
@@ -4676,6 +4905,8 @@
                 
                 
                 <div class="evidence-explanation">The ESPAC-4 trial enrolled patients who underwent complete macroscopic resection for PDAC, confirming surgical resection as a standard treatment approach with adjuvant chemotherapy improving outcomes.</div>
+                
+                
                 
             </div>
             
@@ -4779,6 +5010,8 @@
                 
                 <div class="evidence-explanation">The PRODIGE 24 trial demonstrated that adjuvant modified FOLFIRINOX significantly improved disease-free and overall survival compared to gemcitabine in resected PDAC patients.</div>
                 
+                
+                
             </div>
             
             
@@ -4855,6 +5088,8 @@
                 
                 
                 <div class="evidence-explanation">The Von Hoff et al. phase 3 trial demonstrated that nab-paclitaxel plus gemcitabine significantly improved overall survival (8.5 vs 6.7 months) in metastatic pancreatic adenocarcinoma.</div>
+                
+                
                 
             </div>
             
@@ -4935,6 +5170,8 @@
                 
                 <div class="evidence-explanation">The POLO trial demonstrated that maintenance olaparib significantly prolonged progression-free survival in germline BRCA-mutated metastatic pancreatic cancer patients who had not progressed on platinum-based chemotherapy.</div>
                 
+                
+                
             </div>
             
             
@@ -4989,6 +5226,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis of 51 population-based prospective cohort studies identified tobacco use as the single most important modifiable risk factor for pancreatic diseases with an RR of 1.87.</div>
                 
+                
+                
             </div>
             
             
@@ -5030,6 +5269,8 @@
                 
                 
                 <div class="evidence-explanation">Gandhi et al. meta-analysis demonstrated a 22.6-fold increased risk of PDAC in chronic pancreatitis patients, with risk persisting after excluding surveillance bias.</div>
+                
+                
                 
             </div>
             
@@ -5073,6 +5314,8 @@
                 
                 <div class="evidence-explanation">Meta-analysis of prospective cohort studies identified obesity as the second most important risk factor for pancreatic diseases with an RR of 1.48.</div>
                 
+                
+                
             </div>
             
             
@@ -5101,6 +5344,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5126,6 +5370,8 @@
                 
                 <div class="evidence-explanation">Poruk et al. meta-analysis established CA 19-9 sensitivity of 78.2% and specificity of 82.8% for pancreatic carcinoma diagnosis.</div>
                 
+                
+                
             </div>
             
             
@@ -5140,6 +5386,7 @@
                     Carcinoembryonic Antigen (CEA)
                     
                 </div>
+                
                 
                 
     
@@ -5166,6 +5413,8 @@
                 
                 
                 <div class="evidence-explanation">Poruk et al. meta-analysis showed CEA has lower sensitivity (44.2%) than CA 19-9 but comparable specificity (84.8%) for pancreatic carcinoma.</div>
+                
+                
                 
             </div>
             

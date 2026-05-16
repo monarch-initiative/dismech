@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2767,6 +2958,8 @@
                 
                 <div class="evidence-explanation">Supports HLCS molecular deficiency as the initiating event.</div>
                 
+                
+                
             </div>
             
             
@@ -2862,6 +3055,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical reversibility with biotin is consistent with a primary defect in biotin-dependent enzyme activation.</div>
+                
+                
                 
             </div>
             
@@ -2966,6 +3161,8 @@
                 
                 <div class="evidence-explanation">Directly supports concurrent deficiency of multiple carboxylases in HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2985,6 +3182,8 @@
                 
                 
                 <div class="evidence-explanation">Simultaneous elevation of multiple pathway metabolites supports a multi-carboxylase defect state.</div>
+                
+                
                 
             </div>
             
@@ -3151,6 +3350,8 @@
                 
                 <div class="evidence-explanation">Confirms lactic acidosis as a typical manifestation of HLCS deficiency, consistent with impaired PC-dependent gluconeogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3170,6 +3371,8 @@
                 
                 
                 <div class="evidence-explanation">Illustrates severe lactic acidosis in neonatal HLCS deficiency from impaired gluconeogenesis.</div>
+                
+                
                 
             </div>
             
@@ -3316,6 +3519,8 @@
                 
                 <div class="evidence-explanation">Documents increased MCC-related metabolites in HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3454,6 +3659,8 @@
                 
                 <div class="evidence-explanation">Documents increased PCC-related metabolites in HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3561,6 +3768,8 @@
                 
                 <div class="evidence-explanation">Documents severe metabolic decompensation in HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3580,6 +3789,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that acute acidotic decompensation can also occur in late-onset HLCS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3670,6 +3881,8 @@
                 
                 <div class="evidence-explanation">Directly lists hyperammonemia as a typical manifestation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3689,6 +3902,8 @@
                 
                 
                 <div class="evidence-explanation">Documents hyperammonemia during acute HLCS decompensation.</div>
+                
+                
                 
             </div>
             
@@ -3786,6 +4001,8 @@
                 
                 <div class="evidence-explanation">Documents hyperglycemic ketoacidosis during HLCS decompensation and proposes secondary Krebs cycle disturbance mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3805,6 +4022,8 @@
                 
                 
                 <div class="evidence-explanation">Provides mechanistic hypothesis for glucose dysregulation in HLCS decompensation.</div>
+                
+                
                 
             </div>
             
@@ -3903,6 +4122,8 @@
                 
                 <div class="evidence-explanation">Lists acute neurologic manifestations in the typical severe acidotic presentation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3922,6 +4143,8 @@
                 
                 
                 <div class="evidence-explanation">Supports neurologic involvement including hypotonia, developmental delay, and seizures.</div>
+                
+                
                 
             </div>
             
@@ -4013,6 +4236,8 @@
                 
                 <div class="evidence-explanation">Lists rash and alopecia among the clinical manifestations of HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4032,6 +4257,8 @@
                 
                 
                 <div class="evidence-explanation">Documents generalized ichthyosis before biotin therapy in a neonatal case.</div>
+                
+                
                 
             </div>
             
@@ -4105,6 +4332,8 @@
                 
                 <div class="evidence-explanation">Directly supports feeding and growth involvement in HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4139,7 +4368,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-Hydroxyisovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"3-Hydroxypropionate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"3-Methylcrotonylglycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hair loss is a reported clinical feature of HLCS deficiency, reflecting biotin deficiency at the level of hair follicle biology.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001596\"}}, {\"id\": \"Cutaneous and hair involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HLCS deficiency includes cutaneous and hair findings such as rash, alopecia, and sometimes generalized ichthyosis. The graph groups these findings as downstream consequences of impaired biotin-dependent enzyme activation while leaving the tissue-level intermediates unspecified.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"skin\"]}}, {\"id\": \"Disrupted gluconeogenesis and lactic acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase (PC) deficiency due to impaired biotinylation reduces conversion of pyruvate to oxaloacetate, impairing gluconeogenesis and TCA cycle anaplerosis. This contributes to lactic acidosis and hypoglycemia observed in affected patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\", \"pyruvate metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor feeding and feeding intolerance occur in neonatal and infantile presentations, contributing to failure to thrive.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay may occur, particularly in patients with delayed diagnosis or severe metabolic crises. Early biotin treatment is associated with normal developmental outcomes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glucose dysregulation and hyperglycemic ketoacidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In some patients, secondary Krebs cycle disturbances may impair pancreatic beta-cell insulin secretion, leading to hyperglycemic ketoacidosis during glucose infusion therapy.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tricarboxylic acid cycle\"]}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation may occur in the setting of chronic metabolic disease and feeding difficulties.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"HLCS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLCS\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"HLCS - c.1522C\u003eT (p.R508W)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common variant in a Chinese HLCS deficiency cohort, representing 41.1% of alleles. Located in the C-terminal biotin-binding domain of the HLCS protein.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"HLCS - c.710T\u003eC (p.Leu237Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A pathogenic missense variant associated with early-onset severe neonatal presentation. Located in the N-terminal region of the HLCS protein.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"HLCS - c.995A\u003eG (p.Gln332Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A novel pathogenic variant identified in homozygous state in siblings with very late onset HLCS deficiency, with symptomatic presentation at 11 years.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"HLCS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic HLCS pathogenic variants reduce holocarboxylase synthetase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"HLCS\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"HLCS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 3}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemia occurs during metabolic decompensation, likely from catabolic stress and secondary urea cycle impairment.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperglycemia can occur during acute decompensation when intravenous glucose is given to suppress catabolism and secondary insulin secretion defects emerge.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003074\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia results from impaired gluconeogenesis secondary to pyruvate carboxylase deficiency. Recurrent episodes may occur during intercurrent illness.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001943\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized ichthyosis has been observed as a severe dermatologic manifestation in neonatal HLCS deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008064\"}}, {\"id\": \"Impaired HLCS-mediated protein biotinylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HLCS covalently links biotin to apocarboxylases to generate active holocarboxylases. Deficiency impairs this biotinylation step, reducing activation of biotin-dependent carboxylases.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"biotin metabolic process\"]}}, {\"id\": \"Impaired leucine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of 3-methylcrotonyl-CoA carboxylase (MCC) disrupts leucine catabolism, leading to accumulation of C5-hydroxylated leucine-pathway metabolites and 3-methylcrotonylglycine.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"leucine catabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Impaired propionate metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of propionyl-CoA carboxylase (PCC) impairs propionate catabolism, contributing to elevations of methylcitric acid and 3-hydroxypropionate.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"propionate catabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ketoacidosis can occur during acute decompensation when secondary insulinopenia develops during glucose infusion.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001993\"}}, {\"id\": \"Lactic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lactic acidosis results from impaired pyruvate carboxylase function disrupting gluconeogenesis and TCA cycle anaplerosis. Severity can be extreme in neonatal presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003128\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced alertness and drowsiness during acute metabolic decompensation, which may progress to coma in untreated or severe cases.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis is a recurring presenting feature, often severe and difficult to correct. It results from accumulation of organic acids from multiple blocked carboxylase pathways.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001942\"}}, {\"id\": \"Methylcitric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multiple carboxylase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired HLCS activity produces concurrent functional deficiency of pyruvate carboxylase (PC), propionyl-CoA carboxylase (PCC), 3-methylcrotonyl-CoA carboxylase (MCC), and acetyl-CoA carboxylase (ACC), creating a multi-pathway metabolic block.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"]}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia is a neurological finding, particularly during acute metabolic crises in neonates and infants.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Neurologic metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe acidotic crises, hypoglycemia, hyperammonemia, and organic acid accumulation can produce acute neurologic dysfunction, including lethargy, hypotonia, and seizures. Delayed or severe crises can also contribute to developmental delay.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Secondary hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia can emerge during acute decompensation, likely from catabolic stress and secondary disturbance of nitrogen disposal.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Secondary organic acidemia and ketotic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined pathway dysfunction causes recurrent high-anion-gap metabolic acidosis and ketotic decompensation, particularly during catabolic stress.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in acute metabolic decompensation, reflecting brain vulnerability to organic acid accumulation and energy failure.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Skin rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczematous or erythematous skin rash is a reported dermatologic feature, often presenting early. It reflects cutaneous consequences of biotin cofactor deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000964\"}}, {\"id\": \"Systemic feeding and growth involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infantile HLCS deficiency can involve feeding difficulties and growth retardation as part of the multisystem clinical state. These endpoints may reflect systemic illness, poor intake, and recurrent decompensation rather than a single defined molecular intermediate.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tachypnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid breathing occurs as a compensatory response to metabolic acidosis during decompensation. Respiratory symptoms may be the initial presenting manifestation in some patients.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002789\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting with poor oral intake can occur during metabolic instability.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"HLCS molecular function deficiency\", \"target\": \"Impaired HLCS-mediated protein biotinylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired HLCS-mediated protein biotinylation\", \"target\": \"Multiple carboxylase deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired HLCS-mediated protein biotinylation\", \"target\": \"Cutaneous and hair involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple carboxylase deficiency\", \"target\": \"Disrupted gluconeogenesis and lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple carboxylase deficiency\", \"target\": \"Impaired leucine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple carboxylase deficiency\", \"target\": \"Impaired propionate metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted gluconeogenesis and lactic acidosis\", \"target\": \"Secondary organic acidemia and ketotic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted gluconeogenesis and lactic acidosis\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted gluconeogenesis and lactic acidosis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted gluconeogenesis and lactic acidosis\", \"target\": \"Lactic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired leucine catabolism\", \"target\": \"Secondary organic acidemia and ketotic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired leucine catabolism\", \"target\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired leucine catabolism\", \"target\": \"3-Hydroxyisovaleric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired leucine catabolism\", \"target\": \"3-Methylcrotonylglycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired propionate metabolism\", \"target\": \"Secondary organic acidemia and ketotic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired propionate metabolism\", \"target\": \"3-Hydroxypropionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired propionate metabolism\", \"target\": \"Methylcitric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Secondary hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Glucose dysregulation and hyperglycemic ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Neurologic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Systemic feeding and growth involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Tachypnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glucose dysregulation and hyperglycemic ketoacidosis\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glucose dysregulation and hyperglycemic ketoacidosis\", \"target\": \"Ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic metabolic decompensation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic metabolic decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic metabolic decompensation\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic metabolic decompensation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous and hair involvement\", \"target\": \"Skin rash\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous and hair involvement\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous and hair involvement\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic feeding and growth involvement\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic feeding and growth involvement\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HLCS\", \"target\": \"HLCS molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLCS - c.1522C\u003eT (p.R508W)\", \"target\": \"HLCS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HLCS - c.710T\u003eC (p.Leu237Pro)\", \"target\": \"HLCS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HLCS - c.995A\u003eG (p.Gln332Arg)\", \"target\": \"HLCS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-Hydroxyisovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"3-Hydroxypropionate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"3-Methylcrotonylglycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hair loss is a reported clinical feature of HLCS deficiency, reflecting biotin deficiency at the level of hair follicle biology.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001596\"}}, {\"id\": \"Cutaneous and hair involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HLCS deficiency includes cutaneous and hair findings such as rash, alopecia, and sometimes generalized ichthyosis. The graph groups these findings as downstream consequences of impaired biotin-dependent enzyme activation while leaving the tissue-level intermediates unspecified.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"skin\"]}}, {\"id\": \"Disrupted gluconeogenesis and lactic acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate carboxylase (PC) deficiency due to impaired biotinylation reduces conversion of pyruvate to oxaloacetate, impairing gluconeogenesis and TCA cycle anaplerosis. This contributes to lactic acidosis and hypoglycemia observed in affected patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\", \"pyruvate metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor feeding and feeding intolerance occur in neonatal and infantile presentations, contributing to failure to thrive.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay may occur, particularly in patients with delayed diagnosis or severe metabolic crises. Early biotin treatment is associated with normal developmental outcomes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glucose dysregulation and hyperglycemic ketoacidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In some patients, secondary Krebs cycle disturbances may impair pancreatic beta-cell insulin secretion, leading to hyperglycemic ketoacidosis during glucose infusion therapy.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tricarboxylic acid cycle\"]}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation may occur in the setting of chronic metabolic disease and feeding difficulties.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"HLCS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLCS\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"HLCS - c.1522C\u003eT (p.R508W)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common variant in a Chinese HLCS deficiency cohort, representing 41.1% of alleles. Located in the C-terminal biotin-binding domain of the HLCS protein.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"HLCS - c.710T\u003eC (p.Leu237Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A pathogenic missense variant associated with early-onset severe neonatal presentation. Located in the N-terminal region of the HLCS protein.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"HLCS - c.995A\u003eG (p.Gln332Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A novel pathogenic variant identified in homozygous state in siblings with very late onset HLCS deficiency, with symptomatic presentation at 11 years.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"HLCS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic HLCS pathogenic variants reduce holocarboxylase synthetase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"HLCS\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"HLCS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 3}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemia occurs during metabolic decompensation, likely from catabolic stress and secondary urea cycle impairment.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperglycemia can occur during acute decompensation when intravenous glucose is given to suppress catabolism and secondary insulin secretion defects emerge.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003074\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia results from impaired gluconeogenesis secondary to pyruvate carboxylase deficiency. Recurrent episodes may occur during intercurrent illness.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001943\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized ichthyosis has been observed as a severe dermatologic manifestation in neonatal HLCS deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008064\"}}, {\"id\": \"Impaired HLCS-mediated protein biotinylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HLCS covalently links biotin to apocarboxylases to generate active holocarboxylases. Deficiency impairs this biotinylation step, reducing activation of biotin-dependent carboxylases.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"biotin metabolic process\"]}}, {\"id\": \"Impaired leucine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of 3-methylcrotonyl-CoA carboxylase (MCC) disrupts leucine catabolism, leading to accumulation of C5-hydroxylated leucine-pathway metabolites and 3-methylcrotonylglycine.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"leucine catabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Impaired propionate metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of propionyl-CoA carboxylase (PCC) impairs propionate catabolism, contributing to elevations of methylcitric acid and 3-hydroxypropionate.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"propionate catabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ketoacidosis can occur during acute decompensation when secondary insulinopenia develops during glucose infusion.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001993\"}}, {\"id\": \"Lactic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lactic acidosis results from impaired pyruvate carboxylase function disrupting gluconeogenesis and TCA cycle anaplerosis. Severity can be extreme in neonatal presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003128\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced alertness and drowsiness during acute metabolic decompensation, which may progress to coma in untreated or severe cases.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis is a recurring presenting feature, often severe and difficult to correct. It results from accumulation of organic acids from multiple blocked carboxylase pathways.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001942\"}}, {\"id\": \"Methylcitric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Multiple carboxylase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired HLCS activity produces concurrent functional deficiency of pyruvate carboxylase (PC), propionyl-CoA carboxylase (PCC), 3-methylcrotonyl-CoA carboxylase (MCC), and acetyl-CoA carboxylase (ACC), creating a multi-pathway metabolic block.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"]}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia is a neurological finding, particularly during acute metabolic crises in neonates and infants.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Neurologic metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe acidotic crises, hypoglycemia, hyperammonemia, and organic acid accumulation can produce acute neurologic dysfunction, including lethargy, hypotonia, and seizures. Delayed or severe crises can also contribute to developmental delay.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Secondary hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia can emerge during acute decompensation, likely from catabolic stress and secondary disturbance of nitrogen disposal.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Secondary organic acidemia and ketotic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined pathway dysfunction causes recurrent high-anion-gap metabolic acidosis and ketotic decompensation, particularly during catabolic stress.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in acute metabolic decompensation, reflecting brain vulnerability to organic acid accumulation and energy failure.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Skin rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczematous or erythematous skin rash is a reported dermatologic feature, often presenting early. It reflects cutaneous consequences of biotin cofactor deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000964\"}}, {\"id\": \"Systemic feeding and growth involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infantile HLCS deficiency can involve feeding difficulties and growth retardation as part of the multisystem clinical state. These endpoints may reflect systemic illness, poor intake, and recurrent decompensation rather than a single defined molecular intermediate.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tachypnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid breathing occurs as a compensatory response to metabolic acidosis during decompensation. Respiratory symptoms may be the initial presenting manifestation in some patients.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002789\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting with poor oral intake can occur during metabolic instability.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"HLCS molecular function deficiency\", \"target\": \"Impaired HLCS-mediated protein biotinylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired HLCS-mediated protein biotinylation\", \"target\": \"Multiple carboxylase deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired HLCS-mediated protein biotinylation\", \"target\": \"Cutaneous and hair involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple carboxylase deficiency\", \"target\": \"Disrupted gluconeogenesis and lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple carboxylase deficiency\", \"target\": \"Impaired leucine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple carboxylase deficiency\", \"target\": \"Impaired propionate metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted gluconeogenesis and lactic acidosis\", \"target\": \"Secondary organic acidemia and ketotic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted gluconeogenesis and lactic acidosis\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted gluconeogenesis and lactic acidosis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted gluconeogenesis and lactic acidosis\", \"target\": \"Lactic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired leucine catabolism\", \"target\": \"Secondary organic acidemia and ketotic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired leucine catabolism\", \"target\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired leucine catabolism\", \"target\": \"3-Hydroxyisovaleric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired leucine catabolism\", \"target\": \"3-Methylcrotonylglycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired propionate metabolism\", \"target\": \"Secondary organic acidemia and ketotic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired propionate metabolism\", \"target\": \"3-Hydroxypropionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired propionate metabolism\", \"target\": \"Methylcitric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Secondary hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Glucose dysregulation and hyperglycemic ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Neurologic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Systemic feeding and growth involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary organic acidemia and ketotic decompensation\", \"target\": \"Tachypnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glucose dysregulation and hyperglycemic ketoacidosis\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glucose dysregulation and hyperglycemic ketoacidosis\", \"target\": \"Ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic metabolic decompensation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic metabolic decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic metabolic decompensation\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic metabolic decompensation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous and hair involvement\", \"target\": \"Skin rash\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous and hair involvement\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous and hair involvement\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic feeding and growth involvement\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic feeding and growth involvement\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HLCS\", \"target\": \"HLCS molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLCS - c.1522C\u003eT (p.R508W)\", \"target\": \"HLCS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HLCS - c.710T\u003eC (p.Leu237Pro)\", \"target\": \"HLCS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HLCS - c.995A\u003eG (p.Gln332Arg)\", \"target\": \"HLCS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4227,6 +4456,8 @@
                 
                 <div class="evidence-explanation">Documents vomiting as a common symptom in the 28-patient cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4246,6 +4477,8 @@
                 
                 
                 <div class="evidence-explanation">Lists vomiting among typical presenting features.</div>
+                
+                
                 
             </div>
             
@@ -4301,6 +4534,8 @@
                 
                 <div class="evidence-explanation">Lists feeding problems among clinical manifestations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4320,6 +4555,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms feeding difficulties as a common manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4384,6 +4621,8 @@
                 
                 <div class="evidence-explanation">Documents rash as a common symptom in the 28-patient cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4403,6 +4642,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms rash among common clinical manifestations of HLCS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4467,6 +4708,8 @@
                 
                 <div class="evidence-explanation">Lists alopecia among clinical manifestations of HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4486,6 +4729,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms alopecia as a typical manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4540,6 +4785,8 @@
                 
                 
                 <div class="evidence-explanation">Documents generalized ichthyosis developing in a neonate with HLCS deficiency prior to biotin therapy.</div>
+                
+                
                 
             </div>
             
@@ -4604,6 +4851,8 @@
                 
                 <div class="evidence-explanation">Lists metabolic acidosis as a typical presenting feature of HCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4623,6 +4872,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms metabolic acidosis as a common clinical manifestation.</div>
+                
+                
                 
             </div>
             
@@ -4678,6 +4929,8 @@
                 
                 <div class="evidence-explanation">Documents severe lactic acidosis as a presenting feature in neonatal HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4697,6 +4950,8 @@
                 
                 
                 <div class="evidence-explanation">Lists lactic acidosis among the typical manifestations of HLCS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4752,6 +5007,8 @@
                 
                 <div class="evidence-explanation">Lists hyperammonemia among clinical manifestations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4771,6 +5028,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms hyperammonemia as a typical manifestation of HLCS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4826,6 +5085,8 @@
                 
                 <div class="evidence-explanation">Documents severe hypoglycemia as a presenting feature in an HLCS deficiency patient.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4845,6 +5106,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms hypoglycemia as a feature of acute decompensation in HLCS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4900,6 +5163,8 @@
                 
                 <div class="evidence-explanation">Directly documents hyperglycemia as part of hyperglycemic ketoacidosis during HLCS decompensation.</div>
                 
+                
+                
             </div>
             
             
@@ -4953,6 +5218,8 @@
                 
                 
                 <div class="evidence-explanation">Directly documents ketoacidosis during HLCS decompensation.</div>
+                
+                
                 
             </div>
             
@@ -5017,6 +5284,8 @@
                 
                 <div class="evidence-explanation">Lists hypotonia as a typical presenting feature.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5036,6 +5305,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms hypotonia among clinical manifestations.</div>
+                
+                
                 
             </div>
             
@@ -5100,6 +5371,8 @@
                 
                 <div class="evidence-explanation">Lists seizures among typical presenting features.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5119,6 +5392,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms seizures in the 28-patient Chinese cohort.</div>
+                
+                
                 
             </div>
             
@@ -5174,6 +5449,8 @@
                 
                 <div class="evidence-explanation">Lists lethargy among typical presenting features.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5193,6 +5470,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms lethargy as a presenting symptom in a documented HLCS case.</div>
+                
+                
                 
             </div>
             
@@ -5248,6 +5527,8 @@
                 
                 <div class="evidence-explanation">Lists developmental delay among clinical manifestations of HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5267,6 +5548,8 @@
                 
                 
                 <div class="evidence-explanation">Indicates developmental delay is preventable with early biotin therapy, implying it occurs when treatment is delayed.</div>
+                
+                
                 
             </div>
             
@@ -5331,6 +5614,8 @@
                 
                 <div class="evidence-explanation">Lists tachypnea among clinical manifestations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5350,6 +5635,8 @@
                 
                 
                 <div class="evidence-explanation">Supports respiratory distress with rapid breathing, which is compatible but not fully specific for tachypnea.</div>
+                
+                
                 
             </div>
             
@@ -5413,6 +5700,8 @@
                 
                 
                 <div class="evidence-explanation">Lists growth retardation among common clinical manifestations.</div>
+                
+                
                 
             </div>
             
@@ -5503,6 +5792,8 @@
                 
                 <div class="evidence-explanation">Provides genotype-phenotype correlations regarding onset timing.</div>
                 
+                
+                
             </div>
             
             
@@ -5545,6 +5836,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the HLCS-holocarboxylase synthetase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -5636,6 +5929,8 @@
                 
                 <div class="evidence-explanation">Demonstrates dramatic resolution of symptoms with biotin therapy in a 28-patient cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5656,6 +5951,8 @@
                 
                 <div class="evidence-explanation">Documents rapid clinical improvement with biotin mega-dose therapy in a neonate.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5675,6 +5972,8 @@
                 
                 
                 <div class="evidence-explanation">Systematic review confirming biotin supplementation is associated with good outcomes.</div>
+                
+                
                 
             </div>
             
@@ -5754,6 +6053,8 @@
                 
                 <div class="evidence-explanation">Directly supports importance of newborn screening for HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5773,6 +6074,8 @@
                 
                 
                 <div class="evidence-explanation">Provides real-world newborn screening detection data for HLCS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5852,6 +6155,8 @@
                 
                 <div class="evidence-explanation">Documents acute decompensation requiring emergency management in HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5871,6 +6176,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates insulin therapy as an acute management strategy for hyperglycemic ketoacidosis in HLCS decompensation.</div>
+                
+                
                 
             </div>
             
@@ -5950,6 +6257,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that decreased oral intake triggers metabolic decompensation, supporting dietary management.</div>
                 
+                
+                
             </div>
             
             
@@ -6027,6 +6336,8 @@
                 
                 
                 <div class="evidence-explanation">Genetic characterization supports genetic counseling for families.</div>
+                
+                
                 
             </div>
             
@@ -6106,6 +6417,8 @@
                 
                 <div class="evidence-explanation">Directly supports the role of early genetic testing for HLCS deficiency management.</div>
                 
+                
+                
             </div>
             
             
@@ -6184,6 +6497,8 @@
                 
                 <div class="evidence-explanation">Systematic review supporting antenatal biotin supplementation for at-risk pregnancies.</div>
                 
+                
+                
             </div>
             
             
@@ -6220,6 +6535,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6245,6 +6561,8 @@
                 
                 <div class="evidence-explanation">Directly documents elevated C5-OH in HLCS deficiency patients.</div>
                 
+                
+                
             </div>
             
             
@@ -6264,6 +6582,7 @@
                 
                 <div class="item-desc">Context: Lactic acidosis reflects impaired pyruvate carboxylase function and disrupted gluconeogenesis. Lactate levels can be severely elevated in neonatal presentations.
 </div>
+                
                 
                 
     
@@ -6291,6 +6610,8 @@
                 
                 <div class="evidence-explanation">Documents severe lactic acidosis in neonatal HLCS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6311,6 +6632,8 @@
                 
                 <div class="evidence-explanation">Directly reports elevated lactate in urine organic acid analysis.</div>
                 
+                
+                
             </div>
             
             
@@ -6330,6 +6653,7 @@
                 
                 <div class="item-desc">Context: Urinary 3-hydroxyisovaleric acid elevation reflects impaired 3-methylcrotonyl-CoA carboxylase (MCC) activity in the leucine catabolic pathway.
 </div>
+                
                 
                 
     
@@ -6357,6 +6681,8 @@
                 
                 <div class="evidence-explanation">The case directly reports elevated 3-hydroxyisovaleric acid.</div>
                 
+                
+                
             </div>
             
             
@@ -6376,6 +6702,7 @@
                 
                 <div class="item-desc">Context: Elevated urinary methylcitric acid reflects propionyl-CoA carboxylase (PCC) deficiency and propionyl-CoA entry into the TCA cycle via citrate synthase.
 </div>
+                
                 
                 
     
@@ -6403,6 +6730,8 @@
                 
                 <div class="evidence-explanation">Directly documents elevated methylcitric acid in urine of HLCS deficiency patients.</div>
                 
+                
+                
             </div>
             
             
@@ -6422,6 +6751,7 @@
                 
                 <div class="item-desc">Context: Urinary 3-methylcrotonylglycine is a conjugated metabolite reflecting impaired MCC activity in the leucine degradation pathway.
 </div>
+                
                 
                 
     
@@ -6449,6 +6779,8 @@
                 
                 <div class="evidence-explanation">Directly documents elevated 3-methylcrotonylglycine in urine.</div>
                 
+                
+                
             </div>
             
             
@@ -6468,6 +6800,7 @@
                 
                 <div class="item-desc">Context: Urinary 3-hydroxypropionate elevation results from impaired propionyl-CoA carboxylase activity and propionate pathway dysfunction.
 </div>
+                
                 
                 
     
@@ -6494,6 +6827,8 @@
                 
                 
                 <div class="evidence-explanation">Directly documents elevated 3-hydroxypropionate in urine.</div>
+                
+                
                 
             </div>
             

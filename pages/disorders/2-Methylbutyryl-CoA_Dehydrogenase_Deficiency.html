@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2778,6 +2969,8 @@
                 <div class="evidence-explanation">Directly supports primary SBCAD/ACADSB molecular dysfunction in this disorder.
 </div>
                 
+                
+                
             </div>
             
             
@@ -2939,6 +3132,8 @@
                 <div class="evidence-explanation">Confirms that SBCADD is a defect in the proximal pathway of L-isoleucine oxidation with 2-MBG as hallmark metabolite.
 </div>
                 
+                
+                
             </div>
             
             
@@ -3048,6 +3243,8 @@
                 <div class="evidence-explanation">Directly supports the hypothesis that R-pathway flux compensates for the S-pathway block and explains the mild phenotype.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3069,6 +3266,8 @@
                 
                 <div class="evidence-explanation">Quantifies the significant contribution of R-pathway metabolism in SBCADD patients.
 </div>
+                
+                
                 
             </div>
             
@@ -3193,6 +3392,8 @@
                 
                 <div class="evidence-explanation">In vitro rat brain preparation and glial cell evidence supports oxidative stress and antioxidant depletion from 2-MBG.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3212,6 +3413,8 @@
                 
                 
                 <div class="evidence-explanation">Authors interpret the 2-MBG oxidative-stress findings as relevant to SBCAD-related brain damage.</div>
+                
+                
                 
             </div>
             
@@ -3289,6 +3492,8 @@
                 
                 <div class="evidence-explanation">Directly supports that catabolic stress triggers decompensation in SBCADD.
 </div>
+                
+                
                 
             </div>
             
@@ -3399,6 +3604,8 @@
                 <div class="evidence-explanation">Background statement in a mechanistic paper characterizes SBCAD deficiency as largely a biochemical abnormality.
 </div>
                 
+                
+                
             </div>
             
             
@@ -3433,7 +3640,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Ethylhydracrylic acid (2-EHA) in urine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"2-MBG-mediated neural oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accumulating glycine conjugate 2-methylbutyrylglycine can increase lipid oxidation and reduce nonenzymatic antioxidant defenses in rat cerebral cortex preparations and C6 glioma cells, providing a plausible mechanism for neurologic vulnerability in the symptomatic minority.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"glial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"lipid oxidation\"]}}, {\"id\": \"2-Methylbutyrylglycine (2-MBG) in urine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"2-Methylbutyrylglycinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased urinary excretion of 2-methylbutyrylglycine is the biochemical hallmark of SBCADD, detected by urine organic acid analysis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001992\"}}, {\"id\": \"ACAD substrate promiscuity and compensatory enzymology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACAD family enzymes display significant substrate promiscuity. In HEK-293 cell models, ACADSB knockout causes marked increases in C5-carnitine and substantial decreases in C3-carnitine, demonstrating that SBCAD activity influences short-chain acyl-CoA and acylcarnitine pools beyond a single metabolite. This promiscuity partially explains why complete SBCAD loss-of-function has limited clinical consequences in most individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fatty acid beta-oxidation\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"ACADSB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACADSB\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ACADSB molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACADSB pathogenic variants reduce short/branched-chain acyl-CoA dehydrogenase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"acyl-CoA dehydrogenase activity\"], \"genes\": [\"ACADSB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"ACADSB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACADSB\"], \"variant_count\": 2}}, {\"id\": \"C3-carnitine (propionylcarnitine) in ACADSB knockout cells\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"C5-acylcarnitine (2-methylbutyrylcarnitine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Elevated C5-acylcarnitine on newborn screening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated C5-acylcarnitine (2-methylbutyrylcarnitine, isobaric with isovalerylcarnitine) on tandem mass spectrometry newborn screening is the primary ascertainment marker for SBCADD.\\n\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0045045\"}}, {\"id\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function variants reduce SBCAD enzyme activity and stability, blocking this catabolic step and causing accumulation of upstream metabolites that are diverted to measurable conjugates including C5-acylcarnitine (blood) and 2-methylbutyrylglycine (urine).\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"isoleucine catabolic process\", \"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Largely asymptomatic course\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The majority of individuals with SBCADD remain clinically asymptomatic. In a literature review of 162 patients, SBCADD was symptomatic in only about 10% of reported patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Metabolic rerouting via the R-pathway of isoleucine oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The metabolic block in the S-pathway of isoleucine oxidation leads to increased flux through the normally minor R-pathway, producing 2-ethylhydracrylic acid (2-EHA) as a prominent urinary marker. This R-pathway flux may function as a compensatory safety valve that mitigates severity in many individuals, explaining the largely benign phenotype observed in most SBCADD patients.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"isoleucine catabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Multiple non-Hmong ACADSB missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple missense variants in ACADSB have been identified in non-Hmong patients through newborn screening. Expression studies show these variants lead to inactivation or instability of the mutant SBCAD enzymes. At least 15 pathogenic variants are known in ACADSB.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Stress-sensitive metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overlapping substrate specificity among ACAD family enzymes may compensate for SBCAD deficiency under normal conditions. During catabolic stress (infection, fasting), this compensatory capacity may be exceeded, leading to metabolic decompensation in a minority of patients. This stress-sensitive model explains why most patients remain asymptomatic but a small fraction develop clinical disease.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to starvation\"]}}, {\"id\": \"c.1165A\u003eG (exon 10 skipping) - founder variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The c.1165A\u003eG variant in ACADSB causes skipping of exon 10 and is a founder mutation highly prevalent in the Hmong population and in several Chinese ethnic minority groups (Miao, Dong). Homozygosity for this variant is found at a frequency of approximately 1.3% in the Hmong population, with a carrier frequency of 21.8%.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ACADSB molecular function deficiency\", \"target\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"Metabolic rerouting via the R-pathway of isoleucine oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"ACAD substrate promiscuity and compensatory enzymology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"Stress-sensitive metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"C5-acylcarnitine (2-methylbutyrylcarnitine)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"Elevated C5-acylcarnitine on newborn screening\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"2-Methylbutyrylglycine (2-MBG) in urine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"2-Methylbutyrylglycinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"2-MBG-mediated neural oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic rerouting via the R-pathway of isoleucine oxidation\", \"target\": \"2-Ethylhydracrylic acid (2-EHA) in urine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic rerouting via the R-pathway of isoleucine oxidation\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAD substrate promiscuity and compensatory enzymology\", \"target\": \"C3-carnitine (propionylcarnitine) in ACADSB knockout cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAD substrate promiscuity and compensatory enzymology\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACADSB pathogenic variants\", \"target\": \"ACADSB molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACADSB\", \"target\": \"ACADSB molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1165A\u003eG (exon 10 skipping) - founder variant\", \"target\": \"ACADSB pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Multiple non-Hmong ACADSB missense variants\", \"target\": \"ACADSB pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Ethylhydracrylic acid (2-EHA) in urine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"2-MBG-mediated neural oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accumulating glycine conjugate 2-methylbutyrylglycine can increase lipid oxidation and reduce nonenzymatic antioxidant defenses in rat cerebral cortex preparations and C6 glioma cells, providing a plausible mechanism for neurologic vulnerability in the symptomatic minority.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"glial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"lipid oxidation\"]}}, {\"id\": \"2-Methylbutyrylglycine (2-MBG) in urine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"2-Methylbutyrylglycinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased urinary excretion of 2-methylbutyrylglycine is the biochemical hallmark of SBCADD, detected by urine organic acid analysis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001992\"}}, {\"id\": \"ACAD substrate promiscuity and compensatory enzymology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACAD family enzymes display significant substrate promiscuity. In HEK-293 cell models, ACADSB knockout causes marked increases in C5-carnitine and substantial decreases in C3-carnitine, demonstrating that SBCAD activity influences short-chain acyl-CoA and acylcarnitine pools beyond a single metabolite. This promiscuity partially explains why complete SBCAD loss-of-function has limited clinical consequences in most individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fatty acid beta-oxidation\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"ACADSB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACADSB\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ACADSB molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACADSB pathogenic variants reduce short/branched-chain acyl-CoA dehydrogenase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"acyl-CoA dehydrogenase activity\"], \"genes\": [\"ACADSB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"ACADSB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACADSB\"], \"variant_count\": 2}}, {\"id\": \"C3-carnitine (propionylcarnitine) in ACADSB knockout cells\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"C5-acylcarnitine (2-methylbutyrylcarnitine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\"}}, {\"id\": \"Elevated C5-acylcarnitine on newborn screening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated C5-acylcarnitine (2-methylbutyrylcarnitine, isobaric with isovalerylcarnitine) on tandem mass spectrometry newborn screening is the primary ascertainment marker for SBCADD.\\n\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0045045\"}}, {\"id\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function variants reduce SBCAD enzyme activity and stability, blocking this catabolic step and causing accumulation of upstream metabolites that are diverted to measurable conjugates including C5-acylcarnitine (blood) and 2-methylbutyrylglycine (urine).\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"isoleucine catabolic process\", \"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Largely asymptomatic course\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The majority of individuals with SBCADD remain clinically asymptomatic. In a literature review of 162 patients, SBCADD was symptomatic in only about 10% of reported patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Metabolic rerouting via the R-pathway of isoleucine oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The metabolic block in the S-pathway of isoleucine oxidation leads to increased flux through the normally minor R-pathway, producing 2-ethylhydracrylic acid (2-EHA) as a prominent urinary marker. This R-pathway flux may function as a compensatory safety valve that mitigates severity in many individuals, explaining the largely benign phenotype observed in most SBCADD patients.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"isoleucine catabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Multiple non-Hmong ACADSB missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple missense variants in ACADSB have been identified in non-Hmong patients through newborn screening. Expression studies show these variants lead to inactivation or instability of the mutant SBCAD enzymes. At least 15 pathogenic variants are known in ACADSB.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Stress-sensitive metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overlapping substrate specificity among ACAD family enzymes may compensate for SBCAD deficiency under normal conditions. During catabolic stress (infection, fasting), this compensatory capacity may be exceeded, leading to metabolic decompensation in a minority of patients. This stress-sensitive model explains why most patients remain asymptomatic but a small fraction develop clinical disease.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to starvation\"]}}, {\"id\": \"c.1165A\u003eG (exon 10 skipping) - founder variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The c.1165A\u003eG variant in ACADSB causes skipping of exon 10 and is a founder mutation highly prevalent in the Hmong population and in several Chinese ethnic minority groups (Miao, Dong). Homozygosity for this variant is found at a frequency of approximately 1.3% in the Hmong population, with a carrier frequency of 21.8%.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ACADSB molecular function deficiency\", \"target\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"Metabolic rerouting via the R-pathway of isoleucine oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"ACAD substrate promiscuity and compensatory enzymology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"Stress-sensitive metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"C5-acylcarnitine (2-methylbutyrylcarnitine)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"Elevated C5-acylcarnitine on newborn screening\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"2-Methylbutyrylglycine (2-MBG) in urine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"2-Methylbutyrylglycinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism via SBCAD loss-of-function\", \"target\": \"2-MBG-mediated neural oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic rerouting via the R-pathway of isoleucine oxidation\", \"target\": \"2-Ethylhydracrylic acid (2-EHA) in urine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic rerouting via the R-pathway of isoleucine oxidation\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAD substrate promiscuity and compensatory enzymology\", \"target\": \"C3-carnitine (propionylcarnitine) in ACADSB knockout cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAD substrate promiscuity and compensatory enzymology\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACADSB pathogenic variants\", \"target\": \"ACADSB molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACADSB\", \"target\": \"ACADSB molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1165A\u003eG (exon 10 skipping) - founder variant\", \"target\": \"ACADSB pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Multiple non-Hmong ACADSB missense variants\", \"target\": \"ACADSB pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3523,6 +3730,8 @@
                 <div class="evidence-explanation">Directly identifies elevated urinary 2-MBG as the hallmark of SBCADD.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3544,6 +3753,8 @@
                 
                 <div class="evidence-explanation">Confirms universal 2-MBG elevation in confirmed SBCADD patients.
 </div>
+                
+                
                 
             </div>
             
@@ -3611,6 +3822,8 @@
                 
                 <div class="evidence-explanation">Microcephaly listed as a feature that can develop on longitudinal follow-up.
 </div>
+                
+                
                 
             </div>
             
@@ -3714,6 +3927,8 @@
                 <div class="evidence-explanation">Reports mild muscle hypotonia in one of the newborn-screening- identified Hmong patients.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3735,6 +3950,8 @@
                 
                 <div class="evidence-explanation">Hypotonia listed among presenting features in the literature review.
 </div>
+                
+                
                 
             </div>
             
@@ -3793,6 +4010,8 @@
                 
                 <div class="evidence-explanation">Directly reports muscle atrophy in an early SBCADD patient.
 </div>
+                
+                
                 
             </div>
             
@@ -3861,6 +4080,8 @@
                 <div class="evidence-explanation">Two of the earliest described patients showed motor developmental delay or cerebral palsy.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3882,6 +4103,8 @@
                 
                 <div class="evidence-explanation">Literature review confirms developmental delay as a recognized phenotype of symptomatic SBCADD.
 </div>
+                
+                
                 
             </div>
             
@@ -3941,6 +4164,8 @@
                 <div class="evidence-explanation">Seizures listed as a recognized presenting feature of symptomatic SBCADD.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3962,6 +4187,8 @@
                 
                 <div class="evidence-explanation">Epilepsy can develop on longitudinal follow-up in symptomatic cases.
 </div>
+                
+                
                 
             </div>
             
@@ -4021,6 +4248,8 @@
                 <div class="evidence-explanation">Autism listed among features that can develop on longitudinal follow-up in SBCADD.
 </div>
                 
+                
+                
             </div>
             
             
@@ -4078,6 +4307,8 @@
                 
                 <div class="evidence-explanation">Directly reports athetoid cerebral palsy in one of the first described SBCADD patients.
 </div>
+                
+                
                 
             </div>
             
@@ -4146,6 +4377,8 @@
                 <div class="evidence-explanation">Failure to thrive listed among presenting features in the literature review of 162 patients.
 </div>
                 
+                
+                
             </div>
             
             
@@ -4209,6 +4442,8 @@
                 <div class="evidence-explanation">Quantifies the largely asymptomatic nature of SBCADD in the largest literature review.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4230,6 +4465,8 @@
                 
                 <div class="evidence-explanation">Confirms asymptomatic status of non-Hmong patients identified by newborn screening.
 </div>
+                
+                
                 
             </div>
             
@@ -4321,6 +4558,8 @@
                 <div class="evidence-explanation">Confirms the genetic basis and founder mutation background of SBCADD.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4342,6 +4581,8 @@
                 
                 <div class="evidence-explanation">Confirms ACADSB as the gene for molecular diagnosis of SBCADD.
 </div>
+                
+                
                 
             </div>
             
@@ -4385,6 +4626,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the ACADSB-2-methylbutyryl-CoA dehydrogenase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -4478,6 +4721,8 @@
                 <div class="evidence-explanation">Directly recommends carnitine supplementation as an indicated treatment for SBCADD.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4499,6 +4744,8 @@
                 
                 <div class="evidence-explanation">Reports specific carnitine dosing of 100 mg/kg/day with biochemical monitoring.
 </div>
+                
+                
                 
             </div>
             
@@ -4580,6 +4827,8 @@
                 <div class="evidence-explanation">Directly supports emergency protocol provision for catabolic stress management.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4601,6 +4850,8 @@
                 
                 <div class="evidence-explanation">Supports the rationale for catabolic stress avoidance.
 </div>
+                
+                
                 
             </div>
             
@@ -4682,6 +4933,8 @@
                 <div class="evidence-explanation">Reports early dietary treatment in newborn-screening-identified Hmong patients with good short-term outcomes.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4703,6 +4956,8 @@
                 
                 <div class="evidence-explanation">Notes that long-term efficacy of presymptomatic dietary treatment is unproven.
 </div>
+                
+                
                 
             </div>
             
@@ -4784,6 +5039,8 @@
                 <div class="evidence-explanation">Directly recommends valproate avoidance as an indicated measure in SBCADD management.
 </div>
                 
+                
+                
             </div>
             
             
@@ -4863,6 +5120,8 @@
                 
                 <div class="evidence-explanation">Establishes that SBCADD is detectable by tandem MS newborn screening.
 </div>
+                
+                
                 
             </div>
             
@@ -4944,6 +5203,8 @@
                 <div class="evidence-explanation">Demonstrates prenatal diagnosis has been applied in SBCADD families, supporting the role of genetic counseling.
 </div>
                 
+                
+                
             </div>
             
             
@@ -5024,6 +5285,8 @@
                 <div class="evidence-explanation">Directly recommends longitudinal follow-up in SBCADD.
 </div>
                 
+                
+                
             </div>
             
             
@@ -5060,6 +5323,7 @@
 </div>
                 
                 
+                
     
     
             </div>
@@ -5074,6 +5338,7 @@
                 
                 <div class="item-desc">Context: Elevated urinary 2-methylbutyrylglycine is the diagnostic hallmark of SBCADD. Detection of 2-MBG by urine organic acid analysis or acylglycine profiling confirms the diagnosis after elevated C5 is found on newborn screening.
 </div>
+                
                 
                 
     
@@ -5103,6 +5368,8 @@
                 <div class="evidence-explanation">Confirms 2-MBG elevation as the hallmark in the 2019 literature review.
 </div>
                 
+                
+                
             </div>
             
             
@@ -5122,6 +5389,7 @@
                 
                 <div class="item-desc">Context: 2-Ethylhydracrylic acid is a urinary organic acid marker of SBCADD, produced by increased flux through the R-pathway of isoleucine oxidation. The 2-EHA peak often exceeds the 2-MBG peak on organic acid analysis and may facilitate diagnosis.
 </div>
+                
                 
                 
     
@@ -5151,6 +5419,8 @@
                 <div class="evidence-explanation">Demonstrates that 2-EHA is a prominent urinary marker in SBCADD, often exceeding 2-MBG levels.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5173,6 +5443,8 @@
                 <div class="evidence-explanation">Supports diagnostic utility of 2-EHA for SBCADD detection.
 </div>
                 
+                
+                
             </div>
             
             
@@ -5192,6 +5464,7 @@
                 
                 <div class="item-desc">Context: In cell models of SBCAD deficiency, C3-carnitine is substantially decreased, reflecting the broader impact of SBCAD on mitochondrial acyl-CoA handling beyond the direct isoleucine pathway metabolites. This is an in vitro observation and not a standard clinical biomarker.
 </div>
+                
                 
                 
     
@@ -5220,6 +5493,8 @@
                 
                 <div class="evidence-explanation">ACADSB knockout in HEK-293 cells causes substantial C3-carnitine decrease, demonstrating broader metabolic impact.
 </div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2690,6 +2881,8 @@
                 
                 <div class="evidence-explanation">The abstract clearly states that G6PD deficiency is caused by inherited mutations of the X-linked gene G6PD, which supports the statement that it is X-linked recessive.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2708,6 +2901,8 @@
                 
                 <div class="evidence-explanation">The abstract describes G6PD deficiency as an inherited X-linked recessive disorder, which directly supports the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2725,6 +2920,8 @@
                 
                 
                 <div class="evidence-explanation">The abstract mentions that G6PD deficiency (D-G6PD) is an X-linked recessive disorder, supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -2896,6 +3093,8 @@
                 
                 <div class="evidence-explanation">The snippet confirms that mutations in the G6PD gene lead to reduced enzyme activity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2914,6 +3113,8 @@
                 
                 <div class="evidence-explanation">The excerpt indicates that mutations are identified in G6PD deficiency, implying a link to decreased enzyme activity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2931,6 +3132,8 @@
                 
                 
                 <div class="evidence-explanation">The snippet clearly states that G6PD deficiency is caused by numerous point mutations.</div>
+                
+                
                 
             </div>
             
@@ -3084,6 +3287,8 @@
                 
                 <div class="evidence-explanation">This reference states that G6PD is crucial for generating NADPH, which is essential for maintaining cellular redox balance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3102,6 +3307,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that adequate G6PD activity is critical for maintaining redox homeostasis by generating NADPH.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3119,6 +3326,8 @@
                 
                 
                 <div class="evidence-explanation">This reference indicates that G6PD plays a crucial role in regulating ROS via NADPH production, thus confirming the role of G6PD in maintaining redox balance.</div>
+                
+                
                 
             </div>
             
@@ -3290,6 +3499,8 @@
                 
                 <div class="evidence-explanation">The literature confirms that G6PD deficiency disrupts NADPH levels, impairing the cell&#39;s ability to handle oxidative stress, which is consistent with the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3308,6 +3519,8 @@
                 
                 <div class="evidence-explanation">The study describes how G6PD deficiency leads to impaired management of oxidative stress in red blood cells due to defects in glutathione homeostasis, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3325,6 +3538,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the idea that decreased NADPH levels in G6PD deficiency impair the ability of red blood cells to handle oxidative stress, leading to hemolysis.</div>
+                
+                
                 
             </div>
             
@@ -3476,6 +3691,8 @@
                 
                 <div class="evidence-explanation">This reference clearly states that G6PD deficiency can lead to hemolysis when exposed to oxidative stressors like infections, certain medications, and foods.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3494,6 +3711,8 @@
                 
                 <div class="evidence-explanation">The abstract supports the statement by mentioning that G6PD deficiency can trigger acute hemolytic anemia when exposed to specific oxidative stressors.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3511,6 +3730,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses the mechanism of oxidative stress-mediated hemolysis in individuals with G6PD deficiency, supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -3548,7 +3769,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Hemolytic Anemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Exposure to oxidative stressors, such as certain medications, foods, or infections, can trigger acute episodes of hemolysis.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte clearance\", \"positive regulation of erythrocyte clearance\"], \"locations\": [\"blood\", \"spleen\"]}}, {\"id\": \"Decreased G6PD Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the G6PD gene lead to reduced or absent enzyme activity.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"pentose-phosphate shunt\", \"erythrocyte homeostasis\"], \"genes\": [\"G6PD\"], \"locations\": [\"erythrocyte\"]}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"G6PD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"G6PD\"]}}, {\"id\": \"Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Impaired Redox Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced G6PD activity leads to decreased production of NADPH, essential for maintaining cellular redox balance.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"NADPH regeneration\", \"glutathione metabolic process\", \"detoxification of hydrogen peroxide\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased NADPH levels impair the ability of red blood cells to handle oxidative stress, leading to hemolysis.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"reactive oxygen species metabolic process\", \"hydrogen peroxide catabolic process\"], \"locations\": [\"blood\", \"spleen\"]}}, {\"id\": \"Shortness of Breath\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}], \"edges\": [{\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"Impaired Redox Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Redox Homeostasis\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress\", \"target\": \"Acute Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Jaundice\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Fatigue\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Shortness of Breath\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"G6PD\", \"target\": \"Decreased G6PD Enzyme Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Hemolytic Anemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Exposure to oxidative stressors, such as certain medications, foods, or infections, can trigger acute episodes of hemolysis.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte clearance\", \"positive regulation of erythrocyte clearance\"], \"locations\": [\"blood\", \"spleen\"]}}, {\"id\": \"Decreased G6PD Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the G6PD gene lead to reduced or absent enzyme activity.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"pentose-phosphate shunt\", \"erythrocyte homeostasis\"], \"genes\": [\"G6PD\"], \"locations\": [\"erythrocyte\"]}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"G6PD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"G6PD\"], \"presence\": \"Pathogenic Variants\"}}, {\"id\": \"Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Impaired Redox Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced G6PD activity leads to decreased production of NADPH, essential for maintaining cellular redox balance.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"NADPH regeneration\", \"glutathione metabolic process\", \"detoxification of hydrogen peroxide\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased NADPH levels impair the ability of red blood cells to handle oxidative stress, leading to hemolysis.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"reactive oxygen species metabolic process\", \"hydrogen peroxide catabolic process\"], \"locations\": [\"blood\", \"spleen\"]}}, {\"id\": \"Shortness of Breath\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}], \"edges\": [{\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"Impaired Redox Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Redox Homeostasis\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress\", \"target\": \"Acute Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Jaundice\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Fatigue\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Shortness of Breath\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"G6PD\", \"target\": \"Decreased G6PD Enzyme Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3647,6 +3868,8 @@
                 
                 <div class="evidence-explanation">The text supports that G6PD deficiency is associated with hemolytic anemia, jaundice, and other hematologic phenotypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3665,6 +3888,8 @@
                 
                 <div class="evidence-explanation">The mention of hemolytic anemia as a potential trigger due to G6PD deficiency supports the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3682,6 +3907,8 @@
                 
                 
                 <div class="evidence-explanation">This supports the hematologic nature of the phenotypes associated with G6PD deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3785,6 +4012,8 @@
                 
                 <div class="evidence-explanation">Blackwater fever syndrome (BWF) characterized by dark urine is associated with G6PD deficiency, supporting the statement that dark urine occurs during acute hemolytic episodes, which fits the genitourinary category.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3802,6 +4031,8 @@
                 
                 
                 <div class="evidence-explanation">Although the reference does not explicitly mention dark urine, it implies hemolysis during acute episodes which is known to cause dark urine as a result of hemoglobinuria, indirectly supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -3868,6 +4099,8 @@
                 
                 <div class="evidence-explanation">Hemolysis from G6PD deficiency leads to anemia, which manifests as pallor due to decreased red blood cell count.</div>
                 
+                
+                
             </div>
             
             
@@ -3933,6 +4166,8 @@
                 
                 <div class="evidence-explanation">This study shows a high incidence of moderate or severe jaundice in G6PD-deficient neonates, supporting the claim that neonatal jaundice is a common systemic phenotype in these individuals and may be severe.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3951,6 +4186,8 @@
                 
                 <div class="evidence-explanation">The literature states that severe neonatal jaundice is associated with G6PD deficiency, supporting the statement&#39;s note about the potential severity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3968,6 +4205,8 @@
                 
                 
                 <div class="evidence-explanation">The study confirms that G6PD deficiency causes neonatal hyperbilirubinemia (jaundice), reinforcing the statement.</div>
+                
+                
                 
             </div>
             
@@ -4099,6 +4338,8 @@
                 
                 <div class="evidence-explanation">The article supports the statement that G6PD deficiency can result in acute hemolytic anemia triggered by the ingestion of fava beans, termed as favism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4117,6 +4358,8 @@
                 
                 <div class="evidence-explanation">The article explicitly describes favism as a hemolytic disease caused by the ingestion of fava beans in individuals with G6PD deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4134,6 +4377,8 @@
                 
                 
                 <div class="evidence-explanation">While the article acknowledges the occurrence of favism in certain populations, it also highlights that significant hemolysis due to fava bean consumption is not well documented among the Thais or Southeast Asians, suggesting geographic variability in the phenotype&#39;s frequency.</div>
+                
+                
                 
             </div>
             
@@ -4185,6 +4430,8 @@
                 
                 
                 <div class="evidence-explanation">The study indicates that despite reduced G6PD activity, the functional assays of neutrophils in G6PD-deficient individuals were comparable to those in normal individuals, suggesting that leukocyte dysfunction is not a common occurrence in G6PD deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4273,6 +4520,8 @@
                 
                 <div class="evidence-explanation">The snippet indicates that G6PD deficiency is caused by mutations in the X-linked gene G6PD, which aligns with the statement about the genetic inheritance being X-linked recessive.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4291,6 +4540,8 @@
                 
                 <div class="evidence-explanation">The snippet explicitly mentions that G6PD deficiency is an X-linked recessive disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4308,6 +4559,8 @@
                 
                 
                 <div class="evidence-explanation">This reference specifies the location of the G6PD gene on the X-chromosome and indicates that the disorder is inherited in a recessive manner.</div>
+                
+                
                 
             </div>
             
@@ -4398,6 +4651,8 @@
                 
                 <div class="evidence-explanation">The statement is supported by the reference as it mentions the importance of avoiding triggers that can lead to harmful clinical manifestations in individuals with G6PD deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4416,6 +4671,8 @@
                 
                 <div class="evidence-explanation">The reference supports the statement by highlighting the importance of avoiding oxidative stressors to prevent acute hemolytic anemia in G6PD-deficient individuals.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4433,6 +4690,8 @@
                 
                 
                 <div class="evidence-explanation">This reference supports the statement by discussing the increased risk of oxidative stress-mediated destruction of erythrocytes, indicating the importance of avoiding such stressors.</div>
+                
+                
                 
             </div>
             
@@ -4511,6 +4770,8 @@
                 
                 <div class="evidence-explanation">This study indicates that during acute hemolytic crisis in G6PD-deficient children, blood transfusions were given to those with severe anemia, supporting the necessity of blood transfusion for severe cases.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4529,6 +4790,8 @@
                 
                 <div class="evidence-explanation">The statement that management involves hydration, blood transfusions when necessary, and monitoring for complications aligns with the literature, which suggests blood transfusion in severe cases and the self-limited nature of acute hemolysis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4546,6 +4809,8 @@
                 
                 
                 <div class="evidence-explanation">The context of oxidative stress and acute hemolysis in G6PD-deficient individuals points towards the requirement for careful monitoring and supportive care to mitigate severe outcomes.</div>
+                
+                
                 
             </div>
             
@@ -4596,6 +4861,8 @@
                 
                 <div class="evidence-explanation">This reference emphasizes the importance of early detection and accurate diagnosis to prevent severe outcomes in newborns.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4614,6 +4881,8 @@
                 
                 <div class="evidence-explanation">This reference supports neonatal screening and preventive measures to manage G6PD deficiency effectively.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4631,6 +4900,8 @@
                 
                 
                 <div class="evidence-explanation">This reference highlights the need for early intervention in neonatal hyperbilirubinemia, which aligns with the statement regarding prevention of severe jaundice through early detection.</div>
+                
+                
                 
             </div>
             
@@ -4699,6 +4970,8 @@
                 
                 <div class="evidence-explanation">The literature explicitly mentions that environmental factors, including infection, medications, and foods, can lead to hemolysis in patients with G6PD deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4717,6 +4990,8 @@
                 
                 <div class="evidence-explanation">This reference supports the statement by mentioning that medications like primaquine are known to trigger hemolytic anemia in G6PD deficient individuals.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4734,6 +5009,8 @@
                 
                 
                 <div class="evidence-explanation">This reference mentions that consumption of fava beans can provoke hemolysis, supporting the statement regarding foods as triggering factors.</div>
+                
+                
                 
             </div>
             
@@ -4767,6 +5044,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4790,6 +5068,8 @@
                 
                 <div class="evidence-explanation">The statement is supported by the fact that G6PD deficiency is characterized as a defect related to red blood cells.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4805,6 +5085,8 @@
                 
                 
                 <div class="evidence-explanation">The context and the title of the publication make it clear that the focus is on G6PD deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4823,6 +5105,8 @@
                 
                 
                 <div class="evidence-explanation">The literature clearly addresses enzyme activity, supporting the statement that G6PD deficiency involves decreased or absent enzyme activity.</div>
+                
+                
                 
             </div>
             
@@ -4844,6 +5128,7 @@
                 </div>
                 
                 <div class="item-desc">Context: during hemolytic episodes</div>
+                
                 
                 
     
@@ -4869,6 +5154,8 @@
                 
                 <div class="evidence-explanation">The abstract mentions severe hyperbilirubinemia as a result of hemolysis due to G6PD deficiency but does not explicitly state that it is only unconjugated bilirubin.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4886,6 +5173,8 @@
                 
                 
                 <div class="evidence-explanation">The study discusses hyperbilirubinemia in G6PD-deficient neonates but does not specify whether the elevated bilirubin is unconjugated.</div>
+                
+                
                 
             </div>
             
@@ -4905,6 +5194,8 @@
                 
                 <div class="evidence-explanation">This review suggests that hyperbilirubinemia due to G6PD deficiency could involve decreased bilirubin conjugation and hemolysis, implying the possible presence of unconjugated bilirubin, but does not explicitly confirm it.</div>
                 
+                
+                
             </div>
             
             
@@ -4923,6 +5214,7 @@
                 </div>
                 
                 <div class="item-desc">Context: during hemolytic episodes</div>
+                
                 
                 
     
@@ -4948,6 +5240,8 @@
                 
                 <div class="evidence-explanation">The study indicates that patients with G6PD deficiency who received transfusions had measurable LDH levels, consistent with what is generally observed during hemolytic episodes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4965,6 +5259,8 @@
                 
                 
                 <div class="evidence-explanation">The case study notes severe hemolytic anemia in a G6PD-deficient individual, which typically would involve elevated LDH levels as a marker of hemolysis.</div>
+                
+                
                 
             </div>
             
@@ -4984,6 +5280,7 @@
                 </div>
                 
                 <div class="item-desc">Context: during acute hemolysis</div>
+                
                 
                 
     
@@ -5009,6 +5306,8 @@
                 
                 <div class="evidence-explanation">The excerpt directly mentions the presence of Heinz bodies in red blood cells during acute hemolysis in individuals with G6PD deficiency, supporting the statement.</div>
                 
+                
+                
             </div>
             
             
@@ -5027,6 +5326,7 @@
                 </div>
                 
                 <div class="item-desc">Context: during oxidative stress</div>
+                
                 
                 
     

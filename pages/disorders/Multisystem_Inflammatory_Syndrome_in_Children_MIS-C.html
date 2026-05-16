@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2712,6 +2903,8 @@
                 
                 <div class="evidence-explanation">The literature describes MIS-C as a postinfection hyperinflammatory response, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2730,6 +2923,8 @@
                 
                 <div class="evidence-explanation">The literature indicates an abnormally heightened immune response following COVID-19 infection, which aligns with the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2747,6 +2942,8 @@
                 
                 
                 <div class="evidence-explanation">The literature supports that MIS-C is a post-infection condition characterized by an inflammatory response.</div>
+                
+                
                 
             </div>
             
@@ -3004,6 +3201,8 @@
                 
                 <div class="evidence-explanation">The abstract indicates that MIS-C is characterized by unique inflammatory signatures involving cytokines, which supports the description of excessive production of pro-inflammatory cytokines leading to widespread inflammation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3022,6 +3221,8 @@
                 
                 <div class="evidence-explanation">The abstract describes the hyperinflammatory response and cytokine storm syndrome associated with COVID-19, which is related to MIS-C, supporting the statement about excessive production of pro-inflammatory cytokines.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3039,6 +3240,8 @@
                 
                 
                 <div class="evidence-explanation">The abstract links MIS-C to a range of inflammatory symptoms, supporting the idea of widespread inflammation due to excessive cytokine production.</div>
+                
+                
                 
             </div>
             
@@ -3774,6 +3977,8 @@
                 
                 <div class="evidence-explanation">The study shows that D-dimer levels increase in MIS-C patients, supporting the statement that coagulopathy, characterized by elevated D-dimer levels, is an occasional hematologic manifestation of MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3792,6 +3997,8 @@
                 
                 <div class="evidence-explanation">The study confirms that coagulation abnormalities, including thromboelastography (TEG) and platelet count changes, are common in children with MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3809,6 +4016,8 @@
                 
                 
                 <div class="evidence-explanation">The study reports thromboembolism as a significant complication of MIS-C, indicating that coagulopathy, a hematologic issue, occurs occasionally in MIS-C cases.</div>
+                
+                
                 
             </div>
             
@@ -3903,6 +4112,8 @@
                 
                 <div class="evidence-explanation">This reference indicates that cardiac dysfunction, which includes hypotension and can lead to shock, is common in MIS-C patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3921,6 +4132,8 @@
                 
                 <div class="evidence-explanation">The use of vasopressors indicates the presence of hypotension and the need for intensive care, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3938,6 +4151,8 @@
                 
                 
                 <div class="evidence-explanation">While this reference discusses vascular complications, it implies that MIS-C affects the cardiovascular system, which can include hypotension and shock.</div>
+                
+                
                 
             </div>
             
@@ -4121,6 +4336,8 @@
                 
                 <div class="evidence-explanation">The study indicates that 72% of children with MIS-C presented with mucocutaneous symptoms, including rash, supporting the statement that rash is a frequent dermatologic manifestation in MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4139,6 +4356,8 @@
                 
                 <div class="evidence-explanation">This reference confirms that skin involvement, including rash, is commonly seen in MIS-C, supporting the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4156,6 +4375,8 @@
                 
                 
                 <div class="evidence-explanation">The case report mentions a broad range of skin manifestations, including rash, in MIS-C, supporting the statement.</div>
+                
+                
                 
             </div>
             
@@ -4222,6 +4443,8 @@
                 
                 <div class="evidence-explanation">The study describes fever as a common symptom in all six pediatric patients diagnosed with MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4240,6 +4463,8 @@
                 
                 <div class="evidence-explanation">Although this reference discusses fever in the context of various illnesses in children, it supports the statement that fever is a frequent symptom in systemic conditions like MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4257,6 +4482,8 @@
                 
                 
                 <div class="evidence-explanation">This reference title directly indicates a focus on MIS-C, supporting the systemic nature and frequent occurrence of fever in this condition.</div>
+                
+                
                 
             </div>
             
@@ -4323,6 +4550,8 @@
                 
                 <div class="evidence-explanation">The study mentions neurological manifestations in children with COVID-19, including those with MIS-C, but does not specify headache as a frequent symptom.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4341,6 +4570,8 @@
                 
                 <div class="evidence-explanation">The study discusses neurological complications including encephalopathy and seizures but does not specifically mention headache.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4358,6 +4589,8 @@
                 
                 
                 <div class="evidence-explanation">The study focuses on mucocutaneous symptoms and does not mention headache as a frequent symptom of MIS-C.</div>
+                
+                
                 
             </div>
             
@@ -4424,6 +4657,8 @@
                 
                 <div class="evidence-explanation">The reference does not mention respiratory symptoms or cough as a frequent symptom of MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4442,6 +4677,8 @@
                 
                 <div class="evidence-explanation">The reference focuses on skin manifestations and does not mention respiratory symptoms or cough.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4459,6 +4696,8 @@
                 
                 
                 <div class="evidence-explanation">The reference discusses abdominal pain and other symptoms but does not mention respiratory symptoms or cough.</div>
+                
+                
                 
             </div>
             
@@ -4527,6 +4766,8 @@
                 
                 <div class="evidence-explanation">This study shows that a significant proportion of children with MIS-C present with abdominal pain, supporting the statement that abdominal pain is a very frequent symptom in MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4545,6 +4786,8 @@
                 
                 <div class="evidence-explanation">While this reference indicates that abdominal pain is a common concern and can be confused with appendicitis, it does not specifically mention MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4562,6 +4805,8 @@
                 
                 
                 <div class="evidence-explanation">This reference discusses the frequency of abdominal pain in children and its differential diagnosis, including appendicitis, but does not specifically address MIS-C.</div>
+                
+                
                 
             </div>
             
@@ -4902,6 +5147,8 @@
                 
                 <div class="evidence-explanation">This statement supports the use of IVIG in the treatment of MIS-C, indicating its role in managing the condition.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4920,6 +5167,8 @@
                 
                 <div class="evidence-explanation">This statement supports the use of IVIG for its anti-inflammatory effects in MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4937,6 +5186,8 @@
                 
                 
                 <div class="evidence-explanation">This statement supports the use of high-dose immunoglobulins, including IVIG, for their immunomodulatory and anti-inflammatory roles, which is relevant to MIS-C treatment.</div>
+                
+                
                 
             </div>
             
@@ -5017,6 +5268,8 @@
                 
                 <div class="evidence-explanation">The term &#39;glucocorticoids&#39; is used interchangeably with &#39;corticosteroids&#39; in the context of MIS-C treatment, and the literature supports their use to reduce immune system activity and inflammation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5035,6 +5288,8 @@
                 
                 <div class="evidence-explanation">This reference explicitly mentions the use of corticosteroids as anti-inflammatory agents for treating MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5052,6 +5307,8 @@
                 
                 
                 <div class="evidence-explanation">Glucocorticoids (GCs), which are a type of corticosteroid, are mentioned as effective therapeutics for MIS-C.</div>
+                
+                
                 
             </div>
             
@@ -5128,6 +5385,8 @@
                 
                 <div class="evidence-explanation">The study describes the use of acetylsalicylic acid (aspirin) in critically ill children with MIS-C to manage coagulation abnormalities.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5146,6 +5405,8 @@
                 
                 <div class="evidence-explanation">This study indicates that anticoagulant prophylaxis, which may include aspirin, is considered for patients with other pro-thrombotic risk factors, but not universally applied.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5163,6 +5424,8 @@
                 
                 
                 <div class="evidence-explanation">The study focuses on the use of IVIg, GCs, and bDMARDs for treating MIS-C but does not mention the use of aspirin.</div>
+                
+                
                 
             </div>
             
@@ -5239,6 +5502,8 @@
                 
                 <div class="evidence-explanation">This reference provides evidence that children with MIS-C required mechanical ventilation (respiratory support) and inotropic support (blood pressure support), supporting the statement about the need for supportive care.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5256,6 +5521,8 @@
                 
                 
                 <div class="evidence-explanation">The necessity of VA-ECMO (a type of respiratory and cardiovascular support) in severe MIS-C cases supports the statement about the need for supportive care measures including fluids, blood pressure support, and respiratory support.</div>
+                
+                
                 
             </div>
             
@@ -5307,6 +5574,8 @@
                 
                 <div class="evidence-explanation">The provided literature discusses clinical and laboratory profiles of MIS-C but does not address the specific statement about the value &#39;Not Applicable&#39;.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5323,6 +5592,8 @@
                 
                 <div class="evidence-explanation">The reference title mentions malar rash in MIS-C but does not provide relevant information regarding the statement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5338,6 +5609,8 @@
                 
                 
                 <div class="evidence-explanation">The reference title discusses improving pediatric COVID-19 vaccination rates in the context of MIS-C but does not provide relevant information regarding the statement.</div>
+                
+                
                 
             </div>
             
@@ -5373,6 +5646,7 @@
                 <div class="item-desc">Context: General inflammation</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5396,6 +5670,8 @@
                 
                 <div class="evidence-explanation">The study highlights that elevated CRP levels are a significant marker for MIS-C, supporting the statement that CRP presence is elevated in the context of general inflammation in MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5413,6 +5689,8 @@
                 
                 
                 <div class="evidence-explanation">The study describes increased CRP among other markers in patients with MIS-C, supporting the statement that CRP is elevated.</div>
+                
+                
                 
             </div>
             
@@ -5432,6 +5710,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Systemic inflammation</div>
+                
                 
                 
     
@@ -5457,6 +5736,8 @@
                 
                 <div class="evidence-explanation">The study indicates that elevated ESR is associated with severe cases of MIS-C, supporting the statement that MIS-C involves elevated ESR in the context of systemic inflammation.</div>
                 
+                
+                
             </div>
             
             
@@ -5475,6 +5756,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Systemic inflammation</div>
+                
                 
                 
     
@@ -5500,6 +5782,8 @@
                 
                 <div class="evidence-explanation">The study indicates that ferritin levels are a significant marker in MIS-C, with specific associations to clinical outcomes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5518,6 +5802,8 @@
                 
                 <div class="evidence-explanation">Although this study focuses on BNP and NT-proBNP, it implies the significance of biomarkers like ferritin in the clinical assessment of MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5535,6 +5821,8 @@
                 
                 
                 <div class="evidence-explanation">Ferritin levels were specifically measured and found to be significant in distinguishing MIS-C from other conditions.</div>
+                
+                
                 
             </div>
             
@@ -5556,6 +5844,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Coagulopathy</div>
+                
                 
                 
     
@@ -5581,6 +5870,8 @@
                 
                 <div class="evidence-explanation">The study indicates that D-dimer values are markedly different between COVID-19 and MIS-C cohorts, implying elevated D-dimer levels in MIS-C.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5599,6 +5890,8 @@
                 
                 <div class="evidence-explanation">The study describes that all patients with MIS-C had elevated D-dimer levels at presentation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5616,6 +5909,8 @@
                 
                 
                 <div class="evidence-explanation">The study mentions elevated D-dimer as one of the markers for distinguishing MIS-C from other conditions, indicating its presence in MIS-C patients.</div>
+                
+                
                 
             </div>
             

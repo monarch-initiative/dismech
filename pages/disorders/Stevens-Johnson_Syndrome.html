@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2773,6 +2964,8 @@
                 <div class="evidence-explanation">Bastuji-Garin et al. (2000) developed and validated SCORTEN using 165 patients (development) and 75 patients (validation), demonstrating excellent calibration (ROC area 82%) for predicting hospital mortality in TEN/SJS.
 </div>
                 
+                
+                
             </div>
             
             
@@ -2810,6 +3003,8 @@
                 
                 <div class="evidence-explanation">Bastuji-Garin et al. (2000) developed and validated SCORTEN using 165 patients (development) and 75 (validation), demonstrating excellent calibration and discrimination for predicting hospital mortality in TEN/SJS.
 </div>
+                
+                
                 
             </div>
             
@@ -2902,6 +3097,8 @@
                 <div class="evidence-explanation">This comprehensive review defines the SJS/TEN spectrum classification by degree of epidermal detachment, supporting the intermediate SJS/TEN overlap subtype category.
 </div>
                 
+                
+                
             </div>
             
             
@@ -2962,6 +3159,8 @@
                 <div class="evidence-explanation">This landmark NEJM case-control study quantified the drug-specific relative risks for SJS/TEN, establishing carbamazepine, phenytoin, sulfonamides, and allopurinol as the highest-risk medications, and the first two months of exposure as the critical risk window.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2982,6 +3181,8 @@
                 
                 <div class="evidence-explanation">Lerch et al. (2018) provides a current enumeration of high-risk causative drugs, corroborating the drug-induced nature of SJS as the predominant form.
 </div>
+                
+                
                 
             </div>
             
@@ -3108,6 +3309,8 @@
                 <div class="evidence-explanation">Hung, Chung and Chen (2005) demonstrated that HLA-B*1502 has near-perfect sensitivity and specificity for carbamazepine-induced SJS/TEN in Asian populations, anchoring the genetic root of the SJS/TEN pathograph.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3129,6 +3332,8 @@
                 <div class="evidence-explanation">Chung and Hung (2012) review confirms the HLA allele associations for both carbamazepine (HLA-B*15:02) and allopurinol (HLA-B*58:01) as genetic determinants of SJS/TEN susceptibility.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3149,6 +3354,8 @@
                 
                 <div class="evidence-explanation">McCormack et al. (2011 NEJM) extended the HLA risk-allele model to European populations, identifying HLA-A*31:01 as a strong determinant of carbamazepine- induced SJS/TEN (OR 25.93) and broadening the genetic-susceptibility node beyond Han Chinese HLA-B*15:02.
 </div>
+                
+                
                 
             </div>
             
@@ -3240,6 +3447,8 @@
                 
                 <div class="evidence-explanation">Wei and Chung (2012) elucidated the molecular mechanism of HLA-B*15:02-mediated carbamazepine presentation, showing direct drug interaction with HLA bypassing conventional antigen processing — the canonical molecular evidence for the p-i model in SJS/TEN.
 </div>
+                
+                
                 
             </div>
             
@@ -3408,6 +3617,8 @@
                 <div class="evidence-explanation">Nassif et al. (2004) directly demonstrated that drug-specific CD8+ CTLs are the effector cells in TEN/SJS, killing autologous keratinocytes in a drug-dependent manner via perforin/granzyme pathways.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3429,6 +3640,8 @@
                 <div class="evidence-explanation">Wei and Chung (2012) elucidated the molecular mechanism of HLA-B*15:02-mediated carbamazepine presentation, showing direct drug interaction with HLA bypassing conventional antigen processing — explaining why this reaction affects genetically susceptible individuals independent of drug metabolism.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3449,6 +3662,8 @@
                 
                 <div class="evidence-explanation">Gibson et al. (2024 Nat Commun) — multi-omic single-cell sequencing of 109,888 cells from 15 SJS/TEN patients — provide contemporary transcriptomic confirmation that HLA class I-restricted CD8+ T cells drive SJS/TEN, anchoring this node in current single-cell evidence.
 </div>
+                
+                
                 
             </div>
             
@@ -3618,6 +3833,8 @@
                 <div class="evidence-explanation">Chung et al. (2008) demonstrated that granulysin is the dominant cytotoxic mediator in SJS/TEN blister fluid, far exceeding other cytotoxic molecules, and that its depletion reduces cytotoxicity — directly establishing it as the key effector molecule.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3638,6 +3855,8 @@
                 
                 <div class="evidence-explanation">Chung et al. (2008) showed that CTLs and NK cells are the dominant blister cells and granulysin is the most highly expressed cytotoxic molecule, identifying the cellular and molecular effectors.
 </div>
+                
+                
                 
             </div>
             
@@ -3792,6 +4011,8 @@
                 <div class="evidence-explanation">Abe et al. (2003) demonstrated that soluble FasL secreted by PBMCs (not keratinocytes) drives keratinocyte apoptosis, with high sFasL levels in SJS and TEN patients versus controls — establishing Fas–FasL as an independent apoptotic pathway from granulysin.
 </div>
                 
+                
+                
             </div>
             
             
@@ -3945,6 +4166,8 @@
                 <div class="evidence-explanation">Nassif et al. (2004) demonstrated that drug-specific perforin/granzyme B-mediated cytotoxicity is an independent killing modality in SJS/TEN, complementing granulysin as an effector mechanism.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3965,6 +4188,8 @@
                 
                 <div class="evidence-explanation">Chung and Hung (2012) describe the hierarchy of cytotoxic mechanisms in SJS/TEN, placing perforin/granzyme B alongside granulysin as an effector of epidermal necrosis.
 </div>
+                
+                
                 
             </div>
             
@@ -4140,6 +4365,8 @@
                 <div class="evidence-explanation">Su et al. (2017 J Invest Dermatol) showed that IL-15 levels correlate with SJS/TEN severity (SCORTEN) and mortality, identifying IL-15 as an amplifier cytokine and prognostic biomarker.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4160,6 +4387,8 @@
                 
                 <div class="evidence-explanation">Su et al. (2017) quantified the mortality association of IL-15 in SJS/TEN, anchoring it as a clinically relevant amplification node.
 </div>
+                
+                
                 
             </div>
             
@@ -4296,6 +4525,8 @@
                 <div class="evidence-explanation">Kinoshita et al. (2021 Sci Transl Med) defined neutrophils and NETosis as innate-immune amplifiers in early SJS/TEN lesions, linking adaptive CTL activation to keratinocyte necroptosis.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4316,6 +4547,8 @@
                 
                 <div class="evidence-explanation">Kinoshita et al. (2021) describe the self-amplifying necroptosis loop in which dying keratinocytes propagate FPR1 induction in neighbours, supporting the spreading-necrosis output of SJS/TEN.
 </div>
+                
+                
                 
             </div>
             
@@ -4484,6 +4717,8 @@
                 <div class="evidence-explanation">Saito et al. (2014 Sci Transl Med) identified annexin A1 from drug-exposed PBMCs as a key SJS/TEN keratinocyte killer; antibody depletion of annexin A1 abolished cytotoxicity, anchoring annexin A1 as the upstream ligand of this necroptosis pathway.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4505,6 +4740,8 @@
                 <div class="evidence-explanation">Saito et al. (2014) demonstrated that the RIPK1/RIPK3 necroptotic complex is required for SJS/TEN keratinocyte death and that FPR1 is selectively expressed on patient keratinocytes — defining the molecular machinery of this node.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4525,6 +4762,8 @@
                 
                 <div class="evidence-explanation">Hasegawa &amp; Abe (2024) — a recent comprehensive review — confirm the annexin A1 → FPR1 → necroptosis axis as an established SJS/TEN pathomechanism, ratifying this node as a current pillar of the pathograph.
 </div>
+                
+                
                 
             </div>
             
@@ -4712,6 +4951,8 @@
                 <div class="evidence-explanation">Chen et al. (2024) used scRNA-seq and ex vivo TNF blockade in 25 ICI-induced SJS/TEN patients to establish TNF signalling as the upstream driver of macrophage CXCL10 production and CTL activation in this ICI-specific amplification axis.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4732,6 +4973,8 @@
                 
                 <div class="evidence-explanation">Chen et al. (2024) provide clinical validation that pharmacological blockade of this TNF-driven amplification axis improves outcomes in ICI-induced SJS/TEN, supporting therapeutic targetability of this node.
 </div>
+                
+                
                 
             </div>
             
@@ -4853,6 +5096,8 @@
                 <div class="evidence-explanation">Frantz et al. (2021) summarise the convergent epidermal necrosis output that defines SJS/TEN clinically and histologically, supporting this node as the final common pathway feeding clinical phenotypes.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4873,6 +5118,8 @@
                 
                 <div class="evidence-explanation">Chung and Hung (2012) explicitly describe convergence of multiple cytotoxic pathways onto the epidermal necrosis output, supporting the design of this final common pathway node.
 </div>
+                
+                
                 
             </div>
             
@@ -4931,6 +5178,8 @@
                 <div class="evidence-explanation">Lerch et al. (2018) describe histopathological confirmation as integral to SJS/TEN diagnosis, supporting epidermal necrolysis as the defining histopathological finding.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4951,6 +5200,8 @@
                 
                 <div class="evidence-explanation">Chung and Hung (2012) confirm that disseminated keratinocyte death by granulysin is the molecular basis for the widespread epidermal necrosis seen histopathologically.
 </div>
+                
+                
                 
             </div>
             
@@ -4997,6 +5248,8 @@
                 <div class="evidence-explanation">Nassif et al. (2004) characterized the blister cell infiltrate in TEN/SJS as granzyme B-positive cytotoxic T lymphocytes, directly describing the histopathological cellular composition of the infiltrate.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5017,6 +5270,8 @@
                 
                 <div class="evidence-explanation">Chung et al. (2008) confirmed that the cellular infiltrate in SJS-TEN skin lesions consists predominantly of CTLs and NK cells with cytotoxic activity, supporting the lymphocytic interface dermatitis pattern.
 </div>
+                
+                
                 
             </div>
             
@@ -5136,6 +5391,8 @@
                 <div class="evidence-explanation">Lerch et al. (2018) identify ocular complications as the most common complications of SJS/TEN, supporting conjunctivitis and ocular involvement as a major phenotypic feature.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5156,6 +5413,8 @@
                 
                 <div class="evidence-explanation">Tóth et al. (2023 Ophthalmol Ther) — narrative review focused on the ophthalmic burden of SJS/TEN — confirm severe ocular surface sequelae including bilateral blindness as recognized chronic outcomes that warrant systematic ophthalmic surveillance.
 </div>
+                
+                
                 
             </div>
             
@@ -5221,6 +5480,8 @@
                 <div class="evidence-explanation">Lerch et al. (2018) describe genital mucous membrane involvement as part of the characteristic mucocutaneous presentation of SJS/TEN.
 </div>
                 
+                
+                
             </div>
             
             
@@ -5277,6 +5538,8 @@
                 
                 <div class="evidence-explanation">Lerch et al. (2018) explicitly identify renal complications among the most common manifestations of SJS/TEN, supporting renal insufficiency as a recognized phenotypic feature requiring monitoring.
 </div>
+                
+                
                 
             </div>
             
@@ -5342,6 +5605,8 @@
                 <div class="evidence-explanation">Lerch et al. (2018) describe oral mucous membrane involvement as a hallmark of SJS/TEN, confirming oral mucosal erosions as a universal clinical feature.
 </div>
                 
+                
+                
             </div>
             
             
@@ -5406,6 +5671,8 @@
                 <div class="evidence-explanation">Lerch et al. (2018) define SJS by its extent of skin detachment (&lt;10% BSA), directly establishing epidermal detachment as the cardinal diagnostic criterion and phenotypic feature.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5426,6 +5693,8 @@
                 
                 <div class="evidence-explanation">Frantz et al. (2021) characterize SJS/TEN by epidermal necrosis and sloughing, confirming skin detachment as the pathognomonic clinical finding.
 </div>
+                
+                
                 
             </div>
             
@@ -5491,6 +5760,8 @@
                 <div class="evidence-explanation">Lerch et al. (2018) explicitly describe fever as part of the influenza-like prodromal phase preceding skin lesions, confirming fever as a consistent early phenotypic feature.
 </div>
                 
+                
+                
             </div>
             
             
@@ -5547,6 +5818,8 @@
                 
                 <div class="evidence-explanation">Lerch et al. (2018) explicitly state that hepatic involvement is frequent in SJS/TEN, supporting it as a recognized phenotypic complication.
 </div>
+                
+                
                 
             </div>
             
@@ -5611,6 +5884,8 @@
                 
                 <div class="evidence-explanation">Lerch et al. (2018) note that pulmonary involvement is frequent in SJS/TEN, supporting respiratory complications as a recognized phenotypic feature.
 </div>
+                
+                
                 
             </div>
             
@@ -5678,6 +5953,8 @@
                 <div class="evidence-explanation">Lerch et al. (2018) describe the influenza-like prodrome featuring malaise as universal in SJS/TEN, preceding the characteristic skin and mucous membrane lesions.
 </div>
                 
+                
+                
             </div>
             
             
@@ -5734,6 +6011,8 @@
                 
                 <div class="evidence-explanation">Lerch et al. (2018) describe cutaneous lesions in SJS/TEN as explicitly painful, directly supporting skin pain as a cardinal symptom of the acute disease.
 </div>
+                
+                
                 
             </div>
             
@@ -5819,6 +6098,8 @@
                 <div class="evidence-explanation">Hung et al. (2005) established the extraordinary strength of the HLA-B*1502 association with carbamazepine-induced SJS/TEN, providing the evidence basis for pharmacogenomic screening guidelines.
 </div>
                 
+                
+                
             </div>
             
             
@@ -5860,6 +6141,8 @@
                 
                 <div class="evidence-explanation">Chung and Hung (2012) confirm HLA-B*58:01 as a key genetic risk factor for allopurinol-induced SJS/TEN, alongside HLA-B*15:02 for carbamazepine.
 </div>
+                
+                
                 
             </div>
             
@@ -5903,6 +6186,8 @@
                 <div class="evidence-explanation">McCormack et al. (2011 NEJM) established HLA-A*31:01 as a strong, replicated determinant of carbamazepine-induced hypersensitivity (including SJS/TEN) in European-ancestry populations, broadening the HLA risk-allele paradigm.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5923,6 +6208,8 @@
                 
                 <div class="evidence-explanation">McCormack et al. (2011) quantified the absolute risk shift conferred by HLA-A*31:01, supporting clinical pharmacogenomic screening recommendations.
 </div>
+                
+                
                 
             </div>
             
@@ -5997,6 +6284,8 @@
                 <div class="evidence-explanation">Duong et al. (2017) state unequivocally that early drug withdrawal is mandatory in SCARs, supporting drug withdrawal as the canonical upstream intervention targeting the drug–HLA interaction node.
 </div>
                 
+                
+                
             </div>
             
             
@@ -6036,6 +6325,8 @@
                 
                 <div class="evidence-explanation">Duong et al. (2017 Lancet) unequivocally state that early drug withdrawal is mandatory in all severe cutaneous adverse reactions including SJS/TEN, reflecting the clinical consensus view.
 </div>
+                
+                
                 
             </div>
             
@@ -6115,6 +6406,8 @@
                 
                 <div class="evidence-explanation">Frantz et al. (2021) emphasize that early diagnosis and treatment — including specialized supportive care — is critical for favorable outcomes in SJS/TEN.
 </div>
+                
+                
                 
             </div>
             
@@ -6207,6 +6500,8 @@
                 <div class="evidence-explanation">Frantz et al. (2021) identify cyclosporine as the most effective SJS therapy, consistent with its mechanism of suppressing the drug-specific CTL activation node.
 </div>
                 
+                
+                
             </div>
             
             
@@ -6259,6 +6554,8 @@
                 <div class="evidence-explanation">Frantz et al. (2021) identify cyclosporine as the most effective treatment specifically for SJS, distinguishing its role from IVIG+corticosteroids for TEN and SJS/TEN overlap.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6279,6 +6576,8 @@
                 
                 <div class="evidence-explanation">Lerch et al. (2018) confirm cyclosporine A as one of the most frequently used treatments for SJS/TEN in clinical practice.
 </div>
+                
+                
                 
             </div>
             
@@ -6371,6 +6670,8 @@
                 <div class="evidence-explanation">Frantz et al. (2021) describe IVIG efficacy in SJS/TEN overlap and TEN; the canonical mechanistic proposal is anti-Fas neutralisation of the Fas-FasL keratinocyte apoptosis node, but evidence is indirect — hence PARTIAL.
 </div>
                 
+                
+                
             </div>
             
             
@@ -6422,6 +6723,8 @@
                 
                 <div class="evidence-explanation">Frantz et al. (2021) support IVIG use primarily for SJS/TEN overlap and TEN rather than isolated SJS, and acknowledge the lack of RCT-level evidence — hence the PARTIAL support rating.
 </div>
+                
+                
                 
             </div>
             
@@ -6514,6 +6817,8 @@
                 <div class="evidence-explanation">Lerch et al. (2018) confirm corticosteroids as a frequently used SJS/TEN therapy; the proposed mechanistic target is the upstream CTL activation node, though benefit-vs-risk evidence is mixed (PARTIAL).
 </div>
                 
+                
+                
             </div>
             
             
@@ -6565,6 +6870,8 @@
                 
                 <div class="evidence-explanation">Lerch et al. (2018) confirm systemic corticosteroids as one of the most frequently used treatments for SJS/TEN in clinical practice. However, evidence of benefit is not definitive, hence PARTIAL support; they are widely used but remain controversial.
 </div>
+                
+                
                 
             </div>
             
@@ -6673,6 +6980,8 @@
                 <div class="evidence-explanation">Tóth et al. (2023 Ophthalmol Ther) — narrative review of SJS/TEN ocular management — establish timely amniotic membrane transplantation in the acute phase as a key intervention to prevent severe chronic ocular complications.
 </div>
                 
+                
+                
             </div>
             
             
@@ -6774,6 +7083,8 @@
                 <div class="evidence-explanation">Chen et al. (2024) clinically validated that pharmacological TNF blockade hits this amplification node and improves outcomes in ICI-induced SJS/TEN.
 </div>
                 
+                
+                
             </div>
             
             
@@ -6826,6 +7137,8 @@
                 <div class="evidence-explanation">Chen et al. (2024 Nat Commun) demonstrated superior outcomes for biologic TNF blockade versus systemic corticosteroids in ICI-induced SJS/TEN, establishing anti-TNF as a mechanism-targeted therapy in this setting.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6846,6 +7159,8 @@
                 
                 <div class="evidence-explanation">Hasegawa &amp; Abe (2024) flag TNF-α antagonists as an actively investigated therapeutic option in SJS/TEN beyond the ICI-induced subset; PARTIAL because broader (non-ICI) RCT-level evidence is still limited.
 </div>
+                
+                
                 
             </div>
             
@@ -6903,6 +7218,8 @@
                 <div class="evidence-explanation">The landmark NEJM case-control study by Roujeau et al. (1995) quantified specific drug relative risks for SJS/TEN, identifying sulfonamide antibiotics as the highest-risk short-term medications.
 </div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6923,6 +7240,8 @@
                 
                 <div class="evidence-explanation">Lerch et al. (2018) expand the list of environmental triggers beyond conventional medications to include herbal remedies and biologics.
 </div>
+                
+                
                 
             </div>
             
@@ -6956,6 +7275,7 @@
                 <div class="item-desc">Context: SCORTEN criterion; &gt;10 mmol/L is an independent predictor of mortality</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6982,6 +7302,8 @@
                 <div class="evidence-explanation">Bastuji-Garin et al. (2000) identified elevated serum urea (&gt;10 mmol/L) as one of seven independent risk factors for death in TEN/SJS, constituting a SCORTEN severity-of-illness criterion.
 </div>
                 
+                
+                
             </div>
             
             
@@ -7000,6 +7322,7 @@
                 </div>
                 
                 <div class="item-desc">Context: SCORTEN criterion; &lt;20 mmol/L is an independent predictor of mortality</div>
+                
                 
                 
     
@@ -7028,6 +7351,8 @@
                 <div class="evidence-explanation">Bastuji-Garin et al. (2000) identified bicarbonate below 20 mmol/L as one of seven independent risk factors for death in TEN/SJS within the SCORTEN score.
 </div>
                 
+                
+                
             </div>
             
             
@@ -7046,6 +7371,7 @@
                 </div>
                 
                 <div class="item-desc">Context: SCORTEN criterion; &gt;14 mmol/L is an independent predictor of mortality</div>
+                
                 
                 
     
@@ -7074,6 +7400,8 @@
                 <div class="evidence-explanation">Bastuji-Garin et al. (2000) identified elevated blood glucose (&gt;14 mmol/L) as one of seven independent risk factors for death in TEN/SJS within the SCORTEN score.
 </div>
                 
+                
+                
             </div>
             
             
@@ -7094,6 +7422,7 @@
                 <div class="item-desc">Context: Nonspecific acute-phase reactant; reflects systemic inflammatory response</div>
                 
                 
+                
     
     
             </div>
@@ -7107,6 +7436,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Elevated in SJS and TEN; potential early diagnostic biomarker</div>
+                
                 
                 
     
@@ -7134,6 +7464,8 @@
                 
                 <div class="evidence-explanation">Abe et al. (2003) demonstrated elevated soluble FasL in SJS and TEN patients versus controls, supporting sFasL as a potential biochemical marker for early diagnosis.
 </div>
+                
+                
                 
             </div>
             

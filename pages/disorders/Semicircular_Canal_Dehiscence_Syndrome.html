@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2798,6 +2989,8 @@
                 
                 <div class="evidence-explanation">Establishes the developmental trajectory of postnatal SSC bone thickening that defines who remains at risk in adulthood.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2818,6 +3011,8 @@
                 
                 <div class="evidence-explanation">Authors explicitly frame the developmental-failure-plus-trauma hypothesis that underpins the two-hit pathogenesis model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2837,6 +3032,8 @@
                 
                 
                 <div class="evidence-explanation">Pediatric CT data quantify the postnatal ossification trajectory and the residual at-risk population (~11%) entering adulthood.</div>
+                
+                
                 
             </div>
             
@@ -2953,6 +3150,8 @@
                 
                 <div class="evidence-explanation">Direct embryological evidence for shared developmental origin of SSC and tegmen, the basis for the junction-vulnerability hypothesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2973,6 +3172,8 @@
                 
                 <div class="evidence-explanation">Shared periosteum at the SSC-tegmen junction provides a mechanistic link for co-occurrent dehiscence.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2992,6 +3193,8 @@
                 
                 
                 <div class="evidence-explanation">Quantifies SSCD-tegmen co-occurrence at ~28%, far above the SCDS base rate, consistent with shared embryologic vulnerability.</div>
+                
+                
                 
             </div>
             
@@ -3076,6 +3279,8 @@
                 
                 
                 <div class="evidence-explanation">Histopathological examination confirmed the anatomical basis of the dehiscence with direct dura-to-membranous duct contact at the bony defect.</div>
+                
+                
                 
             </div>
             
@@ -3193,6 +3398,8 @@
                 
                 <div class="evidence-explanation">This biomechanical review explains how the dehiscence creates abnormal fluid dynamics by introducing a low-impedance pathway.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3212,6 +3419,8 @@
                 
                 
                 <div class="evidence-explanation">This landmark paper establishes the third window mechanism as the cause of the conductive hearing loss pattern seen in SCDS.</div>
+                
+                
                 
             </div>
             
@@ -3315,6 +3524,8 @@
                 
                 <div class="evidence-explanation">The biomechanics review explains how the third window allows sound and pressure to inappropriately stimulate vestibular structures.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3334,6 +3545,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical data from the original case series demonstrates the high frequency of sound- and pressure-induced symptoms in SCDS patients.</div>
+                
+                
                 
             </div>
             
@@ -3471,6 +3684,8 @@
                 
                 <div class="evidence-explanation">Histopathological examination showed absence of active bone resorption, supporting developmental thin-bone predisposition rather than active resorption.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3491,6 +3706,8 @@
                 
                 <div class="evidence-explanation">Establishes the OPG-rich inner-ear environment that mechanistically explains the otic capsule&#39;s exceptional remodeling suppression.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3510,6 +3727,8 @@
                 
                 
                 <div class="evidence-explanation">Author synthesis frames OPG diffusion from cochlear fluid into otic capsule bone as the molecular basis of the capsule&#39;s suppressed remodeling.</div>
+                
+                
                 
             </div>
             
@@ -3634,6 +3853,8 @@
                 
                 <div class="evidence-explanation">The original clinical series demonstrates that the vast majority of SCDS patients experience sound- or pressure-induced vestibular symptoms.</div>
                 
+                
+                
             </div>
             
             
@@ -3689,6 +3910,8 @@
                 
                 
                 <div class="evidence-explanation">Autophony is described as a characteristic auditory symptom of SCDS.</div>
+                
+                
                 
             </div>
             
@@ -3746,6 +3969,8 @@
                 
                 <div class="evidence-explanation">Pulsatile tinnitus is documented as a presenting symptom in this SCDS case.</div>
                 
+                
+                
             </div>
             
             
@@ -3802,6 +4027,8 @@
                 
                 <div class="evidence-explanation">This landmark paper explains the mechanism of pseudoconductive hearing loss in third window lesions.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3821,6 +4048,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical data demonstrates the characteristic low-frequency air-bone gap pattern in SCDS patients.</div>
+                
+                
                 
             </div>
             
@@ -3894,6 +4123,8 @@
                 
                 <div class="evidence-explanation">The biomechanics review confirms that sound-evoked nystagmus (Tullio phenomenon) is a characteristic feature of third window syndrome.</div>
                 
+                
+                
             </div>
             
             
@@ -3949,6 +4180,8 @@
                 
                 
                 <div class="evidence-explanation">Oscillopsia is listed as one of the vestibular symptoms in SCDS.</div>
+                
+                
                 
             </div>
             
@@ -4015,6 +4248,8 @@
                 
                 <div class="evidence-explanation">Chronic disequilibrium is listed as one of the vestibular symptoms in SCDS.</div>
                 
+                
+                
             </div>
             
             
@@ -4070,6 +4305,8 @@
                 
                 
                 <div class="evidence-explanation">Hyperacusis is listed as an auditory symptom of SCDS.</div>
+                
+                
                 
             </div>
             
@@ -4156,6 +4393,8 @@
                 
                 <div class="evidence-explanation">Pediatric cohort comparison establishes a high-penetrance association between CDH23 pathogenic variants and semicircular canal abnormalities.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4176,6 +4415,8 @@
                 
                 <div class="evidence-explanation">Quantifies the canal-specific relative risks for superior and posterior SCD in CDH23 variant carriers.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4195,6 +4436,8 @@
                 
                 
                 <div class="evidence-explanation">Authors directly conclude CDH23 pathogenic variants are a genetic risk factor for SCD and a contributor to Usher 1D vestibular phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4239,6 +4482,8 @@
                 
                 <div class="evidence-explanation">Establishes the gain-of-function NOTCH2 mechanism and its impact on bone remodeling, the molecular basis for Hajdu-Cheney&#39;s otic capsule phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4259,6 +4504,8 @@
                 
                 <div class="evidence-explanation">Documents temporal bone and otic capsule demineralization in a NOTCH2 gain-of-function patient, the human imaging correlate of the proposed bone-erosion pathway.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4278,6 +4525,8 @@
                 
                 
                 <div class="evidence-explanation">Localizes the disease-causing NOTCH2 mutations to exon 34, the gain-of-function hotspot relevant to the bone-resorption phenotype.</div>
+                
+                
                 
             </div>
             
@@ -4324,6 +4573,8 @@
                 
                 <div class="evidence-explanation">Establishes the collagen-pathway pathophysiology that links EDS to systemic connective-tissue weakness including temporal bone matrix.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4344,6 +4595,8 @@
                 
                 <div class="evidence-explanation">First reported case of bilateral SSCD in an EDS-hypermobility patient, consistent with a systemic connective-tissue contribution.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4363,6 +4616,8 @@
                 
                 
                 <div class="evidence-explanation">Two-case series reinforces the EDS-SSCD predisposition hypothesis through collagen-mediated bony abnormalities.</div>
+                
+                
                 
             </div>
             
@@ -4415,6 +4670,8 @@
                 
                 <div class="evidence-explanation">Quantifies the very high background rate of inner ear malformations in Down syndrome that contextualizes the SSCD finding.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4434,6 +4691,8 @@
                 
                 
                 <div class="evidence-explanation">Documents an 8.8% per-ear SCCD rate in trisomy 21 patients, several-fold above the general-population radiographic prevalence.</div>
+                
+                
                 
             </div>
             
@@ -4484,6 +4743,8 @@
                 
                 <div class="evidence-explanation">First reported association of CES with posterior canal dehiscence, supporting a chromosomal-aneuploidy class of SCDS predisposition.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4503,6 +4764,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes the underlying chromosome-22 duplication mechanism for the CES-SCDS association.</div>
+                
+                
                 
             </div>
             
@@ -4593,6 +4856,8 @@
                 
                 <div class="evidence-explanation">Conservative management options are described for patients with mild symptoms.</div>
                 
+                
+                
             </div>
             
             
@@ -4672,6 +4937,8 @@
                 
                 <div class="evidence-explanation">Clinical data demonstrates high success rate of canal plugging via middle cranial fossa craniotomy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4691,6 +4958,8 @@
                 
                 
                 <div class="evidence-explanation">Canal plugging is established as the preferred surgical treatment.</div>
+                
+                
                 
             </div>
             
@@ -4771,6 +5040,8 @@
                 
                 <div class="evidence-explanation">Resurfacing can achieve symptom resolution, though less reliably than plugging.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4790,6 +5061,8 @@
                 
                 
                 <div class="evidence-explanation">Animal model demonstrates that bony resurfacing can restore normal function while preserving canal lumen patency.</div>
+                
+                
                 
             </div>
             
@@ -4870,6 +5143,8 @@
                 
                 <div class="evidence-explanation">Defines the transmastoid plugging cohort and intervention.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4889,6 +5164,8 @@
                 
                 
                 <div class="evidence-explanation">Documents symptomatic improvement and safety of the transmastoid approach as an alternative to middle fossa craniotomy.</div>
+                
+                
                 
             </div>
             
@@ -4969,6 +5246,8 @@
                 
                 <div class="evidence-explanation">Establishes round window reinforcement as a documented alternative surgical option for SCDS, with caveat about residual hearing loss.</div>
                 
+                
+                
             </div>
             
             
@@ -5036,6 +5315,8 @@
                 
                 <div class="evidence-explanation">Case-level evidence supports minor head trauma as a precipitating trigger for symptomatic SCDS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5056,6 +5337,8 @@
                 
                 <div class="evidence-explanation">Histopathology paper explicitly supports developmental predisposition with trauma-triggered symptom emergence.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5075,6 +5358,8 @@
                 
                 
                 <div class="evidence-explanation">Cohort-level evidence that head trauma is specifically associated with bilateral SSCD presentation, consistent with trauma converting pre-existing bilateral thin bone into bilateral dehiscence.</div>
+                
+                
                 
             </div>
             
@@ -5133,6 +5418,8 @@
                 
                 <div class="evidence-explanation">Large clinical cohort demonstrates that sound and pressure triggers are common provoking factors in SCDS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5153,6 +5440,8 @@
                 
                 <div class="evidence-explanation">Review guidance reinforces clinical relevance of these trigger exposures in day-to-day symptom control.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5172,6 +5461,8 @@
                 
                 
                 <div class="evidence-explanation">Documents that 43% of SCDS surgical patients can identify a discrete precipitating event, supporting an acquired second-hit mechanism.</div>
+                
+                
                 
             </div>
             
@@ -5230,6 +5521,8 @@
                 
                 <div class="evidence-explanation">Quantifies the prevalence of chronic occupational noise and pressure exposure in a large SCDS surgical cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5249,6 +5542,8 @@
                 
                 
                 <div class="evidence-explanation">Authors directly conclude that occupational and avocational exposures are predisposing factors for SCDS.</div>
+                
+                
                 
             </div>
             
@@ -5292,6 +5587,8 @@
                 
                 <div class="evidence-explanation">IIH patients have measurably thinner SSC bone than controls, supporting a possible erosive role of elevated ICP.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5312,6 +5609,8 @@
                 
                 <div class="evidence-explanation">The lack of dose-response between CSF pressure and bone thickness argues against a direct erosive mechanism, suggesting shared predisposition rather than ICP-mediated causation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5331,6 +5630,8 @@
                 
                 
                 <div class="evidence-explanation">Independent cohort failed to find any IIH-SSCD association, directly refuting the proposed ICP-driven mechanism.</div>
+                
+                
                 
             </div>
             
@@ -5376,6 +5677,8 @@
                 
                 <div class="evidence-explanation">Documents an age-restricted female predominance for SSCD, consistent with a post-menopausal hormonal contribution.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5396,6 +5699,8 @@
                 
                 <div class="evidence-explanation">Authors directly invoke menopause as a candidate mechanism for the female-specific SSC thinning seen after age 45.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5415,6 +5720,8 @@
                 
                 
                 <div class="evidence-explanation">Mechanistic review establishes the molecular basis (estrogen → OPG/RANKL → osteoclast suppression) by which menopausal estrogen decline could accelerate otic capsule bone loss.</div>
+                
+                
                 
             </div>
             
@@ -5450,6 +5757,7 @@
                 <div class="item-desc">Context: A small case-control study found a statistically significantly lower serum adjusted calcium level in SCDS patients compared to age- and sex-matched controls (2.34 vs 2.41 mmol/L, p = 0.01), though both values fell within the normal reference range. The authors interpret this as a possible signal that suboptimal calcium availability may affect the otic capsule micro-environment, but the clinical significance is uncertain given that values remained within normal limits.</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5475,6 +5783,8 @@
                 
                 <div class="evidence-explanation">Documents a small but statistically significant lower adjusted calcium in SCDS, with both groups within the normal reference range.</div>
                 
+                
+                
             </div>
             
             
@@ -5493,6 +5803,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Vitamin D status was investigated as a candidate biochemical contributor to otic capsule bone integrity, but no significant difference was found between SCDS patients and controls (44.8 vs 47.5 nmol/L, p = 0.702). This finding refutes the hypothesis that vitamin D deficiency is a meaningful predisposing factor in SCDS.</div>
+                
                 
                 
     
@@ -5519,6 +5830,8 @@
                 
                 
                 <div class="evidence-explanation">Authors directly conclude no association between vitamin D and SCDS, refuting the candidate-biomarker hypothesis.</div>
+                
+                
                 
             </div>
             
@@ -5607,6 +5920,8 @@
                 
                 <div class="evidence-explanation">Review explicitly identifies Ménière&#39;s disease as a competing cause of similar vestibular signs.</div>
                 
+                
+                
             </div>
             
             
@@ -5676,6 +5991,8 @@
                 
                 
                 <div class="evidence-explanation">Same review explicitly includes cholesteatoma among key differential etiologies of similar vestibular signs.</div>
+                
+                
                 
             </div>
             
@@ -5748,6 +6065,8 @@
                 
                 <div class="evidence-explanation">Review highlights the need to distinguish third-window CHL (including SCDS) from classic middle-ear conductive hearing disorders such as otosclerosis.</div>
                 
+                
+                
             </div>
             
             
@@ -5818,6 +6137,8 @@
                 
                 
                 <div class="evidence-explanation">Review documents clinically relevant BPPV overlap/co-occurrence in SCDS care, supporting its inclusion in differential consideration.</div>
+                
+                
                 
             </div>
             
@@ -5919,6 +6240,8 @@
                 
                 <div class="evidence-explanation">Documents high prevalence of sound/pressure-triggered vestibular symptoms in the cohort.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5938,6 +6261,8 @@
                 
                 
                 <div class="evidence-explanation">Provides objective physiological measurements characteristic of SCDS.</div>
+                
+                
                 
             </div>
             
@@ -5984,6 +6309,8 @@
                 
                 
                 <div class="evidence-explanation">Defines the cohort size and supports this publication as a reusable clinical phenotype dataset for SCDS.</div>
+                
+                
                 
             </div>
             
@@ -6075,6 +6402,8 @@
                 
                 <div class="evidence-explanation">Demonstrates pseudoconductive hearing phenotype in the model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6094,6 +6423,8 @@
                 
                 
                 <div class="evidence-explanation">Supports reversibility of physiological abnormalities with spontaneous resurfacing.</div>
+                
+                
                 
             </div>
             
@@ -6141,6 +6472,8 @@
                 
                 <div class="evidence-explanation">Defines the model-organism cohort and intervention used to generate the dataset.</div>
                 
+                
+                
             </div>
             
             
@@ -6175,7 +6508,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Semicircular Canal Dehiscence Syndrome
 creation_date: &#39;2026-01-08T22:33:12Z&#39;
-updated_date: &#39;2026-04-29T00:00:00Z&#39;
+updated_date: &#39;2026-05-11T00:00:00Z&#39;
 category: Structural
 disease_term:
   preferred_term: semicircular canal dehiscence syndrome
@@ -7010,6 +7343,11 @@ biochemical:
     affect the otic capsule micro-environment, but the clinical
     significance is uncertain given that values remained within normal
     limits.
+  biomarker_term:
+    preferred_term: serum adjusted calcium
+    term:
+      id: CHEBI:29108
+      label: calcium(2+)
   evidence:
   - reference: PMID:36820155
     reference_title: &#34;Investigation of serum calcium and vitamin D levels in superior semicircular canal dehiscence syndrome: A case control study.&#34;
@@ -7030,6 +7368,11 @@ biochemical:
     difference was found between SCDS patients and controls (44.8 vs
     47.5 nmol/L, p = 0.702). This finding refutes the hypothesis that
     vitamin D deficiency is a meaningful predisposing factor in SCDS.
+  biomarker_term:
+    preferred_term: serum 25-hydroxyvitamin D
+    term:
+      id: CHEBI:17933
+      label: calcidiol
   evidence:
   - reference: PMID:36820155
     reference_title: &#34;Investigation of serum calcium and vitamin D levels in superior semicircular canal dehiscence syndrome: A case control study.&#34;
@@ -8425,7 +8768,7 @@ Key molecular players (HGNC) and related entities
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Semicircular Canal Dehiscence Syndrome", "mondoId": "MONDO:0018484", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Semicircular_Canal_Dehiscence_Syndrome", "yamlRevision": "ed9f40a62732"};
+        const OS_CONFIG = {"diseaseName": "Semicircular Canal Dehiscence Syndrome", "mondoId": "MONDO:0018484", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Semicircular_Canal_Dehiscence_Syndrome", "yamlRevision": "acb242f99606"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

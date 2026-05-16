@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2883,6 +3074,8 @@
                 
                 <div class="evidence-explanation">Cohort evidence supports a combined phenotype-plus-genotype approach for Noonan syndrome case definition in modern practice.</div>
                 
+                
+                
             </div>
             
             
@@ -2950,6 +3143,8 @@
                 
                 <div class="evidence-explanation">Orphanet&#39;s definition supports the multisystem characterization of this entry.</div>
                 
+                
+                
             </div>
             
             
@@ -3011,6 +3206,8 @@
                 
                 <div class="evidence-explanation">Supports autosomal dominant inheritance with both familial transmission and de novo/sporadic occurrence.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3030,6 +3227,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records autosomal dominant inheritance for Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -3079,6 +3278,8 @@
                 
                 <div class="evidence-explanation">Supports autosomal recessive inheritance in LZTR1-associated Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3098,6 +3299,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet records autosomal recessive inheritance for Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -3186,6 +3389,8 @@
                 
                 <div class="evidence-explanation">This cohort confirms PTPN11-positive Noonan syndrome as the predominant molecular subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -3245,6 +3450,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms Noonan syndrome with multiple lentigines as a related and clinically relevant subtype in modern RASopathy cohorts.</div>
+                
+                
                 
             </div>
             
@@ -3368,6 +3575,8 @@
                 
                 <div class="evidence-explanation">PTPN11 mutations cluster at the N-SH2/PTP interface, disrupting autoinhibition.</div>
                 
+                
+                
             </div>
             
             
@@ -3473,6 +3682,8 @@
                 
                 
                 <div class="evidence-explanation">SOS1 mutations are gain-of-function, enhancing RAS-GTP loading.</div>
+                
+                
                 
             </div>
             
@@ -3580,6 +3791,8 @@
                 
                 <div class="evidence-explanation">RAF1 mutations disrupt autoinhibitory 14-3-3 binding.</div>
                 
+                
+                
             </div>
             
             
@@ -3685,6 +3898,8 @@
                 
                 
                 <div class="evidence-explanation">RIT1 gain-of-function mutations drive aberrant MAPK signaling.</div>
+                
+                
                 
             </div>
             
@@ -3805,6 +4020,8 @@
                 
                 <div class="evidence-explanation">Supports LZTR1 loss-of-function effects on RAS-family proteostasis and downstream tissue-level cardiac phenotypes.</div>
                 
+                
+                
             </div>
             
             
@@ -3921,6 +4138,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews enumerates these rare but established Noonan genes that converge mechanistically on the same signaling pathway.</div>
+                
+                
                 
             </div>
             
@@ -4072,6 +4291,8 @@
                 
                 <div class="evidence-explanation">Supports ERK cascade hyperactivation as a convergent signaling consequence of NS-associated upstream mutations.</div>
                 
+                
+                
             </div>
             
             
@@ -4135,6 +4356,8 @@
                 
                 
                 <div class="evidence-explanation">Frames this growth plate defect as a disease-relevant explanatory branch for the short-stature phenotype in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4206,6 +4429,8 @@
                 
                 
                 <div class="evidence-explanation">Provides direct transcriptomic evidence of abnormal cortical layering in NS-derived organoid models.</div>
+                
+                
                 
             </div>
             
@@ -4285,6 +4510,8 @@
                 
                 <div class="evidence-explanation">Supports the presence of clinically severe lymphatic disease as part of the Noonan syndrome pathophysiologic spectrum.</div>
                 
+                
+                
             </div>
             
             
@@ -4355,6 +4582,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a clinically distinct hematologic branch in PTPN11-positive Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4506,6 +4735,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that pulmonary valve stenosis is highly associated with PTPN11 mutations in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             
@@ -4584,6 +4815,8 @@
                 
                 <div class="evidence-explanation">GeneReviews supports a broader congenital structural-heart-disease branch in Noonan syndrome beyond pulmonary valve stenosis alone.</div>
                 
+                
+                
             </div>
             
             
@@ -4647,6 +4880,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a pathway-linked neoplastic predisposition branch for Noonan syndrome within the broader RASopathy family.</div>
+                
+                
                 
             </div>
             
@@ -4771,6 +5006,8 @@
                 
                 <div class="evidence-explanation">Demonstrates strong association between RAF1 mutations and HCM, implicating the kinase pathway in cardiac hypertrophy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4790,6 +5027,8 @@
                 
                 
                 <div class="evidence-explanation">RIT1 mutations are strongly associated with hypertrophic cardiomyopathy.</div>
+                
+                
                 
             </div>
             
@@ -4925,6 +5164,8 @@
                 
                 <div class="evidence-explanation">This clinical review supports bleeding tendency/easy bruising as a common hematologic phenotype in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4944,6 +5185,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies bruising susceptibility as occasional (29-5%), whereas this entry uses FREQUENT based on clinical review data; the lower Orphanet frequency only partially supports the stated frequency band.</div>
+                
+                
                 
             </div>
             
@@ -5010,6 +5253,8 @@
                 
                 <div class="evidence-explanation">Confirms high prevalence of pulmonary stenosis in Noonan syndrome, especially with PTPN11 mutations.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5029,6 +5274,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation for abnormal pulmonary valve morphology directly supports the pulmonary valve stenosis phenotype in this entry at a frequent classification.</div>
+                
+                
                 
             </div>
             
@@ -5086,6 +5333,8 @@
                 
                 <div class="evidence-explanation">RAF1 mutations are strongly associated with HCM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5106,6 +5355,8 @@
                 
                 <div class="evidence-explanation">RIT1 mutations confer high risk of hypertrophic cardiomyopathy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5125,6 +5376,8 @@
                 
                 
                 <div class="evidence-explanation">PTPN11 mutations are associated with lower HCM risk compared to other NS genes.</div>
+                
+                
                 
             </div>
             
@@ -5184,6 +5437,8 @@
                 
                 <div class="evidence-explanation">Supports atrial septal defect as a documented structural cardiac manifestation in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5203,6 +5458,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation supports atrial septal defect as occasional in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5257,6 +5514,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews identifies ventricular septal defect as part of the structural cardiac phenotype spectrum in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5323,6 +5582,8 @@
                 
                 <div class="evidence-explanation">Supports poor feeding in infancy as a common early-life manifestation in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5342,6 +5603,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation supports feeding difficulties in infancy as frequent in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5408,6 +5671,8 @@
                 
                 <div class="evidence-explanation">Case-based clinical evidence supports low-set/posteriorly rotated ears as a characteristic facial finding in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             
@@ -5461,6 +5726,8 @@
                 
                 
                 <div class="evidence-explanation">Supports hearing loss as part of the multisystem clinical phenotype in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5527,6 +5794,8 @@
                 
                 <div class="evidence-explanation">Supports hypertelorism as part of the characteristic craniofacial phenotype in clinically diagnosed Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5546,6 +5815,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation supports hypertelorism as very frequent in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5603,6 +5874,8 @@
                 
                 <div class="evidence-explanation">Review evidence explicitly identifies ptosis as a core facial feature in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5622,6 +5895,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation classifies ptosis as very frequent in Noonan syndrome, whereas this entry uses FREQUENT.</div>
+                
+                
                 
             </div>
             
@@ -5688,6 +5963,8 @@
                 
                 <div class="evidence-explanation">Cryptorchidism is recognized as a common feature across Noonan syndrome genotypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5707,6 +5984,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation supports cryptorchidism as frequent in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5773,6 +6052,8 @@
                 
                 <div class="evidence-explanation">Review evidence explicitly identifies down-slanting palpebral fissures as a main facial feature in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5792,6 +6073,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation supports downslanted palpebral fissures as very frequent in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -5849,6 +6132,8 @@
                 
                 <div class="evidence-explanation">Review evidence explicitly identifies webbed neck as a recognized associated feature in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5868,6 +6153,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation classifies webbed neck as very frequent in Noonan syndrome, whereas this entry uses FREQUENT.</div>
+                
+                
                 
             </div>
             
@@ -5934,6 +6221,8 @@
                 
                 <div class="evidence-explanation">Supports lymphedema as a recognized clinical manifestation in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5953,6 +6242,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation supports lymphedema as occasional in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -6019,6 +6310,8 @@
                 
                 <div class="evidence-explanation">Pectus deformity is recognized as a common feature across genotypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6038,6 +6331,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation classifies pectus excavatum as very frequent in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -6104,6 +6399,8 @@
                 
                 <div class="evidence-explanation">Supports peripheral neuropathy as a clinically meaningful neurologic manifestation in adults with Noonan-spectrum disorders.</div>
                 
+                
+                
             </div>
             
             
@@ -6160,6 +6457,8 @@
                 
                 <div class="evidence-explanation">Developmental delay is a recognized feature across Noonan syndrome genotypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6179,6 +6478,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet lists neurodevelopmental delay as frequent, supporting the global developmental delay phenotype in this entry.</div>
+                
+                
                 
             </div>
             
@@ -6236,6 +6537,8 @@
                 
                 <div class="evidence-explanation">GeneReviews reports mild intellectual disability in a substantial minority of individuals with Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6255,6 +6558,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet classifies intellectual disability as occasional in Noonan syndrome, consistent with the mild intellectual disability reported in this entry.</div>
+                
+                
                 
             </div>
             
@@ -6321,6 +6626,8 @@
                 
                 <div class="evidence-explanation">Large multicenter Noonan-spectrum cohort data support short stature as a prevalent and clinically significant growth phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6340,6 +6647,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet phenotype annotation supports short stature as very frequent in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -6404,6 +6713,8 @@
                 
                 <div class="evidence-explanation">Supports a clinically relevant tumor predisposition phenotype in Noonan syndrome, particularly in SOS1- and RAF1-associated disease.</div>
                 
+                
+                
             </div>
             
             
@@ -6467,6 +6778,8 @@
                 
                 <div class="evidence-explanation">Supports increased nuchal translucency or fluid as a recognizable prenatal Noonan syndrome manifestation.</div>
                 
+                
+                
             </div>
             
             
@@ -6520,6 +6833,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews identifies branch pulmonary artery stenosis as part of the Noonan congenital heart disease spectrum.</div>
+                
+                
                 
             </div>
             
@@ -6575,6 +6890,8 @@
                 
                 <div class="evidence-explanation">OMIM/HPOA-linked cohort data support juvenile myelomonocytic leukemia as a recognized hematologic malignancy in PTPN11-associated Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6594,6 +6911,8 @@
                 
                 
                 <div class="evidence-explanation">Independent cohort-review evidence further supports JMML risk as a rare but important oncologic manifestation of Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -6648,6 +6967,8 @@
                 
                 
                 <div class="evidence-explanation">Supports chylothorax as a clinically important downstream manifestation of the lymphatic phenotype seen in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -6734,6 +7055,8 @@
                 
                 <div class="evidence-explanation">Confirms PTPN11 mutations account for approximately half of Noonan syndrome cases.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6754,6 +7077,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports PTPN11 as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6773,6 +7098,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the PTPN11-Noonan syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6817,6 +7144,8 @@
                 
                 <div class="evidence-explanation">SOS1 mutations are a significant cause of PTPN11-negative Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6837,6 +7166,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports SOS1 as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6856,6 +7187,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the SOS1-Noonan syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6900,6 +7233,8 @@
                 
                 <div class="evidence-explanation">Discovery-cohort evidence supports SOS2 as an established rare cause of Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6920,6 +7255,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports SOS2 as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6939,6 +7276,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the SOS2-Noonan syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -6983,6 +7322,8 @@
                 
                 <div class="evidence-explanation">RAF1 mutations account for approximately 3% of Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7003,6 +7344,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports RAF1 as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7022,6 +7365,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the RAF1-Noonan syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7066,6 +7411,8 @@
                 
                 <div class="evidence-explanation">Supports BRAF as a rare molecular cause within the Noonan syndrome spectrum.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7086,6 +7433,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports BRAF as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7105,6 +7454,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the BRAF-Noonan syndrome gene-disease relationship as moderate with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7149,6 +7500,8 @@
                 
                 <div class="evidence-explanation">Next-generation sequencing in mutation-negative cases supports MAP2K1 as an established rare cause of Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7168,6 +7521,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the MAP2K1-Noonan syndrome gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7212,6 +7567,8 @@
                 
                 <div class="evidence-explanation">RIT1 mutations account for approximately 9% of cases without mutations in other known genes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7232,6 +7589,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports RIT1 as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7251,6 +7610,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the RIT1-Noonan syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7295,6 +7656,8 @@
                 
                 <div class="evidence-explanation">Supports RRAS2 as an established but very rare cause of Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7315,6 +7678,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports RRAS2 as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7334,6 +7699,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the RRAS2-Noonan syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7378,6 +7745,8 @@
                 
                 <div class="evidence-explanation">KRAS mutations are a rare cause of Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7398,6 +7767,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports KRAS as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7417,6 +7788,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the KRAS-Noonan syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7461,6 +7834,8 @@
                 
                 <div class="evidence-explanation">Supports NRAS as a rare gain-of-function molecular cause of Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7481,6 +7856,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports NRAS as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7500,6 +7877,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the NRAS-Noonan syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7544,6 +7923,8 @@
                 
                 <div class="evidence-explanation">Supports RASA2 loss of function as a rare molecular mechanism in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7564,6 +7945,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports RASA2 as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7583,6 +7966,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the RASA2-Noonan syndrome gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7627,6 +8012,8 @@
                 
                 <div class="evidence-explanation">Supports LZTR1 as a clinically observed Noonan syndrome genotype in contemporary molecular cohorts.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7647,6 +8034,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports LZTR1 as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7666,6 +8055,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the LZTR1-Noonan syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -7712,6 +8103,8 @@
                 
                 <div class="evidence-explanation">Supports MRAS as a rare but clinically confirmed contributor to Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7732,6 +8125,8 @@
                 
                 <div class="evidence-explanation">Case-level molecular confirmation supports pathogenic MRAS-associated Noonan syndrome with cardiac involvement.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7751,6 +8146,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports MRAS as causative for Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -7797,6 +8194,8 @@
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports CBL as causative for Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             
@@ -7839,6 +8238,8 @@
                 
                 
                 <div class="evidence-explanation">Orphanet gene-disease association supports SPRED2 as causative for Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -7883,6 +8284,8 @@
                 
                 <div class="evidence-explanation">ClinGen classifies the MAP2K2-Noonan syndrome gene-disease relationship as limited with autosomal dominant inheritance.</div>
                 
+                
+                
             </div>
             
             
@@ -7925,6 +8328,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the RRAS-Noonan syndrome gene-disease relationship as limited with autosomal dominant inheritance.</div>
+                
+                
                 
             </div>
             
@@ -8027,6 +8432,8 @@
                 
                 <div class="evidence-explanation">Large multicenter cohort evidence supports growth hormone therapy for short stature in Noonan syndrome spectrum disorders.</div>
                 
+                
+                
             </div>
             
             
@@ -8122,6 +8529,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates feasibility of staged surgical management for structural heart disease in severe Noonan-associated cardiomyopathy.</div>
+                
+                
                 
             </div>
             
@@ -8251,6 +8660,8 @@
                 
                 <div class="evidence-explanation">Supports MEK inhibition as a targeted strategy for severe Noonan-associated hypertrophic cardiomyopathy in early clinical use.</div>
                 
+                
+                
             </div>
             
             
@@ -8339,6 +8750,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews supports early intervention services as standard management for developmental disability in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -8429,6 +8842,8 @@
                 
                 <div class="evidence-explanation">Supports speech therapy as recommended supportive care in Noonan syndrome management.</div>
                 
+                
+                
             </div>
             
             
@@ -8517,6 +8932,8 @@
                 
                 
                 <div class="evidence-explanation">Supports physiotherapy (physical therapy) for motor/developmental support in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -8609,6 +9026,8 @@
                 
                 <div class="evidence-explanation">Demonstrates overlap requiring differential diagnosis, with BRAF genotype pattern helping separate CFC from classic Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             
@@ -8678,6 +9097,8 @@
                 
                 
                 <div class="evidence-explanation">Supports Costello syndrome as a practical molecular differential in suspected Noonan-spectrum patients.</div>
+                
+                
                 
             </div>
             
@@ -8749,6 +9170,8 @@
                 
                 <div class="evidence-explanation">Confirms clinically relevant NS vs NF1-overlap differential diagnosis in molecularly evaluated RASopathy cohorts.</div>
                 
+                
+                
             </div>
             
             
@@ -8819,6 +9242,8 @@
                 
                 
                 <div class="evidence-explanation">Supports NSML as a frequent practical differential diagnosis in Noonan-spectrum genomic evaluation.</div>
+                
+                
                 
             </div>
             
@@ -8914,6 +9339,8 @@
                 
                 <div class="evidence-explanation">Provides disease-relevant human neurodevelopmental transcriptomic evidence for cortical-layer and neuronal-connectivity abnormalities in Noonan syndrome.</div>
                 
+                
+                
             </div>
             
             
@@ -8998,6 +9425,8 @@
                 
                 <div class="evidence-explanation">Supports human myocardial tissue evidence for transcriptomic distinctions between Noonan cardiomyopathy and sarcomeric HCM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9017,6 +9446,8 @@
                 
                 
                 <div class="evidence-explanation">Supports complementary in vitro iPSC-cardiomyocyte modeling of Noonan cardiomyopathy mechanisms.</div>
+                
+                
                 
             </div>
             
@@ -9101,6 +9532,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a mutation-specific human cardiomyocyte transcriptomic resource linking RAF1-driven signaling dysregulation to Noonan cardiac phenotypes.</div>
+                
+                
                 
             </div>
             
@@ -9233,6 +9666,8 @@
                 
                 <div class="evidence-explanation">Establishes that NS-derived cortical organoids capture disease-relevant neurodevelopmental abnormalities.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9252,6 +9687,8 @@
                 
                 
                 <div class="evidence-explanation">Supports mechanistic alignment of the organoid model with neurological manifestations in Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -9293,6 +9730,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a first-class cortical organoid model for Noonan syndrome.</div>
+                
+                
                 
             </div>
             
@@ -9421,6 +9860,8 @@
                 
                 <div class="evidence-explanation">Supports patient-derived iPSC-cardiomyocytes as a disease-relevant Noonan cardiomyopathy model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -9440,6 +9881,8 @@
                 
                 
                 <div class="evidence-explanation">Supports mutation-specific mechanistic modeling in Noonan iPSC-cardiomyocytes.</div>
+                
+                
                 
             </div>
             
@@ -9481,6 +9924,8 @@
                 
                 
                 <div class="evidence-explanation">Supports this as a first-class Noonan iPSC-cardiomyocyte model entry.</div>
+                
+                
                 
             </div>
             

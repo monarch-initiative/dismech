@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02385188
+reference_id: "clinicaltrials:NCT02385188"
 title: "Topical 5% Imiquimod Cream for Vulvar Paget's Disease: Clinical Efficacy, Safety and Immunological Response"
 content_type: summary
 ---

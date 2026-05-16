@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2790,6 +2981,8 @@
                 
                 <div class="evidence-explanation">Supports staphylococcal folliculitis as the most common etiologic subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2809,6 +3002,8 @@
                 
                 
                 <div class="evidence-explanation">Independent review evidence supports staphylococcal folliculitis within the common S. aureus skin-infection spectrum.</div>
+                
+                
                 
             </div>
             
@@ -2868,6 +3063,8 @@
                 
                 <div class="evidence-explanation">Supports Malassezia as a clinically distinct etiologic subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -2925,6 +3122,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a Demodex-associated folliculitis subtype with inflammatory enrichment.</div>
+                
+                
                 
             </div>
             
@@ -2989,6 +3188,8 @@
                 
                 <div class="evidence-explanation">Defines a distinct exposure-associated pseudomonal subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -3051,6 +3252,8 @@
                 
                 
                 <div class="evidence-explanation">Supports gram-negative folliculitis as a treatment-associated subtype.</div>
+                
+                
                 
             </div>
             
@@ -3115,6 +3318,8 @@
                 
                 <div class="evidence-explanation">Supports a distinct HIV-associated eosinophilic subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -3178,6 +3383,8 @@
                 
                 <div class="evidence-explanation">Supports folliculitis decalvans as a clinically distinct scarring subtype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3197,6 +3404,8 @@
                 
                 
                 <div class="evidence-explanation">Adds independent subtype-level characterization of FD as primary neutrophilic cicatricial alopecia.</div>
+                
+                
                 
             </div>
             
@@ -3260,6 +3469,8 @@
                 
                 
                 <div class="evidence-explanation">Supports anti-EGFR-therapy-associated folliculitis as a clinically recognized treatment-induced subtype.</div>
+                
+                
                 
             </div>
             
@@ -3353,6 +3564,8 @@
                 
                 <div class="evidence-explanation">Supports S. aureus as an upstream and common etiologic mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -3417,6 +3630,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a biomolecular virulence stage in staphylococcal folliculitis.</div>
+                
+                
                 
             </div>
             
@@ -3531,6 +3746,8 @@
                 
                 <div class="evidence-explanation">Supports keratinocyte participation as an early cellular event in skin infection pathophysiology.</div>
                 
+                
+                
             </div>
             
             
@@ -3644,6 +3861,8 @@
                 
                 <div class="evidence-explanation">Supports neutrophil-centric immune amplification in staphylococcal folliculitis mechanisms.</div>
                 
+                
+                
             </div>
             
             
@@ -3747,6 +3966,8 @@
                 
                 <div class="evidence-explanation">Histopathology confirms the suppurative inflammatory stage.</div>
                 
+                
+                
             </div>
             
             
@@ -3823,6 +4044,8 @@
                 
                 <div class="evidence-explanation">Supports a pathogen-diverse upstream entry point into folliculitis pathophysiology.</div>
                 
+                
+                
             </div>
             
             
@@ -3887,6 +4110,8 @@
                 
                 
                 <div class="evidence-explanation">Supports prolonged antibiotic exposure as an upstream event in gram-negative folliculitis.</div>
+                
+                
                 
             </div>
             
@@ -3964,6 +4189,8 @@
                 
                 <div class="evidence-explanation">Supports a discrete pathogen-overgrowth stage in gram-negative folliculitis.</div>
                 
+                
+                
             </div>
             
             
@@ -4040,6 +4267,8 @@
                 
                 <div class="evidence-explanation">Supports Demodex colonization as a candidate upstream event in follicular inflammation.</div>
                 
+                
+                
             </div>
             
             
@@ -4090,6 +4319,8 @@
                 
                 
                 <div class="evidence-explanation">Supports mite-associated follicular inflammation as a discrete pathophysiologic event.</div>
+                
+                
                 
             </div>
             
@@ -4167,6 +4398,8 @@
                 
                 <div class="evidence-explanation">Establishes baseline commensal follicular colonization by Malassezia.</div>
                 
+                
+                
             </div>
             
             
@@ -4231,6 +4464,8 @@
                 
                 
                 <div class="evidence-explanation">Supports commensal-to-pathogenic transition in Malassezia disease biology.</div>
+                
+                
                 
             </div>
             
@@ -4303,6 +4538,8 @@
                 
                 
                 <div class="evidence-explanation">Supports symptomatic inflammatory transition in Malassezia folliculitis.</div>
+                
+                
                 
             </div>
             
@@ -4393,6 +4630,8 @@
                 
                 <div class="evidence-explanation">Defines an immunologic, eosinophilic folliculitis mechanism distinct from pyogenic bacterial disease.</div>
                 
+                
+                
             </div>
             
             
@@ -4469,6 +4708,8 @@
                 
                 <div class="evidence-explanation">Supports the presence of subtype-specific follicular dysbiosis in folliculitis decalvans.</div>
                 
+                
+                
             </div>
             
             
@@ -4534,6 +4775,8 @@
                 
                 <div class="evidence-explanation">Supports impaired antibacterial cytokine signaling as a mechanistic event in folliculitis decalvans.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4554,6 +4797,8 @@
                 
                 <div class="evidence-explanation">Trial rationale provides additional human-clinical support for cytokine pathway involvement in FD pathobiology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4573,6 +4818,8 @@
                 
                 
                 <div class="evidence-explanation">Supports host-immune dysfunction as a central mechanistic factor in FD pathogenesis.</div>
+                
+                
                 
             </div>
             
@@ -4663,6 +4910,8 @@
                 
                 <div class="evidence-explanation">Supports a distinct chronic neutrophilic scarring-inflammatory stage in FD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4682,6 +4931,8 @@
                 
                 
                 <div class="evidence-explanation">Adds direct histologic support for neutrophil-dominant early FD inflammation with chronic inflammatory progression.</div>
+                
+                
                 
             </div>
             
@@ -4748,6 +4999,8 @@
                 
                 <div class="evidence-explanation">Supports loss of EGFR-mediated follicular protection as an initiating mechanistic event.</div>
                 
+                
+                
             </div>
             
             
@@ -4812,6 +5065,8 @@
                 
                 
                 <div class="evidence-explanation">Supports JAK-STAT1 hypersensitivity as a distinct biomolecular event.</div>
+                
+                
                 
             </div>
             
@@ -4878,6 +5133,8 @@
                 
                 <div class="evidence-explanation">Supports a lymphoid inflammatory amplification stage in EGFR inhibitor-associated folliculitis biology.</div>
                 
+                
+                
             </div>
             
             
@@ -4943,6 +5200,8 @@
                 
                 <div class="evidence-explanation">Supports endpoint follicular destruction biology with clinically relevant human tissue evidence.</div>
                 
+                
+                
             </div>
             
             
@@ -4998,6 +5257,8 @@
                 
                 <div class="evidence-explanation">Direct histopathology evidence for suppurative inflammatory follicular injury in pseudomonal folliculitis.</div>
                 
+                
+                
             </div>
             
             
@@ -5040,6 +5301,8 @@
                 
                 
                 <div class="evidence-explanation">Supports a distinct eosinophilic histopathologic pattern in HIV-associated folliculitis.</div>
+                
+                
                 
             </div>
             
@@ -5084,6 +5347,8 @@
                 
                 <div class="evidence-explanation">Supports Demodex-associated inflammatory histopathologic findings.</div>
                 
+                
+                
             </div>
             
             
@@ -5127,6 +5392,8 @@
                 
                 <div class="evidence-explanation">Supports a chronic neutrophilic scarring histopathology context for folliculitis decalvans.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5146,6 +5413,8 @@
                 
                 
                 <div class="evidence-explanation">Adds direct histopathology detail supporting mixed-stage inflammatory infiltrates in FD.</div>
+                
+                
                 
             </div>
             
@@ -5256,6 +5525,8 @@
                 
                 <div class="evidence-explanation">Supports pustules as a core lesion type across infectious etiologies.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5275,6 +5546,8 @@
                 
                 
                 <div class="evidence-explanation">Provides subtype-specific clinical evidence for pustules in folliculitis decalvans.</div>
+                
+                
                 
             </div>
             
@@ -5339,6 +5612,8 @@
                 
                 <div class="evidence-explanation">Directly supports papular morphology and common distribution.</div>
                 
+                
+                
             </div>
             
             
@@ -5392,6 +5667,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms itch as a frequent symptom in symptomatic follicular eruptions.</div>
+                
+                
                 
             </div>
             
@@ -5447,6 +5724,8 @@
                 
                 <div class="evidence-explanation">Supports alopecia as a clinically important sequela in scarring folliculitis subtypes.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5466,6 +5745,8 @@
                 
                 
                 <div class="evidence-explanation">Provides independent support that scarring alopecia is a defining phenotype of folliculitis decalvans.</div>
+                
+                
                 
             </div>
             
@@ -5529,6 +5810,8 @@
                 
                 
                 <div class="evidence-explanation">Supports fever as a contextual phenotype in Pseudomonas-associated folliculitis.</div>
+                
+                
                 
             </div>
             
@@ -5652,6 +5935,8 @@
                 
                 <div class="evidence-explanation">Review supports antibacterial treatment use while cautioning against prolonged empiric misuse.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5671,6 +5956,8 @@
                 
                 
                 <div class="evidence-explanation">Adds contemporary treatment-stratification evidence for staphylococcal folliculitis-spectrum infections.</div>
+                
+                
                 
             </div>
             
@@ -5749,6 +6036,8 @@
                 
                 <div class="evidence-explanation">Documents real-world topical and oral antifungal regimens.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5768,6 +6057,8 @@
                 
                 
                 <div class="evidence-explanation">Supports clinical effectiveness of both antifungal strategies in this cohort.</div>
+                
+                
                 
             </div>
             
@@ -5846,6 +6137,8 @@
                 
                 <div class="evidence-explanation">Systematic review supports multimodal treatment strategy for chronic scarring folliculitis variants.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5866,6 +6159,8 @@
                 
                 <div class="evidence-explanation">Multicenter long-term follow-up study provides specific evidence for effective combination regimens in folliculitis decalvans.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5885,6 +6180,8 @@
                 
                 
                 <div class="evidence-explanation">Supports limitations of antibiotic-only strategies and the need for alternative or adjunctive management approaches in FD.</div>
+                
+                
                 
             </div>
             
@@ -5963,6 +6260,8 @@
                 
                 <div class="evidence-explanation">Supports specific adjunctive therapies in eosinophilic folliculitis context.</div>
                 
+                
+                
             </div>
             
             
@@ -6017,6 +6316,8 @@
                 
                 <div class="evidence-explanation">Supports contaminated water exposure as an environmental trigger.</div>
                 
+                
+                
             </div>
             
             
@@ -6058,6 +6359,8 @@
                 
                 
                 <div class="evidence-explanation">Supports severe HIV-associated immunosuppression as a major risk context.</div>
+                
+                
                 
             </div>
             
@@ -6147,6 +6450,8 @@
                 
                 <div class="evidence-explanation">The abstract lists acne and folliculitis as overlapping pustular disorders with different common distributions.</div>
                 
+                
+                
             </div>
             
             
@@ -6217,6 +6522,8 @@
                 
                 <div class="evidence-explanation">Places folliculitis and furunculosis within overlapping staphylococcal skin infection spectrum requiring clinical differentiation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6236,6 +6543,8 @@
                 
                 
                 <div class="evidence-explanation">Provides additional spectrum-based evidence supporting furunculosis as a key differential within staphylococcal follicular infections.</div>
+                
+                
                 
             </div>
             
@@ -6306,6 +6615,8 @@
                 
                 
                 <div class="evidence-explanation">Supports hidradenitis suppurativa as a clinically overlapping condition in staphylococcal-spectrum skin disease discussions.</div>
+                
+                
                 
             </div>
             
@@ -6401,6 +6712,8 @@
                 
                 <div class="evidence-explanation">Supports this as a human pilosebaceous spatial transcriptomics resource relevant to follicular inflammatory biology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6420,6 +6733,8 @@
                 
                 
                 <div class="evidence-explanation">The same GEO summary includes a linked mouse folliculitis model result, increasing disease relevance.</div>
+                
+                
                 
             </div>
             
@@ -6501,6 +6816,8 @@
                 
                 <div class="evidence-explanation">Supports mechanistic transcriptomic interrogation of EGFR-driven follicular inflammatory injury.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6520,6 +6837,8 @@
                 
                 
                 <div class="evidence-explanation">Explicitly links this dataset context to chronic folliculitis biology.</div>
+                
+                
                 
             </div>
             
@@ -6599,6 +6918,8 @@
                 
                 <div class="evidence-explanation">Supports the dataset&#39;s central focus on follicle-protective EGFR signaling in a scarring folliculitis model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6618,6 +6939,8 @@
                 
                 
                 <div class="evidence-explanation">Provides direct folliculitis decalvans clinical linkage for interpretation of model-derived single-cell signatures.</div>
+                
+                
                 
             </div>
             
@@ -6695,6 +7018,8 @@
                 
                 <div class="evidence-explanation">Supports EGFR-perturbation-associated follicular barrier and immune dysregulation mechanisms.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -6714,6 +7039,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports chronic folliculitis-associated dysbiosis and inflammatory amplification.</div>
+                
+                
                 
             </div>
             
@@ -6795,6 +7122,8 @@
                 
                 <div class="evidence-explanation">Supports direct trial relevance to Malassezia folliculitis treatment and recurrence prevention.</div>
                 
+                
+                
             </div>
             
             
@@ -6862,6 +7191,8 @@
                 
                 
                 <div class="evidence-explanation">Supports an ongoing controlled trial focused on prevention of EGFR inhibitor-associated folliculitis.</div>
+                
+                
                 
             </div>
             
@@ -6931,6 +7262,8 @@
                 
                 <div class="evidence-explanation">Supports trial relevance to microbial mechanisms in folliculitis decalvans, a clinically important folliculitis subtype.</div>
                 
+                
+                
             </div>
             
             
@@ -6999,6 +7332,8 @@
                 
                 <div class="evidence-explanation">Supports unmet-need rationale for intervention trials beyond antibiotics in FD.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -7018,6 +7353,8 @@
                 
                 
                 <div class="evidence-explanation">Supports cytokine-targeted biologic trial rationale in FD.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2826,6 +3017,8 @@
                 
                 <div class="evidence-explanation">Directly supports NAGS as the enzyme responsible for NAG production.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2845,6 +3038,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the mechanistic dependency of CPS1 activation on NAG production by NAGS.</div>
+                
+                
                 
             </div>
             
@@ -2953,6 +3148,8 @@
                 
                 <div class="evidence-explanation">Directly supports the NAG-CPS1 dependency and proximal urea cycle block when NAGS is deficient.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2972,6 +3169,8 @@
                 
                 
                 <div class="evidence-explanation">Clinical response to CPS1 activation supports CPS1 underactivation as a causal step.</div>
+                
+                
                 
             </div>
             
@@ -3108,6 +3307,8 @@
                 
                 <div class="evidence-explanation">Supports the systemic proximal-UCD biochemical profile caused by NAGS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -3216,6 +3417,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms that L-arginine is a positive regulator of mammalian NAGS activity.</div>
+                
+                
                 
             </div>
             
@@ -3348,6 +3551,8 @@
                 
                 <div class="evidence-explanation">Supports severe hyperammonemic encephalopathy as the upstream neurotoxic state.</div>
                 
+                
+                
             </div>
             
             
@@ -3431,6 +3636,8 @@
                 
                 <div class="evidence-explanation">Directly supports progression from hyperammonemia to cerebral edema and herniation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3450,6 +3657,8 @@
                 
                 
                 <div class="evidence-explanation">Supports severe neurological outcomes in untreated neonatal hyperammonemic crises.</div>
+                
+                
                 
             </div>
             
@@ -3523,6 +3732,8 @@
                 
                 <div class="evidence-explanation">Validates the recombinant human enzyme approach for functional variant characterization.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3542,6 +3753,8 @@
                 
                 
                 <div class="evidence-explanation">Defines the variant-level enzyme mechanisms that feed into NAGS dysfunction.</div>
+                
+                
                 
             </div>
             
@@ -3577,7 +3790,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Carbamylglutamate therapeutic trial\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A therapeutic trial of carbamylglutamate is recommended for any patient with unexplained hyperammonemia and a proximal urea cycle defect pattern, as it can serve both as a diagnostic tool and as definitive treatment for NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carglumic acid\"]}}, {\"id\": \"Carglumic acid (N-carbamyl-L-glutamate)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carglumic acid is a synthetic stable analogue of N-acetylglutamate that directly activates CPS1, bypassing deficient NAGS and restoring urea cycle flux. It is the specific disease-modifying therapy for NAGS deficiency and the only urea cycle disorder that can be cured by substitutive drug therapy. All patients in the 2024 case series responded well to carbamylglutamate therapy, with normalization of ammonia, citrulline, and orotic acid.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carglumic acid\"]}}, {\"id\": \"Cerebral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral edema results from astrocytic glutamine accumulation during severe hyperammonemia and can progress to intracranial hypertension and brain herniation if untreated.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002181\"}}, {\"id\": \"Citrulline and arginine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supplementation with citrulline or arginine has been reported in some cases of NAGS deficiency to support urea cycle intermediate availability. Arginine is also a positive regulator of NAGS enzyme activity in patients with residual enzyme function.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"citrulline\", \"L-arginine\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic coma can occur during severe acute decompensation, particularly in neonatal-onset cases. Three episodes of altered consciousness were documented before the diagnosis of NAGS deficiency in one adult case.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe crises, ammonia-mediated brain injury progresses to cerebral edema, intracranial hypertension, and risk of herniation, coma, and death.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Dietary protein management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Although protein restriction was historically used, carbamylglutamate therapy allows most patients to liberalize their diets. However, protein restriction remains an important strategy during illness or disruption of medication access. The maximum safe level of protein intake to prevent hyperammonemia is not yet known.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic encephalopathy is the most common and dangerous neurological manifestation, presenting with progressive lethargy, altered consciousness, and coma. It results from ammonia-driven astrocyte swelling and cerebral edema and carries significant risk of permanent brain damage or death.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Extracorporeal ammonia removal\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hemodialysis or continuous venovenous hemofiltration (CVVH) may be required for emergency ammonia removal during severe hyperammonemic crises, particularly when ammonia levels exceed 200 micromol/L or when pharmacological measures are insufficient.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma ammonia is the cardinal biochemical and clinical feature of NAGS deficiency, resulting from impaired urea cycle flux. Ammonia levels can be extremely elevated during acute crises, with values exceeding 1000 micromol/L reported in neonatal presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia drives encephalopathy and astrocyte stress in the brain. Ammonia detoxification in astrocytes increases glutamine production, creating intracellular osmotic burden and vulnerability to swelling.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired arginine-mediated NAGS regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAGS activity is allosterically regulated by L-arginine, which increases enzyme activity 2-5-fold under physiological conditions. Many disease-causing NAGS variants show loss of arginine activation as their primary mechanistic defect. Hampered NAGS activation by arginine has emerged as a paramount causative factor of NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\", \"positive regulation of catalytic activity\"]}}, {\"id\": \"Loss of CPS1 activation and impaired ureagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAG is the obligate allosteric activator of CPS1. When NAG is deficient, CPS1 remains underactivated, reducing carbamoyl phosphate formation and impairing proximal urea cycle flux.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"], \"locations\": [\"mitochondrion\", \"liver\"]}}, {\"id\": \"NAGS - Multiple nonsynonymous variants characterized by recombinant enzyme assay\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Twenty-three nonsynonymous single-base changes from NAGS deficiency patients were functionally characterized using stabilized recombinant human NAGS. Pathogenic mechanisms identified include loss of arginine activation, increased Km for glutamate, active site inactivation, decreased thermal stability, and protein misfolding.\\n\"}, {\"id\": \"NAGS - c.1097-2A\u003eT splice-site variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel homozygous splice-site mutation found in an infant with neonatal hyperammonemia who had rapid response to N-carbamylglutamate treatment.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NAGS - c.344C\u003eT (p.Ala115Val) missense variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense variant identified in a late-onset adult case presenting with recurrent headaches. Bioinformatic analysis suggested that the mutation could affect the arginine-binding site, resulting in poor enzyme activation and late-onset presentation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NAGS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAGS catalyzes N-acetylglutamate (NAG) formation from acetyl-CoA and L-glutamate in the mitochondrial matrix of hepatocytes and intestinal cells. Loss of NAGS activity reduces NAG availability, creating the primary biochemical lesion in NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"N-acetylglutamate synthase activity\"], \"genes\": [\"NAGS\"], \"locations\": [\"mitochondrion\", \"liver\"]}}, {\"id\": \"NAGS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NAGS\"], \"variant_count\": 3}}, {\"id\": \"Nitrogen scavenger therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium benzoate, sodium phenylacetate, or sodium phenylbutyrate may be used as adjunctive ammonia-lowering agents during acute hyperammonemic crises. These drugs provide alternative nitrogen disposal pathways independent of the urea cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sodium benzoate\", \"sodium phenylbutyrate\"]}}, {\"id\": \"Plasma ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Plasma citrulline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Plasma glutamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic hyperammonemia and glutamine diversion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced NAG-dependent CPS1 activation impairs hepatic nitrogen disposal. Ammonia and glutamine rise, citrulline falls, and urinary orotic acid remains normal to low, creating the systemic biochemical state that drives acute decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}, {\"id\": \"Urine orotic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Variant-specific biochemical mechanisms of NAGS dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional characterization of 23 patient-derived NAGS missense variants using stabilized recombinant human enzyme has identified multiple mechanistic classes of pathogenicity including loss of arginine activation, increased Km for glutamate, active site inactivation, decreased thermal stability, and protein misfolding. This approach outperforms bacterial surrogate enzymes and in silico prediction tools for assessing pathogenicity and guiding therapeutic decisions.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"NAGS molecular function deficiency\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of CPS1 activation and impaired ureagenesis\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Plasma ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Plasma glutamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Plasma citrulline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Urine orotic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired arginine-mediated NAGS regulation\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"target\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"target\": \"Cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Variant-specific biochemical mechanisms of NAGS dysfunction\", \"target\": \"NAGS molecular function deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Variant-specific biochemical mechanisms of NAGS dysfunction\", \"target\": \"Impaired arginine-mediated NAGS regulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carglumic acid (N-carbamyl-L-glutamate)\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carglumic acid (N-carbamyl-L-glutamate)\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary protein management\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extracorporeal ammonia removal\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Citrulline and arginine supplementation\", \"target\": \"Impaired arginine-mediated NAGS regulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carbamylglutamate therapeutic trial\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"NAGS pathogenic variants\", \"target\": \"NAGS molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NAGS - c.1097-2A\u003eT splice-site variant\", \"target\": \"NAGS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NAGS - c.344C\u003eT (p.Ala115Val) missense variant\", \"target\": \"NAGS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NAGS - Multiple nonsynonymous variants characterized by recombinant enzyme assay\", \"target\": \"NAGS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Carbamylglutamate therapeutic trial\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A therapeutic trial of carbamylglutamate is recommended for any patient with unexplained hyperammonemia and a proximal urea cycle defect pattern, as it can serve both as a diagnostic tool and as definitive treatment for NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carglumic acid\"]}}, {\"id\": \"Carglumic acid (N-carbamyl-L-glutamate)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carglumic acid is a synthetic stable analogue of N-acetylglutamate that directly activates CPS1, bypassing deficient NAGS and restoring urea cycle flux. It is the specific disease-modifying therapy for NAGS deficiency and the only urea cycle disorder that can be cured by substitutive drug therapy. All patients in the 2024 case series responded well to carbamylglutamate therapy, with normalization of ammonia, citrulline, and orotic acid.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carglumic acid\"]}}, {\"id\": \"Cerebral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral edema results from astrocytic glutamine accumulation during severe hyperammonemia and can progress to intracranial hypertension and brain herniation if untreated.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002181\"}}, {\"id\": \"Citrulline and arginine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supplementation with citrulline or arginine has been reported in some cases of NAGS deficiency to support urea cycle intermediate availability. Arginine is also a positive regulator of NAGS enzyme activity in patients with residual enzyme function.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"citrulline\", \"L-arginine\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic coma can occur during severe acute decompensation, particularly in neonatal-onset cases. Three episodes of altered consciousness were documented before the diagnosis of NAGS deficiency in one adult case.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe crises, ammonia-mediated brain injury progresses to cerebral edema, intracranial hypertension, and risk of herniation, coma, and death.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Dietary protein management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Although protein restriction was historically used, carbamylglutamate therapy allows most patients to liberalize their diets. However, protein restriction remains an important strategy during illness or disruption of medication access. The maximum safe level of protein intake to prevent hyperammonemia is not yet known.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic encephalopathy is the most common and dangerous neurological manifestation, presenting with progressive lethargy, altered consciousness, and coma. It results from ammonia-driven astrocyte swelling and cerebral edema and carries significant risk of permanent brain damage or death.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Extracorporeal ammonia removal\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hemodialysis or continuous venovenous hemofiltration (CVVH) may be required for emergency ammonia removal during severe hyperammonemic crises, particularly when ammonia levels exceed 200 micromol/L or when pharmacological measures are insufficient.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma ammonia is the cardinal biochemical and clinical feature of NAGS deficiency, resulting from impaired urea cycle flux. Ammonia levels can be extremely elevated during acute crises, with values exceeding 1000 micromol/L reported in neonatal presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia drives encephalopathy and astrocyte stress in the brain. Ammonia detoxification in astrocytes increases glutamine production, creating intracellular osmotic burden and vulnerability to swelling.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired arginine-mediated NAGS regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAGS activity is allosterically regulated by L-arginine, which increases enzyme activity 2-5-fold under physiological conditions. Many disease-causing NAGS variants show loss of arginine activation as their primary mechanistic defect. Hampered NAGS activation by arginine has emerged as a paramount causative factor of NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\", \"positive regulation of catalytic activity\"]}}, {\"id\": \"Loss of CPS1 activation and impaired ureagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAG is the obligate allosteric activator of CPS1. When NAG is deficient, CPS1 remains underactivated, reducing carbamoyl phosphate formation and impairing proximal urea cycle flux.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"], \"locations\": [\"mitochondrion\", \"liver\"]}}, {\"id\": \"NAGS - Multiple nonsynonymous variants characterized by recombinant enzyme assay\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Twenty-three nonsynonymous single-base changes from NAGS deficiency patients were functionally characterized using stabilized recombinant human NAGS. Pathogenic mechanisms identified include loss of arginine activation, increased Km for glutamate, active site inactivation, decreased thermal stability, and protein misfolding.\\n\"}, {\"id\": \"NAGS - c.1097-2A\u003eT splice-site variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel homozygous splice-site mutation found in an infant with neonatal hyperammonemia who had rapid response to N-carbamylglutamate treatment.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NAGS - c.344C\u003eT (p.Ala115Val) missense variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense variant identified in a late-onset adult case presenting with recurrent headaches. Bioinformatic analysis suggested that the mutation could affect the arginine-binding site, resulting in poor enzyme activation and late-onset presentation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NAGS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAGS catalyzes N-acetylglutamate (NAG) formation from acetyl-CoA and L-glutamate in the mitochondrial matrix of hepatocytes and intestinal cells. Loss of NAGS activity reduces NAG availability, creating the primary biochemical lesion in NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"N-acetylglutamate synthase activity\"], \"genes\": [\"NAGS\"], \"locations\": [\"mitochondrion\", \"liver\"]}}, {\"id\": \"NAGS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NAGS\"], \"variant_count\": 3}}, {\"id\": \"Nitrogen scavenger therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium benzoate, sodium phenylacetate, or sodium phenylbutyrate may be used as adjunctive ammonia-lowering agents during acute hyperammonemic crises. These drugs provide alternative nitrogen disposal pathways independent of the urea cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sodium benzoate\", \"sodium phenylbutyrate\"]}}, {\"id\": \"Plasma ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:28938\", \"term_label\": \"ammonium\"}}, {\"id\": \"Plasma citrulline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:18211\", \"term_label\": \"citrulline\"}}, {\"id\": \"Plasma glutamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:28300\", \"term_label\": \"glutamine\"}}, {\"id\": \"Systemic hyperammonemia and glutamine diversion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced NAG-dependent CPS1 activation impairs hepatic nitrogen disposal. Ammonia and glutamine rise, citrulline falls, and urinary orotic acid remains normal to low, creating the systemic biochemical state that drives acute decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}, {\"id\": \"Urine orotic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16742\", \"term_label\": \"orotic acid\"}}, {\"id\": \"Variant-specific biochemical mechanisms of NAGS dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional characterization of 23 patient-derived NAGS missense variants using stabilized recombinant human enzyme has identified multiple mechanistic classes of pathogenicity including loss of arginine activation, increased Km for glutamate, active site inactivation, decreased thermal stability, and protein misfolding. This approach outperforms bacterial surrogate enzymes and in silico prediction tools for assessing pathogenicity and guiding therapeutic decisions.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"NAGS molecular function deficiency\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of CPS1 activation and impaired ureagenesis\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Plasma ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Plasma glutamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Plasma citrulline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Urine orotic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic hyperammonemia and glutamine diversion\", \"target\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired arginine-mediated NAGS regulation\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"target\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"target\": \"Cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Variant-specific biochemical mechanisms of NAGS dysfunction\", \"target\": \"NAGS molecular function deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Variant-specific biochemical mechanisms of NAGS dysfunction\", \"target\": \"Impaired arginine-mediated NAGS regulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carglumic acid (N-carbamyl-L-glutamate)\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carglumic acid (N-carbamyl-L-glutamate)\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary protein management\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extracorporeal ammonia removal\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Citrulline and arginine supplementation\", \"target\": \"Impaired arginine-mediated NAGS regulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carbamylglutamate therapeutic trial\", \"target\": \"Systemic hyperammonemia and glutamine diversion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"NAGS pathogenic variants\", \"target\": \"NAGS molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NAGS - c.1097-2A\u003eT splice-site variant\", \"target\": \"NAGS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NAGS - c.344C\u003eT (p.Ala115Val) missense variant\", \"target\": \"NAGS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NAGS - Multiple nonsynonymous variants characterized by recombinant enzyme assay\", \"target\": \"NAGS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3659,6 +3872,8 @@
                 
                 <div class="evidence-explanation">Documents vomiting as a recurrent symptom in a late-onset NAGS deficiency case.</div>
                 
+                
+                
             </div>
             
             
@@ -3724,6 +3939,8 @@
                 
                 <div class="evidence-explanation">Directly identifies hyperammonemia as the defining feature of NAGS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3743,6 +3960,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms hyperammonemic crises as the key clinical problem in NAGS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -3799,6 +4018,8 @@
                 
                 
                 <div class="evidence-explanation">Directly supports cerebral edema as a consequence of hyperammonemia in UCDs.</div>
+                
+                
                 
             </div>
             
@@ -3893,6 +4114,8 @@
                 
                 <div class="evidence-explanation">Directly supports hyperammonemic encephalopathy as a common severe presentation of UCDs.</div>
                 
+                
+                
             </div>
             
             
@@ -3948,6 +4171,8 @@
                 
                 
                 <div class="evidence-explanation">Supports neurological symptoms including altered consciousness in UCDs.</div>
+                
+                
                 
             </div>
             
@@ -4005,6 +4230,8 @@
                 
                 <div class="evidence-explanation">Documents seizure activity in a patient with NAGS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4060,6 +4287,8 @@
                 
                 
                 <div class="evidence-explanation">Documents poor long-term outcomes from hyperammonemic episodes in NAGS deficiency.</div>
+                
+                
                 
             </div>
             
@@ -4117,6 +4346,8 @@
                 
                 <div class="evidence-explanation">Highlights headache as a diagnostically important symptom in late-onset NAGS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -4172,6 +4403,8 @@
                 
                 
                 <div class="evidence-explanation">Documents recurrent episodes of altered consciousness before NAGS deficiency diagnosis.</div>
+                
+                
                 
             </div>
             
@@ -4299,6 +4532,8 @@
                 
                 <div class="evidence-explanation">Documents the breadth of reported NAGS deficiency cases and families with diverse variants.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4319,6 +4554,8 @@
                 
                 <div class="evidence-explanation">Emphasizes the critical importance of genetic characterization for differentiating NAGS deficiency from CPS1 deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4338,6 +4575,8 @@
                 
                 
                 <div class="evidence-explanation">ClinGen classifies the NAGS-hyperammonemia due to N-acetylglutamate synthase deficiency gene-disease relationship as definitive with autosomal recessive inheritance.</div>
+                
+                
                 
             </div>
             
@@ -4450,6 +4689,8 @@
                 
                 <div class="evidence-explanation">Directly supports carglumic acid as a CPS1-activating NAG analogue.</div>
                 
+                
+                
             </div>
             
             
@@ -4493,6 +4734,8 @@
                 
                 <div class="evidence-explanation">Clinical response shows inhibition of the systemic biochemical decompensation state.</div>
                 
+                
+                
             </div>
             
             
@@ -4532,6 +4775,8 @@
                 
                 <div class="evidence-explanation">Directly demonstrates efficacy of carbamylglutamate in normalizing biochemical parameters.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4552,6 +4797,8 @@
                 
                 <div class="evidence-explanation">Establishes carglumic acid as the specific curative drug for NAGS deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4571,6 +4818,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms NAGS deficiency is cured by substitutive therapy with carglumic acid.</div>
+                
+                
                 
             </div>
             
@@ -4659,6 +4908,8 @@
                 
                 <div class="evidence-explanation">Supports dietary protein management as an ammonia-prevention strategy.</div>
                 
+                
+                
             </div>
             
             
@@ -4698,6 +4949,8 @@
                 
                 <div class="evidence-explanation">Documents that protein restriction is not routinely needed with carbamylglutamate but remains a consideration.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4718,6 +4971,8 @@
                 
                 <div class="evidence-explanation">Highlights the evolving role of dietary management alongside pharmacotherapy.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4737,6 +4992,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms variable use of protein restriction alongside drug therapy.</div>
+                
+                
                 
             </div>
             
@@ -4846,6 +5103,8 @@
                 
                 <div class="evidence-explanation">Clinical UCD management review directly supports the bypass mechanism for ammonia scavengers.</div>
                 
+                
+                
             </div>
             
             
@@ -4885,6 +5144,8 @@
                 
                 <div class="evidence-explanation">Confirms the use of nitrogen scavengers as part of NAGS deficiency management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4904,6 +5165,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the use of nitrogen scavengers in acute hyperammonemia management.</div>
+                
+                
                 
             </div>
             
@@ -4992,6 +5255,8 @@
                 
                 <div class="evidence-explanation">Supports extracorporeal ammonia detoxification as an acute mechanism-directed treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -5031,6 +5296,8 @@
                 
                 <div class="evidence-explanation">Directly supports use of hemodialysis for acute ammonia removal in UCDs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5050,6 +5317,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes dialysis threshold and its role in acute UCD management.</div>
+                
+                
                 
             </div>
             
@@ -5129,6 +5398,8 @@
                 
                 <div class="evidence-explanation">Emphasizes the importance of crisis planning and supportive measures.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5148,6 +5419,8 @@
                 
                 
                 <div class="evidence-explanation">Supports comprehensive supportive care for long-term management.</div>
+                
+                
                 
             </div>
             
@@ -5255,6 +5528,8 @@
                 
                 <div class="evidence-explanation">Supports L-arginine as a positive regulator of mammalian NAGS activity.</div>
                 
+                
+                
             </div>
             
             
@@ -5293,6 +5568,8 @@
                 
                 
                 <div class="evidence-explanation">Documents the use of citrulline and arginine supplementation in NAGS deficiency management.</div>
+                
+                
                 
             </div>
             
@@ -5372,6 +5649,8 @@
                 
                 <div class="evidence-explanation">Emphasizes the critical therapeutic implications of genetic diagnosis, supporting the role of genetic counseling.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5391,6 +5670,8 @@
                 
                 
                 <div class="evidence-explanation">Autosomal recessive inheritance supports the need for genetic counseling.</div>
+                
+                
                 
             </div>
             
@@ -5491,6 +5772,8 @@
                 
                 <div class="evidence-explanation">Therapeutic response of ammonia levels links the trial to the systemic hyperammonemia mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -5530,6 +5813,8 @@
                 
                 <div class="evidence-explanation">Supports use of carbamylglutamate therapeutic trial for diagnosis and treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -5566,6 +5851,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5591,6 +5877,8 @@
                 
                 <div class="evidence-explanation">Confirms elevated ammonia at baseline with normalization upon treatment.</div>
                 
+                
+                
             </div>
             
             
@@ -5609,6 +5897,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Elevated plasma glutamine is characteristic of proximal urea cycle defects including NAGS deficiency. Glutamine accumulates as ammonia is shunted into glutamine synthesis as an alternative detoxification pathway.</div>
+                
                 
                 
     
@@ -5636,6 +5925,8 @@
                 
                 <div class="evidence-explanation">Directly supports increased plasma glutamine in NAGS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -5655,6 +5946,7 @@
                 
                 <div class="item-desc">Context: Citrulline is typically decreased or low in proximal urea cycle defects including NAGS deficiency, reflecting reduced CPS1 activity and diminished carbamoyl phosphate production. Citrulline levels normalize with carbamylglutamate therapy.
 </div>
+                
                 
                 
     
@@ -5682,6 +5974,8 @@
                 
                 <div class="evidence-explanation">Confirms abnormal (decreased) citrulline at baseline with normalization on treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5702,6 +5996,8 @@
                 
                 <div class="evidence-explanation">Directly supports reduced plasma citrulline in the proximal-UCD profile of NAGS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -5721,6 +6017,7 @@
                 
                 <div class="item-desc">Context: Urine orotic acid is typically normal to low in NAGS deficiency (and CPS1 deficiency), distinguishing these proximal urea cycle defects from more distal blocks such as OTC deficiency where orotic acid is elevated. However, mild elevations have been reported in some NAGS deficiency cases.
 </div>
+                
                 
                 
     
@@ -5748,6 +6045,8 @@
                 
                 <div class="evidence-explanation">Documents that some patients had abnormal orotic acid levels that normalized on treatment.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5768,6 +6067,8 @@
                 
                 <div class="evidence-explanation">Directly supports normal-to-low urinary orotic acid in NAGS deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -5787,6 +6088,7 @@
                 
                 <div class="item-desc">Context: NAG is the direct product of NAGS and the essential allosteric activator of CPS1. NAG levels are reduced in NAGS deficiency, but direct measurement is not routinely available in clinical practice. The biochemical defect is bypassed by exogenous N-carbamyl-L-glutamate (carglumic acid).
 </div>
+                
                 
                 
     
@@ -5814,6 +6116,8 @@
                 
                 <div class="evidence-explanation">Supports that NAGS produces NAG; its deficiency would result in decreased NAG.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5833,6 +6137,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms the NAG deficiency is the primary biochemical lesion and can be bypassed by an analogue.</div>
+                
+                
                 
             </div>
             

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2845,6 +3036,8 @@
                 
                 <div class="evidence-explanation">Monozygotic twin concordance for MSM syndrome features strongly supports a genetic basis for the disorder.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2864,6 +3057,8 @@
                 
                 
                 <div class="evidence-explanation">The authors explicitly conclude that the concordance in monozygotic twins indicates a genetic basis for MSM syndrome.</div>
+                
+                
                 
             </div>
             
@@ -3035,6 +3230,8 @@
                 
                 <div class="evidence-explanation">Establishes the estrogen hypothesis for HFI pathogenesis based on a large-scale anthropological study of over 1,700 skulls.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3055,6 +3252,8 @@
                 
                 <div class="evidence-explanation">The association of HFI with hormonal disturbances in males further supports the endocrine-mediated pathogenesis hypothesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3074,6 +3273,8 @@
                 
                 
                 <div class="evidence-explanation">Summarizes the leading etiological theories including estrogen, leptin, and hormonal imbalance for HFI development.</div>
+                
+                
                 
             </div>
             
@@ -3219,6 +3420,8 @@
                 
                 <div class="evidence-explanation">Imaging findings demonstrate the association between HFI and cortical atrophy in a patient with MSM syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3239,6 +3442,8 @@
                 
                 <div class="evidence-explanation">Establishes the historical association between HFI and neuropsychiatric symptoms including depression and dementia as core features of MSM.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3258,6 +3463,8 @@
                 
                 
                 <div class="evidence-explanation">Demonstrates dose-response relationship between HFI severity and neuropsychiatric symptom severity, supporting mechanical compression.</div>
+                
+                
                 
             </div>
             
@@ -3391,6 +3598,8 @@
                 
                 <div class="evidence-explanation">Demonstrates a highly significant association between hyperprolactinemia and HFI in acromegalic patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3411,6 +3620,8 @@
                 
                 <div class="evidence-explanation">Supports the association between HFI and hyperprolactinemia as a contributing pathway in MSM syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3430,6 +3641,8 @@
                 
                 
                 <div class="evidence-explanation">A more recent study found no difference in prolactin levels between HFI-positive and HFI-negative acromegalic patients, suggesting the relationship may be indirect.</div>
+                
+                
                 
             </div>
             
@@ -3529,6 +3742,8 @@
                 
                 <div class="evidence-explanation">Establishes the association between HFI and headaches in affected individuals, supporting the increased ICP hypothesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3548,6 +3763,8 @@
                 
                 
                 <div class="evidence-explanation">The imaging findings of cortical atrophy in conjunction with extensive HFI support the hypothesis of increased intracranial pressure effects.</div>
+                
+                
                 
             </div>
             
@@ -3673,6 +3890,8 @@
                 
                 <div class="evidence-explanation">Hyperprolactinemia is strongly associated with HFI. Galactorrhea is a direct clinical manifestation of hyperprolactinemia.</div>
                 
+                
+                
             </div>
             
             
@@ -3737,6 +3956,8 @@
                 
                 
                 <div class="evidence-explanation">Dizziness documented as part of the clinical presentation in a case of MSM syndrome.</div>
+                
+                
                 
             </div>
             
@@ -3803,6 +4024,8 @@
                 
                 <div class="evidence-explanation">Type 2 diabetes mellitus is documented as a comorbidity in this MSM syndrome case report.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3823,6 +4046,8 @@
                 
                 <div class="evidence-explanation">Hyperglycemia and metabolic disturbances are documented features of MSM syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3842,6 +4067,8 @@
                 
                 
                 <div class="evidence-explanation">Metabolic dysfunctions including glucose dysregulation are considered integral components of MSM syndrome.</div>
+                
+                
                 
             </div>
             
@@ -3937,6 +4164,8 @@
                 
                 <div class="evidence-explanation">Hyperprolactinemia is strongly associated with HFI, and amenorrhea is a well-established consequence of hyperprolactinemia.</div>
                 
+                
+                
             </div>
             
             
@@ -4002,6 +4231,8 @@
                 
                 <div class="evidence-explanation">Confirms hyperostosis frontalis interna as the defining feature of the syndrome, historically described from its first report.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4022,6 +4253,8 @@
                 
                 <div class="evidence-explanation">Defines HFI as bone accretion on the inner table of the frontal bone, consistent with the phenotype description.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4041,6 +4274,8 @@
                 
                 
                 <div class="evidence-explanation">Specifies that HFI exclusively affects the inner table, sparing the diploe and external table.</div>
+                
+                
                 
             </div>
             
@@ -4107,6 +4342,8 @@
                 
                 <div class="evidence-explanation">Hirsutism was one of the original features described by Morgagni in 1719 alongside HFI and obesity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4126,6 +4363,8 @@
                 
                 
                 <div class="evidence-explanation">Hypertrichosis (hirsutism) is listed as a defining feature of MSM syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4192,6 +4431,8 @@
                 
                 <div class="evidence-explanation">Headache is documented as a presenting symptom in this case of MSM syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4211,6 +4452,8 @@
                 
                 
                 <div class="evidence-explanation">Severe frontal headache was the presenting symptom in this case of full-penetrance MSM syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4268,6 +4511,8 @@
                 
                 <div class="evidence-explanation">Both monozygotic twins with MSM syndrome had generalized seizures since early adulthood, supporting seizures as a feature of the syndrome.</div>
                 
+                
+                
             </div>
             
             
@@ -4324,6 +4569,8 @@
                 
                 <div class="evidence-explanation">Cognitive impairment is documented in both twins with MSM syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4343,6 +4590,8 @@
                 
                 
                 <div class="evidence-explanation">Cognitive impairment is part of the clinical presentation in this case of MSM syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4400,6 +4649,8 @@
                 
                 <div class="evidence-explanation">Depression is one of the classic neuropsychiatric features that helped define MSM syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4419,6 +4670,8 @@
                 
                 
                 <div class="evidence-explanation">Recurrent depressive disorder documented in one of the monozygotic twins with MSM syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4485,6 +4738,8 @@
                 
                 <div class="evidence-explanation">Obesity is documented as a core feature in this twin case report of MSM syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4505,6 +4760,8 @@
                 
                 <div class="evidence-explanation">Obesity and metabolic disturbances documented in a clinical case of MSM syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4524,6 +4781,8 @@
                 
                 
                 <div class="evidence-explanation">Obesity is listed as a defining feature of MSM syndrome.</div>
+                
+                
                 
             </div>
             
@@ -4610,6 +4869,8 @@
                 
                 <div class="evidence-explanation">Identical phenotype in monozygotic twins provides strong evidence for a genetic basis of MSM syndrome.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4629,6 +4890,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the hypothesis that genetic or epigenetic factors underlie HFI susceptibility.</div>
+                
+                
                 
             </div>
             
@@ -4722,6 +4985,8 @@
                 
                 <div class="evidence-explanation">Severe frontal headache is a prominent presenting symptom in MSM syndrome requiring pharmacological management.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4741,6 +5006,8 @@
                 
                 
                 <div class="evidence-explanation">Headache is documented as a presenting complaint requiring symptomatic treatment in MSM.</div>
+                
+                
                 
             </div>
             
@@ -4822,6 +5089,8 @@
                 
                 <div class="evidence-explanation">Generalized seizures from early adulthood in MSM patients require ongoing antiepileptic management.</div>
                 
+                
+                
             </div>
             
             
@@ -4902,6 +5171,8 @@
                 
                 <div class="evidence-explanation">Multidisciplinary management targeting multiple organ systems led to favorable outcomes in an acute MSM case.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4921,6 +5192,8 @@
                 
                 
                 <div class="evidence-explanation">Authors emphasize the importance of multidisciplinary collaboration for MSM syndrome management.</div>
+                
+                
                 
             </div>
             
@@ -5002,6 +5275,8 @@
                 
                 <div class="evidence-explanation">Evidence for a genetic basis supports the recommendation for genetic counseling in affected families.</div>
                 
+                
+                
             </div>
             
             
@@ -5070,6 +5345,8 @@
                 
                 <div class="evidence-explanation">Large-scale anthropological study supports prolonged estrogen stimulation as a contributing factor to HFI development.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5090,6 +5367,8 @@
                 
                 <div class="evidence-explanation">Age-related increase in HFI frequency is consistent with cumulative estrogen exposure as a risk factor.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5109,6 +5388,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies extended estrogen stimulation as a potential contributing factor for HFI development.</div>
+                
+                
                 
             </div>
             
@@ -5142,6 +5423,7 @@
                 <div class="item-desc">Context: Basal plasma growth hormone levels slightly increased with failure to suppress after glucose loading</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5167,6 +5449,8 @@
                 
                 <div class="evidence-explanation">HFI is significantly more frequent in patients with GH excess (acromegaly), though the study found no direct causal role for GH in HFI etiopathogenesis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5187,6 +5471,8 @@
                 
                 <div class="evidence-explanation">Highly significant association between acromegaly (GH excess) and HFI prevalence.</div>
                 
+                
+                
             </div>
             
             
@@ -5205,6 +5491,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Hyperprolactinemia found in patients with hyperostosis frontalis interna and galactorrhea</div>
+                
                 
                 
     
@@ -5232,6 +5519,8 @@
                 
                 <div class="evidence-explanation">Highly significant association between hyperprolactinemia and HFI in acromegalic patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5251,6 +5540,8 @@
                 
                 
                 <div class="evidence-explanation">While hyperprolactinemia has been historically associated with MSM, this study found no difference in prolactin levels between HFI-positive and HFI-negative acromegalic patients.</div>
+                
+                
                 
             </div>
             
@@ -5331,6 +5622,8 @@
                 
                 <div class="evidence-explanation">Paget disease is listed as a major differential diagnosis for cranial hyperostosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5351,6 +5644,8 @@
                 
                 <div class="evidence-explanation">Emphasizes the importance of distinguishing HFI from Paget disease and other conditions affecting the frontal skull bone.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5370,6 +5665,8 @@
                 
                 
                 <div class="evidence-explanation">The key distinguishing feature is that HFI exclusively affects the inner table, while Paget disease involves all layers.</div>
+                
+                
                 
             </div>
             
@@ -5434,6 +5731,8 @@
                 
                 <div class="evidence-explanation">Meningioma is listed as a major differential diagnosis for cranial hyperostosis.</div>
                 
+                
+                
             </div>
             
             
@@ -5496,6 +5795,8 @@
                 
                 
                 <div class="evidence-explanation">Fibrous dysplasia is listed as a major differential diagnosis for cranial hyperostosis.</div>
+                
+                
                 
             </div>
             
@@ -6486,6 +6787,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.</div>
                 
+                
+                
             </div>
             
             
@@ -6552,6 +6855,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.</div>
+                
+                
                 
             </div>
             
@@ -6620,6 +6925,8 @@ references:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.</div>
                 
+                
+                
             </div>
             
             
@@ -6686,6 +6993,8 @@ references:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Morgagni-Stewart-Morel Syndrome.</div>
+                
+                
                 
             </div>
             

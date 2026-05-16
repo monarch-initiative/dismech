@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2608,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
@@ -2579,7 +2770,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2725,6 +2916,8 @@
                 
                 <div class="evidence-explanation">Demonstrates compound heterozygous inheritance pattern consistent with autosomal recessive transmission.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2744,6 +2937,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews provides the canonical 25/50/25 autosomal recessive recurrence risk framework for GA1 families.</div>
+                
+                
                 
             </div>
             
@@ -2839,6 +3034,8 @@
                 
                 <div class="evidence-explanation">Comprehensive biochemical characterization of GCDH misfolding across multiple variants.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2859,6 +3056,8 @@
                 
                 <div class="evidence-explanation">Loss of the native tetrameric assembly directly impairs enzymatic activity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2878,6 +3077,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes GA1 as a protein misfolding disorder, opening avenues for pharmacological chaperone therapy.</div>
+                
+                
                 
             </div>
             
@@ -3010,6 +3211,8 @@
                 
                 <div class="evidence-explanation">Defines GA1 as GCDH deficiency at the terminal step of lysine catabolism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3029,6 +3232,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the core enzymatic deficiency in GA1.</div>
+                
+                
                 
             </div>
             
@@ -3119,6 +3324,8 @@
                 
                 <div class="evidence-explanation">Supports toxic metabolite accumulation in brain as a proximal injury step.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3138,6 +3345,8 @@
                 
                 
                 <div class="evidence-explanation">Rescue by liver-directed interventions supports metabolite burden as a causal brain-injury mediator.</div>
+                
+                
                 
             </div>
             
@@ -3266,6 +3475,8 @@
                 
                 <div class="evidence-explanation">Demonstrates oxidative stress in striatum and cortex of GCDH-deficient mice.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3285,6 +3496,8 @@
                 
                 
                 <div class="evidence-explanation">Shows NF-kB-mediated neuroinflammation in the striatum.</div>
+                
+                
                 
             </div>
             
@@ -3341,6 +3554,13 @@
 	                    <div class="crosslink-list">
 	                        
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Encephalopathy</span>
+	                            
+	                            <span class="crosslink-desc">Acute striatal degeneration manifests clinically as encephalopathic crises.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Dystonia</span>
 	                            
 	                            <span class="crosslink-desc">Bilateral striatal injury produces chronic dystonic movement disorder.</span>
@@ -3390,6 +3610,8 @@
                 
                 <div class="evidence-explanation">Confirms striatal degeneration as a hallmark of GA1 neuropathology.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3410,6 +3632,8 @@
                 
                 <div class="evidence-explanation">DKI imaging demonstrates that putamen microstructural damage correlates with dystonia severity.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3429,6 +3653,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews summarizes the canonical striatal injury to movement-disorder progression in untreated GA1.</div>
+                
+                
                 
             </div>
             
@@ -3464,7 +3690,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bezafibrate (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The pan-PPAR agonist bezafibrate has shown neuroprotective effects in GCDH-deficient mice by normalizing oxidative stress and neuroinflammation in the striatum.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"bezafibrate\"]}}, {\"id\": \"Brain exposure to toxic GA1 catabolites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain tissue exposure to GA, 3-OH-GA, and related metabolites is the convergent toxic step in GA1. Competing origin models (intracerebral production versus hepatic source with transport) can be superimposed at this node.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"Brain\", \"Striatum\"]}}, {\"id\": \"Cerebral white matter hyperintensity on MRI\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormalities in white matter are detected on MRI in the majority of GA1 patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030890\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complex dystonic movement disorder resulting from bilateral striatal injury during encephalopathic crises. Severity correlates with extent of putamen damage on neuroimaging.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Frontotemporal cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frontotemporal atrophy with widened Sylvian fissures and expanded CSF spaces is a characteristic neuroimaging finding in GA1.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006892\"}}, {\"id\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of glutaryl-CoA dehydrogenase (GCDH), the last enzyme of lysine catabolism, drives accumulation of glutaric acid (GA), 3-hydroxyglutaric acid (3-OH-GA), and glutarylcarnitine (C5DC).\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular amino acid catabolic process\"], \"genes\": [\"GCDH\"], \"locations\": [\"Liver\", \"Striatum\"]}}, {\"id\": \"GCDH protein misfolding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many GA1-causing missense variants lead to protein misfolding characterized by altered oligomerization, loss of protein stability and solubility, and increased susceptibility to aggregation. Reduced cellular activity is associated with loss of GCDH tetramerization. Variants closer to the N-terminus show more pronounced protein loss.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"GCDH\"]}}, {\"id\": \"GCDH variants causing glutaryl-CoA dehydrogenase deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GCDH\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"Gene therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV-mediated gene therapy is under preclinical investigation for GA1. Both liver-directed approaches (replacing GCDH or deleting AASS to prevent lysine degradation flux) and systemic AAV9-GCDH delivery have shown efficacy in mouse models, restoring enzyme activity and preventing lysine diet-induced neuropathology.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Oxidative stress and neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GCDH deficiency leads to disturbed redox homeostasis including increased lipid peroxidation, altered antioxidant defenses, and a pro-inflammatory response in the striatum and cerebral cortex. NF-kB pathway activation and microglial activation contribute to neuroinflammation. Mitochondrial dynamics are also disrupted with activated mitochondrial fission.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to oxidative stress\", \"Inflammatory response\"], \"locations\": [\"Striatum\", \"Cerebral cortex\"]}}, {\"id\": \"Striatal vulnerability and encephalopathic crises\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immature striatum is selectively vulnerable to damage during acute encephalopathic crises, typically occurring between ages 3 and 36 months. Catabolic stress from intercurrent illness triggers massive accumulation of neurotoxic metabolites, leading to bilateral striatal necrosis. This results in an irreversible complex dystonic movement disorder. The vulnerability window corresponds to a critical developmental period of striatal maturation.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"Striatum\", \"Putamen\", \"Caudate nucleus\"]}}], \"edges\": [{\"source\": \"GCDH protein misfolding\", \"target\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"target\": \"Brain exposure to toxic GA1 catabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"target\": \"Brain exposure to toxic GA1 catabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain exposure to toxic GA1 catabolites\", \"target\": \"Oxidative stress and neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain exposure to toxic GA1 catabolites\", \"target\": \"Striatal vulnerability and encephalopathic crises\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and neuroinflammation\", \"target\": \"Striatal vulnerability and encephalopathic crises\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Striatal vulnerability and encephalopathic crises\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Striatal vulnerability and encephalopathic crises\", \"target\": \"Frontotemporal cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Striatal vulnerability and encephalopathic crises\", \"target\": \"Cerebral white matter hyperintensity on MRI\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"Brain exposure to toxic GA1 catabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bezafibrate (investigational)\", \"target\": \"Oxidative stress and neuroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GCDH variants causing glutaryl-CoA dehydrogenase deficiency\", \"target\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCDH variants causing glutaryl-CoA dehydrogenase deficiency\", \"target\": \"GCDH protein misfolding\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bezafibrate (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The pan-PPAR agonist bezafibrate has shown neuroprotective effects in GCDH-deficient mice by normalizing oxidative stress and neuroinflammation in the striatum.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"bezafibrate\"]}}, {\"id\": \"Brain exposure to toxic GA1 catabolites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain tissue exposure to GA, 3-OH-GA, and related metabolites is the convergent toxic step in GA1. Competing origin models (intracerebral production versus hepatic source with transport) can be superimposed at this node.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"Brain\", \"Striatum\"]}}, {\"id\": \"Carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-carnitine supplementation helps replenish secondary carnitine deficiency caused by urinary losses of glutarylcarnitine (C5DC) and supports metabolite detoxification.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carnitine\"]}}, {\"id\": \"Cerebral white matter hyperintensity on MRI\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormalities in white matter are detected on MRI in the majority of GA1 patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030890\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complex dystonic movement disorder resulting from bilateral striatal injury during encephalopathic crises. Severity correlates with extent of putamen damage on neuroimaging.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Elevated 3-hydroxyglutaric acid in urine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary 3-OH-GA elevation reports accumulation of neurotoxic GA1 metabolites downstream of GCDH deficiency.\"}]}}, {\"id\": \"Elevated glutaric acid in urine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary glutaric acid elevation reports accumulation of GA1 catabolites downstream of GCDH deficiency.\"}]}}, {\"id\": \"Elevated glutarylcarnitine (C5DC)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated C5DC in blood reports the disrupted GCDH-dependent lysine-catabolism pathway.\"}]}}, {\"id\": \"Emergency management during intercurrent illness\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aggressive emergency treatment during catabolic crises including high-energy intravenous glucose, prevention of catabolism, and monitoring to prevent acute striatal necrosis. The emergency protocol is critical during the vulnerability window (3-36 months of age).\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute encephalopathic crises typically occur between 3 and 36 months of age, often triggered by catabolic stress from febrile illness. These crises cause irreversible striatal injury if not prevented by emergency management.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Frontotemporal cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frontotemporal atrophy with widened Sylvian fissures and expanded CSF spaces is a characteristic neuroimaging finding in GA1.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006892\"}}, {\"id\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of glutaryl-CoA dehydrogenase (GCDH), the last enzyme of lysine catabolism, drives accumulation of glutaric acid (GA), 3-hydroxyglutaric acid (3-OH-GA), and glutarylcarnitine (C5DC).\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular amino acid catabolic process\"], \"genes\": [\"GCDH\"], \"locations\": [\"Liver\", \"Striatum\"]}}, {\"id\": \"GCDH protein misfolding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many GA1-causing missense variants lead to protein misfolding characterized by altered oligomerization, loss of protein stability and solubility, and increased susceptibility to aggregation. Reduced cellular activity is associated with loss of GCDH tetramerization. Variants closer to the N-terminus show more pronounced protein loss.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"GCDH\"]}}, {\"id\": \"GCDH variants causing glutaryl-CoA dehydrogenase deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GCDH\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"Gene therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV-mediated gene therapy is under preclinical investigation for GA1. Both liver-directed approaches (replacing GCDH or deleting AASS to prevent lysine degradation flux) and systemic AAV9-GCDH delivery have shown efficacy in mouse models, restoring enzyme activity and preventing lysine diet-induced neuropathology.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Lysine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A low-lysine or lysine-free diet is a cornerstone of GA1 metabolic treatment, aiming to reduce substrate availability for the deficient enzyme and decrease toxic metabolite production.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oxidative stress and neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GCDH deficiency leads to disturbed redox homeostasis including increased lipid peroxidation, altered antioxidant defenses, and a pro-inflammatory response in the striatum and cerebral cortex. NF-kB pathway activation and microglial activation contribute to neuroinflammation. Mitochondrial dynamics are also disrupted with activated mitochondrial fission.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to oxidative stress\", \"Inflammatory response\"], \"locations\": [\"Striatum\", \"Cerebral cortex\"]}}, {\"id\": \"Striatal vulnerability and encephalopathic crises\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immature striatum is selectively vulnerable to damage during acute encephalopathic crises, typically occurring between ages 3 and 36 months. Catabolic stress from intercurrent illness triggers massive accumulation of neurotoxic metabolites, leading to bilateral striatal necrosis. This results in an irreversible complex dystonic movement disorder. The vulnerability window corresponds to a critical developmental period of striatal maturation.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"Striatum\", \"Putamen\", \"Caudate nucleus\"]}}, {\"id\": \"Subdural hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Children with GA1 are predisposed to subdural hematoma development due to stretching of cortical veins secondary to cerebral atrophy and expansion of CSF spaces. SDH in GA1 must be distinguished from abusive head trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100309\"}}], \"edges\": [{\"source\": \"GCDH protein misfolding\", \"target\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"target\": \"Brain exposure to toxic GA1 catabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"target\": \"Brain exposure to toxic GA1 catabolites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain exposure to toxic GA1 catabolites\", \"target\": \"Oxidative stress and neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain exposure to toxic GA1 catabolites\", \"target\": \"Striatal vulnerability and encephalopathic crises\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and neuroinflammation\", \"target\": \"Striatal vulnerability and encephalopathic crises\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Striatal vulnerability and encephalopathic crises\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Striatal vulnerability and encephalopathic crises\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Striatal vulnerability and encephalopathic crises\", \"target\": \"Frontotemporal cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Striatal vulnerability and encephalopathic crises\", \"target\": \"Cerebral white matter hyperintensity on MRI\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Frontotemporal cerebral atrophy\", \"target\": \"Subdural hemorrhage\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Lysine-restricted diet\", \"target\": \"Brain exposure to toxic GA1 catabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carnitine supplementation\", \"target\": \"Brain exposure to toxic GA1 catabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Emergency management during intercurrent illness\", \"target\": \"Striatal vulnerability and encephalopathic crises\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"Brain exposure to toxic GA1 catabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bezafibrate (investigational)\", \"target\": \"Oxidative stress and neuroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"target\": \"Elevated glutarylcarnitine (C5DC)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated C5DC in blood reports the disrupted GCDH-dependent lysine-catabolism pathway.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"target\": \"Elevated glutaric acid in urine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary glutaric acid elevation reports accumulation of GA1 catabolites downstream of GCDH deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"target\": \"Elevated 3-hydroxyglutaric acid in urine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary 3-OH-GA elevation reports accumulation of neurotoxic GA1 metabolites downstream of GCDH deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"GCDH variants causing glutaryl-CoA dehydrogenase deficiency\", \"target\": \"GCDH enzymatic deficiency and disrupted lysine catabolism\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCDH variants causing glutaryl-CoA dehydrogenase deficiency\", \"target\": \"GCDH protein misfolding\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3548,6 +3774,8 @@
                 
                 <div class="evidence-explanation">Systematic review establishing the predisposition to SDH in GA1 and the need to distinguish from abusive head trauma.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3567,6 +3795,8 @@
                 
                 
                 <div class="evidence-explanation">SDHs in GA1 almost always co-occur with other GA1-specific brain abnormalities, distinguishing them from abusive head trauma.</div>
+                
+                
                 
             </div>
             
@@ -3632,6 +3862,8 @@
                 
                 
                 <div class="evidence-explanation">Literature review of Chinese GA1 patients shows macrocephaly in 77% of cases.</div>
+                
+                
                 
             </div>
             
@@ -3772,6 +4004,8 @@
                 
                 <div class="evidence-explanation">DKI imaging demonstrates that basal ganglia microstructural changes correlate with dystonia severity scores.</div>
                 
+                
+                
             </div>
             
             
@@ -3828,6 +4062,8 @@
                 
                 <div class="evidence-explanation">Literature review shows motor delay in 65% of GA1 patients.</div>
                 
+                
+                
             </div>
             
             
@@ -3883,6 +4119,8 @@
                 
                 
                 <div class="evidence-explanation">Acute encephalopathy with striatal degeneration is the hallmark neurological event.</div>
+                
+                
                 
             </div>
             
@@ -3968,6 +4206,8 @@
                 
                 <div class="evidence-explanation">Cognitive impairment is documented, particularly in high excreters, but median IQ of 87 is below-average rather than meeting the threshold for intellectual disability (IQ &lt;70). Most NBS-identified patients have mild cognitive effects rather than frank intellectual disability.</div>
                 
+                
+                
             </div>
             
             
@@ -3998,6 +4238,13 @@
                     
                     
                     
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Subdural hemorrhage</span>
+                        
+                    </div>
+                    
                     
     
     <details class="evidence-details">
@@ -4023,6 +4270,8 @@
                 
                 
                 <div class="evidence-explanation">Cerebral atrophy with CSF space expansion is a recognized GA1 neuroimaging feature.</div>
+                
+                
                 
             </div>
             
@@ -4079,6 +4328,8 @@
                 
                 
                 <div class="evidence-explanation">Supports white matter microstructural injury in GA1, consistent with MRI white matter abnormalities.</div>
+                
+                
                 
             </div>
             
@@ -4165,6 +4416,8 @@
                 
                 <div class="evidence-explanation">Comprehensive literature review of GCDH variant spectrum in Chinese GA1 patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4185,6 +4438,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that missense variants cause protein misfolding affecting biochemical phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4204,6 +4459,8 @@
                 
                 
                 <div class="evidence-explanation">Identifies mutational hotspots in the GCDH gene.</div>
+                
+                
                 
             </div>
             
@@ -4269,6 +4526,56 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Brain exposure to toxic GA1 catabolites</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Lysine restriction reduces substrate flux intended to minimize CNS exposure to lysine-derived toxic byproducts.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Combined metabolic therapy includes low-lysine diet, carnitine supplementation, and emergency treatment during episodes with the goal of averting catabolism and minimizing CNS exposure to lysine and its toxic metabolic byproducts."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews explicitly frames low-lysine diet as part of therapy aimed at minimizing CNS toxic-metabolite exposure.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4297,6 +4604,8 @@
                 
                 <div class="evidence-explanation">Diet is standard of care but current therapy does not fully prevent cognitive impairment, particularly in high excreters.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4316,6 +4625,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews supports low-lysine diet as a core component of combined metabolic therapy aimed at reducing neurotoxic exposure.</div>
+                
+                
                 
             </div>
             
@@ -4379,6 +4690,56 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Brain exposure to toxic GA1 catabolites</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Carnitine supplementation is part of combined metabolic therapy intended to reduce toxic byproduct exposure.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Combined metabolic therapy includes low-lysine diet, carnitine supplementation, and emergency treatment during episodes with the goal of averting catabolism and minimizing CNS exposure to lysine and its toxic metabolic byproducts."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews includes carnitine supplementation in the combined regimen aimed at minimizing CNS toxic-metabolite exposure.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4406,6 +4767,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews identifies carnitine supplementation as part of standard combined metabolic treatment in GA1.</div>
+                
+                
                 
             </div>
             
@@ -4457,6 +4820,56 @@
 </div>
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Striatal vulnerability and encephalopathic crises</strong>
+                        
+                        <span style="color: #7c3aed;"> &mdash; Emergency illness management prevents catabolism during stressors that can precipitate striatal injury and encephalopathic crises.</span>
+                        
+                        
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"&lt;i&gt;Agents/circumstances to avoid:&lt;/i&gt; Excessive dietary protein or protein malnutrition inducing catabolic state, prolonged fasting, catabolic illness (intercurrent infection; brief febrile illness post vaccination), inadequate caloric provision during other stressors (e.g., surgery or procedure..."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews lists catabolic illness, fasting, and inadequate calories as circumstances to avoid, supporting emergency management as prevention of the crisis-triggering mechanism.</div>
+                
+                
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    </div>
+                    
+                </div>
+                
                 
                 
                 
@@ -4485,6 +4898,8 @@
                 
                 <div class="evidence-explanation">GeneReviews supports emergency treatment during illness/stress as a core preventive strategy to reduce CNS toxic exposure.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4504,6 +4919,8 @@
                 
                 
                 <div class="evidence-explanation">Defines key catabolic triggers that emergency protocols are designed to prevent or mitigate.</div>
+                
+                
                 
             </div>
             
@@ -4583,6 +5000,8 @@
                 
                 <div class="evidence-explanation">Machine learning approaches can dramatically improve NBS specificity for GA1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4603,6 +5022,8 @@
                 
                 <div class="evidence-explanation">NBS is an important diagnostic route for GA1 in China.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4622,6 +5043,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews directly supports NBS as outcome-improving and guideline-recommended in GA1.</div>
+                
+                
                 
             </div>
             
@@ -4701,6 +5124,8 @@
                 
                 <div class="evidence-explanation">Genetic variant identification enables genetic counseling and prenatal diagnosis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4721,6 +5146,8 @@
                 
                 <div class="evidence-explanation">GeneReviews supports proactive testing of at-risk siblings as part of counseling and preventive care.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4740,6 +5167,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms scope of reproductive and familial counseling options once familial variants are identified.</div>
+                
+                
                 
             </div>
             
@@ -4828,6 +5257,8 @@
                 
                 <div class="evidence-explanation">Supports restoration of the primary deficient enzymatic node by gene replacement therapy.</div>
                 
+                
+                
             </div>
             
             
@@ -4871,6 +5302,8 @@
                 
                 <div class="evidence-explanation">Supports inhibition of the downstream toxic-catabolite brain exposure pathway.</div>
                 
+                
+                
             </div>
             
             
@@ -4910,6 +5343,8 @@
                 
                 <div class="evidence-explanation">Preclinical evidence for two liver-directed gene therapy strategies for GA1.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4930,6 +5365,8 @@
                 
                 <div class="evidence-explanation">Systemic AAV9-GCDH delivery restores enzyme activity in target tissues.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4949,6 +5386,8 @@
                 
                 
                 <div class="evidence-explanation">Gene therapy prevents striatal neuropathology in the GA1 mouse model.</div>
+                
+                
                 
             </div>
             
@@ -5049,6 +5488,8 @@
                 
                 <div class="evidence-explanation">Supports mechanistic inhibition/modulation of oxidative-inflammatory injury pathways.</div>
                 
+                
+                
             </div>
             
             
@@ -5088,6 +5529,8 @@
                 
                 <div class="evidence-explanation">Bezafibrate treatment normalized oxidative stress and inflammatory markers in GCDH-deficient mice.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5107,6 +5550,8 @@
                 
                 
                 <div class="evidence-explanation">Authors propose bezafibrate as a potential adjuvant therapy based on preclinical evidence.</div>
+                
+                
                 
             </div>
             
@@ -5141,6 +5586,37 @@
                 </div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">GCDH enzymatic deficiency and disrupted lysine catabolism</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Elevated C5DC in blood reports the disrupted GCDH-dependent lysine-catabolism pathway.</div>
+                        
+                        
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5166,6 +5642,8 @@
                 
                 <div class="evidence-explanation">C5DC elevation in blood is near-universal in GA1 patients.</div>
                 
+                
+                
             </div>
             
             
@@ -5180,6 +5658,37 @@
                     Elevated glutaric acid in urine
                     
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">GCDH enzymatic deficiency and disrupted lysine catabolism</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Urinary glutaric acid elevation reports accumulation of GA1 catabolites downstream of GCDH deficiency.</div>
+                        
+                        
+                        
+                        
+    
+    
+                    </div>
                     
                 </div>
                 
@@ -5209,6 +5718,8 @@
                 
                 <div class="evidence-explanation">Urinary GA elevation is present in the vast majority of GA1 patients.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5229,6 +5740,8 @@
                 
                 <div class="evidence-explanation">The high/low excreter distinction based on urinary GA levels is clinically significant for cognitive prognosis.</div>
                 
+                
+                
             </div>
             
             
@@ -5243,6 +5756,37 @@
                     Elevated 3-hydroxyglutaric acid in urine
                     
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">GCDH enzymatic deficiency and disrupted lysine catabolism</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Urinary 3-OH-GA elevation reports accumulation of neurotoxic GA1 metabolites downstream of GCDH deficiency.</div>
+                        
+                        
+                        
+                        
+    
+    
+                    </div>
                     
                 </div>
                 
@@ -5271,6 +5815,8 @@
                 
                 
                 <div class="evidence-explanation">Urinary 3-OH-GA elevation is present in about 69% of GA1 patients.</div>
+                
+                
                 
             </div>
             
@@ -5312,7 +5858,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Glutaryl-CoA Dehydrogenase Deficiency
 creation_date: &#39;2025-12-15T00:00:00Z&#39;
-updated_date: &#39;2026-05-09T04:07:20Z&#39;
+updated_date: &#39;2026-05-11T04:47:15Z&#39;
 category: Mendelian
 description: &#39;Glutaryl-CoA dehydrogenase deficiency (historically termed glutaric aciduria type 1, GA1) is a rare autosomal recessive neurometabolic disorder caused by deficiency of glutaryl-CoA dehydrogenase (GCDH), which catalyzes the final step of lysine, hydroxylysine, and tryptophan catabolism. GCDH deficiency leads to accumulation of neurotoxic metabolites glutaric acid (GA), 3-hydroxyglutaric acid (3-OH-GA), and glutarylcarnitine (C5DC). Untreated disease ranges from infantile-onset to later-onset forms (after age six years). Affected individuals are at highest risk for acute encephalopathic crises in early childhood (especially ages 3-36 months), often triggered by catabolic stress, which cause irreversible bilateral striatal necrosis and a complex dystonic movement disorder. Early diagnosis through newborn screening and adherence to metabolic treatment including lysine-restricted diet, carnitine supplementation, and emergency management during intercurrent illness can prevent striatal injury in the majority of patients. Even in treated cohorts, long-term surveillance is important, including attention to possible renal complications in adolescents and adults.
 
@@ -5818,6 +6364,18 @@ pathophysiology:
     snippet: crises result in acute bilateral striatal injury and subsequent complex movement disorders.
     explanation: GeneReviews summarizes the canonical striatal injury to movement-disorder progression in untreated GA1.
   downstream:
+  - target: Encephalopathy
+    description: Acute striatal degeneration manifests clinically as encephalopathic crises.
+    hypothesis_groups:
+    - canonical_ga1_metabolic_model
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:35639256
+      reference_title: &#34;Disturbance of Mitochondrial Dynamics, Endoplasmic Reticulum-Mitochondria Crosstalk, Redox Homeostasis, and Inflammatory Response in the Brain of Glutaryl-CoA Dehydrogenase-Deficient Mice: Neuroprotective Effects of Bezafibrate.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: acute encephalopathy associated with severe striatum degeneration and progressive cortical and striatal injury
+      explanation: Supports acute encephalopathy as the clinical expression of severe striatal degeneration in the GA1 model.
   - target: Dystonia
     description: Bilateral striatal injury produces chronic dystonic movement disorder.
     hypothesis_groups:
@@ -6040,6 +6598,17 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: cerebral atrophy and expansion of CSF spaces
     explanation: Cerebral atrophy with CSF space expansion is a recognized GA1 neuroimaging feature.
+  sequelae:
+  - target: Subdural hemorrhage
+    description: Cerebral atrophy and expanded CSF spaces stretch cortical veins and predispose to subdural hematoma.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:26219480
+      reference_title: &#34;Subdural hematomas: glutaric aciduria type 1 or abusive head trauma? A systematic review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Children with GA1 are reported to be predisposed to subdural hematoma (SDH) development due to stretching of cortical veins secondary to cerebral atrophy and expansion of CSF spaces.
+      explanation: Directly links the GA1 cerebral atrophy/expanded-CSF phenotype to subdural hematoma predisposition.
 - name: Cerebral white matter hyperintensity on MRI
   frequency: FREQUENT
   description: &#39;Abnormalities in white matter are detected on MRI in the majority of GA1 patients.
@@ -6060,6 +6629,12 @@ phenotypes:
 biochemical:
 - name: Elevated glutarylcarnitine (C5DC)
   presence: INCREASED
+  readouts:
+  - target: GCDH enzymatic deficiency and disrupted lysine catabolism
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: Elevated C5DC in blood reports the disrupted GCDH-dependent lysine-catabolism pathway.
   notes: &#39;C5DC is the primary newborn screening biomarker for GA1 detected by tandem mass spectrometry. Elevated in blood in approximately 98.5% of GA1 patients.
 
     &#39;
@@ -6072,6 +6647,12 @@ biochemical:
     explanation: C5DC elevation in blood is near-universal in GA1 patients.
 - name: Elevated glutaric acid in urine
   presence: INCREASED
+  readouts:
+  - target: GCDH enzymatic deficiency and disrupted lysine catabolism
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: Urinary glutaric acid elevation reports accumulation of GA1 catabolites downstream of GCDH deficiency.
   notes: &#39;Glutaric acid is elevated in urine in approximately 94% of GA1 patients. The level of urinary GA excretion distinguishes high excreters from low excreters.
 
     &#39;
@@ -6090,6 +6671,12 @@ biochemical:
     explanation: The high/low excreter distinction based on urinary GA levels is clinically significant for cognitive prognosis.
 - name: Elevated 3-hydroxyglutaric acid in urine
   presence: INCREASED
+  readouts:
+  - target: GCDH enzymatic deficiency and disrupted lysine catabolism
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: Urinary 3-OH-GA elevation reports accumulation of neurotoxic GA1 metabolites downstream of GCDH deficiency.
   notes: &#39;3-OH-GA is elevated in urine in approximately 69% of GA1 patients and is considered the most neurotoxic metabolite.
 
     &#39;
@@ -6146,6 +6733,16 @@ treatments:
     term:
       id: MAXO:0000088
       label: dietary intervention
+  target_mechanisms:
+  - target: Brain exposure to toxic GA1 catabolites
+    treatment_effect: INHIBITS
+    description: Lysine restriction reduces substrate flux intended to minimize CNS exposure to lysine-derived toxic byproducts.
+    evidence:
+    - reference: &#39;url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Combined metabolic therapy includes low-lysine diet, carnitine supplementation, and emergency treatment during episodes with the goal of averting catabolism and minimizing CNS exposure to lysine and its toxic metabolic byproducts.
+      explanation: GeneReviews explicitly frames low-lysine diet as part of therapy aimed at minimizing CNS toxic-metabolite exposure.
   evidence:
   - reference: PMID:34588557
     reference_title: &#34;The biochemical subtype is a predictor for cognitive function in glutaric aciduria type 1: a national prospective follow-up study.&#34;
@@ -6172,6 +6769,16 @@ treatments:
       term:
         id: CHEBI:17126
         label: carnitine
+  target_mechanisms:
+  - target: Brain exposure to toxic GA1 catabolites
+    treatment_effect: MODULATES
+    description: Carnitine supplementation is part of combined metabolic therapy intended to reduce toxic byproduct exposure.
+    evidence:
+    - reference: &#39;url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Combined metabolic therapy includes low-lysine diet, carnitine supplementation, and emergency treatment during episodes with the goal of averting catabolism and minimizing CNS exposure to lysine and its toxic metabolic byproducts.
+      explanation: GeneReviews includes carnitine supplementation in the combined regimen aimed at minimizing CNS toxic-metabolite exposure.
   notes: &gt;-
     L-carnitine supplementation is recommended in international GA1 guidelines to
     replenish secondary
@@ -6194,6 +6801,16 @@ treatments:
     term:
       id: MAXO:0000950
       label: supportive care
+  target_mechanisms:
+  - target: Striatal vulnerability and encephalopathic crises
+    treatment_effect: INHIBITS
+    description: Emergency illness management prevents catabolism during stressors that can precipitate striatal injury and encephalopathic crises.
+    evidence:
+    - reference: &#39;url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;&lt;i&gt;Agents/circumstances to avoid:&lt;/i&gt; Excessive dietary protein or protein malnutrition inducing catabolic state, prolonged fasting, catabolic illness (intercurrent infection; brief febrile illness post vaccination), inadequate caloric provision during other stressors (e.g., surgery or procedure requiring fasting/anesthesia).&#34;
+      explanation: GeneReviews lists catabolic illness, fasting, and inadequate calories as circumstances to avoid, supporting emergency management as prevention of the crisis-triggering mechanism.
   notes: &gt;-
     Aggressive emergency treatment during catabolic crises is a cornerstone of GA1
     management per
@@ -6421,6 +7038,8 @@ treatments:
                 
                 <div class="evidence-explanation">Supports continued surveillance, including renal monitoring, despite prevention of classic early neurologic crises.</div>
                 
+                
+                
             </div>
             
             
@@ -6463,6 +7082,8 @@ treatments:
                 
                 <div class="evidence-explanation">Captures core treatment principles that structure current management recommendations.</div>
                 
+                
+                
             </div>
             
             
@@ -6504,6 +7125,8 @@ treatments:
                 
                 
                 <div class="evidence-explanation">Provides explicit avoidant-trigger guidance for sick-day and peri-procedural planning.</div>
+                
+                
                 
             </div>
             
@@ -6572,6 +7195,8 @@ treatments:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glutaryl-CoA Dehydrogenase Deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -6638,6 +7263,8 @@ treatments:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glutaryl-CoA Dehydrogenase Deficiency.</div>
+                
+                
                 
             </div>
             
@@ -6780,6 +7407,8 @@ treatments:
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glutaryl-CoA Dehydrogenase Deficiency.</div>
                 
+                
+                
             </div>
             
             
@@ -6846,6 +7475,8 @@ treatments:
                 
                 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glutaryl-CoA Dehydrogenase Deficiency.</div>
+                
+                
                 
             </div>
             
@@ -8274,7 +8905,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Glutaryl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0009281", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glutaryl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "146b262412f2"};
+        const OS_CONFIG = {"diseaseName": "Glutaryl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0009281", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glutaryl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "b410f3cce478"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

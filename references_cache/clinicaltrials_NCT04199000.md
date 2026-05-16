@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04199000
+reference_id: "clinicaltrials:NCT04199000"
 title: Clinical and Basic Investigations Into Congenital Disorders of Glycosylation
 content_type: summary
 ---

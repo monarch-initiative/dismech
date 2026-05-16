@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -3115,6 +3306,8 @@
                 
                 <div class="evidence-explanation">Directly supports primary upstream molecular defects in urea-cycle enzymes; transporter defects are outside this entry&#39;s current subtype scope.</div>
                 
+                
+                
             </div>
             
             
@@ -3295,6 +3488,8 @@
                 
                 <div class="evidence-explanation">Directly supports the urea cycle as the principal ammonia detoxification pathway.</div>
                 
+                
+                
             </div>
             
             
@@ -3408,6 +3603,8 @@
                 
                 
                 <div class="evidence-explanation">Adult UCD review links catabolic stress with excess protein breakdown, exceeded urea-cycle capacity, and ammonia production.</div>
+                
+                
                 
             </div>
             
@@ -3602,6 +3799,8 @@
                 
                 <div class="evidence-explanation">Supports ammonia-mediated brain toxicity as a central downstream mechanism.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3621,6 +3820,8 @@
                 
                 
                 <div class="evidence-explanation">Supports CNS ammonia toxicity as a direct neurologic mechanism in UCD crises.</div>
+                
+                
                 
             </div>
             
@@ -3722,6 +3923,8 @@
                 
                 <div class="evidence-explanation">Supports the mitochondrial localization of proximal urea cycle enzymes where carbamoyl phosphate accumulates.</div>
                 
+                
+                
             </div>
             
             
@@ -3821,6 +4024,8 @@
                 
                 
                 <div class="evidence-explanation">Human UCD cohort review supports chronic liver disease as a recognized complication across UCDs.</div>
+                
+                
                 
             </div>
             
@@ -3957,6 +4162,8 @@
                 
                 <div class="evidence-explanation">The abstract explicitly includes ASL-deficient patients in the glutathione/cysteine dysregulation finding.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3976,6 +4183,8 @@
                 
                 
                 <div class="evidence-explanation">Supports the preclinical mRNA-therapy component of this ASL-specific hepatic redox mechanism.</div>
+                
+                
                 
             </div>
             
@@ -4093,6 +4302,8 @@ ability to use extracellular arginine for NO production."</div>
                 
                 <div class="evidence-explanation">The abstract directly supports reduced nitric oxide synthesis in humans with ASL deficiency.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4114,6 +4325,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Supports a cell-autonomous nitric oxide deficiency mechanism in ASL-deficient systems.</div>
+                
+                
                 
             </div>
             
@@ -4233,6 +4446,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Review of clinical reports supports hyperargininemia with progressive spastic paraparesis as the ARG1-specific neurologic mechanism.</div>
                 
+                
+                
             </div>
             
             
@@ -4267,7 +4482,7 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemia and toxic metabolite accumulation can produce increased neuromuscular tone, spasticity, and ankle clonus during severe decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100022\"}}, {\"id\": \"Acute hyperammonemia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency management includes cessation of protein intake, high-calorie glucose infusion to reverse catabolism, intravenous nitrogen scavengers (sodium benzoate, sodium phenylacetate), and arginine supplementation. When ammonia exceeds 500 umol/L or encephalopathy is present, extracorporeal clearance with continuous renal replacement therapy (CRRT) is recommended.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arginase 1 (ARG1) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARG1\"]}}, {\"id\": \"Arginine and citrulline supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Arginine supplementation replaces the amino acid that cannot be synthesized endogenously in most UCDs (except ARG1 deficiency). Citrulline supplementation may be preferable as it bypasses intestinal and hepatic first-pass metabolism and has been associated with lower mean ammonia concentrations compared to arginine alone.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARG1 deficiency is a distal urea-cycle defect in which chronic hyperargininemia and related guanidino compound accumulation, rather than recurrent severe hyperammonemia alone, dominate the progressive neurologic phenotype. This subtype-specific toxic-metabolite mechanism explains spastic paraplegia-predominant disease.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-arginine catabolic process\"], \"genes\": [\"ARG1\"], \"locations\": [\"brain\"]}}, {\"id\": \"Argininosuccinate lyase (ASL) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASL\"]}}, {\"id\": \"Argininosuccinate synthetase (ASS1) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASS1\"]}}, {\"id\": \"Argininosuccinic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Carbamoyl phosphate overflow to pyrimidine pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In proximal urea cycle defects, particularly OTC deficiency, carbamoyl phosphate accumulates in the mitochondrial matrix and is diverted into the cytosolic pyrimidine synthesis pathway, leading to elevated urinary orotic acid. This overflow is diagnostically useful for distinguishing OTC deficiency from CPS1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"pyrimidine nucleotide biosynthetic process\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Carbamoyl phosphate synthetase I (CPS1) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CPS1\"]}}, {\"id\": \"Carglumic acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carglumic acid (Carbaglu) is a synthetic analog of N-acetylglutamate that directly activates CPS1. It is specifically indicated for NAGS deficiency and is also used for hyperammonemia in organic acidemias. It provides pharmacological bypass of the NAGS enzyme deficiency.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Catabolic stressors such as infection, fasting, surgery, childbirth, or high protein intake increase endogenous protein breakdown and nitrogen load. In patients with partial residual urea-cycle function, this excess nitrogen can exceed detoxification capacity and precipitate acute hyperammonemic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein catabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Cerebral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cytotoxic cerebral edema driven by astrocytic glutamine accumulation and osmotic swelling is a life-threatening complication of severe hyperammonemic crises, contributing to raised intracranial pressure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002181\"}}, {\"id\": \"Chronic UCD liver disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Children and adults with UCDs can develop chronic liver disease even outside acute hyperammonemic episodes. Reported manifestations include abnormal liver enzymes, hepatomegaly, abnormal liver ultrasound, steatosis, fibrosis, cirrhosis with portal hypertension, impaired liver function, and liver failure requiring transplantation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic coma represents the most severe neurological presentation, occurring primarily in neonatal-onset forms. Prognosis is very poor when ammonia exceeds 1000 umol/L with prolonged coma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Deficient urea cycle enzyme function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This curated group entry focuses on loss of function in core urea-cycle enzymes required for nitrogen disposal.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"CPS1\", \"OTC\", \"ASS1\", \"ASL\", \"ARG1\", \"NAGS\"], \"locations\": [\"liver\"]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute or recurrent hyperammonemic encephalopathy with altered mental status, ranging from irritability and lethargy to coma. Severity is time- and concentration-dependent.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth is common due to protein-restricted diets, recurrent catabolic crises, and feeding difficulties.\\n\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is common in children with UCDs, particularly those with neonatal-onset disease or recurrent hyperammonemic episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatic glutathione dysregulation in ASL deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In argininosuccinic aciduria (ASL deficiency), glutathione biosynthesis is dysregulated with upregulated cysteine metabolism but depleted glutathione and downregulated antioxidant pathways. This redox defect provides a molecular basis for chronic liver disease manifestations in ASL deficiency beyond episodic hyperammonemia, and represents a target for mRNA therapy approaches.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glutathione metabolic process\"], \"genes\": [\"ASL\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement can occur in UCDs, particularly in ASL deficiency where chronic liver disease with fibrosis may develop. Hepatic involvement is also seen in citrin deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma ammonia concentration is the defining clinical feature of UCDs. Ammonia rises especially during catabolic stress, infection, or protein loading. In neonates, levels \u003e200 umol/L suggest IEM; after the neonatal period, \u003e100 umol/L is concerning.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ammonia diffuses freely across the blood-brain barrier and is detoxified primarily in astrocytes by conversion to glutamine via glutamine synthetase. During hyperammonemic crises, glutamine becomes an osmolyte that drives astrocytic swelling and cytotoxic cerebral edema. This is accompanied by disrupted glutamate-glutamine cycling, excitotoxicity, impaired energy metabolism, and altered aquaporin-4 expression, culminating in encephalopathy and seizure susceptibility.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\", \"cellular response to osmotic stress\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The urea cycle is the main pathway for ammonia detoxification, localized to periportal hepatocytes. Reduced conversion of ammonia to urea causes accumulation of circulating ammonia and nitrogenous intermediates. Proximal mitochondrial defects (CPS1, OTC, NAGS) produce hyperammonemia with low citrulline and arginine, while distal cytosolic defects (ASS1, ASL, ARG1) cause accumulation of pathway intermediates with variable hyperammonemia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-term neurodevelopmental impairment is common in survivors of neonatal hyperammonemic crises and in those with recurrent episodes. Outcome correlates with peak ammonia level and duration of exposure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased alertness and feeding difficulty during acute metabolic decompensation. Often the earliest clinical sign of hyperammonemic crisis in neonates.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation remains the only curative option for severe UCDs, restoring full urea cycle capacity. It is indicated for patients with recurrent severe hyperammonemic crises despite maximal medical therapy. Benefits include elimination of hyperammonemia risk, dietary liberalization, and improved quality of life, but carry lifelong immunosuppression requirements.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"N-Acetylglutamate synthase (NAGS) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NAGS\"]}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Some UCDs are detectable through expanded newborn screening by tandem mass spectrometry. Citrullinemia type I (elevated citrulline) and ASL deficiency (elevated argininosuccinic acid) are most reliably detected. Early identification enables pre-symptomatic treatment initiation and prevention of neonatal crises.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nitric oxide deficiency in ASL deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASL participates in the citrulline-argininosuccinate-arginine recycling pathway that channels arginine to nitric oxide synthase. ASL deficiency impairs endogenous nitric oxide production, contributing to systemic vascular and neurological phenotypes that are independent of hyperammonemia, including hypertension and neurocognitive deficits.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nitric oxide biosynthetic process\"], \"genes\": [\"ASL\"]}}, {\"id\": \"Nitrogen scavenger therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium phenylbutyrate is metabolized to phenylacetate, which conjugates with glutamine to form phenylacetylglutamine, providing an alternative renal route for waste nitrogen excretion. Glycerol phenylbutyrate is a newer palatable formulation. Sodium benzoate conjugates with glycine to form hippurate for renal excretion.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ornithine transcarbamylase (OTC) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OTC\"]}}, {\"id\": \"Plasma ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Plasma arginine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\"}}, {\"id\": \"Plasma citrulline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\"}}, {\"id\": \"Plasma glutamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Protein-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Controlled protein intake to reduce nitrogen load while preserving growth is the cornerstone of chronic UCD management. Natural protein is limited and supplemented with essential amino acid mixtures to maintain adequate nutrition and growth.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory alkalosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperventilation-driven respiratory alkalosis can be an early sign of hyperammonemia, as ammonia stimulates the central respiratory center. This may be the initial metabolic finding before frank metabolic crisis.\\n\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001950\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in approximately 13% of hyperammonemic events. Subclinical seizures are detected in 27% of encephalopathic crises without clinical seizures and 53% when clinical seizures are present. Seizure risk increases 2.65-fold per 100 umol/L ammonia increase.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spastic paraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spasticity, particularly spastic diplegia, is the predominant neurological phenotype in arginase deficiency (ARG1). This distinct presentation can lead to diagnostic confusion with cerebral palsy.\\n\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001258\"}}, {\"id\": \"Urinary orotic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting with poor feeding during metabolic instability is a common presenting symptom, particularly in late-onset forms.\\n\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Deficient urea cycle enzyme function\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient urea cycle enzyme function\", \"target\": \"Nitric oxide deficiency in ASL deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient urea cycle enzyme function\", \"target\": \"Hepatic glutathione dysregulation in ASL deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient urea cycle enzyme function\", \"target\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Carbamoyl phosphate overflow to pyrimidine pathway\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Plasma ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Plasma glutamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Plasma citrulline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Argininosuccinic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Chronic UCD liver disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"target\": \"Respiratory alkalosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Abnormality of movement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate overflow to pyrimidine pathway\", \"target\": \"Urinary orotic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic UCD liver disease\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic glutathione dysregulation in ASL deficiency\", \"target\": \"Chronic UCD liver disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitric oxide deficiency in ASL deficiency\", \"target\": \"Abnormality of movement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitric oxide deficiency in ASL deficiency\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitric oxide deficiency in ASL deficiency\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"target\": \"Plasma arginine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"target\": \"Spastic paraplegia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Arginine and citrulline supplementation\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Arginine and citrulline supplementation\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carglumic acid\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carglumic acid\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Cerebral edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Coma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Intellectual disability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ornithine transcarbamylase (OTC) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate synthetase I (CPS1) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Argininosuccinate synthetase (ASS1) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Argininosuccinate lyase (ASL) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Argininosuccinate lyase (ASL) deficiency\", \"target\": \"Hepatic glutathione dysregulation in ASL deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Argininosuccinate lyase (ASL) deficiency\", \"target\": \"Nitric oxide deficiency in ASL deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Arginase 1 (ARG1) deficiency\", \"target\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Arginase 1 (ARG1) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"N-Acetylglutamate synthase (NAGS) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemia and toxic metabolite accumulation can produce increased neuromuscular tone, spasticity, and ankle clonus during severe decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100022\"}}, {\"id\": \"Acute hyperammonemia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency management includes cessation of protein intake, high-calorie glucose infusion to reverse catabolism, intravenous nitrogen scavengers (sodium benzoate, sodium phenylacetate), and arginine supplementation. When ammonia exceeds 500 umol/L or encephalopathy is present, extracorporeal clearance with continuous renal replacement therapy (CRRT) is recommended.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arginase 1 (ARG1) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARG1\"]}}, {\"id\": \"Arginine and citrulline supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Arginine supplementation replaces the amino acid that cannot be synthesized endogenously in most UCDs (except ARG1 deficiency). Citrulline supplementation may be preferable as it bypasses intestinal and hepatic first-pass metabolism and has been associated with lower mean ammonia concentrations compared to arginine alone.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARG1 deficiency is a distal urea-cycle defect in which chronic hyperargininemia and related guanidino compound accumulation, rather than recurrent severe hyperammonemia alone, dominate the progressive neurologic phenotype. This subtype-specific toxic-metabolite mechanism explains spastic paraplegia-predominant disease.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-arginine catabolic process\"], \"genes\": [\"ARG1\"], \"locations\": [\"brain\"]}}, {\"id\": \"Argininosuccinate lyase (ASL) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASL\"]}}, {\"id\": \"Argininosuccinate synthetase (ASS1) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASS1\"]}}, {\"id\": \"Argininosuccinic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"presence\": \"INCREASED\"}}, {\"id\": \"Carbamoyl phosphate overflow to pyrimidine pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In proximal urea cycle defects, particularly OTC deficiency, carbamoyl phosphate accumulates in the mitochondrial matrix and is diverted into the cytosolic pyrimidine synthesis pathway, leading to elevated urinary orotic acid. This overflow is diagnostically useful for distinguishing OTC deficiency from CPS1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"pyrimidine nucleotide biosynthetic process\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Carbamoyl phosphate synthetase I (CPS1) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CPS1\"]}}, {\"id\": \"Carglumic acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carglumic acid (Carbaglu) is a synthetic analog of N-acetylglutamate that directly activates CPS1. It is specifically indicated for NAGS deficiency and is also used for hyperammonemia in organic acidemias. It provides pharmacological bypass of the NAGS enzyme deficiency.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Catabolic stressors such as infection, fasting, surgery, childbirth, or high protein intake increase endogenous protein breakdown and nitrogen load. In patients with partial residual urea-cycle function, this excess nitrogen can exceed detoxification capacity and precipitate acute hyperammonemic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein catabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Cerebral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cytotoxic cerebral edema driven by astrocytic glutamine accumulation and osmotic swelling is a life-threatening complication of severe hyperammonemic crises, contributing to raised intracranial pressure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002181\"}}, {\"id\": \"Chronic UCD liver disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Children and adults with UCDs can develop chronic liver disease even outside acute hyperammonemic episodes. Reported manifestations include abnormal liver enzymes, hepatomegaly, abnormal liver ultrasound, steatosis, fibrosis, cirrhosis with portal hypertension, impaired liver function, and liver failure requiring transplantation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic coma represents the most severe neurological presentation, occurring primarily in neonatal-onset forms. Prognosis is very poor when ammonia exceeds 1000 umol/L with prolonged coma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Deficient urea cycle enzyme function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This curated group entry focuses on loss of function in core urea-cycle enzymes required for nitrogen disposal.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"CPS1\", \"OTC\", \"ASS1\", \"ASL\", \"ARG1\", \"NAGS\"], \"locations\": [\"liver\"]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute or recurrent hyperammonemic encephalopathy with altered mental status, ranging from irritability and lethargy to coma. Severity is time- and concentration-dependent.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth is common due to protein-restricted diets, recurrent catabolic crises, and feeding difficulties.\\n\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is common in children with UCDs, particularly those with neonatal-onset disease or recurrent hyperammonemic episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatic glutathione dysregulation in ASL deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In argininosuccinic aciduria (ASL deficiency), glutathione biosynthesis is dysregulated with upregulated cysteine metabolism but depleted glutathione and downregulated antioxidant pathways. This redox defect provides a molecular basis for chronic liver disease manifestations in ASL deficiency beyond episodic hyperammonemia, and represents a target for mRNA therapy approaches.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glutathione metabolic process\"], \"genes\": [\"ASL\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement can occur in UCDs, particularly in ASL deficiency where chronic liver disease with fibrosis may develop. Hepatic involvement is also seen in citrin deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma ammonia concentration is the defining clinical feature of UCDs. Ammonia rises especially during catabolic stress, infection, or protein loading. In neonates, levels \u003e200 umol/L suggest IEM; after the neonatal period, \u003e100 umol/L is concerning.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ammonia diffuses freely across the blood-brain barrier and is detoxified primarily in astrocytes by conversion to glutamine via glutamine synthetase. During hyperammonemic crises, glutamine becomes an osmolyte that drives astrocytic swelling and cytotoxic cerebral edema. This is accompanied by disrupted glutamate-glutamine cycling, excitotoxicity, impaired energy metabolism, and altered aquaporin-4 expression, culminating in encephalopathy and seizure susceptibility.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\", \"cellular response to osmotic stress\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The urea cycle is the main pathway for ammonia detoxification, localized to periportal hepatocytes. Reduced conversion of ammonia to urea causes accumulation of circulating ammonia and nitrogenous intermediates. Proximal mitochondrial defects (CPS1, OTC, NAGS) produce hyperammonemia with low citrulline and arginine, while distal cytosolic defects (ASS1, ASL, ARG1) cause accumulation of pathway intermediates with variable hyperammonemia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-term neurodevelopmental impairment is common in survivors of neonatal hyperammonemic crises and in those with recurrent episodes. Outcome correlates with peak ammonia level and duration of exposure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased alertness and feeding difficulty during acute metabolic decompensation. Often the earliest clinical sign of hyperammonemic crisis in neonates.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation remains the only curative option for severe UCDs, restoring full urea cycle capacity. It is indicated for patients with recurrent severe hyperammonemic crises despite maximal medical therapy. Benefits include elimination of hyperammonemia risk, dietary liberalization, and improved quality of life, but carry lifelong immunosuppression requirements.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"N-Acetylglutamate synthase (NAGS) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NAGS\"]}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Some UCDs are detectable through expanded newborn screening by tandem mass spectrometry. Citrullinemia type I (elevated citrulline) and ASL deficiency (elevated argininosuccinic acid) are most reliably detected. Early identification enables pre-symptomatic treatment initiation and prevention of neonatal crises.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nitric oxide deficiency in ASL deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASL participates in the citrulline-argininosuccinate-arginine recycling pathway that channels arginine to nitric oxide synthase. ASL deficiency impairs endogenous nitric oxide production, contributing to systemic vascular and neurological phenotypes that are independent of hyperammonemia, including hypertension and neurocognitive deficits.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nitric oxide biosynthetic process\"], \"genes\": [\"ASL\"]}}, {\"id\": \"Nitrogen scavenger therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium phenylbutyrate is metabolized to phenylacetate, which conjugates with glutamine to form phenylacetylglutamine, providing an alternative renal route for waste nitrogen excretion. Glycerol phenylbutyrate is a newer palatable formulation. Sodium benzoate conjugates with glycine to form hippurate for renal excretion.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ornithine transcarbamylase (OTC) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OTC\"]}}, {\"id\": \"Plasma ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"presence\": \"INCREASED\"}}, {\"id\": \"Plasma arginine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"presence\": \"DECREASED\"}}, {\"id\": \"Plasma citrulline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"presence\": \"DECREASED\"}}, {\"id\": \"Plasma glutamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"presence\": \"INCREASED\"}}, {\"id\": \"Protein-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Controlled protein intake to reduce nitrogen load while preserving growth is the cornerstone of chronic UCD management. Natural protein is limited and supplemented with essential amino acid mixtures to maintain adequate nutrition and growth.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory alkalosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperventilation-driven respiratory alkalosis can be an early sign of hyperammonemia, as ammonia stimulates the central respiratory center. This may be the initial metabolic finding before frank metabolic crisis.\\n\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001950\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in approximately 13% of hyperammonemic events. Subclinical seizures are detected in 27% of encephalopathic crises without clinical seizures and 53% when clinical seizures are present. Seizure risk increases 2.65-fold per 100 umol/L ammonia increase.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spastic paraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spasticity, particularly spastic diplegia, is the predominant neurological phenotype in arginase deficiency (ARG1). This distinct presentation can lead to diagnostic confusion with cerebral palsy.\\n\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001258\"}}, {\"id\": \"Urinary orotic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"presence\": \"INCREASED\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting with poor feeding during metabolic instability is a common presenting symptom, particularly in late-onset forms.\\n\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Deficient urea cycle enzyme function\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient urea cycle enzyme function\", \"target\": \"Nitric oxide deficiency in ASL deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient urea cycle enzyme function\", \"target\": \"Hepatic glutathione dysregulation in ASL deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient urea cycle enzyme function\", \"target\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Carbamoyl phosphate overflow to pyrimidine pathway\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Plasma ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Plasma glutamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Plasma citrulline\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Argininosuccinic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"target\": \"Chronic UCD liver disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"target\": \"Respiratory alkalosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"target\": \"Abnormality of movement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate overflow to pyrimidine pathway\", \"target\": \"Urinary orotic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic UCD liver disease\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic glutathione dysregulation in ASL deficiency\", \"target\": \"Chronic UCD liver disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitric oxide deficiency in ASL deficiency\", \"target\": \"Abnormality of movement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitric oxide deficiency in ASL deficiency\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nitric oxide deficiency in ASL deficiency\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"target\": \"Plasma arginine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"target\": \"Spastic paraplegia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Catabolic nitrogen stress exceeding residual ureagenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nitrogen scavenger therapy\", \"target\": \"Encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Arginine and citrulline supplementation\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Arginine and citrulline supplementation\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carglumic acid\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carglumic acid\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Hyperammonemic neurotoxicity and cerebral edema\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Cerebral edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hyperammonemia management\", \"target\": \"Coma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Impaired hepatic ureagenesis and ammonia accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Intellectual disability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ornithine transcarbamylase (OTC) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Carbamoyl phosphate synthetase I (CPS1) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Argininosuccinate synthetase (ASS1) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Argininosuccinate lyase (ASL) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Argininosuccinate lyase (ASL) deficiency\", \"target\": \"Hepatic glutathione dysregulation in ASL deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Argininosuccinate lyase (ASL) deficiency\", \"target\": \"Nitric oxide deficiency in ASL deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Arginase 1 (ARG1) deficiency\", \"target\": \"Arginine and guanidino compound neurotoxicity in ARG1 deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Arginase 1 (ARG1) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"N-Acetylglutamate synthase (NAGS) deficiency\", \"target\": \"Deficient urea cycle enzyme function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4379,6 +4594,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Supports hepatomegaly as a reported manifestation within the chronic liver disease spectrum of UCDs.</div>
                 
+                
+                
             </div>
             
             
@@ -4444,6 +4661,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Confirms hyperammonemia as the defining clinical presentation across UCDs.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4463,6 +4682,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Supports hyperammonemia as the core feature with variable age of onset.</div>
+                
+                
                 
             </div>
             
@@ -4519,6 +4740,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Supports brain injury risk from ammonia exposure; cerebral edema is a key mechanism.</div>
+                
+                
                 
             </div>
             
@@ -4651,6 +4874,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Supports severity-dependent encephalopathy from hyperammonemia.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4670,6 +4895,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Supports severe neurologic consequences from hyperammonemic episodes.</div>
+                
+                
                 
             </div>
             
@@ -4727,6 +4954,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Quantifies seizure prevalence during UCD crises with EEG monitoring data.</div>
                 
+                
+                
             </div>
             
             
@@ -4782,6 +5011,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports intellectual disability as a major outcome of UCDs.</div>
+                
+                
                 
             </div>
             
@@ -4839,6 +5070,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Lethargy and altered mental status are dose-dependent neurologic manifestations.</div>
                 
+                
+                
             </div>
             
             
@@ -4894,6 +5127,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Supports life-threatening neurological deterioration from hyperammonemia.</div>
+                
+                
                 
             </div>
             
@@ -4951,6 +5186,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Supports neurodevelopmental morbidity as a major UCD complication.</div>
                 
+                
+                
             </div>
             
             
@@ -5006,6 +5243,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">GeneReviews directly supports neuromuscular tone abnormalities, spasticity, and ankle clonus as downstream consequences of hyperammonemia and toxic metabolite accumulation.</div>
+                
+                
                 
             </div>
             
@@ -5133,6 +5372,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Confirms OTC localization and its role in the urea cycle.</div>
                 
+                
+                
             </div>
             
             
@@ -5179,6 +5420,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Directly identifies CPS1 as a mitochondrial urea cycle enzyme.</div>
+                
+                
                 
             </div>
             
@@ -5227,6 +5470,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Directly identifies ASS1 as a cytosolic urea cycle enzyme.</div>
                 
+                
+                
             </div>
             
             
@@ -5273,6 +5518,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Directly identifies ASL as a cytosolic urea cycle enzyme.</div>
+                
+                
                 
             </div>
             
@@ -5321,6 +5568,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Identifies ARG1 as a cytosolic urea cycle enzyme.</div>
                 
+                
+                
             </div>
             
             
@@ -5367,6 +5616,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Directly identifies NAGS as essential for urea cycle function.</div>
+                
+                
                 
             </div>
             
@@ -5467,6 +5718,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Supports dietary titration to the biochemical defect and growth needs.</div>
                 
+                
+                
             </div>
             
             
@@ -5524,6 +5777,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports protein-restricted diet as core UCD management.</div>
+                
+                
                 
             </div>
             
@@ -5614,6 +5869,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Supports the bypass mechanism of nitrogen scavenger therapy.</div>
                 
+                
+                
             </div>
             
             
@@ -5671,6 +5928,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Supports nitrogen scavenger therapy as part of standard UCD treatment.</div>
+                
+                
                 
             </div>
             
@@ -5759,6 +6018,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Human isotope study supports arginine supplementation as a measurable modifier of urea synthesis.</div>
                 
+                
+                
             </div>
             
             
@@ -5809,6 +6070,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Supports arginine supplementation as standard for most UCDs while excluding ARG1 deficiency.</div>
+                
+                
                 
             </div>
             
@@ -5897,6 +6160,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Supports carglumic acid as a NAG analog that restores/activates urea-cycle function in NAGS/CPS1 deficiency contexts.</div>
                 
+                
+                
             </div>
             
             
@@ -5947,6 +6212,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">NAGS produces the obligate CPS1 activator; carglumic acid replaces this function.</div>
+                
+                
                 
             </div>
             
@@ -6035,6 +6302,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Supports the multi-pronged acute ammonia-lowering strategy.</div>
                 
+                
+                
             </div>
             
             
@@ -6113,6 +6382,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Supports urgent ammonia-lowering treatment during crises.</div>
+                
+                
                 
             </div>
             
@@ -6201,6 +6472,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Supports transplantation as correction of the hepatic enzymatic defect.</div>
                 
+                
+                
             </div>
             
             
@@ -6271,6 +6544,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 
                 <div class="evidence-explanation">Directly supports liver transplantation as a long-term corrective therapy for severe UCDs.</div>
+                
+                
                 
             </div>
             
@@ -6376,6 +6651,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Confirms expanding newborn screening programs for UCD detection.</div>
                 
+                
+                
             </div>
             
             
@@ -6412,6 +6689,7 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6437,6 +6715,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Confirms ammonia elevation as the core biochemical abnormality causing injury.</div>
                 
+                
+                
             </div>
             
             
@@ -6456,6 +6736,7 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="item-desc">Context: Glutamine rises as an alternative nitrogen sink when ureagenesis is impaired. In brain, glutamine accumulation in astrocytes drives osmotic swelling and cerebral edema. Each 100 umol/L increase in plasma glutamine increases seizure odds by 1.14-fold during crises.
 </div>
+                
                 
                 
     
@@ -6483,6 +6764,8 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="evidence-explanation">Quantifies glutamine as a seizure risk biomarker during hyperammonemic crises.</div>
                 
+                
+                
             </div>
             
             
@@ -6504,6 +6787,7 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
 </div>
                 
                 
+                
     
     
             </div>
@@ -6518,6 +6802,7 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="item-desc">Context: Elevated urinary orotic acid is a key diagnostic biomarker for OTC deficiency, resulting from diversion of accumulated mitochondrial carbamoyl phosphate into the cytosolic pyrimidine synthesis pathway. This finding distinguishes OTC deficiency from CPS1 deficiency.
 </div>
+                
                 
                 
     
@@ -6536,6 +6821,7 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
 </div>
                 
                 
+                
     
     
             </div>
@@ -6550,6 +6836,7 @@ cell-autonomous, nitric oxide synthase-dependent NO deficiency."</div>
                 
                 <div class="item-desc">Context: Elevated plasma and urinary argininosuccinic acid is the pathognomonic biomarker for ASL deficiency (argininosuccinic aciduria). It may be detected on newborn screening.
 </div>
+                
                 
                 
     

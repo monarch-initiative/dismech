@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05984108
+reference_id: "clinicaltrials:NCT05984108"
 title: "Clinical, Radiological, Histological and Molecular Features of a Cohort of Melanocytic Tumors of the Central Nervous System"
 content_type: summary
 ---

@@ -564,6 +564,35 @@
             line-height: 1.5;
         }
 
+        .evidence-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .evidence-images figure {
+            margin: 0;
+            max-width: 320px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .evidence-images img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .evidence-images figcaption {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 4px 6px;
+            word-break: break-all;
+        }
+
         .evidence-more {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -1231,6 +1260,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1534,6 +1629,15 @@
             background: #f1f5f9;
             padding: 1px 4px;
             border-radius: 3px;
+        }
+        .report-content img {
+            display: block;
+            max-width: min(100%, 720px);
+            height: auto;
+            margin: 12px auto;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #fff;
         }
         .report-content pre code {
             background: none;
@@ -1924,6 +2028,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2125,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2142,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2351,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2369,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2419,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2885,6 +3076,8 @@
                 
                 <div class="evidence-explanation">Establishes STK11 germline variants as the driver of hamartomatous polyposis in PJS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -2904,6 +3097,8 @@
                 
                 
                 <div class="evidence-explanation">Establishes the cellular functions disrupted by STK11 loss in PJS.</div>
+                
+                
                 
             </div>
             
@@ -3073,6 +3268,8 @@
                 
                 <div class="evidence-explanation">Establishes LKB1 as the upstream kinase that phosphorylates and activates AMPK.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3092,6 +3289,8 @@
                 
                 
                 <div class="evidence-explanation">Direct human-tissue evidence that pathogenic STK11 variants reduce AMPK Thr172 phosphorylation in PJS polyps.</div>
+                
+                
                 
             </div>
             
@@ -3254,6 +3453,8 @@
                 
                 <div class="evidence-explanation">Establishes the LKB1-AMPK-TSC2-mTOR axis and shows mTOR is hyperactive in murine PJS-like polyps.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3274,6 +3475,8 @@
                 
                 <div class="evidence-explanation">Demonstrates mTORC1 pathway hyperactivation in LKB1-deficient PJS models.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3293,6 +3496,8 @@
                 
                 
                 <div class="evidence-explanation">Confirms mTORC1 signaling is upregulated in human PJS polyps.</div>
+                
+                
                 
             </div>
             
@@ -3506,6 +3711,8 @@
                 
                 <div class="evidence-explanation">Demonstrates that mesenchymal STK11 loss alone is sufficient for PJS-type polyposis.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3526,6 +3733,8 @@
                 
                 <div class="evidence-explanation">Establishes that the stromal TGF-beta paracrine defect is also observed in human PJS polyps, not just the mouse model.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3545,6 +3754,8 @@
                 
                 
                 <div class="evidence-explanation">In vitro confirmation that LKB1 loss attenuates SMAD signaling downstream of TGF-beta receptor activation.</div>
+                
+                
                 
             </div>
             
@@ -3727,6 +3938,8 @@
                 
                 <div class="evidence-explanation">Direct quantitative evidence of COX-2 upregulation in PJS hamartomas.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -3746,6 +3959,8 @@
                 
                 
                 <div class="evidence-explanation">Localises COX-2 overexpression to both epithelial and stromal compartments of the polyp.</div>
+                
+                
                 
             </div>
             
@@ -3908,6 +4123,8 @@
                 
                 <div class="evidence-explanation">Histologic description supports the arborizing smooth muscle core in PJS polyps.</div>
                 
+                
+                
             </div>
             
             
@@ -4055,6 +4272,8 @@
                 
                 <div class="evidence-explanation">Establishes that heterozygous Lkb1 loss recapitulates the PJS polyposis phenotype.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4075,6 +4294,8 @@
                 
                 <div class="evidence-explanation">Frames the two-hit context for PJS polyps and notes that further events beyond STK11 LOH are required for transformation.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4094,6 +4315,8 @@
                 
                 
                 <div class="evidence-explanation">Quantifies the broad multi-organ cancer predisposition that emerges from STK11 loss plus secondary somatic events.</div>
+                
+                
                 
             </div>
             
@@ -4245,6 +4468,8 @@
                 
                 <div class="evidence-explanation">Confirms the mucocutaneous lentiginous pigmentation phenotype that is the hallmark of melanocyte involvement in PJS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4264,6 +4489,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews establishes the distribution and timing of the pigmented macules.</div>
+                
+                
                 
             </div>
             
@@ -4383,6 +4610,8 @@
                 
                 <div class="evidence-explanation">Establishes chronic gastrointestinal bleeding from polyps as a major complication of PJS</div>
                 
+                
+                
             </div>
             
             
@@ -4438,6 +4667,8 @@
                 
                 
                 <div class="evidence-explanation">GeneReviews documents chronic blood loss from PJS polyps causing anemia.</div>
+                
+                
                 
             </div>
             
@@ -4502,6 +4733,8 @@
                 
                 <div class="evidence-explanation">Confirms small intestinal polyposis as a hallmark manifestation of PJS</div>
                 
+                
+                
             </div>
             
             
@@ -4565,6 +4798,8 @@
                 
                 <div class="evidence-explanation">Oral and mucocutaneous pigmentation is a characteristic diagnostic feature of PJS, often appearing before GI polyps</div>
                 
+                
+                
             </div>
             
             
@@ -4618,6 +4853,8 @@
                 
                 
                 <div class="evidence-explanation">This cohort description identifies lip pigmentation as a characteristic feature of PJS.</div>
+                
+                
                 
             </div>
             
@@ -4681,6 +4918,8 @@
                 
                 
                 <div class="evidence-explanation">Intussusception from Peutz-Jeghers polyps causes abdominal pain and obstruction</div>
+                
+                
                 
             </div>
             
@@ -4747,6 +4986,8 @@
                 
                 <div class="evidence-explanation">PJS patients have substantially elevated lifetime cancer risk across multiple organ systems</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4767,6 +5008,8 @@
                 
                 <div class="evidence-explanation">Systematic review quantifies the magnitude of multi-organ cancer risk used to design surveillance.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -4786,6 +5029,8 @@
                 
                 
                 <div class="evidence-explanation">European hereditary tumor group recognizes comprehensive cancer risk across multiple organ systems as defining feature requiring multisystem management</div>
+                
+                
                 
             </div>
             
@@ -4851,6 +5096,8 @@
                 
                 
                 <div class="evidence-explanation">Direct quantitative evidence of cumulative intussusception risk in PJS.</div>
+                
+                
                 
             </div>
             
@@ -4933,6 +5180,8 @@
                 
                 <div class="evidence-explanation">Confirms germline STK11 mutations as the causative genetic basis for Peutz-Jeghers syndrome</div>
                 
+                
+                
             </div>
             
             
@@ -4971,6 +5220,8 @@
                 
                 
                 <div class="evidence-explanation">Alternative genetic mutations including PTEN can account for STK11-negative PJS-like presentations</div>
+                
+                
                 
             </div>
             
@@ -5060,6 +5311,8 @@
                 
                 <div class="evidence-explanation">Endoscopic polyp removal is the standard therapeutic approach to prevent complications from Peutz-Jeghers polyps</div>
                 
+                
+                
             </div>
             
             
@@ -5137,6 +5390,8 @@
                 
                 
                 <div class="evidence-explanation">Surgical resection is indicated for intussusception and polyps with neoplastic transformation</div>
+                
+                
                 
             </div>
             
@@ -5238,6 +5493,8 @@
                 
                 <div class="evidence-explanation">Links the trial directly to the COX-2 mechanism node.</div>
                 
+                
+                
             </div>
             
             
@@ -5276,6 +5533,8 @@
                 
                 
                 <div class="evidence-explanation">Trial rationale documents COX-2 inhibition as a candidate chemoprevention strategy targeting the COX-2 mechanism node.</div>
+                
+                
                 
             </div>
             
@@ -5377,6 +5636,8 @@
                 
                 <div class="evidence-explanation">Links sirolimus&#39;s mechanism to the mTORC1 hyperactivation node in this entry.</div>
                 
+                
+                
             </div>
             
             
@@ -5415,6 +5676,8 @@
                 
                 
                 <div class="evidence-explanation">Direct mouse-model evidence that mTOR inhibition reduces PJS-like polyp burden, motivating clinical evaluation.</div>
+                
+                
                 
             </div>
             
@@ -5494,6 +5757,8 @@
                 
                 <div class="evidence-explanation">Autosomal dominant inheritance of pathogenic STK11 variants is the basis for cascade testing and genetic counseling of at-risk relatives.</div>
                 
+                
+                
             </div>
             
             
@@ -5547,6 +5812,8 @@
                 
                 <div class="evidence-explanation">Age is a critical environmental/clinical factor that significantly increases intussusception risk in PJS patients</div>
                 
+                
+                
             </div>
             
             
@@ -5577,6 +5844,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5600,6 +5868,8 @@
                 
                 <div class="evidence-explanation">This study reports reduced short-chain fatty acid synthesis in PJS.</div>
                 
+                
+                
             </div>
             
             <div class="evidence-item">
@@ -5617,6 +5887,8 @@
                 
                 
                 <div class="evidence-explanation">Lower butyric acid levels associate with higher polyp-related intervention burden.</div>
+                
+                
                 
             </div>
             
@@ -5704,6 +5976,8 @@
                 
                 <div class="evidence-explanation">Establishes juvenile polyposis as a distinct differential diagnosis that must be excluded when evaluating hamartomatous polyp syndromes like PJS</div>
                 
+                
+                
             </div>
             
             
@@ -5772,6 +6046,8 @@
                 
                 
                 <div class="evidence-explanation">This review lists Cowden syndrome among the major hamartomatous polyposis syndromes that must be distinguished from PJS.</div>
+                
+                
                 
             </div>
             
@@ -5844,6 +6120,8 @@
                 
                 <div class="evidence-explanation">Distinguishes PJS as a hamartomatous polyposis syndrome, separate from adenomatous syndromes like FAP</div>
                 
+                
+                
             </div>
             
             
@@ -5914,6 +6192,8 @@
                 
                 
                 <div class="evidence-explanation">PJS carries a distinctive pattern of multi-organ cancer predisposition (GI, breast, lung, genitourinary) that differs from Lynch syndrome&#39;s primarily colorectal focus</div>
+                
+                
                 
             </div>
             
