@@ -23,7 +23,7 @@ These are already in the knowledge base and may benefit from enhancement:
 |---------|------|--------|-------------|
 | Neuromyelitis Optica Spectrum Disorder (NMOSD) | Neuromyelitis_Optica_Spectrum_Disorder.yaml | [ ] To curate | Anti-AQP4/MOG antibodies target optic nerves and spinal cord |
 | MOG Antibody Disease (MOGAD) | MOG_Antibody_Disease.yaml | [ ] To curate | Anti-MOG antibodies, distinct from MS and NMOSD |
-| Acute Disseminated Encephalomyelitis (ADEM) | Acute_Disseminated_Encephalomyelitis.yaml | [ ] To curate | Post-infectious CNS demyelination, mainly children |
+| Acute Disseminated Encephalomyelitis (ADEM) | Acute_Disseminated_Encephalomyelitis.yaml | [x] Curated | Post-infectious CNS demyelination, mainly children |
 | Transverse Myelitis | Transverse_Myelitis.yaml | [ ] To curate | Immune-mediated spinal cord inflammation |
 
 ### Priority 2: Autoimmune Encephalitis
@@ -76,10 +76,10 @@ Default: falcon
 
 # STATUS
 
-## New Diseases to Curate (3/15)
+## New Diseases to Curate (4/15)
 - [x] Neuromyelitis Optica Spectrum Disorder (NMOSD) - 70.6% compliance
 - [x] MOG Antibody Disease (MOGAD) - 91.9% compliance
-- [ ] Acute Disseminated Encephalomyelitis (ADEM)
+- [x] Acute Disseminated Encephalomyelitis (ADEM) - 94.6% weighted compliance
 - [ ] Transverse Myelitis
 - [x] Anti-NMDA Receptor Encephalitis - 100.0% weighted compliance
 - [ ] Limbic Encephalitis
@@ -142,6 +142,13 @@ Default: falcon
   - PMID:41657079 and PMID:41865559 - South Wales and Denmark epidemiology
 - ClinicalTrials.gov entries documented for satralizumab, rozanolixizumab, azathioprine, and tocilizumab MOGAD trials
 - Ontology terms: MONDO (MOGAD), CL (oligodendrocyte, T cell), GO (complement activation, ADCC, myelination), HP (optic neuritis, myelitis, CNS demyelination, spinal cord lesion), MAXO/NCIT/CHEBI treatment terms
+
+**Acute Disseminated Encephalomyelitis curated**:
+- Created `kb/disorders/Acute_Disseminated_Encephalomyelitis.yaml`
+- Reviewed MONDO/Orphanet context: MONDO:0019383, Orphanet:83597
+- Documented IPMSSG-style clinical definition, monophasic/multiphasic/MOG-IgG-associated subtypes, pediatric incidence, adult outcome burden, postinfectious autoimmunity, blood-brain barrier disruption, molecular mimicry, perivenous demyelination, MOG-IgG/complement mechanisms, clinical phenotypes, CSF findings, acute immunotherapies, and active/relevant clinical trials
+- Added evidence from contemporary reviews, pediatric and adult cohorts, pathology studies, MOG-IgG relapse-risk data, and ClinicalTrials.gov records
+- Achieved 94.6% weighted compliance
 
 ## 2026-01-06
 
