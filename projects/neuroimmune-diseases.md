@@ -76,12 +76,12 @@ Default: falcon
 
 # STATUS
 
-## New Diseases to Curate (2/15)
+## New Diseases to Curate (3/15)
 - [x] Neuromyelitis Optica Spectrum Disorder (NMOSD) - 70.6% compliance
 - [x] MOG Antibody Disease (MOGAD) - 91.9% compliance
 - [ ] Acute Disseminated Encephalomyelitis (ADEM)
 - [ ] Transverse Myelitis
-- [ ] Anti-NMDA Receptor Encephalitis
+- [x] Anti-NMDA Receptor Encephalitis - 100.0% weighted compliance
 - [ ] Limbic Encephalitis
 - [ ] Hashimoto Encephalopathy (SREAT)
 - [ ] CNS Vasculitis
@@ -105,6 +105,25 @@ Default: falcon
 # NOTES
 
 ## 2026-05-16
+
+**Anti-NMDA receptor encephalitis curated**:
+- Created `kb/disorders/Anti-NMDA_Receptor_Encephalitis.yaml`
+- Deep research via falcon provider; Asta retrieval run added as a second literature pass
+- 99.4% global compliance and 100.0% weighted compliance achieved
+- Modeled teratoma-associated and post-herpes simplex encephalitis subtypes, Graus-style clinical criteria, racial/ethnic and geographic incidence variation, CSF anti-GluN1/NMDAR IgG biomarkers, NEOS prognostic variables, relapse/recovery trajectory, first-line immunotherapy, second-line rituximab/cyclophosphamide, plasma exchange, IVIG, corticosteroids, and tumor removal
+- Key evidence from:
+  - PMID:18851928 - original case series and antibody effects on synaptic NMDAR clusters
+  - PMID:23290630 - 577-patient treatment/outcome cohort
+  - PMID:26906964 and PMID:28972277 - autoimmune encephalitis and anti-NMDAR diagnostic criteria
+  - PMID:31326280 - Lancet Neurology mechanism and clinical update
+  - PMID:31619447 and PMID:33589542 - large Chinese longitudinal cohorts for phenotypes, treatment, outcomes, and relapse
+  - PMID:30578370 - NEOS score prognostic predictors
+  - PMID:37371620 and PMID:38728608 - geographic/climatic and US race/ethnicity incidence studies
+  - PMID:38145121 - blood-brain barrier and anti-NMDAR antibody review
+  - PMID:39147951 - post-herpes simplex encephalitis anti-NMDAR encephalitis cohort
+  - PMID:39566012 - long-term cognitive, functional, and patient-reported outcomes
+- ClinicalTrials.gov entries documented for immunoadsorption therapy, prolonged recovery-stage biomarkers/rehabilitation, and NEOSII prediction modeling
+- Ontology terms: MONDO (anti-NMDA receptor encephalitis), CL (B cell, plasma cell, neuron), GO (B cell mediated immunity, immunoglobulin production, receptor internalization, glutamate receptor signaling, synaptic plasticity, blood-brain barrier maintenance), HP (psychosis, seizure, dyskinesia, memory impairment, coma, autonomic dysfunction, hypoventilation, EEG abnormality, CSF pleocytosis), UBERON (brain, hippocampal formation, blood-brain barrier), MAXO/NCIT/CHEBI treatment terms
 
 **MOGAD curated**:
 - Created `kb/disorders/MOGAD.yaml`
