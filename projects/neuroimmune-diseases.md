@@ -125,7 +125,7 @@ Default: falcon
 **Transverse Myelitis enhanced/reviewed**:
 - Enhanced existing `kb/disorders/Transverse_Myelitis.yaml`
 - Falcon, Perplexity, and Cyberian research artifacts were already present; OpenScientist was attempted for the required second provider pass but produced no artifact after ~20 minutes and was terminated as hung
-- 100.0% weighted compliance achieved after adding subtype grounding, progression, LETM/spinal movement phenotypes, serum NfL/GFAP biomarkers, COVID-associated outcome evidence, CSF inflammatory marker recurrence evidence, IVIG clinical-trial metadata, and NCIT treatment grounding for plasmapheresis/IVIG
+- 100.0% weighted compliance achieved after adding subtype grounding, progression, LETM/spinal movement/back pain/spasticity phenotypes, serum NfL/GFAP biomarkers, COVID-associated outcome evidence, CSF inflammatory marker recurrence evidence, IVIG clinical-trial metadata, and NCIT treatment grounding for plasmapheresis/IVIG
 - Checked MONDO and Orphanet context: MONDO:0021553 lacks direct Orphanet xrefs, but MONDO acute/idiopathic/MOG-IgG acute TM subtype terms map to ORPHA:139417, ORPHA:139423, and ORPHA:592873; local Orphadata XML is absent, so ORPHA caches could not be regenerated for direct YAML evidence
 - Key evidence from:
   - PMID:12045735 - immunopathogenesis and focal spinal cord inflammation
@@ -133,11 +133,12 @@ Default: falcon
   - PMID:25340060 - recurrence risk after initial transverse myelitis
   - PMID:23999580 - LETM AQP4-IgG cohort and differential diagnosis context
   - PMID:38977461 - 2024 prospective spinal movement disorders cohort
+  - PMID:34171586, PMID:26351447, PMID:29270309, and PMID:35246251 - back pain and spasticity phenotype coverage added during review
   - PMID:36894677 and PMID:37688927 - serum NfL/GFAP biomarker studies in idiopathic and seropositive transverse myelitis
   - PMID:41349230 - 2026 post-COVID-19 infection/vaccination TM outcomes and imaging comparison
   - PMID:42003147 - 2026 retrospective TM outcomes cohort
   - PMID:26009577 and NCT02398994 - STRIVE IVIG trial protocol and registration
-- Ontology terms: MONDO (acute, idiopathic, MOG-IgG acute TM), HP (myelitis with EXTENSIVE spatial qualifier, tonic spasms, focal dystonia), CL (monocyte), GO (humoral immune response), NCIT (plasmapheresis, IVIG therapy)
+- Ontology terms: MONDO (acute, idiopathic, MOG-IgG acute TM), HP (myelitis with EXTENSIVE spatial qualifier, back pain, spasticity, tonic spasms, focal dystonia), CL (monocyte), GO (humoral immune response), NCIT (plasmapheresis, IVIG therapy)
 
 **Anti-NMDA receptor encephalitis curated**:
 - Created `kb/disorders/Anti-NMDA_Receptor_Encephalitis.yaml`
