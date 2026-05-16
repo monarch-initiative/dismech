@@ -43,6 +43,8 @@ def rewrite_file(path: Path, alias_map: dict[str, str]) -> tuple[int, list[str]]
     in_block = False
     block_indent = ""
     seen_in_block: set[str] = set()
+    dropping_item = False  # we are inside the body of a dropped duplicate item
+    item_body_indent = 0
     changes = 0
     unmapped: list[str] = []
 
@@ -52,6 +54,7 @@ def rewrite_file(path: Path, alias_map: dict[str, str]) -> tuple[int, list[str]]
             in_block = True
             block_indent = match.group(1)
             seen_in_block = set()
+            dropping_item = False
             out.append(line)
             continue
 
@@ -62,16 +65,33 @@ def rewrite_file(path: Path, alias_map: dict[str, str]) -> tuple[int, list[str]]
             if line.strip() and stripped_indent <= len(block_indent) and not stripped.startswith("-"):
                 in_block = False
                 seen_in_block = set()
+                dropping_item = False
                 out.append(line)
                 continue
+
+            # If we're discarding a duplicate classification entry, drop its
+            # body lines too (anything indented deeper than the item indent
+            # itself). Stop dropping when we hit the next list item or the end
+            # of the block.
+            if dropping_item:
+                if not line.strip():
+                    # Blank line — drop it along with the item body.
+                    continue
+                if stripped_indent > item_body_indent:
+                    continue
+                dropping_item = False  # fall through to normal handling
+
             cm = CLASSIFICATION_LINE_RE.match(line)
             if cm:
                 value = cm.group("value").strip().strip('"').strip("'")
                 if value in alias_map:
                     new_value = alias_map[value]
                     if new_value in seen_in_block:
+                        # Drop this entire item, including its body.
+                        dropping_item = True
+                        item_body_indent = len(cm.group("indent"))
                         changes += 1
-                        continue  # drop duplicate
+                        continue
                     seen_in_block.add(new_value)
                     if new_value != value:
                         line = (
