@@ -76,9 +76,9 @@ Default: falcon
 
 # STATUS
 
-## New Diseases to Curate (1/15)
+## New Diseases to Curate (2/15)
 - [x] Neuromyelitis Optica Spectrum Disorder (NMOSD) - 70.6% compliance
-- [ ] MOG Antibody Disease (MOGAD)
+- [x] MOG Antibody Disease (MOGAD) - 91.9% compliance
 - [ ] Acute Disseminated Encephalomyelitis (ADEM)
 - [ ] Transverse Myelitis
 - [ ] Anti-NMDA Receptor Encephalitis
@@ -103,6 +103,26 @@ Default: falcon
 - [ ] ME/CFS - verify compliance
 
 # NOTES
+
+## 2026-05-16
+
+**MOGAD curated**:
+- Created `kb/disorders/MOGAD.yaml`
+- Deep research via falcon provider; OpenScientist provider run added for second-pass literature review
+- 91.9% weighted compliance achieved
+- Local Orphanet cache, current Orphanet web search, and MONDO cross-reference check found no ORPHA disease mapping for `MONDO:1040024`; Orphanet diagnostic-test listings currently point to acute disseminated encephalomyelitis with anti-MOG antibodies rather than a MOGAD disease entry
+- Key evidence from:
+  - PMID:36706773 - International MOGAD Panel diagnostic criteria
+  - PMID:34418402 - Lancet Neurology clinical/pathogenesis review
+  - PMID:40088708 - 2025 pathogenesis and biomarker review
+  - PMID:29695592 - MOGADOR adult cohort relapse and phenotype data
+  - PMID:32048003 and PMID:32412053 - MOGAD neuropathology, histopathology, and immunopathology
+  - PMID:32629363 - International rituximab treatment cohort
+  - PMID:34634625 and PMID:35377395 - maintenance IVIG meta-analysis and adult cohort
+  - PMID:40708693 - Current treatment principles review
+  - PMID:41657079 and PMID:41865559 - South Wales and Denmark epidemiology
+- ClinicalTrials.gov entries documented for satralizumab, rozanolixizumab, azathioprine, and tocilizumab MOGAD trials
+- Ontology terms: MONDO (MOGAD), CL (oligodendrocyte, T cell), GO (complement activation, ADCC, myelination), HP (optic neuritis, myelitis, CNS demyelination, spinal cord lesion), MAXO/NCIT/CHEBI treatment terms
 
 ## 2026-01-06
 
