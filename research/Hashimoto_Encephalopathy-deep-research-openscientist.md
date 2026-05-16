@@ -552,7 +552,6 @@ Tomer et al. (2011) established the mechanistic framework: *"These genes interac
 
 ### Protective Factors
 
-- **HLA-DRB1*13:02**: Identified as protective against multiple autoimmune diseases including autoimmune vasculitides ([PMID: 27166610](https://pubmed.ncbi.nlm.nih.gov/27166610/))
 - **Glutamine at HLA-DRbeta1 position 74**: Protective against AITD (vs. arginine which confers risk) ([PMID: 22735372](https://pubmed.ncbi.nlm.nih.gov/22735372/))
 - **Moderate alcohol intake**: Decreases risk of overt Hashimoto's hypothyroidism ([PMID: 24609834](https://pubmed.ncbi.nlm.nih.gov/24609834/))
 
