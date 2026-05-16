@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03445052
+reference_id: "clinicaltrials:NCT03445052"
 title: "The XPAND Evaluation of a Personalised Adherence Intervention to Improve Photoprotection Behaviour in Adults With Xeroderma Pigmentosum (XP): Randomised Controlled Trial."
 content_type: summary
 ---

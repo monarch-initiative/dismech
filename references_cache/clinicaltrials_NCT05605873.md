@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05605873
+reference_id: "clinicaltrials:NCT05605873"
 title: "Clinical, Histological and Prognostic Forms of Adenocarcinoma of the Anus"
 content_type: summary
 ---
