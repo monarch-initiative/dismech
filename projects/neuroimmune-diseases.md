@@ -31,7 +31,7 @@ These are already in the knowledge base and may benefit from enhancement:
 |---------|------|--------|-------------|
 | Anti-NMDA Receptor Encephalitis | Anti-NMDA_Receptor_Encephalitis.yaml | [ ] To curate | Most common autoimmune encephalitis, psychiatric + movement |
 | Limbic Encephalitis | Limbic_Encephalitis.yaml | [ ] To curate | Memory loss, seizures, psychiatric symptoms |
-| Hashimoto Encephalopathy (SREAT) | Hashimoto_Encephalopathy.yaml | [ ] To curate | Steroid-responsive encephalopathy with anti-thyroid antibodies |
+| Hashimoto Encephalopathy (SREAT) | Hashimoto_Encephalopathy.yaml | [x] Curated | Steroid-responsive encephalopathy with anti-thyroid antibodies |
 
 ### Priority 3: CNS Inflammatory Disorders
 | Disease | File | Status | Description |
@@ -83,7 +83,7 @@ Default: falcon
 - [ ] Transverse Myelitis
 - [x] Anti-NMDA Receptor Encephalitis - 100.0% weighted compliance
 - [ ] Limbic Encephalitis
-- [ ] Hashimoto Encephalopathy (SREAT)
+- [x] Hashimoto Encephalopathy (SREAT)
 - [ ] CNS Vasculitis
 - [ ] Neurosarcoidosis
 - [ ] Susac Syndrome
