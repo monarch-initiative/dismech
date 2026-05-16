@@ -12313,7 +12313,7 @@ window.searchData = [
       "Complement Disorder"
     ],
     "creation_date": "2026-04-22T12:00:00Z",
-    "updated_date": "2026-05-05T16:40:30Z",
+    "updated_date": "2026-05-16T00:00:00Z",
     "subtypes": [
       "CFH-aHUS",
       "MCP-aHUS",
@@ -12405,6 +12405,7 @@ window.searchData = [
     "treatments": [
       "Eculizumab",
       "Ravulizumab",
+      "Iptacopan",
       "Plasma Exchange/Infusion",
       "Renal Transplantation",
       "Immunosuppression for Anti-Factor H Antibodies"
@@ -12421,7 +12422,7 @@ window.searchData = [
     "num_phenotypes": 12,
     "num_pathophysiology": 4,
     "num_genes": 8,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
   },
@@ -17909,7 +17910,7 @@ window.searchData = [
       "urothelial carcinoma"
     ],
     "creation_date": "2026-04-12T05:10:24Z",
-    "updated_date": "2026-04-27T22:00:00Z",
+    "updated_date": "2026-05-15T00:00:00Z",
     "subtypes": [
       "Non-Muscle-Invasive",
       "Muscle-Invasive"
@@ -17919,18 +17920,22 @@ window.searchData = [
       "Urothelial-Origin Disease Spectrum",
       "Tumor Suppressor Pathway Inactivation",
       "Epithelial Plasticity and Invasion",
-      "Molecularly Stratified Therapeutic Vulnerabilities"
+      "Molecularly Stratified Therapeutic Vulnerabilities",
+      "Adaptive Immune Resistance and PD-L1-Mediated Immune Evasion"
     ],
     "cell_types": [
-      "bladder urothelial cell"
+      "bladder urothelial cell",
+      "CD8-positive, alpha-beta T cell"
     ],
     "cell_type_ids": [
-      "CL:1001428"
+      "CL:1001428",
+      "CL:0000625"
     ],
     "biological_processes": [
       "negative regulation of G1/S transition of mitotic cell cycle",
       "epithelial to mesenchymal transition",
-      "cell population proliferation"
+      "cell population proliferation",
+      "Negative Regulation of T Cell Mediated Immunity"
     ],
     "phenotypes": [
       "Hematuria",
@@ -17974,10 +17979,10 @@ window.searchData = [
     "source_file": "Bladder_Urothelial_Carcinoma.yaml",
     "page_url": "../pages/disorders/Bladder_Urothelial_Carcinoma.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
   },
   {
@@ -23927,6 +23932,107 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome",
+    "disease_id": "MONDO:0009133",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian Disorder",
+      "Cerebellar disorder",
+      "Cerebellar Hypoplasia"
+    ],
+    "creation_date": "2026-05-13T00:00:00Z",
+    "updated_date": "2026-05-13T12:00:00Z",
+    "subtypes": [
+      "CAMRQ1",
+      "CAMRQ2",
+      "CAMRQ3",
+      "CAMRQ4"
+    ],
+    "description": "Cerebellar ataxia, mental retardation, and dysequilibrium syndrome (CAMRQ) is a clinically and genetically heterogeneous group of rare autosomal-recessive non-progressive cerebellar disorders characterized by congenital ataxia, intellectual disability, severely delayed ambulation, and, in a subset of patients, quadrupedal locomotion. Cerebellar hypoplasia (predominantly of the inferior cerebellum and vermis) is the cardinal neuroimaging finding and pathologic substrate. Four genetic subtypes have been delineated: CAMRQ1 (VLDLR; Reelin signaling defect), CAMRQ2 (WDR81; BEACH-domain protein implicated in endolysosomal/autophagy regulation), CAMRQ3 (CA8; cerebellar carbonic anhydrase 8), and CAMRQ4 (ATP8A2; phosphatidylserine flippase). The syndrome was first described in consanguineous Hutterite and Turkish families. Management is supportive, with no disease-modifying therapy available.\n",
+    "pathophysiology": [
+      "Cerebellar Hypoplasia and Purkinje Cell Dysfunction",
+      "Disrupted Reelin Signaling (CAMRQ1)",
+      "Endolysosomal Trafficking and Autophagy Defect (CAMRQ2)",
+      "Dysregulated Purkinje Cell Calcium Signaling (CAMRQ3)",
+      "Impaired Phospholipid Translocation in Neuronal Membranes (CAMRQ4)",
+      "Cerebellar Motor and Cognitive Dysfunction"
+    ],
+    "cell_types": [
+      "Purkinje cell",
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121",
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "cerebellum development",
+      "cerebellar cortex development",
+      "reelin-mediated signaling pathway",
+      "neuron migration",
+      "endosome organization",
+      "autophagy",
+      "calcium-mediated signaling",
+      "phospholipid translocation"
+    ],
+    "phenotypes": [
+      "Cerebellar Ataxia",
+      "Intellectual Disability",
+      "Cerebellar Hypoplasia",
+      "Delayed Ambulation",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Quadrupedal Locomotion",
+      "Progressive Cerebellar Vermis Atrophy",
+      "Chorea",
+      "Tremor",
+      "Optic Atrophy"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0001321",
+      "HP:0001288",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0009878",
+      "HP:0006855",
+      "HP:0002072",
+      "HP:0001337",
+      "HP:0000648"
+    ],
+    "frequencies": [],
+    "genes": [
+      "VLDLR mutations (CAMRQ1)",
+      "WDR81 mutations (CAMRQ2)",
+      "CA8 mutations (CAMRQ3)",
+      "ATP8A2 mutations (CAMRQ4)"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Physical Therapy",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium.yaml",
+    "page_url": "../pages/disorders/Cerebellar_Ataxia,_Intellectual_Disability,_and_Dysequilibrium_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 3,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Cerebral Cavernous Malformation",
     "disease_id": "MONDO:0000820",
     "category": "Mendelian",
@@ -27745,7 +27851,7 @@ window.searchData = [
       "Healthcare-associated infections"
     ],
     "creation_date": "2025-12-19T01:18:09Z",
-    "updated_date": "2026-02-19T17:30:29Z",
+    "updated_date": "2026-05-15T00:00:00Z",
     "subtypes": [
       "Acute Clostridioides difficile infection",
       "Recurrent Clostridioides difficile infection",
@@ -65359,6 +65465,101 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "MOGAD",
+    "disease_id": "MONDO:1040024",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder",
+      "Demyelinating Disease"
+    ],
+    "creation_date": "2026-05-03T00:00:00Z",
+    "updated_date": "2026-05-16T03:56:08Z",
+    "subtypes": [
+      "Monophasic MOGAD",
+      "Relapsing MOGAD"
+    ],
+    "description": "Myelin oligodendrocyte glycoprotein antibody-associated disease (MOGAD) is an autoimmune inflammatory demyelinating disorder of the central nervous system defined by serum IgG autoantibodies against conformational epitopes of MOG. MOGAD typically presents as acute disseminated encephalomyelitis (ADEM, more common in children), optic neuritis, or transverse myelitis, and less commonly as cerebral cortical encephalitis, brainstem, or cerebellar syndromes. It is clinically and pathologically distinct from multiple sclerosis (MS) and aquaporin-4 antibody-positive neuromyelitis optica spectrum disorder (AQP4-IgG NMOSD). Disease course can be monophasic or relapsing, and diagnosis relies on cell-based assays detecting MOG-IgG with full-length human MOG in its native conformation.\n",
+    "pathophysiology": [
+      "Anti-MOG Autoimmunity",
+      "Complement-Dependent Cytotoxicity",
+      "Antibody-Dependent Cellular Cytotoxicity",
+      "Cognate T-Cell Mediated Inflammation",
+      "Oligodendrocyte Cytoskeleton Disruption and Demyelination"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "CD4-positive T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000624"
+    ],
+    "biological_processes": [
+      "complement activation",
+      "antibody-dependent cellular cytotoxicity",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Optic Neuritis",
+      "Visual Loss",
+      "Optic Disc Swelling",
+      "Transverse Myelitis",
+      "Spinal Cord Lesion",
+      "Acute Disseminated Encephalomyelitis",
+      "Encephalopathy",
+      "Cerebral Cortical Encephalitis",
+      "Seizure",
+      "Headache",
+      "Brainstem Syndrome",
+      "Ataxia",
+      "Paraparesis"
+    ],
+    "phenotype_categories": [
+      "Symptoms",
+      "Clinical Signs",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100653",
+      "HP:0000572",
+      "HP:0001085",
+      "HP:0012486",
+      "HP:0100561",
+      "HP:0007305",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0001251",
+      "HP:0002385"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Acute Attack Treatment - High-Dose Corticosteroids",
+      "Acute Attack Treatment - Plasma Exchange",
+      "Maintenance - Intravenous Immunoglobulin",
+      "Maintenance - Rituximab",
+      "Maintenance - Tocilizumab",
+      "Maintenance - Mycophenolate Mofetil",
+      "Maintenance - Azathioprine"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MOGAD.yaml",
+    "page_url": "../pages/disorders/MOGAD.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "MPDU1-congenital disorder of glycosylation",
@@ -107752,11 +107953,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1096,
-  "total_unique_evidence_sources": 19595,
+  "total_disorder_pages": 1098,
+  "total_unique_evidence_sources": 19619,
   "total_unique_disease_categories": 44,
-  "total_unique_phenotype_categories": 189,
-  "total_pathographs": 1089,
-  "total_unique_pathological_events": 5151
+  "total_unique_phenotype_categories": 191,
+  "total_pathographs": 1091,
+  "total_unique_pathological_events": 5163
 };
 window.dispatchEvent(new Event('searchDataReady'));
