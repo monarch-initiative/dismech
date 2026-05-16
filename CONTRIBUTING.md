@@ -59,7 +59,7 @@ for yourself. We assume good faith and you are not intentionally pushing the age
 welcome this as an experiment, if you coordinate! you can see a few examples of this already, e.g [Bixonimania request](https://github.com/monarch-initiative/dismech/issues/1565)).
 
 The general philosophy is to **trust the process**. All PRs are reviewed by agents using rubrics that have been
-extensively developed by agents and humans in collaboration. Additionally, a batter of hard validation checks
+extensively developed by agents and humans in collaboration. Additionally, a battery of hard validation checks
 and anti-hallucination measures are applied. This is not guaranteed to be perfect, but we also believe
 in incremental improvement. No entry is finished, and in fact all entries are continuously being refined.
 
@@ -78,7 +78,7 @@ granted branch access.
 
 ## Technical Guidelines for Contributing
 
-## Coding agent
+### Coding agent
 
 Most contributors use **Claude Code** or **Codex** for AI-assisted curation. To contribute as an agent manager:
 
@@ -102,7 +102,7 @@ brew install just  # macOS
 # Or see https://github.com/casey/just#installation for other platforms
 ```
 
-(or just ask your agent do to do this)
+(or just ask your agent to do this)
 
 ### 3. Set Up a Deep Research Provider (Required)
 
@@ -239,7 +239,9 @@ To understand the curation guidelines:
 
 After making changes to `kb/disorders/*.yaml` files, regenerate the static site:
 
-### Browser App & HTML Pages  (THIS IS NOW AUTOMATED)
+### Browser App & HTML Pages
+
+This is now automated, but the following command will manually rebuild all browser pages.
 
 ```bash
 just gen-all
