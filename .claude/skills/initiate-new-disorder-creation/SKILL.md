@@ -171,6 +171,83 @@ For example:
 
 You MUST read this before progressing.
 
+### Step 3b: GeneReviews Baseline (REQUIRED when applicable)
+
+GeneReviews (https://www.ncbi.nlm.nih.gov/books/NBK1116/) is the authoritative
+expert-curated clinical reference for Mendelian disorders. Before curating
+phenotypes, you MUST check whether a GeneReviews article exists for the disease.
+If one exists, it is the mandatory phenotype baseline — not just a convenient
+source.
+
+#### 1. Search PubMed for a GeneReviews article
+
+```bash
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
+  --data-urlencode "db=pubmed" \
+  --data-urlencode "retmode=json" \
+  --data-urlencode "term=<DISEASE_NAME>[TI] GeneReviews[TI]"
+```
+
+If no results, try a broader search: `<DISEASE_NAME> GeneReviews[Book]`
+
+#### 2. If a PMID is found, fetch and cache it
+
+```bash
+just fetch-reference PMID:XXXXXXXX
+```
+
+#### 3. Tag it in the top-level `references:` block
+
+```yaml
+references:
+  - reference: PMID:XXXXXXXX
+    title: "<GeneReviews article title>"
+    tags:
+      - GeneReviews
+```
+
+You can also run `just tag-references` after adding the PMID to inline
+evidence items — the script detects GeneReviews PMIDs from the cached
+abstract and writes the top-level tag automatically.
+
+#### 4. Cross-reference Clinical Characteristics against your YAML
+
+- Read the cached abstract at `references_cache/PMID_XXXXXXXX.md`
+- Identify every phenotype, anomaly, and comorbidity listed in the
+  Clinical Characteristics section of the abstract
+- Compare against your YAML `phenotypes:` section
+- Any GeneReviews-documented phenotype **absent** from your YAML must
+  either be added (with an HPO term and evidence item quoting the
+  GeneReviews abstract) or explicitly explained as out of scope
+
+#### 5. Capture drug-safety warnings
+
+GeneReviews often has an *Agents/Circumstances to Avoid* section.
+If the abstract mentions any, add a note in the relevant treatment entry's
+`description:` and include a GeneReviews evidence item quoting it exactly.
+
+#### 6. Frequency mapping — prose → FrequencyEnum
+
+GeneReviews uses narrative frequency language. Map to the enum as follows:
+
+| GeneReviews phrase | FrequencyEnum | HPO range |
+|---|---|---|
+| "virtually all", "most individuals", ">80%" | `VERY_FREQUENT` | 80–100% |
+| "many", "majority", "common", "~50%–79%", ">30%" | `FREQUENT` | 30–79% |
+| "some", "occasional", "uncommon", "~10%–29%" | `OCCASIONAL` | 5–29% |
+| "rare", "few", "<5%", "infrequently reported" | `VERY_RARE` | 1–4% |
+| "isolated reports", "single case" | (omit frequency) | <1% |
+
+When frequency is ambiguous, **omit `frequency:`** rather than guessing.
+
+#### 7. No GeneReviews article? Document it
+
+If no GeneReviews article exists for the disease, proceed to Step 4
+without this baseline. No action needed — the absence itself is not a
+problem.
+
+---
+
 ### Step 4: Enhance YAML file with evidence for assestions
 
 Use the results of deep research to enhance the yaml file, providing evidence for as many assertions as possible.
@@ -568,6 +645,11 @@ git push
 Before finalizing a new disorder file, verify:
 
 - [ ] Deep research query was performed (document which tool)
+- [ ] GeneReviews article searched for this disease
+  - [ ] If found: PMID fetched, cached, and tagged `GeneReviews` in top-level `references:`
+  - [ ] If found: all Clinical Characteristics phenotypes either captured in YAML or explicitly noted as out of scope
+  - [ ] If found: any drug-safety warnings (Agents to Avoid) reflected in relevant treatment entries
+  - [ ] If not found: no action needed
 - [ ] All PMIDs exist and are for relevant papers
 - [ ] All snippets are exact quotes from abstracts
 - [ ] MONDO term exists and label matches exactly

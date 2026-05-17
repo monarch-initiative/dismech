@@ -238,6 +238,45 @@ defence against schema-valid but content-incomplete entries.
 - Align with clingen where possible
 - Lumping and splitting can be hard and ambiguous - it is OK to summon a human to help you resolve, and hold off on approving until the human approves
 
+15. GeneReviews Baseline Completeness
+
+For new entries and major augmentations, verify that GeneReviews was used as a
+mandatory baseline where applicable.
+
+**Step 1 — Is a GeneReviews article tagged?**
+
+Check the top-level `references:` block for an entry with `tags: [GeneReviews]`.
+
+```yaml
+references:
+  - reference: PMID:XXXXXXXX
+    tags:
+      - GeneReviews
+```
+
+If no such tag exists, search PubMed:
+```bash
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
+  --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
+  --data-urlencode "term=<DISEASE NAME>[TI] GeneReviews[TI]"
+```
+
+- If a GeneReviews article **exists** and is **not tagged** in a new Mendelian entry,
+  that is a **blocking omission** — flag it as `REQUEST_CHANGES`.
+- If no GeneReviews article exists, no action needed.
+
+**Step 2 — If GeneReviews is tagged, check coverage**
+
+Read the cached abstract at `references_cache/PMID_<ID>.md` and verify:
+- Every phenotype listed in the *Clinical Characteristics* section of the
+  abstract is either present in the YAML `phenotypes:` block or the omission
+  is clearly intentional (documented scope narrowing).
+- Any *Agents/Circumstances to Avoid* mentioned in the abstract are reflected
+  in the relevant treatment entry.
+
+Absence of a GeneReviews-documented phenotype that affects >10% of patients
+is **blocking** under the same threshold as the Content-Completeness Checklist.
+
 ## Review Decision: Formal GitHub Review
 
 After completing the review, you MUST submit a formal GitHub review (not just a comment).
@@ -249,6 +288,7 @@ Submit `--approve` when **all** of the following hold:
 - No major ontology placement errors (e.g., GO molecular function term in `biological_processes`)
 - All pathophysiology entries are atomic (not chained multi-step sentences)
 - When matching deep-research artifacts exist, the **Content-Completeness Checklist** was completed and no blocking omissions remain across any dimension (phenotypes, subtypes, pathophysiology, treatments, genetics, biomarkers, references)
+- GeneReviews baseline check completed (item 15): if a GeneReviews article exists, it is tagged and its Clinical Characteristics are covered
 - At most minor wording / completeness issues
 - (CI handles schema/term/reference validation — do not duplicate that work)
 
@@ -260,6 +300,8 @@ Submit `--request-changes` when **any one** of the following is true:
 - Pathophysiology entries bundled into chains rather than single atomic events
 - Claim–evidence mismatch (evidence snippet does not support the stated claim)
 - A central research-backed mechanism, phenotype, diagnostic, treatment, biomarker, or subtype was omitted even though the supporting evidence is clear, quotable, and in scope for this YAML
+- A GeneReviews article exists for a new Mendelian entry but is not tagged (`tags: [GeneReviews]`) in the top-level `references:` block
+- A GeneReviews-documented phenotype affecting >10% of patients is absent from the YAML with no documented scoping rationale
 
 ### COMMENT + reassign to @cmungall
 Submit `--comment` and reassign the PR/issue to `@cmungall` when:
