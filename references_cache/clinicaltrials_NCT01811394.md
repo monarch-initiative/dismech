@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01811394
+reference_id: "clinicaltrials:NCT01811394"
 title: Hypofractionated Ion Irradiation (Protons or Carbon Ions) of Sacrococcygeal Chordoma
 content_type: summary
 ---
