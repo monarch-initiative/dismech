@@ -36,7 +36,7 @@ These are already in the knowledge base and may benefit from enhancement:
 ### Priority 3: CNS Inflammatory Disorders
 | Disease | File | Status | Description |
 |---------|------|--------|-------------|
-| CNS Vasculitis | CNS_Vasculitis.yaml | [ ] To curate | Primary angiitis of the CNS |
+| CNS Vasculitis | CNS_Vasculitis.yaml | [x] Curated - 95.7% compliance | Primary angiitis of the CNS |
 | Neurosarcoidosis | Neurosarcoidosis.yaml | [ ] To curate | Granulomatous inflammation of nervous system |
 | Susac Syndrome | Susac_Syndrome.yaml | [ ] To curate | Microangiopathy affecting brain, retina, inner ear |
 
@@ -84,7 +84,7 @@ Default: falcon
 - [x] Anti-NMDA Receptor Encephalitis - 100.0% weighted compliance
 - [ ] Limbic Encephalitis
 - [ ] Hashimoto Encephalopathy (SREAT)
-- [ ] CNS Vasculitis
+- [x] CNS Vasculitis - 95.7% compliance
 - [ ] Neurosarcoidosis
 - [ ] Susac Syndrome
 - [ ] Optic Neuritis
@@ -105,6 +105,22 @@ Default: falcon
 # NOTES
 
 ## 2026-05-16
+
+**CNS Vasculitis curated**:
+- Created `kb/disorders/CNS_Vasculitis.yaml` focused on primary angiitis of the CNS / PCNSV
+- Deep research completed with Falcon and OpenScientist providers
+- 95.7% weighted compliance achieved
+- MONDO and Orphanet grounding: `MONDO:0015374` and `ORPHA:140989`
+- Key evidence from:
+  - ORPHA:140989 - rare-disease definition, incidence band, and HPO phenotype frequencies
+  - PMID:3275856 - classic Calabrese-Mallek diagnostic criteria
+  - PMID:17924545, PMID:26020379, PMID:25708615, and PMID:32062032 - Mayo incidence, subtypes, outcomes, relapse, and maintenance therapy
+  - DOI:10.1177/23969873231190431 - ESO 2023 PACNS guideline
+  - PMID:36264136 - PCNSV brain transcriptomic immune activation
+  - PMID:40546217 - 2025 multicenter German outcome and cyclophosphamide relapse data
+  - PMID:40643487 - serum and CSF neurofilament light chain biomarker study
+- ClinicalTrials.gov entries documented for vessel-wall MRI, ferumoxytol MRI in CNS inflammation, and refractory non-ANCA vasculitis biologics
+- Ontology terms: MONDO/ORPHA disease IDs, UBERON CNS vascular anatomy, CL immune-cell subsets, GO inflammatory and antigen-presentation processes, HPO neurologic/CSF/MRI phenotypes, MAXO diagnosis/treatment terms
 
 **Anti-NMDA receptor encephalitis curated**:
 - Created `kb/disorders/Anti-NMDA_Receptor_Encephalitis.yaml`
