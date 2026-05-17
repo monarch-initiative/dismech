@@ -179,6 +179,11 @@ phenotypes, you MUST check whether a GeneReviews article exists for the disease.
 If one exists, it is the mandatory phenotype baseline — not just a convenient
 source.
 
+> **Scope:** This step applies primarily to **Mendelian (single-gene) disorders**.
+> For complex, multifactorial, infectious, or cancer entries where GeneReviews
+> coverage is unlikely, skip directly to Step 4 — the PubMed search below will
+> confirm either way.
+
 #### 1. Search PubMed for a GeneReviews article
 
 ```bash
@@ -188,7 +193,7 @@ curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
   --data-urlencode "term=<DISEASE_NAME>[TI] GeneReviews[TI]"
 ```
 
-If no results, try a broader search: `<DISEASE_NAME> GeneReviews[Book]`
+If no results, try a broader search: `<DISEASE_NAME> GeneReviews[All Fields]`
 
 #### 2. If a PMID is found, fetch and cache it
 
@@ -220,6 +225,13 @@ abstract and writes the top-level tag automatically.
   either be added (with an HPO term and evidence item quoting the
   GeneReviews abstract) or explicitly explained as out of scope
 
+> **Note:** The cached abstract captures only the structured PubMed abstract,
+> which is a condensed summary of the full GeneReviews chapter. The full
+> *Clinical Characteristics* section in the chapter body often lists additional
+> phenotypes not in the abstract. Cross-reference the deep-research artifact
+> (from Step 3) for comprehensive coverage — treat the abstract as the minimum
+> baseline, not the ceiling.
+
 #### 5. Capture drug-safety warnings
 
 GeneReviews often has an *Agents/Circumstances to Avoid* section.
@@ -234,7 +246,7 @@ GeneReviews uses narrative frequency language. Map to the enum as follows:
 |---|---|---|
 | "virtually all", "most individuals", ">80%" | `VERY_FREQUENT` | 80–100% |
 | "many", "majority", "common", "~50%–79%", ">30%" | `FREQUENT` | 30–79% |
-| "some", "occasional", "uncommon", "~10%–29%" | `OCCASIONAL` | 5–29% |
+| "some", "occasional", "uncommon", "~5%–29%" | `OCCASIONAL` | 5–29% |
 | "rare", "few", "<5%", "infrequently reported" | `VERY_RARE` | 1–4% |
 | "isolated reports", "single case" | (omit frequency) | <1% |
 
