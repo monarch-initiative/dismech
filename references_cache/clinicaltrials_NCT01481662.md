@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01481662
+reference_id: "clinicaltrials:NCT01481662"
 title: "Epidemiological, Clinical and Etiological Features of SUSAC's Syndrome (RETINOCOCHLEOCEREBRAL Vasculopathy)"
 content_type: summary
 ---
