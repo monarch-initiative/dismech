@@ -76,6 +76,16 @@ biomedical informatics communities will be added promptly. Other contributors
 are welcome to join a community call and introduce themselves before being
 granted branch access.
 
+## A note on 'draft' status
+
+Currently the GitHub 'draft' status is not very meaningful. Any PR that is created will be reviewed
+and possibly modified and advanced towards a final merge, regardless of draft status. If you do not wish this to
+happen then you can push changes without making a PR. However, in general you should follow the "be bold" guidelines.
+
+In terms of GitHub mechanics, draft status may block auto-merge.
+
+In future the workflow may be modified since the current status is a bit confusing.
+
 ## Technical Guidelines for Contributing
 
 ### Coding agent
