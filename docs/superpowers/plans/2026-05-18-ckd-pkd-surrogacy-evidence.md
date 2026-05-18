@@ -339,13 +339,29 @@ Expected: all PASS. If `test_regulatory_endpoint_refs` fails on a missing/extra 
 
 - [ ] **Step 2: Run aggregate QC on touched files**
 
-Run: `just validate-references kb/surrogate_endpoints/fda_surrogate_endpoints.yaml kb/disorders/Chronic_Kidney_Disease.yaml kb/disorders/Polycystic_Kidney_Disease.yaml`
-Expected: PASS for all three.
+NOTE (discovered during Task 3/4): `just validate` and `just validate-references`
+run with `--target-class Disease`. That is correct for the two disorder files
+but is the WRONG validator for `kb/surrogate_endpoints/fda_surrogate_endpoints.yaml`
+(it errors at root with a pre-existing "Additional properties … retrieved_date …"
+message and, for references, reports `Total checks: 0` — a false green). The
+authoritative validation for the FDA file is the pytest suite in Step 1, plus
+deterministic substring verification of each snippet against its committed
+`references_cache/PMID_*.md` body (whitespace/case/punctuation normalized,
+`[...]` stripped). Do NOT rely on `just validate*` for the FDA file.
+
+Run: `just validate-references kb/disorders/Chronic_Kidney_Disease.yaml kb/disorders/Polycystic_Kidney_Disease.yaml`
+Expected: PASS for both disorder files (their BiomarkerReadout snippets are real Disease-class checks).
+
+`just validate-references` re-quotes `reference_id:` frontmatter in
+`references_cache/*.md` as a benign side effect. After running it, restore that
+churn so it is never staged:
+Run: `git checkout -- references_cache/`
+(The intended cache files were already committed in Tasks 1–2.)
 
 - [ ] **Step 3: Review the diff for scope creep**
 
 Run: `git diff --stat origin/main...HEAD` and `git diff --name-status origin/main...HEAD`
-Expected: only the spec, the plan, the FDA YAML, the two disorder files, and the new `references_cache/PMID_*.md`. If any generated/unrelated path appears, stop and fix before pushing.
+Expected: only the spec, the plan, the FDA YAML, the two disorder files, and the new `references_cache/PMID_*.md`. If any generated/unrelated path (e.g., re-quoted cache frontmatter, `pages/`, `dashboard/`) appears, stop and fix before pushing.
 
 - [ ] **Step 4: Push and open PR from origin**
 
