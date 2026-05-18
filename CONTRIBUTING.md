@@ -59,7 +59,7 @@ for yourself. We assume good faith and you are not intentionally pushing the age
 welcome this as an experiment, if you coordinate! you can see a few examples of this already, e.g [Bixonimania request](https://github.com/monarch-initiative/dismech/issues/1565)).
 
 The general philosophy is to **trust the process**. All PRs are reviewed by agents using rubrics that have been
-extensively developed by agents and humans in collaboration. Additionally, a battery of hard validation checks
+extensively evaluated by agents and humans in collaboration. Additionally, a battery of hard validation checks
 and anti-hallucination measures are applied. This is not guaranteed to be perfect, but we also believe
 in incremental improvement. No entry is finished, and in fact all entries are continuously being refined.
 
