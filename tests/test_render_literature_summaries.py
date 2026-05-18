@@ -246,7 +246,29 @@ def test_render_disorder_links_hypothesis_research_without_inlining(
                     "hypothesis_label": "Copper-Dependent Cuproptosis Model",
                     "status": "EMERGING",
                     "description": "Copper-dependent cell death may amplify injury.",
+                    "evidence": [
+                        {
+                            "reference": "PMID:12345678",
+                            "supports": "SUPPORT",
+                            "snippet": "Cuproptosis can injure hepatocytes.",
+                        }
+                    ],
                 }
+            ],
+            "pathophysiology": [
+                {
+                    "name": "Hepatic copper overload",
+                    "description": "Copper accumulates in hepatocytes.",
+                    "downstream": [
+                        {
+                            "target": "Mitochondrial cell injury",
+                            "description": "Copper overload injures mitochondria.",
+                            "hypothesis_groups": ["cuproptosis_model"],
+                            "causal_link_type": "INDIRECT_UNKNOWN_INTERMEDIATES",
+                        }
+                    ],
+                },
+                {"name": "Mitochondrial cell injury"},
             ],
         },
     )
@@ -266,9 +288,13 @@ This full report body should stay out of the rendered disorder page.
     render_disorder(disorder_path, output_path=output_path)
     html = output_path.read_text()
 
-    assert 'id="hypothesis-research"' in html
-    assert "Hypothesis Deep Research" in html
+    assert 'id="mechanistic-hypotheses"' in html
+    assert 'id="hypothesis-cuproptosis-model"' in html
+    assert 'id="hypothesis-research"' not in html
     assert "Copper-Dependent Cuproptosis Model" in html
+    assert "Pathograph links" in html
+    assert 'href="#pathophysiology-hepatic-copper-overload"' in html
+    assert 'href="#hypothesis-cuproptosis-model"' in html
     assert "OpenScientist" in html
     assert (
         "https://github.com/monarch-initiative/dismech/blob/main/"

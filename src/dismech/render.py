@@ -454,6 +454,146 @@ def _annotate_model_links(disorder: dict) -> None:
             model["_modeled_mechanisms_resolved"] = resolved_links
 
 
+def _coerce_string_list(value: object) -> list[str]:
+    """Normalize schema values that may be absent, scalar, or multivalued."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item is not None and str(item).strip()]
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    return [str(value)]
+
+
+def _annotate_hypothesis_group_links(disorder: dict) -> None:
+    """Attach anchors and visible cross-links for mechanistic hypothesis groups."""
+    hypotheses = disorder.get("mechanistic_hypotheses") or []
+    pathophysiology_items = disorder.get("pathophysiology") or []
+    if not isinstance(hypotheses, list):
+        hypotheses = []
+    if not isinstance(pathophysiology_items, list):
+        pathophysiology_items = []
+
+    hypotheses_by_id: dict[str, dict] = {}
+    for hypothesis in hypotheses:
+        if not isinstance(hypothesis, dict):
+            continue
+        hypothesis_id = str(hypothesis.get("hypothesis_group_id") or "").strip()
+        if not hypothesis_id:
+            continue
+        hypothesis["_anchor_id"] = _make_anchor_id("hypothesis", hypothesis_id)
+        hypothesis["_pathograph_links"] = []
+        hypothesis["_research_reports"] = []
+        hypotheses_by_id.setdefault(hypothesis_id, hypothesis)
+
+    pathophysiology_by_name: dict[str, dict] = {}
+    for item in pathophysiology_items:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        if not name:
+            continue
+        item.setdefault("_anchor_id", _make_anchor_id("pathophysiology", str(name)))
+        item["_hypothesis_links"] = []
+        pathophysiology_by_name[str(name)] = item
+
+    seen_hypothesis_edges: dict[str, set[tuple[str, str]]] = defaultdict(set)
+
+    def link_payload(hypothesis_id: str) -> dict:
+        hypothesis = hypotheses_by_id.get(hypothesis_id)
+        return {
+            "hypothesis_id": hypothesis_id,
+            "hypothesis_label": (
+                hypothesis.get("hypothesis_label")
+                if hypothesis
+                else hypothesis_id.replace("_", " ")
+            ),
+            "status": hypothesis.get("status") if hypothesis else None,
+            "anchor_id": hypothesis.get("_anchor_id") if hypothesis else None,
+        }
+
+    for item in pathophysiology_items:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("name")
+        if not source:
+            continue
+        item_links: dict[str, dict] = {}
+
+        downstream = item.get("downstream") or []
+        if not isinstance(downstream, list):
+            continue
+        for edge in downstream:
+            if not isinstance(edge, dict):
+                continue
+            target = edge.get("target")
+            hypothesis_ids = _coerce_string_list(edge.get("hypothesis_groups"))
+            if not target or not hypothesis_ids:
+                continue
+
+            edge_links = []
+            for hypothesis_id in hypothesis_ids:
+                payload = link_payload(hypothesis_id)
+                edge_links.append(payload)
+                item_links.setdefault(hypothesis_id, payload)
+
+                hypothesis = hypotheses_by_id.get(hypothesis_id)
+                if hypothesis is None:
+                    continue
+                edge_key = (str(source), str(target))
+                if edge_key in seen_hypothesis_edges[hypothesis_id]:
+                    continue
+                seen_hypothesis_edges[hypothesis_id].add(edge_key)
+                target_item = pathophysiology_by_name.get(str(target))
+                hypothesis["_pathograph_links"].append(
+                    {
+                        "source": source,
+                        "target": target,
+                        "source_anchor": item.get("_anchor_id"),
+                        "target_anchor": (
+                            target_item.get("_anchor_id") if target_item else None
+                        ),
+                        "description": edge.get("description"),
+                        "causal_link_type": edge.get("causal_link_type"),
+                        "intermediate_mechanisms": _coerce_string_list(
+                            edge.get("intermediate_mechanisms")
+                        ),
+                    }
+                )
+
+            edge["_hypothesis_links"] = edge_links
+
+        item["_hypothesis_links"] = sorted(
+            item_links.values(),
+            key=lambda link: (
+                str(link.get("hypothesis_label") or "").casefold(),
+                str(link.get("hypothesis_id") or "").casefold(),
+            ),
+        )
+
+
+def _annotate_hypothesis_research_links(
+    disorder: dict, hypothesis_research_links: list[dict]
+) -> None:
+    """Attach collected report links to their disease-level hypothesis entries."""
+    hypotheses = disorder.get("mechanistic_hypotheses") or []
+    if not isinstance(hypotheses, list):
+        return
+
+    reports_by_hypothesis_id = {
+        str(section.get("hypothesis_id")): section.get("reports") or []
+        for section in hypothesis_research_links
+        if isinstance(section, dict) and section.get("hypothesis_id")
+    }
+    for hypothesis in hypotheses:
+        if not isinstance(hypothesis, dict):
+            continue
+        hypothesis_id = str(hypothesis.get("hypothesis_group_id") or "").strip()
+        hypothesis["_research_reports"] = reports_by_hypothesis_id.get(
+            hypothesis_id, []
+        )
+
+
 def _resolve_fda_surrogate_endpoints_path(yaml_path: Path) -> Path:
     """Resolve the FDA surrogate endpoint source table relative to a disease file."""
     nearby_kb_path = yaml_path.parent.parent / _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH
@@ -1186,6 +1326,7 @@ def render_disorder(
         disorders_dir=yaml_path.parent,
     )
     _annotate_model_links(disorder)
+    _annotate_hypothesis_group_links(disorder)
 
     # Set up Jinja2 environment
     if template_path is None:
@@ -1269,6 +1410,7 @@ def render_disorder(
     hypothesis_research_count = sum(
         len(section.get("reports") or []) for section in hypothesis_research_links
     )
+    _annotate_hypothesis_research_links(disorder, hypothesis_research_links)
 
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
