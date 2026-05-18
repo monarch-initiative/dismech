@@ -1004,7 +1004,9 @@ def collect_reports(
         md.reset()
         html = md.convert(text)
         if output_dir is not None:
-            base_prefix = os.path.relpath(md_path.parent.resolve(), output_dir.resolve())
+            base_prefix = os.path.relpath(
+                md_path.parent.resolve(), output_dir.resolve()
+            )
             html = _rebase_relative_html_urls(html, base_prefix)
         title = md_path.stem
         for line in text.splitlines():
@@ -1035,7 +1037,9 @@ def collect_literature_summaries(
         md.reset()
         html = md.convert(body)
         if output_dir is not None:
-            base_prefix = os.path.relpath(md_path.parent.resolve(), output_dir.resolve())
+            base_prefix = os.path.relpath(
+                md_path.parent.resolve(), output_dir.resolve()
+            )
             html = _rebase_relative_html_urls(html, base_prefix)
         title = _humanize_provider(metadata.get("provider")) or _extract_display_title(
             body, md_path.stem
@@ -1056,6 +1060,93 @@ def collect_literature_summaries(
             }
         )
     return results
+
+
+def _github_blob_url(relative_path: Path) -> str:
+    """Return the post-merge GitHub page for a repository-relative file."""
+    return (
+        "https://github.com/monarch-initiative/dismech/blob/main/"
+        f"{relative_path.as_posix()}"
+    )
+
+
+def collect_hypothesis_research_links(
+    disorder_slug: str,
+    hypotheses: list[dict],
+    hypotheses_root: Path = Path("kb/hypotheses"),
+) -> list[dict]:
+    """Collect hypothesis-level deep-research outputs as compact GitHub links."""
+    disorder_dir = hypotheses_root / disorder_slug
+    if not disorder_dir.is_dir():
+        return []
+
+    hypothesis_lookup = {
+        str(hypothesis.get("hypothesis_group_id")): hypothesis
+        for hypothesis in hypotheses
+        if isinstance(hypothesis, dict) and hypothesis.get("hypothesis_group_id")
+    }
+    hypothesis_order = {
+        str(hypothesis.get("hypothesis_group_id")): index
+        for index, hypothesis in enumerate(hypotheses)
+        if isinstance(hypothesis, dict) and hypothesis.get("hypothesis_group_id")
+    }
+
+    sections = []
+    for hypothesis_dir in sorted(
+        path for path in disorder_dir.iterdir() if path.is_dir()
+    ):
+        reports = []
+        for md_path in sorted(hypothesis_dir.glob("*.md")):
+            if md_path.name.endswith(".citations.md"):
+                continue
+            metadata, _ = _split_front_matter(md_path.read_text(encoding="utf-8"))
+            provider = str(metadata.get("provider") or md_path.stem)
+            rel_report = (
+                Path("kb/hypotheses")
+                / disorder_slug
+                / hypothesis_dir.name
+                / md_path.name
+            )
+            citations_path = Path(f"{md_path}.citations.md")
+            rel_citations = (
+                Path("kb/hypotheses")
+                / disorder_slug
+                / hypothesis_dir.name
+                / citations_path.name
+            )
+            reports.append(
+                {
+                    "provider": provider,
+                    "provider_label": _humanize_provider(provider) or provider,
+                    "href": _github_blob_url(rel_report),
+                    "filename": md_path.name,
+                    "citations_href": _github_blob_url(rel_citations)
+                    if citations_path.exists()
+                    else None,
+                    "citation_count": metadata.get("citation_count"),
+                    "end_time": metadata.get("end_time") or metadata.get("start_time"),
+                }
+            )
+        if not reports:
+            continue
+
+        hypothesis = hypothesis_lookup.get(hypothesis_dir.name, {})
+        sections.append(
+            {
+                "hypothesis_id": hypothesis_dir.name,
+                "hypothesis_label": hypothesis.get("hypothesis_label")
+                or hypothesis_dir.name.replace("_", " "),
+                "status": hypothesis.get("status"),
+                "reports": reports,
+                "_sort": hypothesis_order.get(
+                    hypothesis_dir.name, len(hypothesis_order)
+                ),
+            }
+        )
+
+    return sorted(
+        sections, key=lambda section: (section["_sort"], section["hypothesis_id"])
+    )
 
 
 def render_disorder(
@@ -1137,6 +1228,7 @@ def render_disorder(
     comorbidity_links = _collect_comorbidity_links(yaml_path.stem)
     reports_root = _resolve_nearby_dir(yaml_path.parent, "reports")
     research_root = _resolve_nearby_dir(yaml_path.parent, "research")
+    hypotheses_root = _resolve_nearby_dir(yaml_path.parent, "kb/hypotheses")
     disorder_slug = slugify(disorder.get("name") or yaml_path.stem)
     file_stem = yaml_path.stem
     report_sections = collect_reports(
@@ -1163,6 +1255,20 @@ def render_disorder(
             reports_root=reports_root,
             output_dir=output_path.parent,
         )
+    hypothesis_research_links = collect_hypothesis_research_links(
+        file_stem,
+        disorder.get("mechanistic_hypotheses") or [],
+        hypotheses_root=hypotheses_root,
+    )
+    if not hypothesis_research_links and file_stem != disorder_slug:
+        hypothesis_research_links = collect_hypothesis_research_links(
+            disorder_slug,
+            disorder.get("mechanistic_hypotheses") or [],
+            hypotheses_root=hypotheses_root,
+        )
+    hypothesis_research_count = sum(
+        len(section.get("reports") or []) for section in hypothesis_research_links
+    )
 
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
@@ -1194,6 +1300,8 @@ def render_disorder(
         phenotype_groups=phenotype_groups,
         report_sections=report_sections,
         literature_sections=literature_sections,
+        hypothesis_research_links=hypothesis_research_links,
+        hypothesis_research_count=hypothesis_research_count,
         research_root_rel=research_root_rel,
         # OpenScientist integration
         disorder_slug=disorder_slug,

@@ -4,7 +4,11 @@ from pathlib import Path
 
 import yaml
 
-from dismech.render import collect_literature_summaries, render_disorder
+from dismech.render import (
+    collect_hypothesis_research_links,
+    collect_literature_summaries,
+    render_disorder,
+)
 
 
 def _write_disorder(path: Path, data: dict) -> None:
@@ -180,7 +184,7 @@ Summary.
     )
 
     assert (
-        '../../research/Test_Disorder-deep-research-falcon_artifacts/image-1.png'
+        "../../research/Test_Disorder-deep-research-falcon_artifacts/image-1.png"
         in results[0]["html"]
     )
 
@@ -214,5 +218,104 @@ Summary.
     render_disorder(disorder_path, output_path=output_path)
     html = output_path.read_text()
 
-    assert '../../research/Test_Disorder-deep-research-falcon_artifacts/image-1.png' in html
-    assert '<img' in html
+    assert (
+        "../../research/Test_Disorder-deep-research-falcon_artifacts/image-1.png"
+        in html
+    )
+    assert "<img" in html
+
+
+def test_render_disorder_links_hypothesis_research_without_inlining(
+    tmp_path: Path,
+) -> None:
+    disorder_dir = tmp_path / "kb" / "disorders"
+    hypothesis_dir = (
+        tmp_path / "kb" / "hypotheses" / "Wilsons_Disease" / "cuproptosis_model"
+    )
+    disorder_dir.mkdir(parents=True)
+    hypothesis_dir.mkdir(parents=True)
+    disorder_path = disorder_dir / "Wilsons_Disease.yaml"
+    output_path = tmp_path / "pages" / "disorders" / "Wilsons_Disease.html"
+    _write_disorder(
+        disorder_path,
+        {
+            "name": "Wilson Disease",
+            "mechanistic_hypotheses": [
+                {
+                    "hypothesis_group_id": "cuproptosis_model",
+                    "hypothesis_label": "Copper-Dependent Cuproptosis Model",
+                    "status": "EMERGING",
+                    "description": "Copper-dependent cell death may amplify injury.",
+                }
+            ],
+        },
+    )
+    (hypothesis_dir / "openscientist.md").write_text(
+        """---
+provider: openscientist
+citation_count: 20
+end_time: '2026-05-17T22:33:39Z'
+---
+# Hypothesis report
+
+This full report body should stay out of the rendered disorder page.
+"""
+    )
+    (hypothesis_dir / "openscientist.md.citations.md").write_text("# citations\n")
+
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+
+    assert 'id="hypothesis-research"' in html
+    assert "Hypothesis Deep Research" in html
+    assert "Copper-Dependent Cuproptosis Model" in html
+    assert "OpenScientist" in html
+    assert (
+        "https://github.com/monarch-initiative/dismech/blob/main/"
+        "kb/hypotheses/Wilsons_Disease/cuproptosis_model/openscientist.md"
+    ) in html
+    assert (
+        "https://github.com/monarch-initiative/dismech/blob/main/"
+        "kb/hypotheses/Wilsons_Disease/cuproptosis_model/"
+        "openscientist.md.citations.md"
+    ) in html
+    assert "This full report body should stay out" not in html
+
+
+def test_collect_hypothesis_research_links_uses_metadata_and_citations(
+    tmp_path: Path,
+) -> None:
+    hypothesis_dir = (
+        tmp_path / "kb" / "hypotheses" / "Test_Disorder" / "canonical_model"
+    )
+    hypothesis_dir.mkdir(parents=True)
+    (hypothesis_dir / "falcon.md").write_text(
+        """---
+provider: falcon
+citation_count: 3
+---
+Report body.
+"""
+    )
+    (hypothesis_dir / "falcon.md.citations.md").write_text("# citations\n")
+
+    links = collect_hypothesis_research_links(
+        "Test_Disorder",
+        [
+            {
+                "hypothesis_group_id": "canonical_model",
+                "hypothesis_label": "Canonical Model",
+                "status": "CANONICAL",
+            }
+        ],
+        hypotheses_root=tmp_path / "kb" / "hypotheses",
+    )
+
+    assert len(links) == 1
+    assert links[0]["hypothesis_label"] == "Canonical Model"
+    assert links[0]["status"] == "CANONICAL"
+    assert links[0]["reports"][0]["provider_label"] == "Falcon"
+    assert links[0]["reports"][0]["citation_count"] == 3
+    assert links[0]["reports"][0]["citations_href"].endswith(
+        "kb/hypotheses/Test_Disorder/canonical_model/falcon.md.citations.md"
+    )
