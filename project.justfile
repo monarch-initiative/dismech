@@ -927,6 +927,34 @@ research-status *args="":
 research-missing-provider provider *args="":
     @uv run python scripts/deep_research_coverage.py run-missing {{provider}} {{args}}
 
+# List hypothesis-search coverage for mechanistic_hypotheses in disorder YAML.
+# Examples:
+#   just research-hypotheses
+#   just research-hypotheses --disorder Long_COVID
+#   just research-hypotheses --missing-provider openscientist
+[group('Research')]
+research-hypotheses *args="":
+    @uv run python scripts/hypothesis_deep_research.py list {{args}}
+
+# Focused deep research on one mechanistic_hypotheses entry.
+# Provider slugs follow deep-research-client; edison is accepted as an alias for falcon.
+# Output: kb/hypotheses/<Disorder>/<hypothesis_group_id>/<provider>.md
+# Examples:
+#   just research-hypothesis openscientist Long_COVID canonical_persistence_immune_model --dry-run
+#   just research-hypothesis falcon Long_COVID canonical_persistence_immune_model
+#   just research-hypothesis openscientist Long_COVID canonical_persistence_immune_model -- --param max_iterations=1
+[group('Research')]
+research-hypothesis provider disorder hypothesis_group_id *args="":
+    @uv run python scripts/hypothesis_deep_research.py run {{provider}} {{disorder}} {{hypothesis_group_id}} {{args}}
+
+# Run hypothesis-search jobs for hypotheses missing a provider.
+# Examples:
+#   just research-hypotheses-missing-provider openscientist --disorder Long_COVID --dry-run
+#   just research-hypotheses-missing-provider falcon --max-hypotheses 3
+[group('Research')]
+research-hypotheses-missing-provider provider *args="":
+    @uv run python scripts/hypothesis_deep_research.py run-missing {{provider}} {{args}}
+
 # Rehydrate an existing Edison trajectory into a full research report with its
 # recovered artifacts and a separate citations file using deep-research-client.
 #
