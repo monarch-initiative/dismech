@@ -908,6 +908,25 @@ research-disorder-cyberian-codex disorder *args="":
 research-providers:
     uv run deep-research-client providers
 
+# One TSV row per disorder summarizing deep-research provider coverage.
+# Summary lines are prefixed with "#" so the table stays easy to grep/awk.
+# Examples:
+#   just research-status
+#   just research-status --provider openscientist
+#   just research-status --missing-provider openscientist
+[group('Research')]
+research-status *args="":
+    @uv run python scripts/deep_research_coverage.py status {{args}}
+
+# Launch deep research for every disorder missing the requested provider.
+# Use provider slugs from deep-research-client, e.g. falcon or openscientist.
+# Examples:
+#   just research-missing-provider openscientist --dry-run
+#   just research-missing-provider openscientist --max-disorders 5 -- --param max_iterations=1
+[group('Research')]
+research-missing-provider provider *args="":
+    @uv run python scripts/deep_research_coverage.py run-missing {{provider}} {{args}}
+
 # Rehydrate an existing Edison trajectory into a full research report with its
 # recovered artifacts and a separate citations file using deep-research-client.
 #
