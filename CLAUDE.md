@@ -561,6 +561,27 @@ cat references_cache/pmid_12345678.md
 just validate-references kb/disorders/MyDisease.yaml
 ```
 
+### 2a. Deep-Research (Falcon/DR) Tool Outputs — Extra Verification Needed
+
+Deep-research tools (Falcon, DGO, etc.) synthesize information across many sources but are **known to fabricate or misattribute citations, misquote snippets, and invent ontology identifiers**. When using DR outputs for curation:
+
+**Treat DR outputs as *leads*, not ground truth.** Every PMID, snippet, and ontology term from a DR summary must be independently verified before committing.
+
+**Three categories of hallucination risk:**
+1. **Fabricated PMIDs** — The cited paper does not exist, or the PMID belongs to an unrelated paper
+2. **Misquoted snippets** — The snippet is paraphrased or invented rather than an exact quote from the real abstract
+3. **Invented ontology terms** — HP, GO, CL, MAXO, CHEBI, or NCIT identifiers that don't exist or whose canonical label doesn't match `term.label`
+
+**Mandatory verification workflow for any curation step sourced from DR:**
+1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
+2. For **each snippet**: manually verify it is an exact substring of the abstract by comparing against the cached file in `references_cache/PMID_XXXX.md`
+3. For **each ontology term** (HP, GO, CL, MAXO, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms-file kb/disorders/YourDisease.yaml`
+4. Run the full validation suite before committing (see Validation Workflow below)
+
+If a DR-suggested citation cannot be verified against the real abstract, do not use it. Find an alternative source or remove the claim entirely.
+
+**Historical note:** Issue #1737 audited DR-sourced entries and found ~1% hallucination rate in the cache layer — the dismech validation stack catches these errors, but only *after* the curator runs the checks. Treating DR outputs as leads rather than ground truth is the most reliable protection.
+
 ### 3. Validation Workflow
 
 Before committing changes to any disorder file:
