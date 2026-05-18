@@ -66,19 +66,30 @@ Encoding decision (locked): **plain quote only**. No hand-structured
 
 ### B. Disease-side bridge (`BiomarkerReadout`)
 
-Mirrors the Fabry flagship pattern.
+Mirrors the Fabry flagship pattern. **Correction (found during implementation):**
+there is no top-level `biomarker_readouts` Disease slot. The schema slot is
+`readouts`, owned by the **`Biochemical`** class. The Fabry flagship structure
+is `biochemical: → <biomarker entry> → readouts: → BiomarkerReadout`, and Fabry
+already models a non-serum biomarker (`Renal Globotriaosylceramide Inclusions`,
+a tissue/biopsy biomarker) this way. The bridge is therefore attached via a
+`Biochemical` entry, not a Disease-level key.
 
-- `Chronic_Kidney_Disease.yaml`: add a `biomarker_readouts` entry —
-  eGFR / serum creatinine, `relationship: READOUT_OF`,
-  `target: Nephron Loss` (existing pathophysiology node),
+- `Chronic_Kidney_Disease.yaml`: add a `readouts:` block to the existing
+  `Creatinine` `Biochemical` entry (serum creatinine is the reciprocal of
+  eGFR) — `target: Nephron Loss` (existing pathophysiology node),
+  `relationship: READOUT_OF`, `direction: NEGATIVE`,
   `endpoint_context: PROGNOSTIC`,
   `regulatory_endpoint_refs: [FDA-SE-adult-noncancer-012, FDA-SE-pediatric-noncancer-008]`,
-  plus `interpretation` and the same verified `evidence`.
-- `Polycystic_Kidney_Disease.yaml`: same shape — TKV → the existing
-  cyst-burden / kidney-enlargement pathophysiology node (exact node name
-  resolved against the file during implementation),
-  `regulatory_endpoint_refs: [FDA-SE-adult-noncancer-090]`,
-  `endpoint_context: PROGNOSTIC`.
+  plus `interpretation` and the verified `evidence`.
+- `Polycystic_Kidney_Disease.yaml`: TKV is an imaging biomarker with no
+  existing serum entry, so add a new `Biochemical` entry
+  `Total Kidney Volume (height-adjusted)` (`presence: Increased`) carrying the
+  `readouts:` block — `target: Epithelial Proliferation and Kidney Enlargement`
+  (existing pathophysiology node), `direction: POSITIVE`,
+  `endpoint_context: PROGNOSTIC`,
+  `regulatory_endpoint_refs: [FDA-SE-adult-noncancer-090]`. Optional
+  `biomarker_term` (NCIT) is a possible follow-up, deferred to keep this
+  provenance-only and within scope.
 
 If the target disorder file lacks a suitable existing pathophysiology node, the
 node name is matched to the closest existing node rather than inventing one;
