@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05159752
+reference_id: "clinicaltrials:NCT05159752"
 title: "A Proof of Concept, Phase IIa, Open Label Study to Evaluate the Safety and Efficacy of Subcutaneous Implants of Afamelanotide in Patients With Xeroderma Pigmentosum (XP)"
 content_type: summary
 ---
