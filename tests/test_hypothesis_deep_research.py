@@ -115,6 +115,7 @@ def test_build_command_writes_under_kb_hypotheses_and_aliases_edison(
 
     assert "--provider" in command
     assert command[command.index("--provider") + 1] == "falcon"
+    assert "disease_slug=Long_COVID" not in command
     output_file = (
         output_root / "Long_COVID" / "canonical_persistence_immune_model" / "falcon.md"
     )

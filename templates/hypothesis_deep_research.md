@@ -7,7 +7,6 @@ refutes, qualifies, or competes with this hypothesis.
 
 ## Target Disease
 - **Disease Name:** {disease_name}
-- **Disease Slug:** {disease_slug}
 - **Category:** {category}
 
 ## Target Hypothesis
@@ -32,7 +31,9 @@ Build a focused hypothesis-search report that answers:
    biomarkers does the hypothesis best explain?
 5. Which alternative or competing mechanistic hypotheses explain the same disease
    features better or more parsimoniously?
-6. What experiments, cohorts, assays, datasets, or trials would most directly
+6. What are the explicit knowledge gaps: missing causal steps, unconfirmed edges,
+   contradictory evidence, unknown source-to-target links, or source/data absences?
+7. What experiments, cohorts, assays, datasets, or trials would most directly
    distinguish this hypothesis from alternatives?
 
 Use primary literature whenever possible. Prefer PMID citations and include DOI
@@ -66,6 +67,25 @@ Describe the causal chain implied by the hypothesis from upstream trigger to
 clinical manifestation. Identify where the literature is strong, where the links
 are inferred, and where there are missing causal steps.
 
+### Knowledge Gaps
+
+Identify explicit known unknowns surfaced by the search. Treat absence of
+evidence as a curation-relevant finding only when the search actually checked for
+it. Include:
+
+- Unknown or weakly supported causal steps in the hypothesis
+- Unconfirmed causal graph edges that need direct perturbation or longitudinal
+  evidence
+- Conflicting evidence, failed replications, or incompatible subtype-specific
+  findings
+- Unknown mechanism of action for relevant treatments, biomarkers, or
+  interventions tied to this hypothesis
+- Source-level or dataset-level absences, such as no relevant GenCC, ClinGen,
+  trial, omics, or cohort evidence found as of the search date
+
+For each gap, state the scope, why it matters, what was checked, and what
+evidence or experiment would resolve it.
+
 ### Alternative Models
 
 List competing or complementary hypotheses. For each, explain whether it is an
@@ -87,7 +107,9 @@ verification. Include:
 - candidate pathophysiology nodes or edges
 - candidate ontology terms for cell types and biological processes
 - candidate subtype restrictions or status changes
+- candidate `knowledge_gaps` or discussion prompts for unresolved causal claims,
+  conflicting evidence, or explicit source/data absences
 
 If the provider supports artifacts, produce artifact-friendly outputs such as an
-evidence matrix, mechanistic diagram, or comparison table. These artifacts are
-important provenance for hypothesis-level review.
+evidence matrix, mechanistic diagram, knowledge-gap table, or comparison table.
+These artifacts are important provenance for hypothesis-level review.

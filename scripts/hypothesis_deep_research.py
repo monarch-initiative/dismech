@@ -231,7 +231,6 @@ def build_provider_args(provider: str) -> list[str]:
 def template_vars(record: HypothesisRecord) -> dict[str, str]:
     return {
         "disease_name": record.disease_name,
-        "disease_slug": record.disease_slug,
         "category": record.category,
         "hypothesis_group_id": record.hypothesis_group_id,
         "hypothesis_label": record.hypothesis_label,
