@@ -1680,13 +1680,18 @@ window.searchData = [
       "disorder of protein N-glycosylation"
     ],
     "creation_date": "2026-05-10T18:41:07Z",
-    "updated_date": "2026-05-10T19:49:43Z",
+    "updated_date": "2026-05-18T05:43:18Z",
     "subtypes": [],
     "description": "ALG12-congenital disorder of glycosylation is a rare autosomal recessive disorder of protein N-linked glycosylation caused by biallelic ALG12 variants. Loss of ALG12 mannosyltransferase activity disrupts N-glycan-precursor formation, produces a type I congenital disorder of glycosylation biochemical pattern, and causes variable neurodevelopmental, immune, coagulation, growth, skeletal, cardiac, and prenatal manifestations.",
     "pathophysiology": [
       "ALG12 mannosyltransferase deficiency",
       "N-glycan precursor formation defect",
-      "Abnormal serum and IgG N-glycosylation"
+      "Abnormal serum and IgG N-glycosylation",
+      "Neurodevelopmental and brain involvement",
+      "Growth and feeding impairment",
+      "Dysmorphic and genitourinary developmental involvement",
+      "Renal and skeletal developmental involvement",
+      "Adult cardioskeletal structural involvement"
     ],
     "cell_types": [
       "B cell",
@@ -1701,7 +1706,10 @@ window.searchData = [
     "biological_processes": [
       "dolichol-linked oligosaccharide biosynthetic process",
       "protein N-linked glycosylation",
-      "immunoglobulin mediated immune response"
+      "immunoglobulin mediated immune response",
+      "nervous system development",
+      "kidney development",
+      "skeletal system development"
     ],
     "phenotypes": [
       "Global developmental delay",
@@ -1776,10 +1784,10 @@ window.searchData = [
     "source_file": "ALG12_Congenital_Disorder_of_Glycosylation.yaml",
     "page_url": "../pages/disorders/ALG12-congenital_disorder_of_glycosylation.html",
     "num_phenotypes": 14,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "4"
   },
   {
@@ -1791,13 +1799,17 @@ window.searchData = [
       "disorder of protein N-glycosylation"
     ],
     "creation_date": "2026-05-11T16:30:19Z",
-    "updated_date": "2026-05-11T16:52:00Z",
+    "updated_date": "2026-05-18T06:00:42Z",
     "subtypes": [],
     "description": "ALG9-congenital disorder of glycosylation is a rare autosomal recessive disorder of protein N-linked glycosylation caused by biallelic ALG9 variants. ALG9 deficiency disrupts endoplasmic-reticulum lipid-linked oligosaccharide assembly, producing a type I congenital disorder of glycosylation pattern and a variable spectrum that includes neurodevelopmental impairment, seizures, hypotonia, hepatomegaly, renal cysts, pericardial effusion, and severe prenatal skeletal dysplasia in some affected fetuses.",
     "pathophysiology": [
       "ALG9 alpha-1,2-mannosyltransferase deficiency",
       "Truncated lipid-linked oligosaccharide accumulation",
-      "Multisystem glycoprotein dysfunction"
+      "Multisystem glycoprotein dysfunction",
+      "Neurodevelopmental and brain involvement",
+      "Growth, hepatic, and renal involvement",
+      "Prenatal skeletal and hydrops involvement",
+      "Cardiac and pericardial involvement"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -1869,11 +1881,11 @@ window.searchData = [
     "source_file": "ALG9-congenital_disorder_of_glycosylation.yaml",
     "page_url": "../pages/disorders/ALG9-congenital_disorder_of_glycosylation.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "ALK-Rearranged Non-Small Cell Lung Cancer",
@@ -1888,7 +1900,7 @@ window.searchData = [
       "EML4-ALK NSCLC",
       "Non-EML4 ALK Fusion NSCLC"
     ],
-    "description": "ALK-rearranged non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by chromosomal rearrangements involving the anaplastic lymphoma kinase (ALK) gene. ALK fusions occur in approximately 3-7% of NSCLC, most commonly EML4-ALK resulting from an inversion on chromosome 2. ALK-positive NSCLC occurs predominantly in younger patients with minimal or no smoking history. Multiple generations of highly effective ALK tyrosine kinase inhibitors have transformed this disease from rapidly fatal to chronic manageable condition.",
+    "description": "ALK-rearranged non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by chromosomal rearrangements involving the anaplastic lymphoma kinase (ALK) gene. ALK fusions occur in approximately 3-7% of NSCLC, most commonly EML4-ALK resulting from an inversion on chromosome 2. ALK-positive NSCLC occurs predominantly in younger patients with minimal or no smoking history. Multiple generations of highly effective ALK tyrosine kinase inhibitors have transformed this disease from rapidly fatal to chronic manageable condition, although CNS relapse and acquired resistance remain major sequencing challenges.",
     "pathophysiology": [
       "ALK Gene Rearrangement",
       "Constitutive ALK Signaling",
@@ -3682,6 +3694,219 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Acute Disseminated Encephalomyelitis",
+    "disease_id": "MONDO:0019383",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder",
+      "Demyelinating Disease"
+    ],
+    "creation_date": "2026-05-16T04:09:27Z",
+    "updated_date": "2026-05-16T05:45:20Z",
+    "subtypes": [
+      "Monophasic ADEM",
+      "Multiphasic ADEM",
+      "MOG-IgG-associated ADEM"
+    ],
+    "description": "Acute disseminated encephalomyelitis (ADEM) is an acute immune-mediated demyelinating disorder of the central nervous system, most common in children, defined clinically by encephalopathy with polyfocal neurologic deficits and MRI evidence of inflammatory CNS demyelination. Most cases are monophasic and follow an infection or other immune trigger, but multiphasic and MOG-IgG-associated relapsing presentations are recognized.",
+    "pathophysiology": [
+      "Postinfectious CNS Autoimmunity",
+      "Molecular Mimicry",
+      "BBB Disruption and Antigen Release",
+      "Perivenous Inflammatory Demyelination",
+      "MOG-IgG-Associated Demyelination"
+    ],
+    "cell_types": [
+      "macrophage",
+      "lymphocyte",
+      "microglial cell",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000542",
+      "CL:0000129",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "immune response",
+      "inflammatory response",
+      "defense response to virus",
+      "myelination",
+      "complement activation"
+    ],
+    "phenotypes": [
+      "Encephalopathy",
+      "Reduced Consciousness",
+      "CNS Demyelination",
+      "Thalamic Involvement",
+      "Basal Ganglia Involvement",
+      "Diffuse White Matter Abnormalities",
+      "Myelitis",
+      "Optic Neuritis",
+      "Ataxia",
+      "Seizures",
+      "Fever",
+      "Headache",
+      "Muscle Weakness",
+      "CSF Pleocytosis",
+      "Cognitive Impairment"
+    ],
+    "phenotype_categories": [
+      "Symptoms",
+      "Clinical Signs"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001298",
+      "HP:0004372",
+      "HP:0007305",
+      "HP:0010663",
+      "HP:0002134",
+      "HP:0007204",
+      "HP:0012486",
+      "HP:0100653",
+      "HP:0001251",
+      "HP:0001250",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0001324",
+      "HP:0012229",
+      "HP:0100543"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "High-Dose Corticosteroids",
+      "Intravenous Immunoglobulin",
+      "Plasma Exchange",
+      "Supportive and Empiric Anti-Infective Care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "CSF inflammatory profile",
+      "MOG-IgG seropositivity"
+    ],
+    "source_file": "Acute_Disseminated_Encephalomyelitis.yaml",
+    "page_url": "../pages/disorders/Acute_Disseminated_Encephalomyelitis.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Acute Flaccid Myelitis",
+    "disease_id": "MONDO:0100115",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Myelitis",
+      "Acute disease",
+      "Central nervous system disorder"
+    ],
+    "creation_date": "2026-05-16T17:34:01Z",
+    "updated_date": "2026-05-16T18:15:34Z",
+    "subtypes": [
+      "EV-D68-associated AFM",
+      "EV-A71-associated AFM"
+    ],
+    "description": "Acute flaccid myelitis (AFM) is a rare, acute, polio-like neurologic syndrome, mainly reported in children, with rapid flaccid limb weakness and spinal cord gray-matter involvement. Most cases follow a febrile or respiratory prodrome. The clinical syndrome localizes predominantly to lower motor neurons in the anterior horn of the spinal cord, can involve cranial, bulbar, axial, and respiratory muscles, and is strongly associated epidemiologically with non-polio enteroviruses, especially enterovirus D68.",
+    "pathophysiology": [
+      "Anterior Horn Motor Neuronopathy",
+      "Non-polio enterovirus-associated myelitis",
+      "Human spinal cord organoid EV-D68 tropism",
+      "EV-D68 host-cell entry through MFSD6",
+      "ICAM-5-mediated EV-D68 neurotropism"
+    ],
+    "cell_types": [
+      "anterior horn motor neuron",
+      "motor neuron",
+      "astrocyte",
+      "oligodendrocyte precursor cell"
+    ],
+    "cell_type_ids": [
+      "CL:2000048",
+      "CL:0000100",
+      "CL:0000127",
+      "CL:0002453"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "response to virus",
+      "symbiont entry into host cell"
+    ],
+    "phenotypes": [
+      "Prodromal respiratory tract infection",
+      "Acute flaccid paralysis",
+      "Acute limb weakness",
+      "Asymmetric limb weakness",
+      "Areflexia",
+      "Spinal cord gray matter lesion",
+      "CSF pleocytosis",
+      "Cranial nerve palsy",
+      "Facial weakness",
+      "Bulbar palsy",
+      "Respiratory insufficiency due to muscle weakness"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0011947",
+      "HP:0003470",
+      "HP:0003690",
+      "HP:0001284",
+      "HP:0100561",
+      "HP:0012229",
+      "HP:0006824",
+      "HP:0030319",
+      "HP:0001283",
+      "HP:0002747"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "COMMON",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Acute supportive care",
+      "Mechanical ventilatory support",
+      "Physical therapy and rehabilitation",
+      "Transcutaneous spinal cord stimulation with gait training",
+      "Reconstructive surgery for persistent paralysis",
+      "Immunomodulatory acute therapies"
+    ],
+    "environmental": [
+      "EV-D68 respiratory circulation and wastewater seasonality"
+    ],
+    "biochemical": [],
+    "source_file": "Acute_Flaccid_Myelitis.yaml",
+    "page_url": "../pages/disorders/Acute_Flaccid_Myelitis.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Acute Hepatitis C Virus Infection",
@@ -9088,7 +9313,7 @@ window.searchData = [
       "soft tissue sarcoma"
     ],
     "creation_date": "2026-04-12T05:11:04Z",
-    "updated_date": "2026-05-05T11:34:04Z",
+    "updated_date": "2026-05-16T00:00:00Z",
     "subtypes": [
       "Cutaneous Head and Neck Angiosarcoma",
       "Radiation-Associated Angiosarcoma",
@@ -9460,6 +9685,114 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Anti-NMDA Receptor Encephalitis",
+    "disease_id": "MONDO:0021081",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Encephalitis",
+      "Neurological Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-05-16T06:56:16Z",
+    "updated_date": "2026-05-16T08:02:25Z",
+    "subtypes": [
+      "Teratoma-associated anti-NMDA receptor encephalitis",
+      "Post-herpes simplex encephalitis anti-NMDA receptor encephalitis"
+    ],
+    "description": "Anti-NMDA receptor encephalitis is an antibody-mediated autoimmune encephalitis caused by IgG autoantibodies against the GluN1/NR1 subunit of the NMDA receptor. It usually presents subacutely with psychiatric or cognitive and speech-language symptoms, seizures, movement disorder, decreased consciousness, autonomic dysfunction, and central hypoventilation. Ovarian teratoma and herpes simplex encephalitis are recognized triggers, CSF antibody testing is a core diagnostic marker, and early immunotherapy plus tumor removal when indicated improves outcome.",
+    "pathophysiology": [
+      "Triggered Anti-GluN1 Autoimmunity",
+      "Intrathecal Anti-NMDAR Antibody Production",
+      "Synaptic NMDAR Cluster Loss",
+      "Glutamatergic Synaptic Hypofunction",
+      "Blood-Brain Barrier and Immune Trafficking",
+      "Neuropsychiatric and Seizure Syndrome"
+    ],
+    "cell_types": [
+      "B cell",
+      "plasma cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "B cell mediated immunity",
+      "immunoglobulin production",
+      "receptor internalization",
+      "glutamate receptor signaling pathway",
+      "regulation of synaptic plasticity",
+      "maintenance of blood-brain barrier"
+    ],
+    "phenotypes": [
+      "Psychosis",
+      "Seizure",
+      "Dyskinesia",
+      "Memory Impairment",
+      "Speech and Language Dysfunction",
+      "Coma",
+      "Autonomic Dysfunction",
+      "Central Hypoventilation",
+      "EEG Abnormality",
+      "CSF Pleocytosis"
+    ],
+    "phenotype_categories": [
+      "Psychiatric",
+      "Neurologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000709",
+      "HP:0001250",
+      "HP:0100660",
+      "HP:0002354",
+      "HP:0002463",
+      "HP:0001259",
+      "HP:0002270",
+      "HP:0007110",
+      "HP:0002353",
+      "HP:0012229"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "COMMON"
+    ],
+    "genes": [],
+    "treatments": [
+      "First-Line Immunotherapy",
+      "High-Dose Corticosteroid Therapy",
+      "Plasma Exchange",
+      "Intravenous Immunoglobulin",
+      "Rituximab or Cyclophosphamide Second-Line Immunotherapy",
+      "Long-Term Mycophenolate or Azathioprine Immunotherapy",
+      "Tumor Removal"
+    ],
+    "environmental": [
+      "Ovarian teratoma",
+      "Herpes simplex encephalitis",
+      "Geographic and climatic factors"
+    ],
+    "biochemical": [
+      "CSF Anti-NMDAR IgG",
+      "CSF White Blood Cell Count",
+      "Serum Anti-NMDAR IgG"
+    ],
+    "source_file": "Anti-NMDA_Receptor_Encephalitis.yaml",
+    "page_url": "../pages/disorders/Anti-NMDA_Receptor_Encephalitis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Antiphospholipid Syndrome",
@@ -12313,7 +12646,7 @@ window.searchData = [
       "Complement Disorder"
     ],
     "creation_date": "2026-04-22T12:00:00Z",
-    "updated_date": "2026-05-05T16:40:30Z",
+    "updated_date": "2026-05-16T00:00:00Z",
     "subtypes": [
       "CFH-aHUS",
       "MCP-aHUS",
@@ -12405,6 +12738,7 @@ window.searchData = [
     "treatments": [
       "Eculizumab",
       "Ravulizumab",
+      "Iptacopan",
       "Plasma Exchange/Infusion",
       "Renal Transplantation",
       "Immunosuppression for Anti-Factor H Antibodies"
@@ -12421,7 +12755,7 @@ window.searchData = [
     "num_phenotypes": 12,
     "num_pathophysiology": 4,
     "num_genes": 8,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
   },
@@ -12870,6 +13204,101 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 5,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Autoimmune Autonomic Ganglionopathy",
+    "disease_id": "MONDO:0016499",
+    "category": "Autoimmune",
+    "parents": [
+      "Guillain-Barre Syndrome",
+      "Autoimmune Disease",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-05-16T20:19:02Z",
+    "updated_date": "2026-05-17T06:12:22Z",
+    "subtypes": [
+      "Alpha3-positive AAG",
+      "Beta4-positive AAG",
+      "Double-positive AAG"
+    ],
+    "description": "Autoimmune autonomic ganglionopathy is an acquired immune-mediated autonomic neuropathy in which ganglionic acetylcholine receptor autoantibodies, present in a clinically important subset, impair cholinergic synaptic transmission in autonomic ganglia. The resulting postganglionic sympathetic, parasympathetic, and enteric failure causes diffuse pandysautonomia, including orthostatic hypotension, gastrointestinal dysmotility, urinary dysfunction, sweating abnormalities, pupillary dysfunction, and reduced salivary and lacrimal secretion. Orphanet and MONDO align the disorder with acute pandysautonomia, a rare Guillain-Barre syndrome variant.",
+    "pathophysiology": [
+      "Ganglionic Acetylcholine Receptor Autoantibodies",
+      "Antibody-Mediated Ganglionic Acetylcholine Receptor Dysfunction",
+      "Postganglionic Sympathetic and Parasympathetic Failure"
+    ],
+    "cell_types": [
+      "autonomic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000107"
+    ],
+    "biological_processes": [
+      "humoral immune response mediated by circulating immunoglobulin",
+      "acetylcholine receptor signaling pathway",
+      "cholinergic synaptic transmission"
+    ],
+    "phenotypes": [
+      "Orthostatic Hypotension",
+      "Gastrointestinal Dysmotility",
+      "Gastroparesis",
+      "Urinary Retention",
+      "Reduced Sweating",
+      "Reduced Salivation",
+      "Reduced Lacrimation",
+      "Acrocyanosis",
+      "Abnormal Pupillary Light Reflex",
+      "Sensory Disturbance"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004926",
+      "HP:0002579",
+      "HP:0002578",
+      "HP:0000016",
+      "HP:0000970",
+      "HP:0000217",
+      "HP:0001097",
+      "HP:0001063",
+      "HP:0007695",
+      "HP:0000763"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Immunotherapy",
+      "Intravenous Immunoglobulin",
+      "Plasma Exchange",
+      "Prednisone",
+      "Mycophenolate Mofetil",
+      "Rituximab"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Ganglionic Acetylcholine Receptor Antibodies"
+    ],
+    "source_file": "Autoimmune_Autonomic_Ganglionopathy.yaml",
+    "page_url": "../pages/disorders/Autoimmune_Autonomic_Ganglionopathy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 6,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
   },
@@ -17909,7 +18338,7 @@ window.searchData = [
       "urothelial carcinoma"
     ],
     "creation_date": "2026-04-12T05:10:24Z",
-    "updated_date": "2026-04-27T22:00:00Z",
+    "updated_date": "2026-05-15T00:00:00Z",
     "subtypes": [
       "Non-Muscle-Invasive",
       "Muscle-Invasive"
@@ -17919,18 +18348,22 @@ window.searchData = [
       "Urothelial-Origin Disease Spectrum",
       "Tumor Suppressor Pathway Inactivation",
       "Epithelial Plasticity and Invasion",
-      "Molecularly Stratified Therapeutic Vulnerabilities"
+      "Molecularly Stratified Therapeutic Vulnerabilities",
+      "Adaptive Immune Resistance and PD-L1-Mediated Immune Evasion"
     ],
     "cell_types": [
-      "bladder urothelial cell"
+      "bladder urothelial cell",
+      "CD8-positive, alpha-beta T cell"
     ],
     "cell_type_ids": [
-      "CL:1001428"
+      "CL:1001428",
+      "CL:0000625"
     ],
     "biological_processes": [
       "negative regulation of G1/S transition of mitotic cell cycle",
       "epithelial to mesenchymal transition",
-      "cell population proliferation"
+      "cell population proliferation",
+      "Negative Regulation of T Cell Mediated Immunity"
     ],
     "phenotypes": [
       "Hematuria",
@@ -17974,10 +18407,10 @@ window.searchData = [
     "source_file": "Bladder_Urothelial_Carcinoma.yaml",
     "page_url": "../pages/disorders/Bladder_Urothelial_Carcinoma.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
   },
   {
@@ -20567,6 +21000,136 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "CNS Vasculitis",
+    "disease_id": "MONDO:0015374",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Disorder",
+      "Neurological Disease",
+      "Vascular disorder"
+    ],
+    "creation_date": "2026-05-16T10:22:29Z",
+    "updated_date": "2026-05-16T10:22:29Z",
+    "subtypes": [
+      "Angiography-positive",
+      "Biopsy-positive",
+      "CAA-related",
+      "Leptomeningeal-enhancing",
+      "Spinal cord involvement"
+    ],
+    "description": "CNS vasculitis is a rare vasculitic disorder affecting vessels of the brain and spinal cord. This entry focuses on primary angiitis of the central nervous system, an idiopathic vasculitis restricted to the CNS after secondary infectious, systemic autoimmune, malignant, and drug-related causes are excluded.",
+    "pathophysiology": [
+      "CNS Vessel Wall Inflammation",
+      "Immune Transcriptomic Activation",
+      "Angiographic Large-Vessel CNS Vasculopathy",
+      "Small-Vessel Leptomeningeal Vasculitis",
+      "Amyloid-Associated Granulomatous Vasculitis",
+      "Spinal Cord Vasculitis",
+      "Ischemic and Focal Neurologic Injury"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "leukocyte",
+      "natural killer cell",
+      "M1 macrophage",
+      "memory B cell",
+      "T follicular helper cell",
+      "lymphocyte",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000738",
+      "CL:0000623",
+      "CL:0000863",
+      "CL:0000787",
+      "CL:0002038",
+      "CL:0000542",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "leukocyte migration",
+      "antigen processing and presentation",
+      "neuroinflammatory response"
+    ],
+    "phenotypes": [
+      "Cerebral Vasculitis",
+      "Headache",
+      "Stroke",
+      "Transient Ischemic Attack",
+      "Hemiparesis",
+      "Nausea and Vomiting",
+      "Paralysis",
+      "Cognitive Impairment",
+      "Aphasia",
+      "Multifocal Cerebral White Matter Abnormalities",
+      "Recurrent Subcortical Infarcts",
+      "CSF Pleocytosis",
+      "Abnormal CSF Protein Concentration",
+      "Seizure",
+      "Ataxia",
+      "Paraparesis",
+      "Intracranial Hemorrhage"
+    ],
+    "phenotype_categories": [
+      "Vascular",
+      "Neurologic",
+      "Gastrointestinal",
+      "Radiologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0005318",
+      "HP:0002315",
+      "HP:0001297",
+      "HP:0002326",
+      "HP:0001269",
+      "HP:0002017",
+      "HP:0003470",
+      "HP:0100543",
+      "HP:0002381",
+      "HP:0007052",
+      "HP:0007236",
+      "HP:0012229",
+      "HP:0025456",
+      "HP:0001250",
+      "HP:0001251",
+      "HP:0002385",
+      "HP:0002170"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Glucocorticoid therapy",
+      "Glucocorticoid and cyclophosphamide induction",
+      "Mycophenolate mofetil steroid-sparing therapy",
+      "Azathioprine maintenance immunosuppression",
+      "Rituximab for selected refractory PCNSV"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CNS_Vasculitis.yaml",
+    "page_url": "../pages/disorders/CNS_Vasculitis.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "CN-Related Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0020630",
     "category": "Mendelian",
@@ -22267,7 +22830,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-06-12T20:16:27Z",
-    "updated_date": "2026-05-09T11:14:31Z",
+    "updated_date": "2026-05-18T02:28:08Z",
     "subtypes": [],
     "description": "Carbamoyl phosphate synthetase I (CPS1) deficiency is a rare autosomal recessive proximal urea cycle disorder caused by biallelic pathogenic variants in the CPS1 gene. CPS1 catalyzes the first and rate-limiting step of the urea cycle in hepatocyte mitochondria, condensing ammonia and bicarbonate into carbamoyl phosphate. Loss of CPS1 activity causes failure of hepatic ammonia detoxification, leading to systemic hyperammonemia, low plasma citrulline, elevated plasma glutamine, and characteristically normal or low urinary orotic acid. Ammonia crosses the blood-brain barrier and is detoxified to glutamine in astrocytes, causing intracellular glutamine accumulation, astrocyte swelling, cerebral edema, seizures, and long-term neurocognitive injury. CPS1D presents as a severe neonatal-onset form with acute hyperammonemic crisis or a milder late-onset form with residual enzyme activity. The Spanish UCD registry reports CPS1D mortality of 36.8%, the highest among urea cycle disorders, with neurological impairment in approximately 58% of cases.\n",
     "pathophysiology": [
@@ -22285,6 +22848,7 @@ window.searchData = [
       "CL:0000127"
     ],
     "biological_processes": [
+      "carbamoyl phosphate biosynthetic process",
       "urea cycle",
       "glutamine biosynthetic process",
       "cellular response to nitrogen compound",
@@ -22328,11 +22892,7 @@ window.searchData = [
       "HP:0002500",
       "HP:0000708"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "CPS1 pathogenic variants",
       "CPS1"
@@ -22360,7 +22920,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "48",
     "causal_graph_longest_path": "5"
   },
   {
@@ -23924,6 +24484,107 @@ window.searchData = [
     "num_genes": 0,
     "num_treatments": 5,
     "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome",
+    "disease_id": "MONDO:0009133",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian Disorder",
+      "Cerebellar disorder",
+      "Cerebellar Hypoplasia"
+    ],
+    "creation_date": "2026-05-13T00:00:00Z",
+    "updated_date": "2026-05-13T12:00:00Z",
+    "subtypes": [
+      "CAMRQ1",
+      "CAMRQ2",
+      "CAMRQ3",
+      "CAMRQ4"
+    ],
+    "description": "Cerebellar ataxia, mental retardation, and dysequilibrium syndrome (CAMRQ) is a clinically and genetically heterogeneous group of rare autosomal-recessive non-progressive cerebellar disorders characterized by congenital ataxia, intellectual disability, severely delayed ambulation, and, in a subset of patients, quadrupedal locomotion. Cerebellar hypoplasia (predominantly of the inferior cerebellum and vermis) is the cardinal neuroimaging finding and pathologic substrate. Four genetic subtypes have been delineated: CAMRQ1 (VLDLR; Reelin signaling defect), CAMRQ2 (WDR81; BEACH-domain protein implicated in endolysosomal/autophagy regulation), CAMRQ3 (CA8; cerebellar carbonic anhydrase 8), and CAMRQ4 (ATP8A2; phosphatidylserine flippase). The syndrome was first described in consanguineous Hutterite and Turkish families. Management is supportive, with no disease-modifying therapy available.\n",
+    "pathophysiology": [
+      "Cerebellar Hypoplasia and Purkinje Cell Dysfunction",
+      "Disrupted Reelin Signaling (CAMRQ1)",
+      "Endolysosomal Trafficking and Autophagy Defect (CAMRQ2)",
+      "Dysregulated Purkinje Cell Calcium Signaling (CAMRQ3)",
+      "Impaired Phospholipid Translocation in Neuronal Membranes (CAMRQ4)",
+      "Cerebellar Motor and Cognitive Dysfunction"
+    ],
+    "cell_types": [
+      "Purkinje cell",
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121",
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "cerebellum development",
+      "cerebellar cortex development",
+      "reelin-mediated signaling pathway",
+      "neuron migration",
+      "endosome organization",
+      "autophagy",
+      "calcium-mediated signaling",
+      "phospholipid translocation"
+    ],
+    "phenotypes": [
+      "Cerebellar Ataxia",
+      "Intellectual Disability",
+      "Cerebellar Hypoplasia",
+      "Delayed Ambulation",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Quadrupedal Locomotion",
+      "Progressive Cerebellar Vermis Atrophy",
+      "Chorea",
+      "Tremor",
+      "Optic Atrophy"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0001321",
+      "HP:0001288",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0009878",
+      "HP:0006855",
+      "HP:0002072",
+      "HP:0001337",
+      "HP:0000648"
+    ],
+    "frequencies": [],
+    "genes": [
+      "VLDLR mutations (CAMRQ1)",
+      "WDR81 mutations (CAMRQ2)",
+      "CA8 mutations (CAMRQ3)",
+      "ATP8A2 mutations (CAMRQ4)"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Physical Therapy",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium.yaml",
+    "page_url": "../pages/disorders/Cerebellar_Ataxia,_Intellectual_Disability,_and_Dysequilibrium_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 3,
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
   },
   {
@@ -25733,7 +26394,7 @@ window.searchData = [
       "notochordal tumor"
     ],
     "creation_date": "2026-04-12T05:10:25Z",
-    "updated_date": "2026-05-14T00:00:00Z",
+    "updated_date": "2026-05-17T00:00:00Z",
     "subtypes": [
       "Conventional Chordoma",
       "Chondroid Chordoma",
@@ -25747,6 +26408,7 @@ window.searchData = [
       "PI3K Pathway Alterations",
       "Cell-Cycle Dysregulation via CDKN2A Loss",
       "Chromatin Regulator Dysfunction",
+      "TGF\u03b2-TBXT Signaling Network",
       "Local Bone Destruction and Tumor Expansion"
     ],
     "cell_types": [],
@@ -25758,6 +26420,7 @@ window.searchData = [
       "PI3K/AKT signal transduction",
       "G1/S transition of mitotic cell cycle",
       "regulation of cell cycle",
+      "transforming growth factor beta receptor signaling pathway",
       "bone resorption"
     ],
     "phenotypes": [
@@ -25807,7 +26470,8 @@ window.searchData = [
       "Surgical Resection",
       "Proton Radiotherapy",
       "Imatinib",
-      "Afatinib"
+      "Afatinib",
+      "Palbociclib"
     ],
     "environmental": [],
     "biochemical": [
@@ -25816,10 +26480,10 @@ window.searchData = [
     "source_file": "Chordoma.yaml",
     "page_url": "../pages/disorders/Chordoma.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 9,
-    "num_treatments": 4,
-    "causal_graph_edges": "2",
+    "num_treatments": 5,
+    "causal_graph_edges": "3",
     "causal_graph_longest_path": "1"
   },
   {
@@ -26120,7 +26784,8 @@ window.searchData = [
       "IVIG",
       "Corticosteroids",
       "Plasmapheresis",
-      "Rituximab"
+      "Rituximab",
+      "Efgartigimod"
     ],
     "environmental": [],
     "biochemical": [
@@ -26133,7 +26798,7 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 3,
     "num_genes": 0,
-    "num_treatments": 4,
+    "num_treatments": 5,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -27745,7 +28410,7 @@ window.searchData = [
       "Healthcare-associated infections"
     ],
     "creation_date": "2025-12-19T01:18:09Z",
-    "updated_date": "2026-02-19T17:30:29Z",
+    "updated_date": "2026-05-15T00:00:00Z",
     "subtypes": [
       "Acute Clostridioides difficile infection",
       "Recurrent Clostridioides difficile infection",
@@ -37081,7 +37746,8 @@ window.searchData = [
       "EGFR Oncogenic Mutations",
       "Constitutive EGFR Signaling",
       "Oncogene Addiction",
-      "TKI Resistance Mechanisms"
+      "TKI Resistance Mechanisms",
+      "Immune-Cold Microenvironment"
     ],
     "cell_types": [
       "type II pneumocyte"
@@ -37149,11 +37815,11 @@ window.searchData = [
     "source_file": "EGFR_Mutant_NSCLC.yaml",
     "page_url": "../pages/disorders/EGFR-Mutant_Non-Small_Cell_Lung_Cancer.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "ER-Positive Breast Cancer",
@@ -46411,13 +47077,14 @@ window.searchData = [
       "Hemolytic Anemia"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-05-09T10:02:01Z",
+    "updated_date": "2026-05-18T03:36:49Z",
     "subtypes": [],
-    "description": "Mutations in the G6PD gene lead to reduced or absent enzyme activity.",
+    "description": "Pathogenic variants in G6PD reduce enzyme stability or activity in erythrocytes, limiting the oxidative pentose phosphate pathway.",
     "pathophysiology": [
       "Decreased G6PD Enzyme Activity",
       "Impaired Redox Homeostasis",
       "Oxidative Stress",
+      "Oxidative Hemoglobin Damage",
       "Acute Hemolytic Anemia"
     ],
     "cell_types": [
@@ -46435,6 +47102,7 @@ window.searchData = [
       "response to oxidative stress",
       "reactive oxygen species metabolic process",
       "hydrogen peroxide catabolic process",
+      "protein oxidation",
       "erythrocyte clearance",
       "positive regulation of erythrocyte clearance"
     ],
@@ -46443,11 +47111,12 @@ window.searchData = [
       "Dark Urine",
       "Neonatal Jaundice",
       "Favism",
-      "Leukocyte Dysfunction",
       "Pallor",
-      "Fatigue",
       "Jaundice",
-      "Shortness of Breath"
+      "Fatigue",
+      "Shortness of Breath",
+      "Splenomegaly",
+      "Chronic Nonspherocytic Hemolytic Anemia"
     ],
     "phenotype_categories": [
       "Hematologic",
@@ -46458,9 +47127,11 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Constitutional",
       "Digestive",
       "Genitourinary",
+      "Immune",
       "Integument",
       "Metabolism",
       "Respiratory"
@@ -46470,41 +47141,38 @@ window.searchData = [
       "HP:0040319",
       "HP:0003265",
       "HP:0000980",
-      "HP:0012378",
       "HP:0000952",
-      "HP:0002094"
+      "HP:0012378",
+      "HP:0002094",
+      "HP:0001744"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "G6PD"
     ],
     "treatments": [
       "Avoidance of Oxidative Stressors",
-      "Supportive Care During Acute Hemolysis",
-      "Neonatal Screening and Monitoring"
+      "Blood Transfusion During Severe Acute Hemolysis",
+      "Neonatal Screening and Monitoring",
+      "Neonatal Hyperbilirubinemia Treatment"
     ],
     "environmental": [
       "Oxidative Stressors"
     ],
     "biochemical": [
       "G6PD Enzyme Activity",
-      "Unconjugated Bilirubin",
-      "Lactate Dehydrogenase (LDH)",
+      "Bilirubin",
       "Heinz Bodies",
-      "Glutathione/GSSG Ratio"
+      "Glutathione Homeostasis"
     ],
     "source_file": "Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency.yaml",
     "page_url": "../pages/disorders/Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 4,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Glutaryl-CoA Dehydrogenase Deficiency",
@@ -48157,8 +48825,13 @@ window.searchData = [
       "Peripheral Neuropathy"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-02-17T21:53:14Z",
-    "subtypes": [],
+    "updated_date": "2026-05-17T01:44:31Z",
+    "subtypes": [
+      "Acute Inflammatory Demyelinating Polyradiculoneuropathy",
+      "Acute Motor Axonal Neuropathy",
+      "Acute Motor and Sensory Axonal Neuropathy",
+      "Miller Fisher Syndrome"
+    ],
     "description": "An acute immune-mediated polyradiculoneuropathy characterized by rapidly progressive symmetric weakness and areflexia. Typically preceded by infection, with molecular mimicry between pathogen antigens and peripheral nerve gangliosides driving the autoimmune response.",
     "pathophysiology": [
       "Molecular Mimicry and Antiganglioside Antibodies",
@@ -48182,6 +48855,7 @@ window.searchData = [
       "Areflexia",
       "Limb Weakness",
       "Respiratory Failure",
+      "Autonomic Dysfunction",
       "Paresthesia"
     ],
     "phenotype_categories": [
@@ -48198,6 +48872,7 @@ window.searchData = [
       "HP:0001284",
       "HP:0003690",
       "HP:0002093",
+      "HP:0012332",
       "HP:0003401"
     ],
     "frequencies": [
@@ -48209,7 +48884,8 @@ window.searchData = [
       "IVIG",
       "Plasmapheresis",
       "Supportive Care",
-      "Physical Therapy"
+      "Physical Therapy",
+      "Eculizumab"
     ],
     "environmental": [
       "Campylobacter jejuni Infection",
@@ -48218,16 +48894,17 @@ window.searchData = [
     ],
     "biochemical": [
       "CSF Protein",
+      "Neurofilament Light Chain",
       "Antiganglioside Antibodies"
     ],
     "source_file": "Guillain_Barre_Syndrome.yaml",
     "page_url": "../pages/disorders/Guillain-Barre_Syndrome.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 5,
     "num_pathophysiology": 3,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 5,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Diffuse Midline Glioma, H3 K27-Altered",
@@ -49516,6 +50193,100 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Hashimoto Encephalopathy",
+    "disease_id": "MONDO:0019385",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Encephalitis",
+      "Neurological Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-05-16T09:06:04Z",
+    "updated_date": "2026-05-16T10:06:24Z",
+    "subtypes": [
+      "Classic steroid-responsive SREAT",
+      "Anti-NAE-associated limbic encephalitis subtype",
+      "Pediatric Hashimoto encephalopathy"
+    ],
+    "description": "Hashimoto encephalopathy, also called steroid-responsive encephalopathy associated with autoimmune thyroiditis, is an uncommon acquired autoimmune encephalopathy syndrome defined by otherwise unexplained subacute encephalopathy, thyroid autoantibody positivity, exclusion of better-defined neuronal antibody, infectious, toxic-metabolic, psychiatric, and neurodegenerative mimics, and frequent but not universal improvement with immunotherapy. Contemporary studies emphasize that antithyroid antibodies are diagnostically nonspecific, so objective neurologic abnormalities and a careful differential diagnosis are central to curation and clinical use.",
+    "pathophysiology": [
+      "Antithyroid Antibody-Associated Autoimmune Context",
+      "Steroid-Responsive CNS Neuroinflammation",
+      "Anti-NAE-Associated Limbic Neuroinflammation"
+    ],
+    "cell_types": [
+      "B cell",
+      "Plasma cell",
+      "Neuron",
+      "Astrocyte",
+      "Endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000540",
+      "CL:0000127",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "B cell activation",
+      "Adaptive immune response",
+      "Inflammatory response",
+      "Immune response"
+    ],
+    "phenotypes": [
+      "Encephalopathy",
+      "Seizures",
+      "Cognitive Impairment and Memory Loss",
+      "Confusion or Clouded Consciousness",
+      "Neuropsychiatric Symptoms",
+      "Ataxia or Gait Disturbance",
+      "Sleep Disturbance",
+      "Speech Disorder",
+      "Myoclonus, Tremor, or Other Abnormal Movement"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0002354",
+      "HP:0001289",
+      "HP:0000709",
+      "HP:0001251",
+      "HP:0002360",
+      "HP:0001260",
+      "HP:0001336"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "High-Dose Corticosteroids",
+      "Intravenous Immunoglobulin for Steroid-Refractory or Pediatric Disease",
+      "Plasma Exchange for Refractory Disease",
+      "Steroid-Sparing Immunosuppression"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hashimoto_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/Hashimoto_Encephalopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "1"
   },
   {
@@ -51495,7 +52266,7 @@ window.searchData = [
       "vitamin B12- and folate-independent constitutional megaloblastic anemia"
     ],
     "creation_date": "2026-05-11T11:08:06Z",
-    "updated_date": "2026-05-11T11:08:06Z",
+    "updated_date": "2026-05-17T20:22:15Z",
     "subtypes": [
       "Type I",
       "Type II",
@@ -51597,7 +52368,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "4"
   },
   {
@@ -53676,7 +54447,7 @@ window.searchData = [
       "Inborn error of metabolism"
     ],
     "creation_date": "2026-05-11T07:39:50Z",
-    "updated_date": "2026-05-11T08:20:40Z",
+    "updated_date": "2026-05-18T04:30:01Z",
     "subtypes": [],
     "description": "Hyperornithinemia-hyperammonemia-homocitrullinuria syndrome is an autosomal recessive urea-cycle transport disorder caused by biallelic SLC25A15 loss of function. Defective mitochondrial ornithine transport produces hyperornithinemia, hyperammonemia, urinary homocitrulline, and often oroticaciduria, with episodic hyperammonemic encephalopathy, progressive neurocognitive and pyramidal tract involvement, and liver dysfunction.",
     "pathophysiology": [
@@ -53820,8 +54591,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "61",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Hypertensive Heart Disease",
@@ -61951,7 +62722,7 @@ window.searchData = [
       "soft tissue sarcoma"
     ],
     "creation_date": "2026-04-12T05:10:52Z",
-    "updated_date": "2026-04-27T18:00:00Z",
+    "updated_date": "2026-05-16T00:00:00Z",
     "subtypes": [
       "Uterine Leiomyosarcoma",
       "Retroperitoneal Leiomyosarcoma",
@@ -62911,6 +63682,120 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Limbic Encephalitis",
+    "disease_id": "MONDO:0015588",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Encephalitis",
+      "Neurological Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-05-16T08:20:21Z",
+    "updated_date": "2026-05-16T08:53:06Z",
+    "subtypes": [
+      "Autoimmune Limbic Encephalitis",
+      "Classic Paraneoplastic Limbic Encephalitis",
+      "Limbic Encephalitis with LGI1 Antibodies",
+      "Limbic Encephalitis with CASPR2 Antibodies",
+      "GABAB Receptor Autoimmune Limbic Encephalitis",
+      "AMPAR Autoimmune Limbic Encephalitis"
+    ],
+    "description": "Limbic encephalitis is an autoimmune or paraneoplastic encephalitis syndrome centered on medial temporal and other limbic regions. It typically presents with short-term memory impairment, seizures, confusion or psychiatric and behavioral symptoms, and may be supported by neuronal antibody testing, CSF inflammation, temporal-lobe EEG abnormalities, and medial temporal MRI T2/FLAIR hyperintensity. Treatment depends on antibody and tumor context and commonly combines immunotherapy with tumor-directed therapy when a neoplasm is identified.",
+    "pathophysiology": [
+      "Limbic Gray Matter Inflammation",
+      "Neuronal Antigen Humoral Autoimmunity",
+      "LGI1-CASPR2 VGKC-Complex Autoimmunity",
+      "AMPAR Synaptic Cluster Loss",
+      "GABAB Receptor Autoimmunity and Neuronal Hyperexcitability",
+      "Limbic Network Dysfunction"
+    ],
+    "cell_types": [
+      "B cell",
+      "plasma cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "immune response",
+      "immunoglobulin production",
+      "chemical synaptic transmission",
+      "glutamate receptor signaling pathway",
+      "synapse organization"
+    ],
+    "phenotypes": [
+      "Memory Impairment",
+      "Seizure",
+      "Faciobrachial Dystonic Seizures",
+      "Confusion",
+      "Psychiatric Symptoms",
+      "Personality Changes",
+      "Status Epilepticus",
+      "Abnormal Hippocampus Morphology",
+      "EEG Abnormality",
+      "CSF Pleocytosis",
+      "Hyponatremia",
+      "Sleep Disturbance"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Psychiatric",
+      "Radiologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002354",
+      "HP:0001250",
+      "HP:0001289",
+      "HP:0000709",
+      "HP:0000751",
+      "HP:0002133",
+      "HP:0025100",
+      "HP:0002353",
+      "HP:0012229",
+      "HP:0002902",
+      "HP:0002360"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "First-Line Immunotherapy",
+      "High-Dose Corticosteroid Therapy",
+      "Intravenous Immunoglobulin",
+      "Plasma Exchange",
+      "Rituximab or Cyclophosphamide Second-Line Immunotherapy",
+      "Tumor Removal and Antineoplastic Therapy",
+      "Maintenance Immunosuppression"
+    ],
+    "environmental": [
+      "Underlying Neoplasm",
+      "Small-Cell Lung Cancer",
+      "Thymus, Breast, or Lung Tumor"
+    ],
+    "biochemical": [
+      "Serum or CSF Neuronal Antigen Antibodies",
+      "LGI1 Antibodies",
+      "CASPR2 Antibodies",
+      "GABAB Receptor Antibodies",
+      "AMPAR GluR1/GluR2 Antibodies"
+    ],
+    "source_file": "Limbic_Encephalitis.yaml",
+    "page_url": "../pages/disorders/Limbic_Encephalitis.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Lipoic Acid Synthetase Deficiency",
     "disease_id": "MONDO:0013762",
     "category": "Mendelian",
@@ -63572,7 +64457,7 @@ window.searchData = [
       "COVID-19 complications"
     ],
     "creation_date": "2026-01-12T22:00:21Z",
-    "updated_date": "2026-05-08T20:00:00Z",
+    "updated_date": "2026-05-16T00:00:00Z",
     "subtypes": [
       "Pain-dominant long COVID phenotype",
       "Cardiopulmonary-dominant long COVID phenotype",
@@ -65361,6 +66246,101 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "MOGAD",
+    "disease_id": "MONDO:1040024",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder",
+      "Demyelinating Disease"
+    ],
+    "creation_date": "2026-05-03T00:00:00Z",
+    "updated_date": "2026-05-16T03:56:08Z",
+    "subtypes": [
+      "Monophasic MOGAD",
+      "Relapsing MOGAD"
+    ],
+    "description": "Myelin oligodendrocyte glycoprotein antibody-associated disease (MOGAD) is an autoimmune inflammatory demyelinating disorder of the central nervous system defined by serum IgG autoantibodies against conformational epitopes of MOG. MOGAD typically presents as acute disseminated encephalomyelitis (ADEM, more common in children), optic neuritis, or transverse myelitis, and less commonly as cerebral cortical encephalitis, brainstem, or cerebellar syndromes. It is clinically and pathologically distinct from multiple sclerosis (MS) and aquaporin-4 antibody-positive neuromyelitis optica spectrum disorder (AQP4-IgG NMOSD). Disease course can be monophasic or relapsing, and diagnosis relies on cell-based assays detecting MOG-IgG with full-length human MOG in its native conformation.\n",
+    "pathophysiology": [
+      "Anti-MOG Autoimmunity",
+      "Complement-Dependent Cytotoxicity",
+      "Antibody-Dependent Cellular Cytotoxicity",
+      "Cognate T-Cell Mediated Inflammation",
+      "Oligodendrocyte Cytoskeleton Disruption and Demyelination"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "CD4-positive T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000624"
+    ],
+    "biological_processes": [
+      "complement activation",
+      "antibody-dependent cellular cytotoxicity",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Optic Neuritis",
+      "Visual Loss",
+      "Optic Disc Swelling",
+      "Transverse Myelitis",
+      "Spinal Cord Lesion",
+      "Acute Disseminated Encephalomyelitis",
+      "Encephalopathy",
+      "Cerebral Cortical Encephalitis",
+      "Seizure",
+      "Headache",
+      "Brainstem Syndrome",
+      "Ataxia",
+      "Paraparesis"
+    ],
+    "phenotype_categories": [
+      "Symptoms",
+      "Clinical Signs",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100653",
+      "HP:0000572",
+      "HP:0001085",
+      "HP:0012486",
+      "HP:0100561",
+      "HP:0007305",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0001251",
+      "HP:0002385"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Acute Attack Treatment - High-Dose Corticosteroids",
+      "Acute Attack Treatment - Plasma Exchange",
+      "Maintenance - Intravenous Immunoglobulin",
+      "Maintenance - Rituximab",
+      "Maintenance - Tocilizumab",
+      "Maintenance - Mycophenolate Mofetil",
+      "Maintenance - Azathioprine"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MOGAD.yaml",
+    "page_url": "../pages/disorders/MOGAD.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "MPDU1-congenital disorder of glycosylation",
     "disease_id": "MONDO:0012211",
     "category": "Mendelian",
@@ -65368,13 +66348,17 @@ window.searchData = [
       "hereditary disease"
     ],
     "creation_date": "2026-05-11T14:53:11Z",
-    "updated_date": "2026-05-11T14:53:11Z",
+    "updated_date": "2026-05-18T06:43:07Z",
     "subtypes": [],
     "description": "MPDU1-congenital disorder of glycosylation is an ultra-rare autosomal recessive congenital disorder of glycosylation caused by biallelic pathogenic variants in MPDU1. MPDU1 deficiency disrupts utilization of dolichol-phosphate-linked mannose and glucose donors in the endoplasmic reticulum, producing a CDG type I pattern with overlapping dystroglycanopathy-like manifestations.",
     "pathophysiology": [
       "MPDU1-dependent dolichol-linked donor utilization defect",
       "Truncated lipid-linked oligosaccharide accumulation",
-      "Reduced alpha-dystroglycan O-mannosylation"
+      "Reduced alpha-dystroglycan O-mannosylation",
+      "Neurodevelopmental, feeding, and seizure involvement",
+      "Dystroglycanopathy-overlap muscle, eye, and cardiac involvement",
+      "Craniofacial, sensory, and skin involvement",
+      "Hepatobiliary, renal, and hematologic involvement"
     ],
     "cell_types": [
       "fibroblast"
@@ -65396,7 +66380,7 @@ window.searchData = [
       "Buphthalmos",
       "Glaucoma",
       "Abnormal facial shape",
-      "Hearing impairment",
+      "Sensorineural hearing impairment",
       "Cardiomyopathy",
       "Elevated circulating creatine kinase concentration",
       "Biliary duct dilatation",
@@ -65443,7 +66427,7 @@ window.searchData = [
       "HP:0000557",
       "HP:0008007",
       "HP:0001999",
-      "HP:0000365",
+      "HP:0000407",
       "HP:0001638",
       "HP:0003236",
       "HP:0012440",
@@ -65469,11 +66453,11 @@ window.searchData = [
     "source_file": "MPDU1-congenital_disorder_of_glycosylation.yaml",
     "page_url": "../pages/disorders/MPDU1-congenital_disorder_of_glycosylation.html",
     "num_phenotypes": 16,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "MSI-High Colorectal Cancer",
@@ -66846,7 +67830,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-01-09T01:00:56Z",
-    "updated_date": "2026-05-09T09:23:57Z",
+    "updated_date": "2026-05-16T07:15:00Z",
     "subtypes": [
       "Classic MSUD",
       "Intermediate MSUD",
@@ -71148,7 +72132,7 @@ window.searchData = [
       "Lysosomal storage disease with skeletal involvement"
     ],
     "creation_date": "2026-05-08T04:37:03Z",
-    "updated_date": "2026-05-11T00:59:47Z",
+    "updated_date": "2026-05-18T05:01:47Z",
     "subtypes": [],
     "description": "Mucolipidosis type III alpha/beta is an autosomal recessive lysosomal trafficking disorder caused by biallelic pathogenic variants in GNPTAB. Reduced UDP-N-acetylglucosamine-1-phosphotransferase activity impairs mannose-6-phosphate marking of lysosomal hydrolases, causing defective lysosomal targeting, extracellular leakage of lysosomal enzymes, and intracellular storage of incompletely degraded glycosaminoglycans and sphingolipids. The alpha/beta subtype is usually attenuated compared with mucolipidosis II, with childhood-onset growth slowing, joint stiffness and pain, dysostosis multiplex, osteoporosis and osteoarthritis, mild facial coarsening, conductive hearing impairment or recurrent otitis media, and cardiac valve disease.\n",
     "pathophysiology": [
@@ -71156,23 +72140,34 @@ window.searchData = [
       "Lysosomal hydrolase mistargeting and secretion",
       "Intracellular glycosphingolipid and glycosaminoglycan storage",
       "Skeletal and joint degeneration",
-      "Cardiac valve and myocardial involvement"
+      "Cardiac valve and myocardial involvement",
+      "Somatic growth impairment",
+      "Craniofacial and connective tissue involvement",
+      "Airway, middle ear, and hearing involvement",
+      "Mild CNS storage and cognitive involvement"
     ],
     "cell_types": [
       "fibroblast",
       "chondrocyte",
       "osteoclast",
-      "cardiac muscle cell"
+      "cardiac muscle cell",
+      "neuron",
+      "glial cell"
     ],
     "cell_type_ids": [
       "CL:0000057",
       "CL:0000138",
       "CL:0000092",
-      "CL:0000746"
+      "CL:0000746",
+      "CL:0000540",
+      "CL:0000125"
     ],
     "biological_processes": [
       "protein targeting to lysosome",
-      "protein localization to lysosome"
+      "protein localization to lysosome",
+      "lysosomal transport",
+      "glycosaminoglycan catabolic process",
+      "glycosphingolipid catabolic process"
     ],
     "phenotypes": [
       "Gingival overgrowth",
@@ -71294,10 +72289,10 @@ window.searchData = [
     "source_file": "Mucolipidosis_Type_III_Alpha_Beta.yaml",
     "page_url": "../pages/disorders/Mucolipidosis_Type_III_Alpha_Beta.html",
     "num_phenotypes": 36,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "63",
     "causal_graph_longest_path": "5"
   },
   {
@@ -71793,7 +72788,7 @@ window.searchData = [
       "MONDO:0044970"
     ],
     "creation_date": "2026-03-23T00:00:00Z",
-    "updated_date": "2026-05-08T23:27:12Z",
+    "updated_date": "2026-05-17T19:54:26Z",
     "subtypes": [
       "Severe early-onset",
       "Classic childhood-onset",
@@ -71922,8 +72917,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 9,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Multiple Myeloma",
@@ -72047,7 +73042,8 @@ window.searchData = [
       "Demyelination",
       "Axonal Damage",
       "Th1/Th17-Mediated Neuroinflammation",
-      "Inflammatory Lesions"
+      "Inflammatory Lesions",
+      "Compartmentalized CNS Inflammation"
     ],
     "cell_types": [
       "Oligodendrocyte",
@@ -72181,7 +73177,7 @@ window.searchData = [
     "source_file": "Multiple_Sclerosis.yaml",
     "page_url": "../pages/disorders/Multiple_Sclerosis.html",
     "num_phenotypes": 21,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 18,
     "num_treatments": 4,
     "causal_graph_edges": "2",
@@ -72891,13 +73887,15 @@ window.searchData = [
       "Immune Disorder"
     ],
     "creation_date": "2025-12-06T01:38:31Z",
-    "updated_date": "2026-02-27T21:53:01Z",
+    "updated_date": "2026-05-17T05:55:13Z",
     "subtypes": [],
     "description": "Exaggerated innate immune responses to microbial ligands, with exercise-triggered increases in proinflammatory signals, complement activation, and oxidative stress that contribute to post-exertional malaise.",
     "pathophysiology": [
       "Innate Immune Hyperreactivity",
       "Natural Killer Cell Dysfunction",
+      "Adaptive Immune Memory Dysregulation",
       "T-Cell Immunometabolic Dysfunction",
+      "CD8+ T Cell Exhaustion",
       "Endothelial Dysfunction and Coagulopathy",
       "TRPM3 Ion Channel Dysfunction",
       "Neuroinflammation and Cerebral Hypoperfusion",
@@ -72906,14 +73904,19 @@ window.searchData = [
     "cell_types": [
       "Natural Killer Cell",
       "Monocyte",
+      "naive B cell",
+      "class switched memory B cell",
       "CD8+ T Cell",
       "CD4+ T Cell",
+      "CD8+ T cell",
       "Endothelial Cell",
       "Platelet"
     ],
     "cell_type_ids": [
       "CL:0000623",
       "CL:0000576",
+      "CL:0000788",
+      "CL:0000972",
       "CL:0000625",
       "CL:0000624",
       "CL:0000115",
@@ -72922,8 +73925,10 @@ window.searchData = [
     "biological_processes": [
       "Innate Immune Response",
       "Complement Activation",
+      "B cell differentiation",
       "T Cell Activation",
       "Glycolysis",
+      "exhausted T cell differentiation",
       "Blood Coagulation",
       "Platelet Activation",
       "Calcium Ion Transmembrane Transport",
@@ -72989,7 +73994,7 @@ window.searchData = [
     "source_file": "Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.yaml",
     "page_url": "../pages/disorders/Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "0",
@@ -73148,6 +74153,7 @@ window.searchData = [
     "genes": [
       "HLA-B8",
       "HLA-DR3",
+      "Polygenic MG Susceptibility",
       "CHRNA1"
     ],
     "treatments": [
@@ -73178,7 +74184,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Myasthenia_Gravis.html",
     "num_phenotypes": 38,
     "num_pathophysiology": 3,
-    "num_genes": 3,
+    "num_genes": 4,
     "num_treatments": 11,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
@@ -74495,7 +75501,7 @@ window.searchData = [
       "Neurological Disease"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-05-10T13:25:32Z",
+    "updated_date": "2026-05-17T03:10:05Z",
     "subtypes": [
       "Narcolepsy Type 1",
       "Narcolepsy Type 2"
@@ -74552,6 +75558,7 @@ window.searchData = [
       "Modafinil",
       "Pitolisant",
       "Solriamfetol",
+      "Orexin Receptor 2 Agonists",
       "Amphetamines",
       "Antidepressants",
       "Scheduled Naps"
@@ -74569,7 +75576,7 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 2,
     "num_genes": 3,
-    "num_treatments": 7,
+    "num_treatments": 8,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -75526,7 +76533,7 @@ window.searchData = [
       "Demyelinating Disease"
     ],
     "creation_date": "2026-01-15T00:00:04Z",
-    "updated_date": "2026-04-22T20:53:03Z",
+    "updated_date": "2026-05-17T05:55:13Z",
     "subtypes": [
       "AQP4-IgG Seropositive NMOSD",
       "MOG-IgG Associated Disease",
@@ -75588,6 +76595,7 @@ window.searchData = [
       "Acute Attack Treatment - Plasma Exchange",
       "Rituximab",
       "Eculizumab",
+      "Ravulizumab",
       "Inebilizumab",
       "Satralizumab"
     ],
@@ -75598,9 +76606,9 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 6,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 7,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Neuromyelitis Optica Spectrum Disorder with Anti-AQP4 Antibodies",
@@ -75863,6 +76871,255 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Neuropsychiatric Systemic Lupus Erythematosus",
+    "disease_id": "MONDO:0007915",
+    "category": "Autoimmune",
+    "parents": [
+      "Systemic Lupus Erythematosus",
+      "Autoimmune Disease",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-05-16T18:50:15Z",
+    "updated_date": "2026-05-16T19:50:35Z",
+    "subtypes": [
+      "Inflammatory or autoimmune NPSLE",
+      "Antiphospholipid-associated thrombotic NPSLE"
+    ],
+    "description": "Neuropsychiatric systemic lupus erythematosus is the nervous-system manifestation spectrum of systemic lupus erythematosus. It includes central and peripheral nervous-system syndromes such as seizure, psychosis, cognitive dysfunction, cerebrovascular disease, acute confusional state, chorea, demyelinating syndromes, and peripheral neuropathy. Attribution is difficult: presentations may reflect lupus-driven inflammation, antiphospholipid-related thrombosis, both mechanisms, or non-SLE mimics such as infection, metabolic disease, medication effects, or primary psychiatric and neurologic disorders. No standalone MONDO or Orphanet disease term was found in the local ontology resources, so this entry is anchored to the parent systemic lupus erythematosus term while preserving the NPSLE preferred term.",
+    "pathophysiology": [
+      "Autoimmune Neuroinflammation",
+      "Blood-Brain Barrier Disruption",
+      "Anti-NMDA-NR2A/B Neuronal Excitotoxicity",
+      "Antiphospholipid-Associated Neurovascular Thrombosis"
+    ],
+    "cell_types": [
+      "B cell",
+      "T cell",
+      "microglial cell",
+      "endothelial cell",
+      "astrocyte",
+      "neuron",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000084",
+      "CL:0000129",
+      "CL:0000115",
+      "CL:0000127",
+      "CL:0000540",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "immunoglobulin production",
+      "neuroinflammatory response",
+      "complement activation",
+      "type I interferon-mediated signaling pathway",
+      "maintenance of blood-brain barrier",
+      "astrocyte activation",
+      "glutamate receptor signaling pathway",
+      "chemical synaptic transmission",
+      "positive regulation of calcium ion transport",
+      "blood coagulation",
+      "platelet activation"
+    ],
+    "phenotypes": [
+      "Cerebrovascular Disease",
+      "Seizure",
+      "Psychosis",
+      "Cognitive Impairment",
+      "Depression",
+      "Anxiety Disorder",
+      "Headache",
+      "Chorea",
+      "Acute Confusional State",
+      "Peripheral Neuropathy",
+      "Demyelinating Syndrome or Myelopathy"
+    ],
+    "phenotype_categories": [
+      "Neuropsychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002140",
+      "HP:0001250",
+      "HP:0000709",
+      "HP:0100543",
+      "HP:0000716",
+      "HP:0000739",
+      "HP:0002315",
+      "HP:0002072",
+      "HP:0031258",
+      "HP:0009830",
+      "HP:0007305"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "TNFAIP3 rs5029939 susceptibility association",
+      "Pediatric NPSLE immune susceptibility loci",
+      "IRF5 and cytokine polymorphism susceptibility",
+      "Broader SLE polygenic risk background"
+    ],
+    "treatments": [
+      "Hydroxychloroquine Background Therapy and Seizure Risk Reduction",
+      "Glucocorticoid and Cyclophosphamide Therapy for Severe Inflammatory NPSLE",
+      "Antithrombotic Therapy for Antiphospholipid-Associated NPSLE",
+      "Steroid-Sparing Maintenance Immunosuppression",
+      "Refractory NPSLE Escalation",
+      "Symptomatic Neuropsychiatric Management"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Antiphospholipid antibodies",
+      "Anti-NMDA-NR2A/B antibodies",
+      "Anti-Sm autoantibodies and BBB damage",
+      "Anti-ribosomal P antibodies",
+      "Serum S100A8/A9 and MMP-9",
+      "Blood neurofilament light and glial fibrillary acidic protein",
+      "CSF interferon-alpha and neopterin"
+    ],
+    "source_file": "Neuropsychiatric_SLE.yaml",
+    "page_url": "../pages/disorders/Neuropsychiatric_Systemic_Lupus_Erythematosus.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 4,
+    "num_treatments": 6,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Neurosarcoidosis",
+    "disease_id": "MONDO:0045047",
+    "category": "Immune",
+    "parents": [
+      "Sarcoidosis",
+      "Nervous System Disorder",
+      "Neuroimmune Disease"
+    ],
+    "creation_date": "2026-05-16T11:52:47Z",
+    "updated_date": "2026-05-16T14:27:49Z",
+    "subtypes": [
+      "Cranial Neuropathy",
+      "Meningeal CNS",
+      "Myelitis",
+      "Peripheral Neuropathy",
+      "Hypothalamic-Pituitary"
+    ],
+    "description": "Neurosarcoidosis is nervous-system involvement by sarcoidosis, with granulomatous inflammation affecting the central or peripheral nervous system. Presentations are heterogeneous and may include cranial neuropathies, neuro-ophthalmic disease, meningeal or parenchymal CNS disease, myelopathy, and peripheral nerve involvement.",
+    "pathophysiology": [
+      "Antigen Presentation and Th1-Th17 Activation",
+      "Nervous System Granulomatous Inflammation",
+      "Neurologic Dysfunction"
+    ],
+    "cell_types": [
+      "T-helper 1 cell",
+      "T-helper 17 cell",
+      "macrophage",
+      "CD4-positive helper T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000545",
+      "CL:0000899",
+      "CL:0000235",
+      "CL:0000492"
+    ],
+    "biological_processes": [
+      "antigen processing and presentation",
+      "T cell activation",
+      "cytokine production",
+      "cell surface receptor signaling pathway via JAK-STAT",
+      "inflammatory response",
+      "adaptive immune response",
+      "macrophage activation",
+      "granuloma formation"
+    ],
+    "phenotypes": [
+      "Headache",
+      "Cranial Neuropathy",
+      "Myelitis",
+      "Peripheral Neuropathy",
+      "Small Fiber Neuropathy",
+      "Meningitis",
+      "Hydrocephalus",
+      "Optic Neuropathy",
+      "Abducens Palsy",
+      "Facial Palsy",
+      "Muscle Weakness",
+      "Seizure",
+      "Cognitive Impairment",
+      "Hypopituitarism",
+      "Diabetes Insipidus"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Cognitive",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002315",
+      "HP:0006824",
+      "HP:0012486",
+      "HP:0009830",
+      "HP:0001287",
+      "HP:0000238",
+      "HP:0001138",
+      "HP:0006897",
+      "HP:0010628",
+      "HP:0001324",
+      "HP:0001250",
+      "HP:0100543",
+      "HP:0040075",
+      "HP:0000873"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HLA-DRB1",
+      "BTNL2",
+      "ANXA11",
+      "NOD2"
+    ],
+    "treatments": [
+      "High-dose glucocorticoids",
+      "Conventional steroid-sparing immunosuppression",
+      "Infliximab",
+      "Adalimumab"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "CSF Pleocytosis",
+      "Elevated CSF Protein",
+      "Elevated Soluble Interleukin-2 Receptor",
+      "Angiotensin-Converting Enzyme",
+      "Elevated Neurofilament Light Chain"
+    ],
+    "source_file": "Neurosarcoidosis.yaml",
+    "page_url": "../pages/disorders/Neurosarcoidosis.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 3,
+    "num_genes": 4,
+    "num_treatments": 4,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Nevus of Ota",
@@ -78168,6 +79425,115 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Optic Neuritis",
+    "disease_id": "MONDO:0005885",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder",
+      "Demyelinating Disease",
+      "Eye disorder"
+    ],
+    "creation_date": "2026-05-16T16:31:33Z",
+    "updated_date": "2026-05-16T16:44:27Z",
+    "subtypes": [
+      "Isolated optic neuritis",
+      "Single isolated optic neuritis",
+      "Relapsing isolated optic neuritis",
+      "Multiple sclerosis-associated optic neuritis",
+      "MOG-IgG-associated optic neuritis",
+      "AQP4-IgG/NMOSD-associated optic neuritis"
+    ],
+    "description": "Optic neuritis is an inflammatory optic neuropathy in which immune-mediated injury of the optic nerve causes acute or subacute visual dysfunction. Modern classification treats optic neuritis as a heterogeneous syndrome: it can be isolated, multiple sclerosis-associated, MOG-IgG-associated, AQP4-IgG neuromyelitis optica spectrum disorder-associated, or linked to other systemic, infectious, or inflammatory disorders. Accurate etiologic attribution at the first attack is clinically important because acute treatment, relapse prevention, and prognosis differ across subgroups.",
+    "pathophysiology": [
+      "Immune-mediated optic nerve inflammation",
+      "Inflammatory demyelinating optic neuropathy",
+      "MOG-IgG-mediated demyelinating optic neuritis",
+      "AQP4-IgG astrocytopathic optic neuritis"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "neuroinflammatory response",
+      "myelination",
+      "complement activation",
+      "T cell mediated immunity",
+      "complement activation, classical pathway"
+    ],
+    "phenotypes": [
+      "Optic Neuritis",
+      "Bilateral Optic Neuritis",
+      "Visual Loss",
+      "Eye Movement-Induced Pain",
+      "Ocular Pain",
+      "Dyschromatopsia",
+      "Visual Field Defect",
+      "Central Scotoma",
+      "Reduced Contrast Sensitivity",
+      "Marcus Gunn Pupil",
+      "Optic Disc Swelling",
+      "Photopsia",
+      "Abnormal Visual Evoked Potentials"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Electrophysiologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Eye",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100653",
+      "HP:0000572",
+      "HP:0030857",
+      "HP:0200026",
+      "HP:0007641",
+      "HP:0001123",
+      "HP:0000603",
+      "HP:0032036",
+      "HP:0200057",
+      "HP:0012795",
+      "HP:0030786",
+      "HP:0000649"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "COMMON",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Acute high-dose corticosteroids",
+      "Plasma exchange escalation for severe or steroid-refractory optic neuritis",
+      "Maintenance intravenous immunoglobulin for relapsing MOGAD-associated optic neuritis",
+      "Eculizumab relapse prevention for AQP4-IgG/NMOSD-associated optic neuritis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "MOG-IgG seropositivity",
+      "AQP4-IgG seropositivity",
+      "Serum neurofilament light chain and serum GFAP"
+    ],
+    "source_file": "Optic_Neuritis.yaml",
+    "page_url": "../pages/disorders/Optic_Neuritis.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "2"
   },
   {
@@ -81512,6 +82878,114 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Paraneoplastic Neurological Syndromes",
+    "disease_id": "MONDO:0018215",
+    "category": "Autoimmune",
+    "parents": [
+      "Neurological Disease",
+      "Autoimmune Disease",
+      "Cancer-Associated Disease"
+    ],
+    "creation_date": "2026-05-16T22:42:45Z",
+    "updated_date": "2026-05-16T23:48:49Z",
+    "subtypes": [
+      "Intracellular Antigen PNS",
+      "Surface Antigen PNS"
+    ],
+    "description": "Paraneoplastic neurological syndromes are rare immune-mediated neurologic disorders triggered by cancer but not caused by direct tumor invasion, metastasis, infection, ischemia, or metabolic disturbance. Tumor expression of antigens shared with the nervous system can elicit high-risk or intermediate-risk neural autoantibodies and T-cell responses that injure the central nervous system, peripheral nervous system, neuromuscular junction, or muscle. Diagnosis integrates the neurologic phenotype, antibody risk category, cancer status, and follow-up using the PNS-Care framework.",
+    "pathophysiology": [
+      "Tumor-Neural Antigen Immune Cross-Recognition",
+      "Cytotoxic T Cell-Mediated Neuronal Destruction (Intracellular Antigen PNS)",
+      "Pathogenic Autoantibody-Mediated Synaptic Dysfunction (Surface Antigen PNS)",
+      "Multifocal Neurological Dysfunction"
+    ],
+    "cell_types": [
+      "conventional dendritic cell",
+      "cytotoxic T cell",
+      "Purkinje cell",
+      "plasma cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000990",
+      "CL:0000910",
+      "CL:0000121",
+      "CL:0000786",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "immune response to tumor cell",
+      "antigen processing and presentation of peptide antigen via MHC class I",
+      "T cell mediated cytotoxicity",
+      "apoptotic process",
+      "chemical synaptic transmission",
+      "B cell mediated immunity"
+    ],
+    "phenotypes": [
+      "Cerebellar Ataxia",
+      "Limbic Encephalitis and Encephalopathy",
+      "Memory Impairment",
+      "Atypical Behavior",
+      "Opsoclonus",
+      "Myoclonus",
+      "Sensory Neuropathy",
+      "Intestinal Pseudo-Obstruction",
+      "Visual Impairment from Paraneoplastic Retinopathy",
+      "Muscle Weakness from Neuromuscular Junction or Muscle Involvement"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001298",
+      "HP:0002354",
+      "HP:0000708",
+      "HP:0010543",
+      "HP:0001336",
+      "HP:0000763",
+      "HP:0004389",
+      "HP:0000505",
+      "HP:0001324"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Representative Neural Autoantigen Target Genes",
+      "CDR2 Yo Autoantigen Tumor Alteration",
+      "CDR2L Yo Autoantigen Tumor Alteration",
+      "HLA-DQ2 and HLA-DR3 Susceptibility in Hu-PNS"
+    ],
+    "treatments": [
+      "Cancer-Directed Therapy",
+      "Immunotherapy",
+      "Corticosteroid Therapy",
+      "Intravenous Immunoglobulin",
+      "Plasma Exchange",
+      "Rituximab",
+      "Amifampridine for Lambert-Eaton Myasthenic Syndrome"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "High- or Intermediate-Risk Neural Autoantibodies",
+      "Cerebrospinal Fluid Neurofilament Light Chain"
+    ],
+    "source_file": "Paraneoplastic_Neurological_Syndromes.yaml",
+    "page_url": "../pages/disorders/Paraneoplastic_Neurological_Syndromes.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 4,
+    "num_treatments": 7,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Parathyroid Hyperplasia",
     "disease_id": "MONDO:0006354",
     "category": "Complex",
@@ -83873,7 +85347,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-04-27T05:24:24Z",
+    "updated_date": "2026-05-18T04:44:34Z",
     "subtypes": [
       "Classic PKU",
       "Mild PKU",
@@ -84033,7 +85507,7 @@ window.searchData = [
     "num_pathophysiology": 14,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "35",
+    "causal_graph_edges": "64",
     "causal_graph_longest_path": "9"
   },
   {
@@ -86580,7 +88054,7 @@ window.searchData = [
       "Liver Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-05-12T00:37:14Z",
     "subtypes": [],
     "description": "A chronic autoimmune liver disease characterized by progressive destruction of small intrahepatic bile ducts, leading to cholestasis, fibrosis, and eventually cirrhosis. Highly associated with anti-mitochondrial antibodies (AMA) targeting pyruvate dehydrogenase complex.",
     "pathophysiology": [
@@ -86642,6 +88116,7 @@ window.searchData = [
     "biochemical": [
       "Anti-Mitochondrial Antibodies (AMA)",
       "Alkaline Phosphatase",
+      "Bilirubin",
       "IgM",
       "Anti-sp100 Antibodies"
     ],
@@ -86651,8 +88126,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Primary Carnitine Deficiency",
@@ -89688,7 +91163,7 @@ window.searchData = [
       "non-small cell lung carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-06T15:56:14Z",
     "subtypes": [
       "KIF5B-RET NSCLC",
       "CCDC6-RET NSCLC",
@@ -89708,7 +91183,7 @@ window.searchData = [
       "CL:0002063"
     ],
     "biological_processes": [
-      "protein kinase activity",
+      "protein phosphorylation",
       "MAPK cascade",
       "phosphatidylinositol 3-kinase signaling",
       "cell population proliferation",
@@ -89759,8 +91234,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "RNU12-related minor spliceopathy",
@@ -89826,7 +91301,7 @@ window.searchData = [
       "non-small cell lung carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-05-02T00:00:00Z",
+    "updated_date": "2026-05-06T15:56:14Z",
     "subtypes": [
       "CD74-ROS1 NSCLC",
       "EZR-ROS1 NSCLC",
@@ -89906,8 +91381,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "RPGR-Related Retinopathy",
@@ -98125,13 +99600,14 @@ window.searchData = [
       "Inborn error of metabolism"
     ],
     "creation_date": "2026-05-11T09:21:23Z",
-    "updated_date": "2026-05-11T10:37:42Z",
+    "updated_date": "2026-05-18T03:57:48Z",
     "subtypes": [],
     "description": "Succinic semialdehyde dehydrogenase deficiency is an autosomal recessive neurometabolic disorder of GABA metabolism caused by biallelic ALDH5A1 pathogenic variants. The clinical spectrum ranges from mild to severe and commonly includes intellectual disability, developmental delay, hypotonia, ataxia, epilepsy, and behavioral dysregulation.",
     "pathophysiology": [
       "ALDH5A1 Pathogenic Variants",
       "Succinate-Semialdehyde Dehydrogenase Catalytic Block",
       "GABA and 4-Hydroxybutyrate Accumulation",
+      "Basal Ganglia Vulnerability",
       "GABAergic Network Dysfunction",
       "Oxidative and Mitochondrial Stress"
     ],
@@ -98142,8 +99618,10 @@ window.searchData = [
       "CL:0000617"
     ],
     "biological_processes": [
+      "GABA metabolic process",
       "GABA catabolic process",
       "synaptic transmission, GABAergic",
+      "synaptic transmission, glutamatergic",
       "reactive oxygen species metabolic process"
     ],
     "phenotypes": [
@@ -98160,7 +99638,14 @@ window.searchData = [
       "Focal T2 hyperintense basal ganglia lesion",
       "Expressive language delay",
       "Sleep disturbance",
-      "Autism"
+      "Autism",
+      "Dystonia",
+      "Chorea",
+      "Exertional dyskinesia",
+      "Anxiety",
+      "Obsessive-compulsive trait",
+      "Attention deficit hyperactivity disorder",
+      "Aggressive behavior"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -98183,7 +99668,14 @@ window.searchData = [
       "HP:0007183",
       "HP:0002474",
       "HP:0002360",
-      "HP:0000717"
+      "HP:0000717",
+      "HP:0001332",
+      "HP:0002072",
+      "HP:0100660",
+      "HP:0000739",
+      "HP:0008770",
+      "HP:0007018",
+      "HP:0000718"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -98199,15 +99691,16 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "Elevated 4-hydroxybutyric acid",
-      "Elevated gamma-aminobutyric acid"
+      "Elevated gamma-aminobutyric acid",
+      "Elevated 4,5-dihydroxyhexanoic acid"
     ],
     "source_file": "Succinic_Semialdehyde_Dehydrogenase_Deficiency.yaml",
     "page_url": "../pages/disorders/Succinic_Semialdehyde_Dehydrogenase_Deficiency.html",
-    "num_phenotypes": 14,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 21,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "40",
     "causal_graph_longest_path": "5"
   },
   {
@@ -98220,7 +99713,7 @@ window.searchData = [
       "Eye disorder"
     ],
     "creation_date": "2026-05-07T02:04:03Z",
-    "updated_date": "2026-05-07T02:04:03Z",
+    "updated_date": "2026-05-16T15:18:07Z",
     "subtypes": [],
     "description": "Susac syndrome is a rare acquired autoimmune microangiopathy of the brain, retina, and inner ear. The core disease mechanism is immune-mediated injury of small-vessel endothelium, producing the clinical triad of central nervous system dysfunction, branch retinal artery occlusions, and sensorineural hearing impairment.",
     "pathophysiology": [
@@ -101407,32 +102900,48 @@ window.searchData = [
     "disease_id": "MONDO:0021553",
     "category": "Neurological Disorder",
     "parents": [
-      "Autoimmune Disorder"
+      "Autoimmune Disorder",
+      "Demyelinating Disease"
     ],
     "creation_date": "2026-02-01T23:53:45Z",
-    "updated_date": "2026-02-17T21:53:14Z",
-    "subtypes": [],
-    "description": "Transverse myelitis is an acquired inflammatory disorder of the spinal cord that can cause rapid onset neurologic deficits.",
+    "updated_date": "2026-05-17T06:27:35Z",
+    "subtypes": [
+      "Acute TM",
+      "Idiopathic ATM",
+      "MOG-IgG ATM"
+    ],
+    "description": "Transverse myelitis is an acquired inflammatory disorder of the spinal cord that can cause rapid onset motor, sensory, and autonomic neurologic deficits. It is a syndrome rather than a single etiology: acute transverse myelitis may be idiopathic or secondary to systemic autoimmune disease, infection, NMOSD, MOGAD, multiple sclerosis, or other neuroinflammatory disorders.",
     "pathophysiology": [
       "Spinal Cord Inflammation",
-      "Immune-Mediated Neural Injury",
-      "Immune-Mediated Spinal Cord Disorder"
+      "Perivascular Immune Cell Infiltration",
+      "Blood-Brain Barrier Breakdown",
+      "Demyelination and Neuronal Injury",
+      "Immune-Mediated Spinal Cord Disorder",
+      "Recurrent Neuroinflammatory Disease Risk"
     ],
     "cell_types": [
+      "monocyte",
       "neuron"
     ],
     "cell_type_ids": [
+      "CL:0000576",
       "CL:0000540"
     ],
     "biological_processes": [
-      "inflammatory response"
+      "inflammatory response",
+      "humoral immune response"
     ],
     "phenotypes": [
       "Muscle Weakness",
       "Sensory Disturbance",
+      "Back Pain",
       "Neurogenic Bladder",
       "Bowel Incontinence",
-      "Paraplegia"
+      "Paraplegia",
+      "Longitudinally Extensive Transverse Myelitis",
+      "Tonic Spasms",
+      "Spasticity",
+      "Focal Dystonia"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -101443,38 +102952,50 @@ window.searchData = [
       "Constitutional",
       "Digestive",
       "Genitourinary",
+      "Immune",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001324",
       "HP:0003474",
+      "HP:0003418",
       "HP:0000011",
       "HP:0002607",
-      "HP:0010550"
+      "HP:0010550",
+      "HP:0012486",
+      "HP:0011964",
+      "HP:0001257",
+      "HP:0004373"
     ],
     "frequencies": [
-      "COMMON"
+      "COMMON",
+      "OCCASIONAL",
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
       "Corticosteroid Therapy",
-      "Plasma Exchange"
+      "Plasma Exchange",
+      "Intravenous Immunoglobulin Adjunctive Therapy"
     ],
     "environmental": [],
     "biochemical": [
       "Interleukin-6",
       "Interleukin-17",
-      "AQP4-IgG"
+      "AQP4-IgG",
+      "CSF Inflammatory Markers",
+      "Serum Neurofilament Light Chain",
+      "Serum Glial Fibrillary Acidic Protein"
     ],
     "source_file": "Transverse_Myelitis.yaml",
     "page_url": "../pages/disorders/Transverse_Myelitis.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 3,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Traveler's Diarrhea",
@@ -105102,6 +106623,130 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Wiedemann-Steiner Syndrome",
+    "disease_id": "MONDO:0011518",
+    "category": "Mendelian",
+    "parents": [
+      "Intellectual disability syndrome",
+      "Mendelian neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-05-16T00:00:00Z",
+    "updated_date": "2026-05-16T12:00:00Z",
+    "subtypes": [],
+    "description": "Wiedemann-Steiner Syndrome (WDSTS; OMIM 605130) is a rare autosomal dominant chromatinopathy caused by heterozygous pathogenic variants in KMT2A, encoding a histone H3 lysine 4 (H3K4) methyltransferase. The condition is characterised by global developmental delay, intellectual disability (typically mild to moderate), short stature, hypertrichosis (especially elbow hypertrichosis), characteristic craniofacial dysmorphism, and multi-system concomitants including gastrointestinal, skeletal, cardiac, and genitourinary anomalies. The largest cohort study (n=104) reported developmental delay/intellectual disability in 97% of individuals; most cases arise de novo.\n",
+    "pathophysiology": [
+      "KMT2A Loss-of-Function and Disrupted H3K4 Methylation",
+      "Centrosome Dysfunction and Impaired Microtubule Nucleation",
+      "Transcriptomic and Synaptic Dysregulation in Neurons"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "chromatin organization",
+      "regulation of transcription by RNA polymerase II",
+      "microtubule nucleation",
+      "mitotic spindle organization",
+      "regulation of DNA-templated transcription"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Muscular Hypotonia",
+      "Short Stature",
+      "Elbow Hypertrichosis",
+      "Feeding Difficulties",
+      "Failure to Thrive",
+      "Constipation",
+      "Behavioral Abnormalities",
+      "Vertebral Anomalies",
+      "Scoliosis",
+      "Seizures",
+      "Cardiac Anomalies",
+      "Abnormal Corpus Callosum Morphology",
+      "Strabismus and Ophthalmologic Anomalies",
+      "Obstructive Sleep Apnea",
+      "Immune Dysfunction and Recurrent Infections",
+      "Genitourinary Anomalies",
+      "Growth Hormone Deficiency and Pituitary Abnormalities"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Integument",
+      "Gastrointestinal",
+      "Psychiatric",
+      "Musculoskeletal",
+      "Cardiovascular",
+      "Ophthalmological",
+      "Respiratory",
+      "Immunological",
+      "Genitourinary",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0004322",
+      "HP:0004780",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:0002019",
+      "HP:0000708",
+      "HP:0000925",
+      "HP:0002650",
+      "HP:0001250",
+      "HP:0001627",
+      "HP:0001273",
+      "HP:0000486",
+      "HP:0002870",
+      "HP:0002719",
+      "HP:0000119",
+      "HP:0000864"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "KMT2A"
+    ],
+    "treatments": [
+      "Physical Therapy",
+      "Speech and Language Therapy",
+      "Occupational Therapy",
+      "Behavioral and Psychiatric Management",
+      "Genetic Counseling",
+      "Growth Hormone Therapy",
+      "Anti-Seizure Pharmacotherapy",
+      "Immunoglobulin Replacement and Infection Prophylaxis",
+      "Supportive Care and Multidisciplinary Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Wiedemann-Steiner_Syndrome.yaml",
+    "page_url": "../pages/disorders/Wiedemann-Steiner_Syndrome.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Wilms Tumor",
     "disease_id": "MONDO:0006058",
     "category": "",
@@ -105901,7 +107546,7 @@ window.searchData = [
       "Lysosomal Storage Disease"
     ],
     "creation_date": "2026-04-14T19:53:03Z",
-    "updated_date": "2026-05-10T12:07:15Z",
+    "updated_date": "2026-05-17T16:00:00Z",
     "subtypes": [],
     "description": "Wolman disease is the rapidly progressive infantile phenotype of lysosomal acid lipase deficiency caused by biallelic pathogenic variants in LIPA. Near-complete loss of lysosomal acid lipase activity blocks lysosomal hydrolysis of cholesteryl esters and triglycerides, causing multisystem lipid storage in macrophages and parenchymal cells, especially in liver, intestine, spleen, lymphoid tissues, and adrenal cortex. The resulting hepatic dysfunction, malabsorption, failure to thrive, hepatosplenomegaly, anemia, and adrenal calcification lead to fatal multiorgan failure in infancy if untreated. Wolman disease is distinct from the later-onset cholesteryl ester storage disease phenotype on the same lysosomal acid lipase deficiency spectrum.\n",
     "pathophysiology": [
@@ -106724,7 +108369,7 @@ window.searchData = [
       "inborn errors of metabolism"
     ],
     "creation_date": "2026-05-13T00:00:00Z",
-    "updated_date": "2026-05-13T18:00:00Z",
+    "updated_date": "2026-05-18T01:50:53Z",
     "subtypes": [
       "Zellweger Syndrome",
       "NALD",
@@ -106741,6 +108386,7 @@ window.searchData = [
     "cell_type_ids": [],
     "biological_processes": [
       "peroxisome organization",
+      "protein import into peroxisome matrix",
       "very long-chain fatty acid metabolic process",
       "fatty acid beta-oxidation",
       "ether lipid biosynthetic process",
@@ -106748,6 +108394,7 @@ window.searchData = [
     ],
     "phenotypes": [
       "Neonatal Hypotonia",
+      "Feeding Difficulties",
       "Seizures",
       "Hepatomegaly",
       "Sensorineural Hearing Loss",
@@ -106757,10 +108404,16 @@ window.searchData = [
       "Renal Cysts",
       "Chondrodysplasia Punctata",
       "Leukodystrophy",
-      "Developmental Delay"
+      "Developmental Delay",
+      "Ataxia",
+      "Polyneuropathy",
+      "Nephrolithiasis",
+      "Osteopenia",
+      "Amelogenesis Imperfecta"
     ],
     "phenotype_categories": [
       "Neurologic",
+      "Gastrointestinal",
       "Hepatic",
       "Auditory",
       "Ophthalmologic",
@@ -106768,7 +108421,8 @@ window.searchData = [
       "Endocrine",
       "Renal",
       "Skeletal",
-      "Neurodevelopmental"
+      "Neurodevelopmental",
+      "Dental"
     ],
     "phenotype_hpo_categories": [
       "Digestive",
@@ -106782,6 +108436,7 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0001252",
+      "HP:0011968",
       "HP:0001250",
       "HP:0002240",
       "HP:0000407",
@@ -106791,7 +108446,12 @@ window.searchData = [
       "HP:0000107",
       "HP:0010655",
       "HP:0002415",
-      "HP:0001263"
+      "HP:0001263",
+      "HP:0001251",
+      "HP:0001271",
+      "HP:0000787",
+      "HP:0000938",
+      "HP:0000705"
     ],
     "frequencies": [],
     "genes": [
@@ -106813,12 +108473,12 @@ window.searchData = [
     ],
     "source_file": "Zellweger_Spectrum_Disorders.yaml",
     "page_url": "../pages/disorders/Zellweger_Spectrum_Disorders.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 17,
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 3,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Zimmermann-Laband Syndrome",
@@ -107752,11 +109412,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1096,
-  "total_unique_evidence_sources": 19595,
+  "total_disorder_pages": 1110,
+  "total_unique_evidence_sources": 20444,
   "total_unique_disease_categories": 44,
-  "total_unique_phenotype_categories": 189,
-  "total_pathographs": 1089,
-  "total_unique_pathological_events": 5151
+  "total_unique_phenotype_categories": 193,
+  "total_pathographs": 1103,
+  "total_unique_pathological_events": 5240
 };
 window.dispatchEvent(new Event('searchDataReady'));
