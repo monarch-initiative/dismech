@@ -228,3 +228,14 @@ def test_hedgehog_module_file_valid(validator):
     report = validator.validate(data, target_class="Module")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert not errors, f"Validation errors in hedgehog_signaling.yaml: {[str(e) for e in errors]}"
+
+
+def test_gorlin_disease_file_valid(validator):
+    """The Gorlin Syndrome example disease course validates against the schema."""
+    disease_file = DISEASES_DIR / "Gorlin_Syndrome.yaml"
+    assert disease_file.exists(), f"Example disease not found: {disease_file}"
+    with open(disease_file) as f:
+        data = yaml.safe_load(f)
+    report = validator.validate(data, target_class="DiseaseCourse")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Validation errors in Gorlin_Syndrome.yaml: {[str(e) for e in errors]}"
