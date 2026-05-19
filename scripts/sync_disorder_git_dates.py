@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Sync entry creation/updated dates from git history.
+"""Sync entry creation date from git history.
 
 For each YAML file:
 - creation_date := oldest commit timestamp touching the file
-- updated_date := newest commit timestamp touching the file
 
 Timestamps are written as ISO 8601 UTC strings with a trailing Z.
+
+Note: updated_date is deprecated; use git log for authoritative change history.
 """
 
 from __future__ import annotations
@@ -27,8 +28,8 @@ def _normalize_iso_to_utc_z(iso_value: str) -> str:
     return utc.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _git_dates_for_file(path: Path) -> tuple[str, str] | None:
-    """Return (creation_date, updated_date) from git log for a file."""
+def _git_creation_date_for_file(path: Path) -> str | None:
+    """Return the creation_date (oldest commit timestamp) from git log for a file."""
     cmd = ["git", "log", "--follow", "--format=%cI", "--", str(path)]
     proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -38,9 +39,8 @@ def _git_dates_for_file(path: Path) -> tuple[str, str] | None:
     if not lines:
         return None
 
-    updated_raw = lines[0]
     creation_raw = lines[-1]
-    return (_normalize_iso_to_utc_z(creation_raw), _normalize_iso_to_utc_z(updated_raw))
+    return _normalize_iso_to_utc_z(creation_raw)
 
 
 def _iter_disorder_files(kb_dir: Path, include_history: bool) -> Iterable[Path]:
@@ -50,15 +50,14 @@ def _iter_disorder_files(kb_dir: Path, include_history: bool) -> Iterable[Path]:
         yield path
 
 
-def _set_dates(data: CommentedMap, creation_date: str, updated_date: str) -> bool:
-    """Insert/update creation_date and updated_date slots.
+def _set_creation_date(data: CommentedMap, creation_date: str) -> bool:
+    """Insert/update creation_date slot.
 
     Returns True if the map was modified.
     """
     changed = False
 
     current_creation = data.get("creation_date")
-    current_updated = data.get("updated_date")
 
     if current_creation != creation_date:
         if "creation_date" in data:
@@ -69,19 +68,6 @@ def _set_dates(data: CommentedMap, creation_date: str, updated_date: str) -> boo
             else:
                 insert_at = 0
             data.insert(insert_at, "creation_date", creation_date)
-        changed = True
-
-    if current_updated != updated_date:
-        if "updated_date" in data:
-            data["updated_date"] = updated_date
-        else:
-            if "creation_date" in data:
-                insert_at = list(data).index("creation_date") + 1
-            elif "name" in data:
-                insert_at = list(data).index("name") + 1
-            else:
-                insert_at = 0
-            data.insert(insert_at, "updated_date", updated_date)
         changed = True
 
     return changed
@@ -107,7 +93,7 @@ def main() -> int:
     parser.add_argument(
         "--missing-only",
         action="store_true",
-        help="Only fill files with missing/null creation_date or updated_date",
+        help="Only fill files with missing/null creation_date",
     )
     args = parser.parse_args()
 
@@ -127,12 +113,11 @@ def main() -> int:
 
     for path in _iter_disorder_files(kb_dir, args.include_history):
         total += 1
-        dates = _git_dates_for_file(path)
-        if dates is None:
+        creation_date = _git_creation_date_for_file(path)
+        if creation_date is None:
             skipped += 1
             print(f"SKIP (no git history): {path}")
             continue
-        creation_date, updated_date = dates
 
         data = yaml.load(path.read_text())
         if not isinstance(data, CommentedMap):
@@ -142,24 +127,21 @@ def main() -> int:
 
         if args.missing_only:
             has_creation = data.get("creation_date") not in (None, "")
-            has_updated = data.get("updated_date") not in (None, "")
-            if has_creation and has_updated:
+            if has_creation:
                 continue
 
-        file_changed = _set_dates(data, creation_date, updated_date)
+        file_changed = _set_creation_date(data, creation_date)
         if not file_changed:
             continue
 
         changed += 1
         if args.dry_run:
-            print(
-                f"WOULD UPDATE: {path} creation_date={creation_date} updated_date={updated_date}")
+            print(f"WOULD UPDATE: {path} creation_date={creation_date}")
             continue
 
         with path.open("w") as stream:
             yaml.dump(data, stream)
-        print(
-            f"UPDATED: {path} creation_date={creation_date} updated_date={updated_date}")
+        print(f"UPDATED: {path} creation_date={creation_date}")
 
     mode = "DRY-RUN" if args.dry_run else "WRITE"
     print(f"{mode} SUMMARY: total={total} changed={changed} skipped={skipped}")

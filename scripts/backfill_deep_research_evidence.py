@@ -922,8 +922,6 @@ def main() -> int:
                     changed = True
 
         if changed and args.apply:
-            if "updated_date" in data:
-                data["updated_date"] = now_iso
             with yaml_path.open("w", encoding="utf-8") as handle:
                 yaml_rt.dump(data, handle)
 

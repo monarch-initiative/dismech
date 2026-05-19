@@ -170,18 +170,17 @@ Model organism evidence should not be the only support for human phenotypes; kee
 
 ### Entry Metadata Dates
 
-Each `Disease` entry should include lifecycle timestamps:
+Each `Disease` entry should include a creation timestamp:
 
 ```yaml
 creation_date: "2025-06-12T20:16:27Z"
-updated_date: "2025-07-03T11:05:10Z"
 ```
 
 Rules:
 - Use ISO 8601 / RFC 3339 datetime strings.
 - Keep `creation_date` stable after first creation.
-- Update `updated_date` whenever curated content changes.
 - Prefer UTC (`Z` suffix) for consistency.
+- Do **not** add `updated_date`; that field is deprecated. Use `git log` for authoritative change history.
 
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
