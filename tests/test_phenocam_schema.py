@@ -146,3 +146,39 @@ def test_invalid_perturbation_quality_rejected_with_slot(validator):
     report = validator.validate(data, target_class="Module")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert errors, "Expected validation error for invalid quality value"
+
+
+def test_phenotype_node_valid(validator):
+    """Phenotype node validates with hpo_term."""
+    data = {
+        "id": "test_module",
+        "name": "Test",
+        "phenotypes": [
+            {
+                "id": "bcc",
+                "hpo_term": {"id": "HP:0002671", "label": "Basal cell carcinoma"},
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Module")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Errors: {[str(e) for e in errors]}"
+
+
+def test_modulator_valid(validator):
+    """Modulator node validates with agent and role."""
+    data = {
+        "id": "test_module",
+        "name": "Test",
+        "modulators": [
+            {
+                "id": "vismodegib",
+                "agent": {"id": "CHEBI:66903", "label": "vismodegib"},
+                "role": "therapeutic",
+                "description": "SMO inhibitor approved for BCC.",
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Module")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Errors: {[str(e) for e in errors]}"
