@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04069533
+reference_id: "clinicaltrials:NCT04069533"
 title: A Phase II Clinical Trial to Evaluate the Efficacy of the Infusion of Autologous CD34+ Cells Transduced With a Lentiviral Vector Carrying the FANCA Gene (Orphan Drug) in Patients With Fanconi Anemia Subtype A
 content_type: summary
 ---
