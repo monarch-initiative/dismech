@@ -955,6 +955,14 @@
         .pathophys-box .item-name { color: #92400e; }
         .pathophys-box .item-desc { color: #78350f; }
 
+        /* Mechanistic hypotheses */
+        .hypothesis-box {
+            background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
+            border-left: 4px solid #059669;
+        }
+        .hypothesis-box .item-name { color: #065f46; }
+        .hypothesis-box .item-desc { color: #0f766e; }
+
         /* Histopathology */
         .histopathology-box {
             background: #fff7ed;
@@ -2032,9 +2040,14 @@
         return edgeData && edgeData.predicate === "readout";
     }
 
+    function hasHypothesisGroups(edgeData) {
+        return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
@@ -2047,15 +2060,19 @@
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
 
     function edgeTitle(edgeData) {
         var parts = [edgeData.source + " -> " + edgeData.target];
         if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.hypothesis_groups && edgeData.hypothesis_groups.length) parts.push("hypotheses: " + edgeData.hypothesis_groups.join(", "));
+        if (edgeData.causal_link_type) parts.push("causal link: " + humanizeEnum(edgeData.causal_link_type));
         if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
         if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
         if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.intermediate_mechanisms && edgeData.intermediate_mechanisms.length) parts.push("intermediates: " + edgeData.intermediate_mechanisms.join("; "));
         if (edgeData.description) parts.push(edgeData.description);
         return parts.join("\n");
     }
@@ -2135,6 +2152,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-hypothesis")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#7c3aed");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -2146,7 +2173,7 @@
                 .attr("d", line(pts))
                 .attr("fill", "none")
                 .attr("stroke", edgeStroke(e))
-                .attr("stroke-width", 1.8)
+                .attr("stroke-width", hasHypothesisGroups(e) ? 2.4 : 1.8)
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
@@ -2970,6 +2997,7 @@
         {% set phenotypes_count = (disorder.phenotypes or []) | length %}
         {% set genetic_count = (disorder.genetic or []) | length %}
         {% set treatments_count = (disorder.treatments or []) | length %}
+        {% set mechanistic_hypotheses_count = (disorder.mechanistic_hypotheses or []) | length %}
         {% set pathograph_nodes_count = pathograph_node_count or 0 %}
         {% set definitions_count = (disorder.definitions or []) | length %}
         {% set inheritance_count = (disorder.inheritance or []) | length %}
@@ -3069,6 +3097,14 @@
                 <div class="stat-value">{{ phenotypes_count }}</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
+            {% endif %}
+            {% if mechanistic_hypotheses_count %}
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-value">{{ mechanistic_hypotheses_count }}</div>
+                <div class="stat-label">Hypotheses</div>
+            </div>
+            </a>
             {% endif %}
             {% if pathograph_nodes_count %}
             <a class="stat-link" href="#pathograph">
@@ -3195,6 +3231,14 @@
             <div class="stat-item">
                 <div class="stat-value">{{ literature_count }}</div>
                 <div class="stat-label">Deep Research</div>
+            </div>
+            </a>
+            {% endif %}
+            {% if hypothesis_research_count and mechanistic_hypotheses_count %}
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-value">{{ hypothesis_research_count }}</div>
+                <div class="stat-label">Hypothesis Reports</div>
             </div>
             </a>
             {% endif %}
@@ -3713,6 +3757,92 @@
         </div>
         {% endif %}
 
+        <!-- Mechanistic Hypotheses -->
+        {% if disorder.mechanistic_hypotheses %}
+        <div class="card" id="mechanistic-hypotheses">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
+                <h2 class="card-title">Mechanistic Hypotheses</h2>
+                <span class="card-count">{{ disorder.mechanistic_hypotheses | length }}</span>
+            </div>
+            {% for hypothesis in disorder.mechanistic_hypotheses %}
+            <div class="item-box hypothesis-box anchor-target"{% if hypothesis._anchor_id %} id="{{ hypothesis._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ hypothesis.hypothesis_label or hypothesis.hypothesis_group_id }}</div>
+                <div class="item-meta">
+                    {% if hypothesis.hypothesis_group_id %}
+                    <span class="tag tag-parent">{{ hypothesis.hypothesis_group_id }}</span>
+                    {% endif %}
+                    {% if hypothesis.status %}
+                    <span class="tag tag-mechanistic">{{ hypothesis.status }}</span>
+                    {% endif %}
+                    {% for subtype in hypothesis.applies_to_subtypes or [] %}
+                    <span class="tag tag-classification">{{ subtype }}</span>
+                    {% endfor %}
+                </div>
+                {% if hypothesis.description %}
+                <div class="item-desc" style="margin-top: 8px;">{{ hypothesis.description }}</div>
+                {% endif %}
+                {% if hypothesis.notes %}
+                <div class="mapping-notes">{{ hypothesis.notes }}</div>
+                {% endif %}
+                {% if hypothesis._pathograph_links %}
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+                        {% for link in hypothesis._pathograph_links %}
+                        <div class="crosslink-item">
+                            {% if link.source_anchor %}
+                            <a href="#{{ link.source_anchor }}">{{ link.source }}</a>
+                            {% else %}
+                            <span class="crosslink-meta">{{ link.source }}</span>
+                            {% endif %}
+                            <span class="crosslink-desc">-&gt;</span>
+                            {% if link.target_anchor %}
+                            <a href="#{{ link.target_anchor }}">{{ link.target }}</a>
+                            {% else %}
+                            <a href="#pathograph">{{ link.target }}</a>
+                            {% endif %}
+                            {% if link.causal_link_type %}
+                            <span class="crosslink-meta">{{ link.causal_link_type | replace('_', ' ') }}</span>
+                            {% endif %}
+                            {% if link.description %}
+                            <span class="crosslink-desc">{{ link.description }}</span>
+                            {% endif %}
+                            {% if link.intermediate_mechanisms %}
+                            <span class="crosslink-desc">Intermediates: {{ link.intermediate_mechanisms | join('; ') }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if hypothesis._research_reports %}
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Deep research</div>
+                    <div class="crosslink-list">
+                        {% for report in hypothesis._research_reports %}
+                        <div class="crosslink-item">
+                            <a href="{{ report.href }}" target="_blank">{{ report.provider_label }}</a>
+                            {% if report.citations_href %}
+                            <a href="{{ report.citations_href }}" target="_blank" style="margin-left: 8px;">citations</a>
+                            {% endif %}
+                            {% if report.citation_count is not none %}
+                            <span class="reference-summary">{{ report.citation_count }} citations</span>
+                            {% endif %}
+                            {% if report.end_time %}
+                            <span class="report-meta-text">{{ report.end_time }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {{ render_evidence(hypothesis.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <!-- Pathophysiology -->
         {% if disorder.pathophysiology %}
         <div class="card" id="pathophysiology">
@@ -3726,6 +3856,19 @@
                 <div class="item-name">{{ patho.name }}</div>
                 {% if patho.description %}
                 <div class="item-desc">{{ patho.description }}</div>
+                {% endif %}
+                {% if patho._hypothesis_links %}
+                <div class="item-meta">
+                    {% for link in patho._hypothesis_links %}
+                    <span class="tag tag-mechanistic">
+                        {% if link.anchor_id %}
+                        <a href="#{{ link.anchor_id }}">{{ link.hypothesis_label }}</a>
+                        {% else %}
+                        {{ link.hypothesis_label }}
+                        {% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
                 {% endif %}
                 {% if patho.cell_types %}
                 <div class="item-meta">
@@ -3863,6 +4006,19 @@
 	                            {% if edge.description %}
 	                            <span class="crosslink-desc">{{ edge.description }}</span>
 	                            {% endif %}
+                                {% if edge._hypothesis_links %}
+                                <span class="tag-list" style="margin-top: 4px;">
+                                    {% for link in edge._hypothesis_links %}
+                                    <span class="tag tag-mechanistic">
+                                        {% if link.anchor_id %}
+                                        <a href="#{{ link.anchor_id }}">{{ link.hypothesis_label }}</a>
+                                        {% else %}
+                                        {{ link.hypothesis_label }}
+                                        {% endif %}
+                                    </span>
+                                    {% endfor %}
+                                </span>
+                                {% endif %}
 	                        </div>
 	                        {% endfor %}
 	                    </div>
