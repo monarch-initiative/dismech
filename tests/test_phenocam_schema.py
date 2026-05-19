@@ -9,6 +9,7 @@ from linkml.validator import Validator
 
 ROOT_DIR = Path(__file__).parent.parent
 SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "phenocam" / "phenocam.yaml"
+# Used in Tasks 7-8 when example module/disease files are added
 MODULES_DIR = ROOT_DIR / "causal_models" / "modules"
 DISEASES_DIR = ROOT_DIR / "causal_models" / "diseases"
 
@@ -23,7 +24,9 @@ def test_schema_exists():
 
 
 def test_schema_loadable(validator):
-    assert validator is not None
+    """Schema loads and contains the Module class."""
+    schema_view = validator._schema
+    assert "Module" in schema_view.classes, "Expected Module class in schema"
 
 
 def test_module_validator_accepts_minimal_module(validator):
