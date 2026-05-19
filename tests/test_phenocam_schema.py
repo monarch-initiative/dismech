@@ -217,3 +217,14 @@ def test_causal_relation_valid(validator):
     report = validator.validate(data, target_class="Module")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert not errors, f"Errors: {[str(e) for e in errors]}"
+
+
+def test_hedgehog_module_file_valid(validator):
+    """The hedgehog_signaling example module validates against the schema."""
+    module_file = MODULES_DIR / "hedgehog_signaling.yaml"
+    assert module_file.exists(), f"Example module not found: {module_file}"
+    with open(module_file) as f:
+        data = yaml.safe_load(f)
+    report = validator.validate(data, target_class="Module")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Validation errors in hedgehog_signaling.yaml: {[str(e) for e in errors]}"
