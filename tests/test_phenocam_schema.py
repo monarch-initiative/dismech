@@ -182,3 +182,38 @@ def test_modulator_valid(validator):
     report = validator.validate(data, target_class="Module")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert not errors, f"Errors: {[str(e) for e in errors]}"
+
+
+def test_disease_course_valid(validator):
+    """Minimal DiseaseCourse validates correctly."""
+    data = {
+        "id": "gorlin_syndrome",
+        "name": "Gorlin Syndrome",
+        "realises_disease": {"id": "MONDO:0007187", "label": "nevoid basal cell carcinoma syndrome"},
+    }
+    report = validator.validate(data, target_class="DiseaseCourse")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Errors: {[str(e) for e in errors]}"
+
+
+def test_causal_relation_valid(validator):
+    """CausalRelation edge with required fields validates."""
+    data = {
+        "id": "test_module",
+        "name": "Test",
+        "molecular_activities": [
+            {"id": "ptch1", "gene": {"symbol": "PTCH1", "hgnc_id": "hgnc:9585"}},
+            {"id": "smo", "gene": {"symbol": "SMO", "hgnc_id": "hgnc:11119"}},
+        ],
+        "causal_relations": [
+            {
+                "subject": "ptch1",
+                "predicate": {"id": "RO:0002630", "label": "directly negatively regulates"},
+                "object": "smo",
+                "eco": {"id": "ECO:0000304", "label": "traceable author statement used in manual assertion"},
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Module")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Errors: {[str(e) for e in errors]}"

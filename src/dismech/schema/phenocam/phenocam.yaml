@@ -218,11 +218,36 @@ classes:
       - role
       - description
 
-  Module:
-    tree_root: true
+  CausalRelation:
     description: >-
-      A reusable normal-biology pathway graph. Nodes carry no quality (wild-type implicit).
-      Imported by DiseaseCourse files to provide the normal-biology backbone.
+      A single directed causal edge between any two nodes (including modulators, inputs,
+      and phenotypes). All causal claims in a module or disease course live in the
+      causal_relations list — no edges hidden inside node internals.
+    slots:
+      - subject
+      - predicate
+      - object
+      - hypotheses
+      - subtypes
+      - effect
+      - eco
+      - evidence
+
+  DiseaseHasPhenotype:
+    description: >-
+      Non-causal annotation linking a disease to a phenotype (RO:0002200 has phenotype).
+      Distinct from causal_relations edges which trace the mechanistic path to the phenotype.
+    slots:
+      - phenotype_ref
+      - relation
+      - eco
+      - evidence
+
+  BiologicalCausalModel:
+    abstract: true
+    description: >-
+      Abstract base class shared by Module and DiseaseCourse. Holds all node-kind
+      collections and the unified causal_relations block.
     slots:
       - id
       - name
@@ -237,6 +262,29 @@ classes:
       - environmental_factors
       - phenotypes
       - modulators
+      - causal_relations
+
+  Module:
+    is_a: BiologicalCausalModel
+    tree_root: true
+    description: >-
+      A reusable normal-biology pathway graph. Nodes carry no quality (wild-type implicit).
+      Imported by DiseaseCourse files to provide the normal-biology backbone.
+
+  DiseaseCourse:
+    is_a: BiologicalCausalModel
+    tree_root: true
+    description: >-
+      A disease-specific causal overlay. Imports modules for the normal-biology backbone
+      and adds variants/exposures (inputs), modulators, phenotypes, and hypothesis/subtype
+      tagging on nodes and edges.
+    slots:
+      - realises_disease
+      - has_subtypes
+      - hypothesis_groups
+      - imports
+      - has_phenotype
+      - disorder_ref
 
 slots:
   id:
@@ -460,6 +508,82 @@ slots:
     multivalued: true
     inlined_as_list: true
     description: Modulator (drug/dietary/environmental) nodes in this model.
+
+  subject:
+    range: string
+    required: true
+    description: ID of the source node (any node kind including modulators and inputs).
+
+  predicate:
+    range: OntologyTerm
+    inlined: true
+    required: true
+    description: RO relation term (e.g., RO:0002629 directly positively regulates).
+
+  object:
+    range: string
+    required: true
+    description: ID of the target node (any node kind including phenotypes).
+
+  effect:
+    range: ModulatorEffectEnum
+    description: >-
+      Clinical-mechanism flavor of modulator action; only set when subject is a Modulator.
+
+  eco:
+    range: OntologyTerm
+    inlined: true
+    description: ECO evidence code term.
+
+  relation:
+    range: OntologyTerm
+    inlined: true
+    description: RO relation term for DiseaseHasPhenotype (typically RO:0002200 has phenotype).
+
+  phenotype_ref:
+    range: string
+    description: ID of the Phenotype node declared in the disease course phenotypes list.
+
+  causal_relations:
+    range: CausalRelation
+    multivalued: true
+    inlined_as_list: true
+    description: All directed causal edges in this model.
+
+  has_phenotype:
+    range: DiseaseHasPhenotype
+    multivalued: true
+    inlined_as_list: true
+    description: Non-causal disease-to-phenotype annotations.
+
+  realises_disease:
+    range: OntologyTerm
+    inlined: true
+    description: MONDO term for the disease this course models.
+
+  has_subtypes:
+    range: Subtype
+    multivalued: true
+    inlined_as_list: true
+    description: Clinical or molecular subtypes of the disease.
+
+  hypothesis_groups:
+    range: HypothesisGroup
+    multivalued: true
+    inlined_as_list: true
+    description: Alternative etiologies (hypotheses) for this disease.
+
+  imports:
+    range: ModuleImport
+    multivalued: true
+    inlined_as_list: true
+    description: Normal-biology modules imported by this disease course.
+
+  disorder_ref:
+    range: string
+    description: >-
+      Optional cross-reference to the corresponding dismech disorder YAML filename
+      (e.g., Gorlin_Syndrome.yaml). Checked by the custom validator when present.
 
 enums:
   PerturbationQualityEnum:
