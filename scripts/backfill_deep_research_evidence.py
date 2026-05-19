@@ -696,7 +696,6 @@ def main() -> int:
     yaml_rt = YAML()
     yaml_rt.preserve_quotes = True
     yaml_rt.indent(mapping=2, sequence=2, offset=0)
-    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
     results: List[DisorderResult] = []
     unresolved_rows: List[Tuple[str, str, str]] = []
