@@ -23,7 +23,7 @@ These are already in the knowledge base and may benefit from enhancement:
 |---------|------|--------|-------------|
 | Neuromyelitis Optica Spectrum Disorder (NMOSD) | Neuromyelitis_Optica_Spectrum_Disorder.yaml | [ ] To curate | Anti-AQP4/MOG antibodies target optic nerves and spinal cord |
 | MOG Antibody Disease (MOGAD) | MOG_Antibody_Disease.yaml | [ ] To curate | Anti-MOG antibodies, distinct from MS and NMOSD |
-| Acute Disseminated Encephalomyelitis (ADEM) | Acute_Disseminated_Encephalomyelitis.yaml | [ ] To curate | Post-infectious CNS demyelination, mainly children |
+| Acute Disseminated Encephalomyelitis (ADEM) | Acute_Disseminated_Encephalomyelitis.yaml | [x] Curated | Post-infectious CNS demyelination, mainly children |
 | Transverse Myelitis | Transverse_Myelitis.yaml | [ ] To curate | Immune-mediated spinal cord inflammation |
 
 ### Priority 2: Autoimmune Encephalitis
@@ -36,7 +36,7 @@ These are already in the knowledge base and may benefit from enhancement:
 ### Priority 3: CNS Inflammatory Disorders
 | Disease | File | Status | Description |
 |---------|------|--------|-------------|
-| CNS Vasculitis | CNS_Vasculitis.yaml | [ ] To curate | Primary angiitis of the CNS |
+| CNS Vasculitis | CNS_Vasculitis.yaml | [x] Curated - 95.7% compliance | Primary angiitis of the CNS |
 | Neurosarcoidosis | Neurosarcoidosis.yaml | [ ] To curate | Granulomatous inflammation of nervous system |
 | Susac Syndrome | Susac_Syndrome.yaml | [ ] To curate | Microangiopathy affecting brain, retina, inner ear |
 
@@ -76,15 +76,15 @@ Default: falcon
 
 # STATUS
 
-## New Diseases to Curate (1/15)
+## New Diseases to Curate (4/15)
 - [x] Neuromyelitis Optica Spectrum Disorder (NMOSD) - 70.6% compliance
-- [ ] MOG Antibody Disease (MOGAD)
-- [ ] Acute Disseminated Encephalomyelitis (ADEM)
+- [x] MOG Antibody Disease (MOGAD) - 91.9% compliance
+- [x] Acute Disseminated Encephalomyelitis (ADEM) - 94.6% weighted compliance
 - [ ] Transverse Myelitis
-- [ ] Anti-NMDA Receptor Encephalitis
+- [x] Anti-NMDA Receptor Encephalitis - 100.0% weighted compliance
 - [ ] Limbic Encephalitis
 - [ ] Hashimoto Encephalopathy (SREAT)
-- [ ] CNS Vasculitis
+- [x] CNS Vasculitis - 95.7% compliance
 - [ ] Neurosarcoidosis
 - [ ] Susac Syndrome
 - [ ] Optic Neuritis
@@ -103,6 +103,68 @@ Default: falcon
 - [ ] ME/CFS - verify compliance
 
 # NOTES
+
+## 2026-05-16
+
+**CNS Vasculitis curated**:
+- Created `kb/disorders/CNS_Vasculitis.yaml` focused on primary angiitis of the CNS / PCNSV
+- Deep research completed with Falcon and OpenScientist providers
+- 95.7% weighted compliance achieved
+- MONDO and Orphanet grounding: `MONDO:0015374` and `ORPHA:140989`
+- Key evidence from:
+  - ORPHA:140989 - rare-disease definition, incidence band, and HPO phenotype frequencies
+  - PMID:3275856 - classic Calabrese-Mallek diagnostic criteria
+  - PMID:17924545, PMID:26020379, PMID:25708615, and PMID:32062032 - Mayo incidence, subtypes, outcomes, relapse, and maintenance therapy
+  - DOI:10.1177/23969873231190431 - ESO 2023 PACNS guideline
+  - PMID:36264136 - PCNSV brain transcriptomic immune activation
+  - PMID:40546217 - 2025 multicenter German outcome and cyclophosphamide relapse data
+  - PMID:40643487 - serum and CSF neurofilament light chain biomarker study
+- ClinicalTrials.gov entries documented for vessel-wall MRI, ferumoxytol MRI in CNS inflammation, and refractory non-ANCA vasculitis biologics
+- Ontology terms: MONDO/ORPHA disease IDs, UBERON CNS vascular anatomy, CL immune-cell subsets, GO inflammatory and antigen-presentation processes, HPO neurologic/CSF/MRI phenotypes, MAXO diagnosis/treatment terms
+
+**Anti-NMDA receptor encephalitis curated**:
+- Created `kb/disorders/Anti-NMDA_Receptor_Encephalitis.yaml`
+- Deep research via falcon provider; Asta retrieval run added as a second literature pass
+- 99.4% global compliance and 100.0% weighted compliance achieved
+- Modeled teratoma-associated and post-herpes simplex encephalitis subtypes, Graus-style clinical criteria, racial/ethnic and geographic incidence variation, CSF anti-GluN1/NMDAR IgG biomarkers, NEOS prognostic variables, relapse/recovery trajectory, first-line immunotherapy, second-line rituximab/cyclophosphamide, plasma exchange, IVIG, corticosteroids, and tumor removal
+- Key evidence from:
+  - PMID:18851928 - original case series and antibody effects on synaptic NMDAR clusters
+  - PMID:23290630 - 577-patient treatment/outcome cohort
+  - PMID:26906964 and PMID:28972277 - autoimmune encephalitis and anti-NMDAR diagnostic criteria
+  - PMID:31326280 - Lancet Neurology mechanism and clinical update
+  - PMID:31619447 and PMID:33589542 - large Chinese longitudinal cohorts for phenotypes, treatment, outcomes, and relapse
+  - PMID:30578370 - NEOS score prognostic predictors
+  - PMID:37371620 and PMID:38728608 - geographic/climatic and US race/ethnicity incidence studies
+  - PMID:38145121 - blood-brain barrier and anti-NMDAR antibody review
+  - PMID:39147951 - post-herpes simplex encephalitis anti-NMDAR encephalitis cohort
+  - PMID:39566012 - long-term cognitive, functional, and patient-reported outcomes
+- ClinicalTrials.gov entries documented for immunoadsorption therapy, prolonged recovery-stage biomarkers/rehabilitation, and NEOSII prediction modeling
+- Ontology terms: MONDO (anti-NMDA receptor encephalitis), CL (B cell, plasma cell, neuron), GO (B cell mediated immunity, immunoglobulin production, receptor internalization, glutamate receptor signaling, synaptic plasticity, blood-brain barrier maintenance), HP (psychosis, seizure, dyskinesia, memory impairment, coma, autonomic dysfunction, hypoventilation, EEG abnormality, CSF pleocytosis), UBERON (brain, hippocampal formation, blood-brain barrier), MAXO/NCIT/CHEBI treatment terms
+
+**MOGAD curated**:
+- Created `kb/disorders/MOGAD.yaml`
+- Deep research via falcon provider; OpenScientist provider run added for second-pass literature review
+- 91.9% weighted compliance achieved
+- Local Orphanet cache, current Orphanet web search, and MONDO cross-reference check found no ORPHA disease mapping for `MONDO:1040024`; Orphanet diagnostic-test listings currently point to acute disseminated encephalomyelitis with anti-MOG antibodies rather than a MOGAD disease entry
+- Key evidence from:
+  - PMID:36706773 - International MOGAD Panel diagnostic criteria
+  - PMID:34418402 - Lancet Neurology clinical/pathogenesis review
+  - PMID:40088708 - 2025 pathogenesis and biomarker review
+  - PMID:29695592 - MOGADOR adult cohort relapse and phenotype data
+  - PMID:32048003 and PMID:32412053 - MOGAD neuropathology, histopathology, and immunopathology
+  - PMID:32629363 - International rituximab treatment cohort
+  - PMID:34634625 and PMID:35377395 - maintenance IVIG meta-analysis and adult cohort
+  - PMID:40708693 - Current treatment principles review
+  - PMID:41657079 and PMID:41865559 - South Wales and Denmark epidemiology
+- ClinicalTrials.gov entries documented for satralizumab, rozanolixizumab, azathioprine, and tocilizumab MOGAD trials
+- Ontology terms: MONDO (MOGAD), CL (oligodendrocyte, T cell), GO (complement activation, ADCC, myelination), HP (optic neuritis, myelitis, CNS demyelination, spinal cord lesion), MAXO/NCIT/CHEBI treatment terms
+
+**Acute Disseminated Encephalomyelitis curated**:
+- Created `kb/disorders/Acute_Disseminated_Encephalomyelitis.yaml`
+- Reviewed MONDO/Orphanet context: MONDO:0019383, Orphanet:83597
+- Documented IPMSSG-style clinical definition, monophasic/multiphasic/MOG-IgG-associated subtypes, pediatric incidence, adult outcome burden, postinfectious autoimmunity, blood-brain barrier disruption, molecular mimicry, perivenous demyelination, MOG-IgG/complement mechanisms, clinical phenotypes, CSF findings, acute immunotherapies, and active/relevant clinical trials
+- Added evidence from contemporary reviews, pediatric and adult cohorts, pathology studies, MOG-IgG relapse-risk data, and ClinicalTrials.gov records
+- Achieved 94.6% weighted compliance
 
 ## 2026-01-06
 

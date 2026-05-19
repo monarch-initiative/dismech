@@ -1205,6 +1205,38 @@ enums:
       DEPRECATED:
         description: Historical hypothesis no longer supported as the current model
 
+  DiscussionKindEnum:
+    description: >-
+      Kind of unresolved/in-progress item captured by a Discussion. Discussions
+      are thread-like objects that record open questions, controversies, curation
+      todos, emerging hypotheses, or interpretation debates attached to a
+      disease entry or sub-object. Complementary to (but distinct from) explicit
+      structural knowledge gaps; see monarch-initiative/dismech#2617 for the
+      knowledge-gap layer.
+    permissible_values:
+      OPEN_QUESTION:
+        description: An unresolved scientific question posed by curators or experts
+      CONTROVERSY:
+        description: A live disagreement or competing interpretation between published positions
+      CURATION_TODO:
+        description: A curation task captured inline (e.g., "phenotype needs HPO term refinement")
+      EMERGING_HYPOTHESIS:
+        description: A recently reported hypothesis under active discussion in the community
+      INTERPRETATION:
+        description: A discussion about how to interpret existing evidence or model an edge
+
+  DiscussionStatusEnum:
+    description: Lifecycle status for a Discussion
+    permissible_values:
+      OPEN:
+        description: Posed but not yet under active discussion
+      UNDER_DISCUSSION:
+        description: Actively being discussed in one or more linked venues
+      RESOLVED:
+        description: Closed with a documented resolution; kept for provenance
+      ARCHIVED:
+        description: No longer active and not resolved (deferred, stale, or superseded)
+
   ComorbidityDirectionEnum:
     description: Directionality of a comorbidity/trajectory association
     permissible_values:
@@ -2293,6 +2325,58 @@ slots:
     description: Disease subtypes for which this hypothesis is intended to apply
     multivalued: true
     range: string
+  discussion_id:
+    description: Stable identifier for a Discussion, used as the target of cross-references
+    range: string
+  prompt:
+    description: The unresolved question, controversy, or todo articulated by a Discussion
+    range: string
+  kind:
+    description: Categorical type of a Discussion (narrowed via slot_usage to DiscussionKindEnum)
+    range: string
+  attaches_to:
+    description: >-
+      Multivalued list of entity references pointing at the disease nodes,
+      gaps, phenotypes, or other objects this item is about. Uses a hash-anchor
+      grammar consistent with `conforms_to`:
+      `[<file>:]<kind>#<name>`. Examples:
+      `pathophysiology#Amyloid Plaque Formation`,
+      `phenotype#Memory Loss`,
+      `Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation`.
+      Range is `string` for now; a custom EntityRef type with parser support
+      can be introduced later without breaking existing data.
+    multivalued: true
+    range: string
+  rationale:
+    description: Why this Discussion matters / what hangs on its resolution
+    range: string
+  posed_by:
+    description: >-
+      Optional attribution for who posed a Discussion. ORCID is preferred when
+      available (e.g., `ORCID:0000-0002-1825-0097`); a github handle or email
+      is acceptable.
+    range: string
+  posed_date:
+    description: Date the Discussion was first posed (ISO 8601)
+    range: datetime
+  resolved_date:
+    description: Date the Discussion's status moved to RESOLVED (ISO 8601)
+    range: datetime
+  resolution_note:
+    description: Short summary written when a Discussion is marked RESOLVED
+    range: string
+  discussions:
+    description: >-
+      Open or recently-resolved discussion items attached to this entry. Each
+      Discussion is a thread-like object with a `prompt`, a `kind`
+      (OPEN_QUESTION, CONTROVERSY, etc.), a `status`, optional `attaches_to`
+      pointers to specific nodes/gaps, and an `evidence` block reusing the
+      standard EvidenceItem shape for citing primary literature, community
+      commentary (e.g., Alzforum), and forum/issue threads. See
+      monarch-initiative/dismech#2617 for the broader knowledge-gap context.
+    multivalued: true
+    range: Discussion
+    inlined_as_list: true
   target_phenotypes:
     description: Phenotypes that this treatment or trial addresses or targets
     multivalued: true
@@ -4002,6 +4086,7 @@ classes:
       - mappings
       - external_assertions
       - tracked_issues
+      - discussions
       - notes
       - review_notes
       - curation_history
@@ -4515,6 +4600,40 @@ classes:
         required: true
       status:
         range: MechanisticHypothesisStatusEnum
+
+  Discussion:
+    description: >-
+      A thread-like record of an open question, controversy, curation todo,
+      emerging hypothesis, or interpretation debate attached to a disease entry
+      or sub-object. Discussions capture the *discourse* layer of curation
+      (what is being argued or asked), complementing the structural
+      knowledge-gap layer proposed in monarch-initiative/dismech#2617 (what is
+      missing from the model). External thread links (e.g., Alzforum
+      commentaries, GitHub issues) are not modelled as a separate slot;
+      instead they are cited via the standard `evidence` block using the same
+      EvidenceItem shape as primary literature.
+    slots:
+      - discussion_id
+      - prompt
+      - kind
+      - status
+      - attaches_to
+      - rationale
+      - evidence
+      - posed_by
+      - posed_date
+      - resolved_date
+      - resolution_note
+      - notes
+    slot_usage:
+      discussion_id:
+        required: true
+      prompt:
+        required: true
+      kind:
+        range: DiscussionKindEnum
+      status:
+        range: DiscussionStatusEnum
 
   DiseaseCollection:
     slots:

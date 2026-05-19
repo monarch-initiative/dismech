@@ -908,6 +908,53 @@ research-disorder-cyberian-codex disorder *args="":
 research-providers:
     uv run deep-research-client providers
 
+# One TSV row per disorder summarizing deep-research provider coverage.
+# Summary lines are prefixed with "#" so the table stays easy to grep/awk.
+# Examples:
+#   just research-status
+#   just research-status --provider openscientist
+#   just research-status --missing-provider openscientist
+[group('Research')]
+research-status *args="":
+    @uv run python scripts/deep_research_coverage.py status {{args}}
+
+# Launch deep research for every disorder missing the requested provider.
+# Use provider slugs from deep-research-client, e.g. falcon or openscientist.
+# Examples:
+#   just research-missing-provider openscientist --dry-run
+#   just research-missing-provider openscientist --max-disorders 5 -- --param max_iterations=1
+[group('Research')]
+research-missing-provider provider *args="":
+    @uv run python scripts/deep_research_coverage.py run-missing {{provider}} {{args}}
+
+# List hypothesis-search coverage for mechanistic_hypotheses in disorder YAML.
+# Examples:
+#   just research-hypotheses
+#   just research-hypotheses --disorder Long_COVID
+#   just research-hypotheses --missing-provider openscientist
+[group('Research')]
+research-hypotheses *args="":
+    @uv run python scripts/hypothesis_deep_research.py list {{args}}
+
+# Focused deep research on one mechanistic_hypotheses entry.
+# Provider slugs follow deep-research-client; edison is accepted as an alias for falcon.
+# Output: kb/hypotheses/<Disorder>/<hypothesis_group_id>/<provider>.md
+# Examples:
+#   just research-hypothesis openscientist Long_COVID canonical_persistence_immune_model --dry-run
+#   just research-hypothesis falcon Long_COVID canonical_persistence_immune_model
+#   just research-hypothesis openscientist Long_COVID canonical_persistence_immune_model -- --param max_iterations=1
+[group('Research')]
+research-hypothesis provider disorder hypothesis_group_id *args="":
+    @uv run python scripts/hypothesis_deep_research.py run {{provider}} {{disorder}} {{hypothesis_group_id}} {{args}}
+
+# Run hypothesis-search jobs for hypotheses missing a provider.
+# Examples:
+#   just research-hypotheses-missing-provider openscientist --disorder Long_COVID --dry-run
+#   just research-hypotheses-missing-provider falcon --max-hypotheses 3
+[group('Research')]
+research-hypotheses-missing-provider provider *args="":
+    @uv run python scripts/hypothesis_deep_research.py run-missing {{provider}} {{args}}
+
 # Rehydrate an existing Edison trajectory into a full research report with its
 # recovered artifacts and a separate citations file using deep-research-client.
 #
@@ -1469,6 +1516,11 @@ check-research disorder:
 [group('Research')]
 list-research:
     @for f in research/*-deep-research-*.md; do [ -f "$f" ] && basename "$f"; done | grep -v '\.citations\.md$$' | sort || echo "No research files found"
+
+# Generate a deterministic Europe PMC literature-scan packet for recent papers
+[group('Research')]
+literature-scan days='7' max_records='100':
+    uv run python scripts/literature_scan.py --days {{days}} --max-records {{max_records}}
 
 # Generate a disorder review report (markdown + PDF) for expert review
 # Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml
