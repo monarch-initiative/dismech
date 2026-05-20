@@ -1609,3 +1609,8 @@ phenocam-qc: phenocam-test phenocam-validate-modules-all phenocam-validate-disea
 [group('PhenoCAM')]
 phenocam-test:
     uv run pytest tests/test_phenocam_schema.py -v
+
+# Generate Mermaid visualizations for all PhenoCAM modules and disease courses
+[group('PhenoCAM')]
+phenocam-viz:
+    uv run python scripts/phenocam_mermaid.py --all
