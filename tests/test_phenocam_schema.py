@@ -242,7 +242,7 @@ def test_gorlin_disease_file_valid(validator):
     assert not errors, f"Validation errors in Gorlin_Syndrome.yaml: {[str(e) for e in errors]}"
 
 
-def test_custom_validator_passes_hedgehog(tmp_path):
+def test_custom_validator_passes_hedgehog():
     """Custom validator passes on the hedgehog example module."""
     result = subprocess.run(
         [
@@ -252,11 +252,12 @@ def test_custom_validator_passes_hedgehog(tmp_path):
         ],
         capture_output=True,
         text=True,
+        cwd=ROOT_DIR,
     )
     assert result.returncode == 0, f"Validator failed:\n{result.stdout}\n{result.stderr}"
 
 
-def test_custom_validator_passes_gorlin(tmp_path):
+def test_custom_validator_passes_gorlin():
     """Custom validator passes on the Gorlin example disease."""
     result = subprocess.run(
         [
@@ -266,6 +267,7 @@ def test_custom_validator_passes_gorlin(tmp_path):
         ],
         capture_output=True,
         text=True,
+        cwd=ROOT_DIR,
     )
     assert result.returncode == 0, f"Validator failed:\n{result.stdout}\n{result.stderr}"
 
@@ -288,6 +290,7 @@ def test_custom_validator_catches_dangling_subject(tmp_path):
         ],
         capture_output=True,
         text=True,
+        cwd=ROOT_DIR,
     )
     assert result.returncode != 0, "Expected validator to fail on dangling subject"
     assert "nonexistent_node" in result.stdout
@@ -308,6 +311,30 @@ def test_custom_validator_catches_bad_import(tmp_path):
         ],
         capture_output=True,
         text=True,
+        cwd=ROOT_DIR,
     )
     assert result.returncode != 0, "Expected validator to fail on bad import"
     assert "nonexistent_module" in result.stdout
+
+
+def test_custom_validator_catches_bad_hypothesis_tag(tmp_path):
+    """Custom validator catches a hypothesis tag not declared in hypothesis_groups."""
+    bad_module = tmp_path / "bad_tag.yaml"
+    bad_module.write_text(
+        "id: x\nname: Y\n"
+        "hypothesis_groups:\n  - id: real_hyp\n    name: Real\n"
+        "molecular_activities:\n"
+        "  - id: n1\n    gene:\n      symbol: SMO\n      hgnc_id: hgnc:11119\n"
+        "    hypotheses:\n      - fake_hyp\n"
+    )
+    result = subprocess.run(
+        [
+            "uv", "run", "python", "scripts/phenocam_validate.py",
+            str(bad_module), "--target-class", "Module",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT_DIR,
+    )
+    assert result.returncode != 0, "Expected validator to fail on undeclared hypothesis tag"
+    assert "fake_hyp" in result.stdout

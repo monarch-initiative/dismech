@@ -28,7 +28,7 @@ def collect_node_ids(data: dict) -> set[str]:
     return ids
 
 
-def collect_declared_tags(data: dict, field: str, group_field: str) -> set[str]:
+def collect_declared_tags(data: dict, group_field: str) -> set[str]:
     """Collect IDs declared in hypothesis_groups or has_subtypes."""
     return {g["id"] for g in (data.get(group_field) or []) if "id" in g}
 
@@ -42,8 +42,10 @@ def validate_file(path: Path, target_class: str) -> list[str]:
         return errors
 
     local_ids = collect_node_ids(data)
-    hypothesis_ids = collect_declared_tags(data, "hypotheses", "hypothesis_groups")
-    subtype_ids = collect_declared_tags(data, "subtypes", "has_subtypes")
+    # Only enforce tag resolution when groups are declared;
+    # modules legitimately may omit hypothesis_groups entirely.
+    hypothesis_ids = collect_declared_tags(data, "hypothesis_groups")
+    subtype_ids = collect_declared_tags(data, "has_subtypes")
 
     # For DiseaseCourse: also include IDs resolvable from imported modules
     imported_ids: set[str] = set()
