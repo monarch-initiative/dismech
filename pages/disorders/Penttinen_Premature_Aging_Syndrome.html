@@ -955,6 +955,14 @@
         .pathophys-box .item-name { color: #92400e; }
         .pathophys-box .item-desc { color: #78350f; }
 
+        /* Mechanistic hypotheses */
+        .hypothesis-box {
+            background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
+            border-left: 4px solid #059669;
+        }
+        .hypothesis-box .item-name { color: #065f46; }
+        .hypothesis-box .item-desc { color: #0f766e; }
+
         /* Histopathology */
         .histopathology-box {
             background: #fff7ed;
@@ -2032,9 +2040,14 @@
         return edgeData && edgeData.predicate === "readout";
     }
 
+    function hasHypothesisGroups(edgeData) {
+        return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
@@ -2047,15 +2060,19 @@
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
 
     function edgeTitle(edgeData) {
         var parts = [edgeData.source + " -> " + edgeData.target];
         if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.hypothesis_groups && edgeData.hypothesis_groups.length) parts.push("hypotheses: " + edgeData.hypothesis_groups.join(", "));
+        if (edgeData.causal_link_type) parts.push("causal link: " + humanizeEnum(edgeData.causal_link_type));
         if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
         if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
         if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.intermediate_mechanisms && edgeData.intermediate_mechanisms.length) parts.push("intermediates: " + edgeData.intermediate_mechanisms.join("; "));
         if (edgeData.description) parts.push(edgeData.description);
         return parts.join("\n");
     }
@@ -2135,6 +2152,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-hypothesis")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#7c3aed");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -2146,7 +2173,7 @@
                 .attr("d", line(pts))
                 .attr("fill", "none")
                 .attr("stroke", edgeStroke(e))
-                .attr("stroke-width", 1.8)
+                .attr("stroke-width", hasHypothesisGroups(e) ? 2.4 : 1.8)
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
@@ -2723,6 +2750,7 @@
         
         
         
+        
         <div class="stats-bar">
             
             <div class="stat-item">
@@ -2765,6 +2793,7 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
             
             
             <a class="stat-link" href="#pathograph">
@@ -2819,6 +2848,7 @@
                 <div class="stat-value">0</div>
                 <div class="stat-label">Models</div>
             </div>
+            
             
             
             
@@ -2886,6 +2916,9 @@
         <!-- Comorbidities -->
         
 
+        <!-- Mechanistic Hypotheses -->
+        
+
         <!-- Pathophysiology -->
         
         <div class="card" id="pathophysiology">
@@ -2899,6 +2932,7 @@
                 <div class="item-name">Constitutive PDGFRB Activation</div>
                 
                 <div class="item-desc">The Val665Ala mutation in the kinase domain of PDGFRB leads to constitutive ligand-independent receptor activation, resulting in dysregulated signaling through downstream pathways including AKT and STAT.</div>
+                
                 
                 
                 
@@ -2954,6 +2988,7 @@
 	                            
 	                            <span class="crosslink-desc">Constitutive signaling drives premature aging of connective tissues.</span>
 	                            
+                                
 	                        </div>
 	                        
 	                        <div class="crosslink-item">
@@ -2961,6 +2996,7 @@
 	                            
 	                            <span class="crosslink-desc">Altered skeletal stem cell fate leads to osteopenia.</span>
 	                            
+                                
 	                        </div>
 	                        
 	                    </div>
@@ -3016,6 +3052,7 @@
                 
                 
                 
+                
 	                
 	                
 	                
@@ -3059,6 +3096,7 @@
                 <div class="item-name">Osteopenia</div>
                 
                 <div class="item-desc">PDGFRB gain-of-function mutations cause osteopenia associated with intrinsic changes in skeletal stem cells, promoting chondrogenesis over osteogenesis.</div>
+                
                 
                 
                 
@@ -3132,7 +3170,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Connective Tissue Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive PDGFRB signaling causes premature aging of connective tissues, resulting in cutaneous atrophy and keloid-like lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Constitutive PDGFRB Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Val665Ala mutation in the kinase domain of PDGFRB leads to constitutive ligand-independent receptor activation, resulting in dysregulated signaling through downstream pathways including AKT and STAT.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"platelet-derived growth factor beta-receptor activity\"], \"genes\": [\"PDGFRB\"]}}, {\"id\": \"Osteopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDGFRB gain-of-function mutations cause osteopenia associated with intrinsic changes in skeletal stem cells, promoting chondrogenesis over osteogenesis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PDGFRB Gain-of-Function Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PDGFRB\"], \"association\": \"Causative\"}}], \"edges\": [{\"source\": \"Constitutive PDGFRB Activation\", \"target\": \"Connective Tissue Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive PDGFRB Activation\", \"target\": \"Osteopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDGFRB Gain-of-Function Mutations\", \"target\": \"Constitutive PDGFRB Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Connective Tissue Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive PDGFRB signaling causes premature aging of connective tissues, resulting in cutaneous atrophy and keloid-like lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Constitutive PDGFRB Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Val665Ala mutation in the kinase domain of PDGFRB leads to constitutive ligand-independent receptor activation, resulting in dysregulated signaling through downstream pathways including AKT and STAT.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"platelet-derived growth factor beta-receptor activity\"], \"genes\": [\"PDGFRB\"]}}, {\"id\": \"Osteopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDGFRB gain-of-function mutations cause osteopenia associated with intrinsic changes in skeletal stem cells, promoting chondrogenesis over osteogenesis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PDGFRB Gain-of-Function Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PDGFRB\"], \"association\": \"Causative\"}}], \"edges\": [{\"source\": \"Constitutive PDGFRB Activation\", \"target\": \"Connective Tissue Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive signaling drives premature aging of connective tissues.\"}, {\"source\": \"Constitutive PDGFRB Activation\", \"target\": \"Osteopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered skeletal stem cell fate leads to osteopenia.\"}, {\"source\": \"PDGFRB Gain-of-Function Mutations\", \"target\": \"Constitutive PDGFRB Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
