@@ -1602,7 +1602,7 @@ phenocam-validate-diseases-all:
 
 # Run all PhenoCAM validation (modules + diseases)
 [group('PhenoCAM')]
-phenocam-qc: phenocam-validate-modules-all phenocam-validate-diseases-all
+phenocam-qc: phenocam-test phenocam-validate-modules-all phenocam-validate-diseases-all
     echo "✓ PhenoCAM QC complete"
 
 # Run PhenoCAM pytest suite
