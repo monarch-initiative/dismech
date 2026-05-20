@@ -876,6 +876,40 @@ research-comorbidity provider comorbidity *args="":
 	    --separate-citations "$output_file.citations.md" \
 	    {{args}}
 
+# Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
+# Asks the deep-research provider for trial-level R^2, PTE, STE, joint-model,
+# regulatory qualification, and negative/refuting evidence linking the surrogate
+# to the clinical outcome. Output mirrors research-disorder shape.
+# Examples:
+#   just research-surrogacy openscientist Chronic_Kidney_Disease "estimated glomerular filtration rate" "end-stage kidney disease"
+#   just research-surrogacy perplexity Osteoporosis "bone mineral density" "vertebral fracture"
+[group('Research')]
+research-surrogacy provider disease surrogate clinical_outcome *args="":
+	#!/usr/bin/env bash
+	set -e
+	mkdir -p {{research_dir}}/surrogacy
+	yaml_file="{{kb_dir}}/{{disease}}.yaml"
+	if [ ! -f "$yaml_file" ]; then
+	    echo "Error: Disorder file not found: $yaml_file"
+	    for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort | head -20
+	    exit 1
+	fi
+	disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+	# Filename-safe slug from the surrogate label
+	surrogate_slug=$(echo "{{surrogate}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-60)
+	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
+	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
+	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+	uv run deep-research-client research \
+	    --template {{templates_dir}}/disease_surrogacy_research.md \
+	    --var "disease_name=$disease_name" \
+	    --var "surrogate={{surrogate}}" \
+	    --var "clinical_outcome={{clinical_outcome}}" \
+	    $provider_arg \
+	    --output "$output_file" \
+	    --separate-citations "$output_file.citations.md" \
+	    {{args}}
+
 # Deep research on a disorder using cyberian with codex agent
 [group('Research')]
 research-disorder-cyberian-codex disorder *args="":
