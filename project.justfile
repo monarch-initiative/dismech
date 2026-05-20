@@ -1545,3 +1545,67 @@ disorder-report file:
     else
         echo "  (pandoc not found — skipping PDF generation)"
     fi
+
+# ============================================================
+# PhenoCAM V2 validation recipes
+# ============================================================
+
+phenocam_schema := "src/dismech/schema/phenocam/phenocam.yaml"
+phenocam_modules_dir := "causal_models/modules"
+phenocam_diseases_dir := "causal_models/diseases"
+
+# Validate a single PhenoCAM module file
+[group('PhenoCAM')]
+phenocam-validate-module file:
+    uv run linkml-validate --schema {{phenocam_schema}} --target-class Module {{file}}
+    uv run python scripts/phenocam_validate.py {{file}} --target-class Module
+
+# Validate a single PhenoCAM disease course file
+[group('PhenoCAM')]
+phenocam-validate-disease file:
+    uv run linkml-validate --schema {{phenocam_schema}} --target-class DiseaseCourse {{file}}
+    uv run python scripts/phenocam_validate.py {{file}} --target-class DiseaseCourse
+
+# Validate all PhenoCAM module files
+[group('PhenoCAM')]
+phenocam-validate-modules-all:
+    #!/usr/bin/env bash
+    set -e
+    failed=()
+    for f in {{phenocam_modules_dir}}/*.yaml; do
+        [ -f "$f" ] || continue
+        echo "=== $(basename $f) ==="
+        just phenocam-validate-module "$f" || failed+=("$f")
+    done
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo "FAILED: ${failed[*]}"
+        exit 1
+    fi
+    echo "✓ All modules valid"
+
+# Validate all PhenoCAM disease course files
+[group('PhenoCAM')]
+phenocam-validate-diseases-all:
+    #!/usr/bin/env bash
+    set -e
+    failed=()
+    for f in {{phenocam_diseases_dir}}/*.yaml; do
+        [ -f "$f" ] || continue
+        echo "=== $(basename $f) ==="
+        just phenocam-validate-disease "$f" || failed+=("$f")
+    done
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo "FAILED: ${failed[*]}"
+        exit 1
+    fi
+    echo "✓ All disease courses valid"
+
+# Run all PhenoCAM validation (modules + diseases)
+[group('PhenoCAM')]
+phenocam-qc: phenocam-validate-modules-all phenocam-validate-diseases-all
+    echo "✓ PhenoCAM QC complete"
+
+# Run PhenoCAM pytest suite
+[group('PhenoCAM')]
+phenocam-test:
+    uv run pytest tests/test_phenocam_schema.py -v
