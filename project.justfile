@@ -887,7 +887,7 @@ research-comorbidity provider comorbidity *args="":
 research-surrogacy provider disease surrogate clinical_outcome *args="":
 	#!/usr/bin/env bash
 	set -e
-	mkdir -p {{research_dir}}
+	mkdir -p {{research_dir}}/surrogacy
 	yaml_file="{{kb_dir}}/{{disease}}.yaml"
 	if [ ! -f "$yaml_file" ]; then
 	    echo "Error: Disorder file not found: $yaml_file"
@@ -897,7 +897,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
 	# Filename-safe slug from the surrogate label
 	surrogate_slug=$(echo "{{surrogate}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-60)
-	output_file="{{research_dir}}/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
+	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
 	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	uv run deep-research-client research \
