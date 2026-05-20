@@ -49,6 +49,10 @@ cell population pro… [↑]"]]
     class odontogenic_keratocysts phenotype
     macrocephaly{"Macrocephaly"}
     class macrocephaly phenotype
+    palmar_pits{"Palmar pits"}
+    class palmar_pits phenotype
+    falx_calcification{"Calcification of falx cereb…"}
+    class falx_calcification phenotype
     vismodegib[("vismodegib")]
     class vismodegib modulator
 
@@ -60,6 +64,11 @@ cell population pro… [↑]"]]
     subgraph hyp_sufu_driven["🧬 SUFU-driven (~5%)"]
     sufu_lof>"SUFU LOF"]
     class sufu_lof variant
+    cerebellar_granule_precursor_proliferation(("cerebellar granule cell precursor
+cerebellar granule … [↑]"))
+    class cerebellar_granule_precursor_proliferation cellProcess
+    medulloblastoma{"Medulloblastoma"}
+    class medulloblastoma phenotype
     end
 
     %% Causal relations
@@ -70,6 +79,8 @@ cell population pro… [↑]"]]
     ccnd1_upregulation --> basal_keratinocyte_proliferation
     basal_keratinocyte_proliferation --> basal_cell_proliferation
     basal_cell_proliferation -.-> bcc
+    gli1_activation -- sufu_driven --> cerebellar_granule_precursor_proliferation
+    cerebellar_granule_precursor_proliferation -. sufu_driven .-> medulloblastoma
     sonic_hedgehog -- inhibits --o ptch1_inhibition
     vismodegib -- blocks_downstream --o smo_activity
 
