@@ -1,6 +1,7 @@
 """Schema validation tests for PhenoCAM V2."""
 
 import glob
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -239,3 +240,74 @@ def test_gorlin_disease_file_valid(validator):
     report = validator.validate(data, target_class="DiseaseCourse")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert not errors, f"Validation errors in Gorlin_Syndrome.yaml: {[str(e) for e in errors]}"
+
+
+def test_custom_validator_passes_hedgehog(tmp_path):
+    """Custom validator passes on the hedgehog example module."""
+    result = subprocess.run(
+        [
+            "uv", "run", "python", "scripts/phenocam_validate.py",
+            str(MODULES_DIR / "hedgehog_signaling.yaml"),
+            "--target-class", "Module",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Validator failed:\n{result.stdout}\n{result.stderr}"
+
+
+def test_custom_validator_passes_gorlin(tmp_path):
+    """Custom validator passes on the Gorlin example disease."""
+    result = subprocess.run(
+        [
+            "uv", "run", "python", "scripts/phenocam_validate.py",
+            str(DISEASES_DIR / "Gorlin_Syndrome.yaml"),
+            "--target-class", "DiseaseCourse",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Validator failed:\n{result.stdout}\n{result.stderr}"
+
+
+def test_custom_validator_catches_dangling_subject(tmp_path):
+    """Custom validator catches a causal_relation with an unknown subject."""
+    bad_disease = tmp_path / "bad_disease.yaml"
+    bad_disease.write_text(
+        "id: bad\nname: Bad\n"
+        "realises_disease:\n  id: MONDO:0000001\n  label: test\n"
+        "causal_relations:\n"
+        "  - subject: nonexistent_node\n"
+        "    predicate:\n      id: RO:0002411\n      label: causally upstream of\n"
+        "    object: also_nonexistent\n"
+    )
+    result = subprocess.run(
+        [
+            "uv", "run", "python", "scripts/phenocam_validate.py",
+            str(bad_disease), "--target-class", "DiseaseCourse",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, "Expected validator to fail on dangling subject"
+    assert "nonexistent_node" in result.stdout
+
+
+def test_custom_validator_catches_bad_import(tmp_path):
+    """Custom validator catches an import referencing a non-existent module."""
+    bad_disease = tmp_path / "bad_import.yaml"
+    bad_disease.write_text(
+        "id: bad\nname: Bad\n"
+        "realises_disease:\n  id: MONDO:0000001\n  label: test\n"
+        "imports:\n  - module: nonexistent_module\n"
+    )
+    result = subprocess.run(
+        [
+            "uv", "run", "python", "scripts/phenocam_validate.py",
+            str(bad_disease), "--target-class", "DiseaseCourse",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, "Expected validator to fail on bad import"
+    assert "nonexistent_module" in result.stdout
