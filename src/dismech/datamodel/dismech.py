@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-05-10T20:06:54
+# Generation date: 2026-05-20T20:32:50
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -64,6 +64,8 @@ version = None
 
 # Namespaces
 CHEBI = CurieNamespace('CHEBI', 'http://purl.obolibrary.org/obo/CHEBI_')
+CIVIC_ASSERTION = CurieNamespace('CIVIC_ASSERTION', 'https://civicdb.org/links/assertions/')
+CIVIC_EID = CurieNamespace('CIVIC_EID', 'https://civicdb.org/links/evidence_items/')
 CL = CurieNamespace('CL', 'http://purl.obolibrary.org/obo/CL_')
 ECTO = CurieNamespace('ECTO', 'http://purl.obolibrary.org/obo/ECTO_')
 ENVO = CurieNamespace('ENVO', 'http://purl.obolibrary.org/obo/ENVO_')
@@ -136,6 +138,22 @@ class DatasetAccession(URIorCURIE):
 
 
 class ExperimentalModelName(extended_str):
+    pass
+
+
+class ExperimentName(extended_str):
+    pass
+
+
+class ExperimentalPerturbationName(extended_str):
+    pass
+
+
+class ExperimentalReadoutName(extended_str):
+    pass
+
+
+class ExperimentalControlName(extended_str):
     pass
 
 
@@ -874,7 +892,7 @@ class TreatmentDescriptor(Descriptor):
     term: Optional[Union[dict, Term]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
-        self._normalize_inlined_as_dict(slot_name="therapeutic_agent", slot_type=ChemicalEntityDescriptor, key_name="preferred_term", keyed=False)
+        self._normalize_inlined_as_list(slot_name="therapeutic_agent", slot_type=ChemicalEntityDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.dietary_modifications, list):
             self.dietary_modifications = [self.dietary_modifications] if self.dietary_modifications is not None else []
@@ -1072,9 +1090,7 @@ class GeneticContext(YAMLRoot):
         if self.gene is not None and not isinstance(self.gene, GeneDescriptor):
             self.gene = GeneDescriptor(**as_dict(self.gene))
 
-        if not isinstance(self.genes, list):
-            self.genes = [self.genes] if self.genes is not None else []
-        self.genes = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.genes]
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
 
         if self.allele_type is not None and not isinstance(self.allele_type, str):
             self.allele_type = str(self.allele_type)
@@ -1238,9 +1254,7 @@ class Dataset(YAMLRoot):
         if self.data_type is not None and not isinstance(self.data_type, DatasetTypeEnum):
             self.data_type = DatasetTypeEnum(self.data_type)
 
-        if not isinstance(self.sample_types, list):
-            self.sample_types = [self.sample_types] if self.sample_types is not None else []
-        self.sample_types = [v if isinstance(v, SampleTypeDescriptor) else SampleTypeDescriptor(**as_dict(v)) for v in self.sample_types]
+        self._normalize_inlined_as_list(slot_name="sample_types", slot_type=SampleTypeDescriptor, key_name="preferred_term", keyed=False)
 
         if self.sample_count is not None and not isinstance(self.sample_count, int):
             self.sample_count = int(self.sample_count)
@@ -1249,13 +1263,9 @@ class Dataset(YAMLRoot):
             self.conditions = [self.conditions] if self.conditions is not None else []
         self.conditions = [v if isinstance(v, str) else str(v) for v in self.conditions]
 
-        if not isinstance(self.exposures, list):
-            self.exposures = [self.exposures] if self.exposures is not None else []
-        self.exposures = [v if isinstance(v, ExposureDescriptor) else ExposureDescriptor(**as_dict(v)) for v in self.exposures]
+        self._normalize_inlined_as_list(slot_name="exposures", slot_type=ExposureDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.genes, list):
-            self.genes = [self.genes] if self.genes is not None else []
-        self.genes = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.genes]
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
 
         if self.platform is not None and not isinstance(self.platform, str):
             self.platform = str(self.platform)
@@ -1263,9 +1273,7 @@ class Dataset(YAMLRoot):
         if self.publication is not None and not isinstance(self.publication, str):
             self.publication = str(self.publication)
 
-        if not isinstance(self.findings, list):
-            self.findings = [self.findings] if self.findings is not None else []
-        self.findings = [v if isinstance(v, Finding) else Finding(**as_dict(v)) for v in self.findings]
+        self._normalize_inlined_as_list(slot_name="findings", slot_type=Finding, key_name="statement", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -1328,9 +1336,7 @@ class ExperimentalModel(YAMLRoot):
         if self.tissue_term is not None and not isinstance(self.tissue_term, AnatomicalEntityDescriptor):
             self.tissue_term = AnatomicalEntityDescriptor(**as_dict(self.tissue_term))
 
-        if not isinstance(self.cell_types, list):
-            self.cell_types = [self.cell_types] if self.cell_types is not None else []
-        self.cell_types = [v if isinstance(v, CellTypeDescriptor) else CellTypeDescriptor(**as_dict(v)) for v in self.cell_types]
+        self._normalize_inlined_as_list(slot_name="cell_types", slot_type=CellTypeDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.conditions, list):
             self.conditions = [self.conditions] if self.conditions is not None else []
@@ -1345,13 +1351,272 @@ class ExperimentalModel(YAMLRoot):
         if self.publication is not None and not isinstance(self.publication, str):
             self.publication = str(self.publication)
 
-        if not isinstance(self.modeled_mechanisms, list):
-            self.modeled_mechanisms = [self.modeled_mechanisms] if self.modeled_mechanisms is not None else []
-        self.modeled_mechanisms = [v if isinstance(v, ModelMechanismLink) else ModelMechanismLink(**as_dict(v)) for v in self.modeled_mechanisms]
+        self._normalize_inlined_as_list(slot_name="modeled_mechanisms", slot_type=ModelMechanismLink, key_name="target", keyed=False)
 
-        if not isinstance(self.findings, list):
-            self.findings = [self.findings] if self.findings is not None else []
-        self.findings = [v if isinstance(v, Finding) else Finding(**as_dict(v)) for v in self.findings]
+        self._normalize_inlined_as_list(slot_name="findings", slot_type=Finding, key_name="statement", keyed=False)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class Experiment(YAMLRoot):
+    """
+    A structured experiment or protocol-level study design that can be proposed to resolve a knowledge gap, or later
+    reused to represent experiments that have been carried out. The object itself is intentionally status-neutral:
+    proposal, execution, and evidentiary status are expressed by the containing slot or future evidence context.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["Experiment"]
+    class_class_curie: ClassVar[str] = "dismech:Experiment"
+    class_name: ClassVar[str] = "Experiment"
+    class_model_uri: ClassVar[URIRef] = DISMECH.Experiment
+
+    name: Union[str, ExperimentName] = None
+    experiment_id: str = None
+    description: Optional[str] = None
+    experiment_type: Optional[Union[dict, Descriptor]] = None
+    model_systems: Optional[Union[dict[Union[str, ExperimentalModelName], Union[dict, ExperimentalModel]], list[Union[dict, ExperimentalModel]]]] = empty_dict()
+    perturbations: Optional[Union[dict[Union[str, ExperimentalPerturbationName], Union[dict, "ExperimentalPerturbation"]], list[Union[dict, "ExperimentalPerturbation"]]]] = empty_dict()
+    assays: Optional[Union[Union[dict, AssayDescriptor], list[Union[dict, AssayDescriptor]]]] = empty_list()
+    readouts: Optional[Union[dict[Union[str, ExperimentalReadoutName], Union[dict, "ExperimentalReadout"]], list[Union[dict, "ExperimentalReadout"]]]] = empty_dict()
+    controls: Optional[Union[dict[Union[str, ExperimentalControlName], Union[dict, "ExperimentalControl"]], list[Union[dict, "ExperimentalControl"]]]] = empty_dict()
+    decision_criterion: Optional[str] = None
+    would_support: Optional[Union[str, list[str]]] = empty_list()
+    would_refute: Optional[Union[str, list[str]]] = empty_list()
+    protocol_reference: Optional[str] = None
+    datasets: Optional[Union[dict[Union[str, DatasetAccession], Union[dict, Dataset]], list[Union[dict, Dataset]]]] = empty_dict()
+    evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ExperimentName):
+            self.name = ExperimentName(self.name)
+
+        if self._is_empty(self.experiment_id):
+            self.MissingRequiredField("experiment_id")
+        if not isinstance(self.experiment_id, str):
+            self.experiment_id = str(self.experiment_id)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.experiment_type is not None and not isinstance(self.experiment_type, Descriptor):
+            self.experiment_type = Descriptor(**as_dict(self.experiment_type))
+
+        self._normalize_inlined_as_list(slot_name="model_systems", slot_type=ExperimentalModel, key_name="name", keyed=True)
+
+        self._normalize_inlined_as_list(slot_name="perturbations", slot_type=ExperimentalPerturbation, key_name="name", keyed=True)
+
+        self._normalize_inlined_as_list(slot_name="assays", slot_type=AssayDescriptor, key_name="preferred_term", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="readouts", slot_type=ExperimentalReadout, key_name="name", keyed=True)
+
+        self._normalize_inlined_as_list(slot_name="controls", slot_type=ExperimentalControl, key_name="name", keyed=True)
+
+        if self.decision_criterion is not None and not isinstance(self.decision_criterion, str):
+            self.decision_criterion = str(self.decision_criterion)
+
+        if not isinstance(self.would_support, list):
+            self.would_support = [self.would_support] if self.would_support is not None else []
+        self.would_support = [v if isinstance(v, str) else str(v) for v in self.would_support]
+
+        if not isinstance(self.would_refute, list):
+            self.would_refute = [self.would_refute] if self.would_refute is not None else []
+        self.would_refute = [v if isinstance(v, str) else str(v) for v in self.would_refute]
+
+        if self.protocol_reference is not None and not isinstance(self.protocol_reference, str):
+            self.protocol_reference = str(self.protocol_reference)
+
+        self._normalize_inlined_as_list(slot_name="datasets", slot_type=Dataset, key_name="accession", keyed=True)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ExperimentalPerturbation(YAMLRoot):
+    """
+    A structured perturbation, intervention, or exposure used in an experiment. Prefer ontology-backed descriptors for
+    genes, chemicals, treatments, exposures, triggers, and biological processes rather than plain string lists.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ExperimentalPerturbation"]
+    class_class_curie: ClassVar[str] = "dismech:ExperimentalPerturbation"
+    class_name: ClassVar[str] = "ExperimentalPerturbation"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ExperimentalPerturbation
+
+    name: Union[str, ExperimentalPerturbationName] = None
+    target: str = None
+    description: Optional[str] = None
+    gene: Optional[Union[dict, GeneDescriptor]] = None
+    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    chemical_entities: Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]] = empty_list()
+    treatment_term: Optional[Union[dict, TreatmentDescriptor]] = None
+    exposure_term: Optional[Union[dict, ExposureDescriptor]] = None
+    triggers: Optional[Union[Union[dict, TriggerDescriptor], list[Union[dict, TriggerDescriptor]]]] = empty_list()
+    biological_processes: Optional[Union[Union[dict, BiologicalProcessDescriptor], list[Union[dict, BiologicalProcessDescriptor]]]] = empty_list()
+    effect: Optional[str] = None
+    evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ExperimentalPerturbationName):
+            self.name = ExperimentalPerturbationName(self.name)
+
+        if self._is_empty(self.target):
+            self.MissingRequiredField("target")
+        if not isinstance(self.target, str):
+            self.target = str(self.target)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.gene is not None and not isinstance(self.gene, GeneDescriptor):
+            self.gene = GeneDescriptor(**as_dict(self.gene))
+
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="chemical_entities", slot_type=ChemicalEntityDescriptor, key_name="preferred_term", keyed=False)
+
+        if self.treatment_term is not None and not isinstance(self.treatment_term, TreatmentDescriptor):
+            self.treatment_term = TreatmentDescriptor(**as_dict(self.treatment_term))
+
+        if self.exposure_term is not None and not isinstance(self.exposure_term, ExposureDescriptor):
+            self.exposure_term = ExposureDescriptor(**as_dict(self.exposure_term))
+
+        self._normalize_inlined_as_list(slot_name="triggers", slot_type=TriggerDescriptor, key_name="preferred_term", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="biological_processes", slot_type=BiologicalProcessDescriptor, key_name="preferred_term", keyed=False)
+
+        if self.effect is not None and not isinstance(self.effect, str):
+            self.effect = str(self.effect)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ExperimentalReadout(YAMLRoot):
+    """
+    A structured readout or outcome measured in an experiment. Use descriptor slots to ground readouts to phenotypes,
+    biomarkers, biological processes, and assays.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ExperimentalReadout"]
+    class_class_curie: ClassVar[str] = "dismech:ExperimentalReadout"
+    class_name: ClassVar[str] = "ExperimentalReadout"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ExperimentalReadout
+
+    name: Union[str, ExperimentalReadoutName] = None
+    target: str = None
+    description: Optional[str] = None
+    phenotype_term: Optional[Union[dict, PhenotypeDescriptor]] = None
+    biomarker_term: Optional[Union[dict, BiomarkerDescriptor]] = None
+    biological_processes: Optional[Union[Union[dict, BiologicalProcessDescriptor], list[Union[dict, BiologicalProcessDescriptor]]]] = empty_list()
+    assays: Optional[Union[Union[dict, AssayDescriptor], list[Union[dict, AssayDescriptor]]]] = empty_list()
+    direction: Optional[Union[str, "BiomarkerReadoutDirectionEnum"]] = None
+    interpretation: Optional[str] = None
+    evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ExperimentalReadoutName):
+            self.name = ExperimentalReadoutName(self.name)
+
+        if self._is_empty(self.target):
+            self.MissingRequiredField("target")
+        if not isinstance(self.target, str):
+            self.target = str(self.target)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.phenotype_term is not None and not isinstance(self.phenotype_term, PhenotypeDescriptor):
+            self.phenotype_term = PhenotypeDescriptor(**as_dict(self.phenotype_term))
+
+        if self.biomarker_term is not None and not isinstance(self.biomarker_term, BiomarkerDescriptor):
+            self.biomarker_term = BiomarkerDescriptor(**as_dict(self.biomarker_term))
+
+        self._normalize_inlined_as_list(slot_name="biological_processes", slot_type=BiologicalProcessDescriptor, key_name="preferred_term", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="assays", slot_type=AssayDescriptor, key_name="preferred_term", keyed=False)
+
+        if self.direction is not None and not isinstance(self.direction, BiomarkerReadoutDirectionEnum):
+            self.direction = BiomarkerReadoutDirectionEnum(self.direction)
+
+        if self.interpretation is not None and not isinstance(self.interpretation, str):
+            self.interpretation = str(self.interpretation)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ExperimentalControl(YAMLRoot):
+    """
+    A comparator or control condition for an experiment, such as an isogenic wild-type line, mock perturbation,
+    vehicle control, rescue arm, or untreated disease model.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ExperimentalControl"]
+    class_class_curie: ClassVar[str] = "dismech:ExperimentalControl"
+    class_name: ClassVar[str] = "ExperimentalControl"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ExperimentalControl
+
+    name: Union[str, ExperimentalControlName] = None
+    description: Optional[str] = None
+    model_systems: Optional[Union[dict[Union[str, ExperimentalModelName], Union[dict, ExperimentalModel]], list[Union[dict, ExperimentalModel]]]] = empty_dict()
+    perturbations: Optional[Union[dict[Union[str, ExperimentalPerturbationName], Union[dict, ExperimentalPerturbation]], list[Union[dict, ExperimentalPerturbation]]]] = empty_dict()
+    evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ExperimentalControlName):
+            self.name = ExperimentalControlName(self.name)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        self._normalize_inlined_as_list(slot_name="model_systems", slot_type=ExperimentalModel, key_name="name", keyed=True)
+
+        self._normalize_inlined_as_list(slot_name="perturbations", slot_type=ExperimentalPerturbation, key_name="name", keyed=True)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -1403,9 +1668,7 @@ class ClinicalTrial(YAMLRoot):
             self.evidence = [self.evidence] if self.evidence is not None else []
         self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
 
-        if not isinstance(self.target_phenotypes, list):
-            self.target_phenotypes = [self.target_phenotypes] if self.target_phenotypes is not None else []
-        self.target_phenotypes = [v if isinstance(v, PhenotypeDescriptor) else PhenotypeDescriptor(**as_dict(v)) for v in self.target_phenotypes]
+        self._normalize_inlined_as_list(slot_name="target_phenotypes", slot_type=PhenotypeDescriptor, key_name="preferred_term", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -1465,15 +1728,11 @@ class ComputationalModel(YAMLRoot):
         if self.base_model is not None and not isinstance(self.base_model, str):
             self.base_model = str(self.base_model)
 
-        if not isinstance(self.perturbations, list):
-            self.perturbations = [self.perturbations] if self.perturbations is not None else []
-        self.perturbations = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.perturbations]
+        self._normalize_inlined_as_list(slot_name="perturbations", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="variables", slot_type=ModelVariable, key_name="name", keyed=True)
 
-        if not isinstance(self.modeled_mechanisms, list):
-            self.modeled_mechanisms = [self.modeled_mechanisms] if self.modeled_mechanisms is not None else []
-        self.modeled_mechanisms = [v if isinstance(v, ModelMechanismLink) else ModelMechanismLink(**as_dict(v)) for v in self.modeled_mechanisms]
+        self._normalize_inlined_as_list(slot_name="modeled_mechanisms", slot_type=ModelMechanismLink, key_name="target", keyed=False)
 
         if self.model_software is not None and not isinstance(self.model_software, str):
             self.model_software = str(self.model_software)
@@ -1484,9 +1743,7 @@ class ComputationalModel(YAMLRoot):
         if self.publication is not None and not isinstance(self.publication, str):
             self.publication = str(self.publication)
 
-        if not isinstance(self.findings, list):
-            self.findings = [self.findings] if self.findings is not None else []
-        self.findings = [v if isinstance(v, Finding) else Finding(**as_dict(v)) for v in self.findings]
+        self._normalize_inlined_as_list(slot_name="findings", slot_type=Finding, key_name="statement", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -1534,9 +1791,7 @@ class ModelVariable(YAMLRoot):
         if self.unit is not None and not isinstance(self.unit, str):
             self.unit = str(self.unit)
 
-        if not isinstance(self.mappings_list, list):
-            self.mappings_list = [self.mappings_list] if self.mappings_list is not None else []
-        self.mappings_list = [v if isinstance(v, ModelVariableDescriptor) else ModelVariableDescriptor(**as_dict(v)) for v in self.mappings_list]
+        self._normalize_inlined_as_list(slot_name="mappings_list", slot_type=ModelVariableDescriptor, key_name="preferred_term", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -1705,9 +1960,7 @@ class Subtype(YAMLRoot):
         if self.review_notes is not None and not isinstance(self.review_notes, str):
             self.review_notes = str(self.review_notes)
 
-        if not isinstance(self.locations, list):
-            self.locations = [self.locations] if self.locations is not None else []
-        self.locations = [v if isinstance(v, AnatomicalEntityDescriptor) else AnatomicalEntityDescriptor(**as_dict(v)) for v in self.locations]
+        self._normalize_inlined_as_list(slot_name="locations", slot_type=AnatomicalEntityDescriptor, key_name="preferred_term", keyed=False)
 
         if self.classification is not None and not isinstance(self.classification, str):
             self.classification = str(self.classification)
@@ -1716,9 +1969,7 @@ class Subtype(YAMLRoot):
             self.children = [self.children] if self.children is not None else []
         self.children = [v if isinstance(v, str) else str(v) for v in self.children]
 
-        if not isinstance(self.genes, list):
-            self.genes = [self.genes] if self.genes is not None else []
-        self.genes = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.genes]
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
 
         if self.subtype_frequency is not None and not isinstance(self.subtype_frequency, str):
             self.subtype_frequency = str(self.subtype_frequency)
@@ -1743,6 +1994,7 @@ class EvidenceItem(YAMLRoot):
     evidence_source: Optional[Union[str, "EvidenceSourceEnum"]] = None
     snippet: Optional[str] = None
     explanation: Optional[str] = None
+    images: Optional[Union[str, list[str]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self.reference is not None and not isinstance(self.reference, str):
@@ -1762,6 +2014,10 @@ class EvidenceItem(YAMLRoot):
 
         if self.explanation is not None and not isinstance(self.explanation, str):
             self.explanation = str(self.explanation)
+
+        if not isinstance(self.images, list):
+            self.images = [self.images] if self.images is not None else []
+        self.images = [v if isinstance(v, str) else str(v) for v in self.images]
 
         super().__post_init__(**kwargs)
 
@@ -2143,9 +2399,7 @@ class SurrogateEndpointCollection(YAMLRoot):
         if self.retrieved_date is not None and not isinstance(self.retrieved_date, XSDDate):
             self.retrieved_date = XSDDate(self.retrieved_date)
 
-        if not isinstance(self.tracked_issues, list):
-            self.tracked_issues = [self.tracked_issues] if self.tracked_issues is not None else []
-        self.tracked_issues = [v if isinstance(v, TrackedIssue) else TrackedIssue(**as_dict(v)) for v in self.tracked_issues]
+        self._normalize_inlined_as_list(slot_name="tracked_issues", slot_type=TrackedIssue, key_name="url", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2236,9 +2490,7 @@ class PublicationReference(YAMLRoot):
             self.tags = [self.tags] if self.tags is not None else []
         self.tags = [v if isinstance(v, ReferenceTagEnum) else ReferenceTagEnum(v) for v in self.tags]
 
-        if not isinstance(self.findings, list):
-            self.findings = [self.findings] if self.findings is not None else []
-        self.findings = [v if isinstance(v, Finding) else Finding(**as_dict(v)) for v in self.findings]
+        self._normalize_inlined_as_list(slot_name="findings", slot_type=Finding, key_name="statement", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -2561,25 +2813,17 @@ class Pathophysiology(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.cell_types, list):
-            self.cell_types = [self.cell_types] if self.cell_types is not None else []
-        self.cell_types = [v if isinstance(v, CellTypeDescriptor) else CellTypeDescriptor(**as_dict(v)) for v in self.cell_types]
+        self._normalize_inlined_as_list(slot_name="cell_types", slot_type=CellTypeDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
         self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
 
-        if not isinstance(self.biological_processes, list):
-            self.biological_processes = [self.biological_processes] if self.biological_processes is not None else []
-        self.biological_processes = [v if isinstance(v, BiologicalProcessDescriptor) else BiologicalProcessDescriptor(**as_dict(v)) for v in self.biological_processes]
+        self._normalize_inlined_as_list(slot_name="biological_processes", slot_type=BiologicalProcessDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.molecular_functions, list):
-            self.molecular_functions = [self.molecular_functions] if self.molecular_functions is not None else []
-        self.molecular_functions = [v if isinstance(v, MolecularFunctionDescriptor) else MolecularFunctionDescriptor(**as_dict(v)) for v in self.molecular_functions]
+        self._normalize_inlined_as_list(slot_name="molecular_functions", slot_type=MolecularFunctionDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.locations, list):
-            self.locations = [self.locations] if self.locations is not None else []
-        self.locations = [v if isinstance(v, AnatomicalEntityDescriptor) else AnatomicalEntityDescriptor(**as_dict(v)) for v in self.locations]
+        self._normalize_inlined_as_list(slot_name="locations", slot_type=AnatomicalEntityDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.examples, list):
             self.examples = [self.examples] if self.examples is not None else []
@@ -2605,45 +2849,27 @@ class Pathophysiology(YAMLRoot):
         if self.gene is not None and not isinstance(self.gene, GeneDescriptor):
             self.gene = GeneDescriptor(**as_dict(self.gene))
 
-        if not isinstance(self.pathways, list):
-            self.pathways = [self.pathways] if self.pathways is not None else []
-        self.pathways = [v if isinstance(v, BiologicalProcessDescriptor) else BiologicalProcessDescriptor(**as_dict(v)) for v in self.pathways]
+        self._normalize_inlined_as_list(slot_name="pathways", slot_type=BiologicalProcessDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.downstream, list):
-            self.downstream = [self.downstream] if self.downstream is not None else []
-        self.downstream = [v if isinstance(v, CausalEdge) else CausalEdge(**as_dict(v)) for v in self.downstream]
+        self._normalize_inlined_as_list(slot_name="downstream", slot_type=CausalEdge, key_name="target", keyed=False)
 
-        if not isinstance(self.genes, list):
-            self.genes = [self.genes] if self.genes is not None else []
-        self.genes = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.genes]
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.subtypes, list):
             self.subtypes = [self.subtypes] if self.subtypes is not None else []
         self.subtypes = [v if isinstance(v, str) else str(v) for v in self.subtypes]
 
-        if not isinstance(self.cellular_components, list):
-            self.cellular_components = [self.cellular_components] if self.cellular_components is not None else []
-        self.cellular_components = [v if isinstance(v, CellularComponentDescriptor) else CellularComponentDescriptor(**as_dict(v)) for v in self.cellular_components]
+        self._normalize_inlined_as_list(slot_name="cellular_components", slot_type=CellularComponentDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.protein_complexes, list):
-            self.protein_complexes = [self.protein_complexes] if self.protein_complexes is not None else []
-        self.protein_complexes = [v if isinstance(v, ProteinComplexDescriptor) else ProteinComplexDescriptor(**as_dict(v)) for v in self.protein_complexes]
+        self._normalize_inlined_as_list(slot_name="protein_complexes", slot_type=ProteinComplexDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.chemical_entities, list):
-            self.chemical_entities = [self.chemical_entities] if self.chemical_entities is not None else []
-        self.chemical_entities = [v if isinstance(v, ChemicalEntityDescriptor) else ChemicalEntityDescriptor(**as_dict(v)) for v in self.chemical_entities]
+        self._normalize_inlined_as_list(slot_name="chemical_entities", slot_type=ChemicalEntityDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.gene_products, list):
-            self.gene_products = [self.gene_products] if self.gene_products is not None else []
-        self.gene_products = [v if isinstance(v, GeneProductDescriptor) else GeneProductDescriptor(**as_dict(v)) for v in self.gene_products]
+        self._normalize_inlined_as_list(slot_name="gene_products", slot_type=GeneProductDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.triggers, list):
-            self.triggers = [self.triggers] if self.triggers is not None else []
-        self.triggers = [v if isinstance(v, TriggerDescriptor) else TriggerDescriptor(**as_dict(v)) for v in self.triggers]
+        self._normalize_inlined_as_list(slot_name="triggers", slot_type=TriggerDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.assays, list):
-            self.assays = [self.assays] if self.assays is not None else []
-        self.assays = [v if isinstance(v, AssayDescriptor) else AssayDescriptor(**as_dict(v)) for v in self.assays]
+        self._normalize_inlined_as_list(slot_name="assays", slot_type=AssayDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.mechanisms, list):
             self.mechanisms = [self.mechanisms] if self.mechanisms is not None else []
@@ -2655,9 +2881,7 @@ class Pathophysiology(YAMLRoot):
         if self.genetic_context is not None and not isinstance(self.genetic_context, GeneticContext):
             self.genetic_context = GeneticContext(**as_dict(self.genetic_context))
 
-        if not isinstance(self.pdb_structures, list):
-            self.pdb_structures = [self.pdb_structures] if self.pdb_structures is not None else []
-        self.pdb_structures = [v if isinstance(v, ProteinStructure) else ProteinStructure(**as_dict(v)) for v in self.pdb_structures]
+        self._normalize_inlined_as_list(slot_name="pdb_structures", slot_type=ProteinStructure, key_name="pdb_id", keyed=False)
 
         if self.mechanism_confidence is not None and not isinstance(self.mechanism_confidence, MechanismConfidenceEnum):
             self.mechanism_confidence = MechanismConfidenceEnum(self.mechanism_confidence)
@@ -2708,9 +2932,7 @@ class Phenotype(YAMLRoot):
         if self.diagnostic is not None and not isinstance(self.diagnostic, Bool):
             self.diagnostic = Bool(self.diagnostic)
 
-        if not isinstance(self.sequelae, list):
-            self.sequelae = [self.sequelae] if self.sequelae is not None else []
-        self.sequelae = [v if isinstance(v, CausalEdge) else CausalEdge(**as_dict(v)) for v in self.sequelae]
+        self._normalize_inlined_as_list(slot_name="sequelae", slot_type=CausalEdge, key_name="target", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -2776,9 +2998,7 @@ class Biochemical(YAMLRoot):
         if self.presence is not None and not isinstance(self.presence, str):
             self.presence = str(self.presence)
 
-        if not isinstance(self.readouts, list):
-            self.readouts = [self.readouts] if self.readouts is not None else []
-        self.readouts = [v if isinstance(v, BiomarkerReadout) else BiomarkerReadout(**as_dict(v)) for v in self.readouts]
+        self._normalize_inlined_as_list(slot_name="readouts", slot_type=BiomarkerReadout, key_name="target", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -2800,17 +3020,11 @@ class Biochemical(YAMLRoot):
             self.subtypes = [self.subtypes] if self.subtypes is not None else []
         self.subtypes = [v if isinstance(v, str) else str(v) for v in self.subtypes]
 
-        if not isinstance(self.cell_types, list):
-            self.cell_types = [self.cell_types] if self.cell_types is not None else []
-        self.cell_types = [v if isinstance(v, CellTypeDescriptor) else CellTypeDescriptor(**as_dict(v)) for v in self.cell_types]
+        self._normalize_inlined_as_list(slot_name="cell_types", slot_type=CellTypeDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.assays, list):
-            self.assays = [self.assays] if self.assays is not None else []
-        self.assays = [v if isinstance(v, AssayDescriptor) else AssayDescriptor(**as_dict(v)) for v in self.assays]
+        self._normalize_inlined_as_list(slot_name="assays", slot_type=AssayDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.mappings_list, list):
-            self.mappings_list = [self.mappings_list] if self.mappings_list is not None else []
-        self.mappings_list = [v if isinstance(v, ModelVariableDescriptor) else ModelVariableDescriptor(**as_dict(v)) for v in self.mappings_list]
+        self._normalize_inlined_as_list(slot_name="mappings_list", slot_type=ModelVariableDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.synonyms, list):
             self.synonyms = [self.synonyms] if self.synonyms is not None else []
@@ -3072,6 +3286,7 @@ class Disease(YAMLRoot):
     mappings: Optional[Union[dict, "DiseaseMappings"]] = None
     external_assertions: Optional[Union[dict[Union[str, ExternalAssertionName], Union[dict, ExternalAssertion]], list[Union[dict, ExternalAssertion]]]] = empty_dict()
     tracked_issues: Optional[Union[Union[dict, TrackedIssue], list[Union[dict, TrackedIssue]]]] = empty_list()
+    discussions: Optional[Union[Union[dict, "Discussion"], list[Union[dict, "Discussion"]]]] = empty_list()
     notes: Optional[str] = None
     review_notes: Optional[str] = None
     curation_history: Optional[Union[Union[dict, CurationEvent], list[Union[dict, CurationEvent]]]] = empty_list()
@@ -3115,9 +3330,7 @@ class Disease(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="pathophysiology", slot_type=Pathophysiology, key_name="name", keyed=True)
 
-        if not isinstance(self.mechanistic_hypotheses, list):
-            self.mechanistic_hypotheses = [self.mechanistic_hypotheses] if self.mechanistic_hypotheses is not None else []
-        self.mechanistic_hypotheses = [v if isinstance(v, MechanisticHypothesis) else MechanisticHypothesis(**as_dict(v)) for v in self.mechanistic_hypotheses]
+        self._normalize_inlined_as_list(slot_name="mechanistic_hypotheses", slot_type=MechanisticHypothesis, key_name="hypothesis_group_id", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="phenotypes", slot_type=Phenotype, key_name="name", keyed=True)
 
@@ -3184,9 +3397,9 @@ class Disease(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="external_assertions", slot_type=ExternalAssertion, key_name="name", keyed=True)
 
-        if not isinstance(self.tracked_issues, list):
-            self.tracked_issues = [self.tracked_issues] if self.tracked_issues is not None else []
-        self.tracked_issues = [v if isinstance(v, TrackedIssue) else TrackedIssue(**as_dict(v)) for v in self.tracked_issues]
+        self._normalize_inlined_as_list(slot_name="tracked_issues", slot_type=TrackedIssue, key_name="url", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="discussions", slot_type=Discussion, key_name="discussion_id", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3194,9 +3407,7 @@ class Disease(YAMLRoot):
         if self.review_notes is not None and not isinstance(self.review_notes, str):
             self.review_notes = str(self.review_notes)
 
-        if not isinstance(self.curation_history, list):
-            self.curation_history = [self.curation_history] if self.curation_history is not None else []
-        self.curation_history = [v if isinstance(v, CurationEvent) else CurationEvent(**as_dict(v)) for v in self.curation_history]
+        self._normalize_inlined_as_list(slot_name="curation_history", slot_type=CurationEvent, key_name="curation_timestamp", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -3281,9 +3492,7 @@ class AgentLifeCycle(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="life_cycle_stages", slot_type=AgentLifeCycleStage, key_name="name", keyed=True)
 
-        if not isinstance(self.hosts, list):
-            self.hosts = [self.hosts] if self.hosts is not None else []
-        self.hosts = [v if isinstance(v, HostDescriptor) else HostDescriptor(**as_dict(v)) for v in self.hosts]
+        self._normalize_inlined_as_list(slot_name="hosts", slot_type=HostDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.vectors, list):
             self.vectors = [self.vectors] if self.vectors is not None else []
@@ -3379,9 +3588,7 @@ class AnimalModel(YAMLRoot):
         if self.background is not None and not isinstance(self.background, str):
             self.background = str(self.background)
 
-        if not isinstance(self.genes, list):
-            self.genes = [self.genes] if self.genes is not None else []
-        self.genes = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.genes]
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
 
         if self.category is not None and not isinstance(self.category, str):
             self.category = str(self.category)
@@ -3443,17 +3650,11 @@ class Treatment(YAMLRoot):
         if self.regimen_term is not None and not isinstance(self.regimen_term, RegimenDescriptor):
             self.regimen_term = RegimenDescriptor(**as_dict(self.regimen_term))
 
-        if not isinstance(self.target_phenotypes, list):
-            self.target_phenotypes = [self.target_phenotypes] if self.target_phenotypes is not None else []
-        self.target_phenotypes = [v if isinstance(v, PhenotypeDescriptor) else PhenotypeDescriptor(**as_dict(v)) for v in self.target_phenotypes]
+        self._normalize_inlined_as_list(slot_name="target_phenotypes", slot_type=PhenotypeDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.target_mechanisms, list):
-            self.target_mechanisms = [self.target_mechanisms] if self.target_mechanisms is not None else []
-        self.target_mechanisms = [v if isinstance(v, TreatmentMechanismTarget) else TreatmentMechanismTarget(**as_dict(v)) for v in self.target_mechanisms]
+        self._normalize_inlined_as_list(slot_name="target_mechanisms", slot_type=TreatmentMechanismTarget, key_name="target", keyed=False)
 
-        if not isinstance(self.pdb_structures, list):
-            self.pdb_structures = [self.pdb_structures] if self.pdb_structures is not None else []
-        self.pdb_structures = [v if isinstance(v, ProteinStructure) else ProteinStructure(**as_dict(v)) for v in self.pdb_structures]
+        self._normalize_inlined_as_list(slot_name="pdb_structures", slot_type=ProteinStructure, key_name="pdb_id", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -3793,9 +3994,7 @@ class FunctionalEffect(YAMLRoot):
         if self.regulatory_element_type is not None and not isinstance(self.regulatory_element_type, RegulatoryElementTypeEnum):
             self.regulatory_element_type = RegulatoryElementTypeEnum(self.regulatory_element_type)
 
-        if not isinstance(self.affected_cell_types, list):
-            self.affected_cell_types = [self.affected_cell_types] if self.affected_cell_types is not None else []
-        self.affected_cell_types = [v if isinstance(v, CellTypeDescriptor) else CellTypeDescriptor(**as_dict(v)) for v in self.affected_cell_types]
+        self._normalize_inlined_as_list(slot_name="affected_cell_types", slot_type=CellTypeDescriptor, key_name="preferred_term", keyed=False)
 
         if self.affected_developmental_stage is not None and not isinstance(self.affected_developmental_stage, str):
             self.affected_developmental_stage = str(self.affected_developmental_stage)
@@ -4046,12 +4245,12 @@ class DiseaseClassifications(YAMLRoot):
         if self.icdo_morphology is not None and not isinstance(self.icdo_morphology, ICDOMorphologyAssignment):
             self.icdo_morphology = ICDOMorphologyAssignment(**as_dict(self.icdo_morphology))
 
-        self._normalize_inlined_as_dict(slot_name="harrisons_chapter", slot_type=HarrisonsChapterAssignment, key_name="classification_value", keyed=False)
+        self._normalize_inlined_as_list(slot_name="harrisons_chapter", slot_type=HarrisonsChapterAssignment, key_name="classification_value", keyed=False)
 
         if self.lysosomal_storage_category is not None and not isinstance(self.lysosomal_storage_category, LysosomalStorageAssignment):
             self.lysosomal_storage_category = LysosomalStorageAssignment(**as_dict(self.lysosomal_storage_category))
 
-        self._normalize_inlined_as_dict(slot_name="mechanistic_category", slot_type=MechanisticNosologyAssignment, key_name="classification_value", keyed=False)
+        self._normalize_inlined_as_list(slot_name="mechanistic_category", slot_type=MechanisticNosologyAssignment, key_name="classification_value", keyed=False)
 
         if self.iuis_category is not None and not isinstance(self.iuis_category, IUISAssignment):
             self.iuis_category = IUISAssignment(**as_dict(self.iuis_category))
@@ -4103,13 +4302,9 @@ class Definition(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="criteria_sets", slot_type=CriteriaSet, key_name="name", keyed=True)
 
-        if not isinstance(self.inclusion_criteria, list):
-            self.inclusion_criteria = [self.inclusion_criteria] if self.inclusion_criteria is not None else []
-        self.inclusion_criteria = [v if isinstance(v, CriteriaItem) else CriteriaItem(**as_dict(v)) for v in self.inclusion_criteria]
+        self._normalize_inlined_as_list(slot_name="inclusion_criteria", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.exclusion_criteria, list):
-            self.exclusion_criteria = [self.exclusion_criteria] if self.exclusion_criteria is not None else []
-        self.exclusion_criteria = [v if isinstance(v, CriteriaItem) else CriteriaItem(**as_dict(v)) for v in self.exclusion_criteria]
+        self._normalize_inlined_as_list(slot_name="exclusion_criteria", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -4161,29 +4356,17 @@ class CriteriaSet(YAMLRoot):
         if self.minimum_required is not None and not isinstance(self.minimum_required, int):
             self.minimum_required = int(self.minimum_required)
 
-        if not isinstance(self.core_clinical_characteristics, list):
-            self.core_clinical_characteristics = [self.core_clinical_characteristics] if self.core_clinical_characteristics is not None else []
-        self.core_clinical_characteristics = [v if isinstance(v, CriteriaItem) else CriteriaItem(**as_dict(v)) for v in self.core_clinical_characteristics]
+        self._normalize_inlined_as_list(slot_name="core_clinical_characteristics", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.inclusion_criteria, list):
-            self.inclusion_criteria = [self.inclusion_criteria] if self.inclusion_criteria is not None else []
-        self.inclusion_criteria = [v if isinstance(v, CriteriaItem) else CriteriaItem(**as_dict(v)) for v in self.inclusion_criteria]
+        self._normalize_inlined_as_list(slot_name="inclusion_criteria", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.exclusion_criteria, list):
-            self.exclusion_criteria = [self.exclusion_criteria] if self.exclusion_criteria is not None else []
-        self.exclusion_criteria = [v if isinstance(v, CriteriaItem) else CriteriaItem(**as_dict(v)) for v in self.exclusion_criteria]
+        self._normalize_inlined_as_list(slot_name="exclusion_criteria", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.imaging_requirements, list):
-            self.imaging_requirements = [self.imaging_requirements] if self.imaging_requirements is not None else []
-        self.imaging_requirements = [v if isinstance(v, CriteriaItem) else CriteriaItem(**as_dict(v)) for v in self.imaging_requirements]
+        self._normalize_inlined_as_list(slot_name="imaging_requirements", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.laboratory_requirements, list):
-            self.laboratory_requirements = [self.laboratory_requirements] if self.laboratory_requirements is not None else []
-        self.laboratory_requirements = [v if isinstance(v, CriteriaItem) else CriteriaItem(**as_dict(v)) for v in self.laboratory_requirements]
+        self._normalize_inlined_as_list(slot_name="laboratory_requirements", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.additional_requirements, list):
-            self.additional_requirements = [self.additional_requirements] if self.additional_requirements is not None else []
-        self.additional_requirements = [v if isinstance(v, CriteriaItem) else CriteriaItem(**as_dict(v)) for v in self.additional_requirements]
+        self._normalize_inlined_as_list(slot_name="additional_requirements", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -4246,13 +4429,9 @@ class TermMapping(YAMLRoot):
         if self.mapping_justification is not None and not isinstance(self.mapping_justification, str):
             self.mapping_justification = str(self.mapping_justification)
 
-        if not isinstance(self.consistency, list):
-            self.consistency = [self.consistency] if self.consistency is not None else []
-        self.consistency = [v if isinstance(v, MappingConsistency) else MappingConsistency(**as_dict(v)) for v in self.consistency]
+        self._normalize_inlined_as_list(slot_name="consistency", slot_type=MappingConsistency, key_name="reference", keyed=False)
 
-        if not isinstance(self.tracked_issues, list):
-            self.tracked_issues = [self.tracked_issues] if self.tracked_issues is not None else []
-        self.tracked_issues = [v if isinstance(v, TrackedIssue) else TrackedIssue(**as_dict(v)) for v in self.tracked_issues]
+        self._normalize_inlined_as_list(slot_name="tracked_issues", slot_type=TrackedIssue, key_name="url", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -4407,21 +4586,13 @@ class DiseaseMappings(YAMLRoot):
     ncit_mappings: Optional[Union[Union[dict, NCITMapping], list[Union[dict, NCITMapping]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
-        if not isinstance(self.icd10cm_mappings, list):
-            self.icd10cm_mappings = [self.icd10cm_mappings] if self.icd10cm_mappings is not None else []
-        self.icd10cm_mappings = [v if isinstance(v, ICD10CMMapping) else ICD10CMMapping(**as_dict(v)) for v in self.icd10cm_mappings]
+        self._normalize_inlined_as_list(slot_name="icd10cm_mappings", slot_type=ICD10CMMapping, key_name="mapping_predicate", keyed=False)
 
-        if not isinstance(self.icd11f_mappings, list):
-            self.icd11f_mappings = [self.icd11f_mappings] if self.icd11f_mappings is not None else []
-        self.icd11f_mappings = [v if isinstance(v, ICD11FMapping) else ICD11FMapping(**as_dict(v)) for v in self.icd11f_mappings]
+        self._normalize_inlined_as_list(slot_name="icd11f_mappings", slot_type=ICD11FMapping, key_name="mapping_predicate", keyed=False)
 
-        if not isinstance(self.mondo_mappings, list):
-            self.mondo_mappings = [self.mondo_mappings] if self.mondo_mappings is not None else []
-        self.mondo_mappings = [v if isinstance(v, MondoMapping) else MondoMapping(**as_dict(v)) for v in self.mondo_mappings]
+        self._normalize_inlined_as_list(slot_name="mondo_mappings", slot_type=MondoMapping, key_name="mapping_predicate", keyed=False)
 
-        if not isinstance(self.ncit_mappings, list):
-            self.ncit_mappings = [self.ncit_mappings] if self.ncit_mappings is not None else []
-        self.ncit_mappings = [v if isinstance(v, NCITMapping) else NCITMapping(**as_dict(v)) for v in self.ncit_mappings]
+        self._normalize_inlined_as_list(slot_name="ncit_mappings", slot_type=NCITMapping, key_name="mapping_predicate", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -4464,9 +4635,7 @@ class ConditionDescriptor(Descriptor):
         if self.composition is not None and not isinstance(self.composition, ConditionCompositionEnum):
             self.composition = ConditionCompositionEnum(self.composition)
 
-        if not isinstance(self.components, list):
-            self.components = [self.components] if self.components is not None else []
-        self.components = [v if isinstance(v, ConditionDescriptor) else ConditionDescriptor(**as_dict(v)) for v in self.components]
+        self._normalize_inlined_as_list(slot_name="components", slot_type=ConditionDescriptor, key_name="preferred_term", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -4919,6 +5088,85 @@ class MechanisticHypothesis(YAMLRoot):
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
         self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class Discussion(YAMLRoot):
+    """
+    A thread-like record of an open question, controversy, curation todo, emerging hypothesis, or interpretation
+    debate attached to a disease entry or sub-object. Discussions capture the *discourse* layer of curation (what is
+    being argued or asked), complementing the structural knowledge-gap layer proposed in
+    monarch-initiative/dismech#2617 (what is missing from the model). External thread links (e.g., Alzforum
+    commentaries, GitHub issues) are not modelled as a separate slot; instead they are cited via the standard
+    `evidence` block using the same EvidenceItem shape as primary literature.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["Discussion"]
+    class_class_curie: ClassVar[str] = "dismech:Discussion"
+    class_name: ClassVar[str] = "Discussion"
+    class_model_uri: ClassVar[URIRef] = DISMECH.Discussion
+
+    discussion_id: str = None
+    prompt: str = None
+    kind: Optional[Union[str, "DiscussionKindEnum"]] = None
+    status: Optional[Union[str, "DiscussionStatusEnum"]] = None
+    attaches_to: Optional[Union[str, list[str]]] = empty_list()
+    rationale: Optional[str] = None
+    proposed_experiments: Optional[Union[dict[Union[str, ExperimentName], Union[dict, Experiment]], list[Union[dict, Experiment]]]] = empty_dict()
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    posed_by: Optional[str] = None
+    posed_date: Optional[Union[str, XSDDateTime]] = None
+    resolved_date: Optional[Union[str, XSDDateTime]] = None
+    resolution_note: Optional[str] = None
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.discussion_id):
+            self.MissingRequiredField("discussion_id")
+        if not isinstance(self.discussion_id, str):
+            self.discussion_id = str(self.discussion_id)
+
+        if self._is_empty(self.prompt):
+            self.MissingRequiredField("prompt")
+        if not isinstance(self.prompt, str):
+            self.prompt = str(self.prompt)
+
+        if self.kind is not None and not isinstance(self.kind, DiscussionKindEnum):
+            self.kind = DiscussionKindEnum(self.kind)
+
+        if self.status is not None and not isinstance(self.status, DiscussionStatusEnum):
+            self.status = DiscussionStatusEnum(self.status)
+
+        if not isinstance(self.attaches_to, list):
+            self.attaches_to = [self.attaches_to] if self.attaches_to is not None else []
+        self.attaches_to = [v if isinstance(v, str) else str(v) for v in self.attaches_to]
+
+        if self.rationale is not None and not isinstance(self.rationale, str):
+            self.rationale = str(self.rationale)
+
+        self._normalize_inlined_as_list(slot_name="proposed_experiments", slot_type=Experiment, key_name="name", keyed=True)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.posed_by is not None and not isinstance(self.posed_by, str):
+            self.posed_by = str(self.posed_by)
+
+        if self.posed_date is not None and not isinstance(self.posed_date, XSDDateTime):
+            self.posed_date = XSDDateTime(self.posed_date)
+
+        if self.resolved_date is not None and not isinstance(self.resolved_date, XSDDateTime):
+            self.resolved_date = XSDDateTime(self.resolved_date)
+
+        if self.resolution_note is not None and not isinstance(self.resolution_note, str):
+            self.resolution_note = str(self.resolution_note)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -6448,6 +6696,59 @@ class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):
         description="Curation/maturity status for a disease-level mechanistic hypothesis",
     )
 
+class DiscussionKindEnum(EnumDefinitionImpl):
+    """
+    Kind of unresolved/in-progress item captured by a Discussion. Discussions are thread-like objects that record open
+    questions, controversies, curation todos, emerging hypotheses, or interpretation debates attached to a disease
+    entry or sub-object. Knowledge gaps are represented as a discussion kind so they can reuse the existing pointer,
+    evidence, and lifecycle machinery, while optional proposed experiments capture how a gap could be resolved.
+    """
+    OPEN_QUESTION = PermissibleValue(
+        text="OPEN_QUESTION",
+        description="An unresolved scientific question posed by curators or experts")
+    KNOWLEDGE_GAP = PermissibleValue(
+        text="KNOWLEDGE_GAP",
+        description="""A missing causal, evidentiary, model-system, or translational assertion whose resolution would materially improve the disease mechanism model""")
+    CONTROVERSY = PermissibleValue(
+        text="CONTROVERSY",
+        description="A live disagreement or competing interpretation between published positions")
+    CURATION_TODO = PermissibleValue(
+        text="CURATION_TODO",
+        description="A curation task captured inline (e.g., \"phenotype needs HPO term refinement\")")
+    EMERGING_HYPOTHESIS = PermissibleValue(
+        text="EMERGING_HYPOTHESIS",
+        description="A recently reported hypothesis under active discussion in the community")
+    INTERPRETATION = PermissibleValue(
+        text="INTERPRETATION",
+        description="A discussion about how to interpret existing evidence or model an edge")
+
+    _defn = EnumDefinition(
+        name="DiscussionKindEnum",
+        description="""Kind of unresolved/in-progress item captured by a Discussion. Discussions are thread-like objects that record open questions, controversies, curation todos, emerging hypotheses, or interpretation debates attached to a disease entry or sub-object. Knowledge gaps are represented as a discussion kind so they can reuse the existing pointer, evidence, and lifecycle machinery, while optional proposed experiments capture how a gap could be resolved.""",
+    )
+
+class DiscussionStatusEnum(EnumDefinitionImpl):
+    """
+    Lifecycle status for a Discussion
+    """
+    OPEN = PermissibleValue(
+        text="OPEN",
+        description="Posed but not yet under active discussion")
+    UNDER_DISCUSSION = PermissibleValue(
+        text="UNDER_DISCUSSION",
+        description="Actively being discussed in one or more linked venues")
+    RESOLVED = PermissibleValue(
+        text="RESOLVED",
+        description="Closed with a documented resolution; kept for provenance")
+    ARCHIVED = PermissibleValue(
+        text="ARCHIVED",
+        description="No longer active and not resolved (deferred, stale, or superseded)")
+
+    _defn = EnumDefinition(
+        name="DiscussionStatusEnum",
+        description="Lifecycle status for a Discussion",
+    )
+
 class ComorbidityDirectionEnum(EnumDefinitionImpl):
     """
     Directionality of a comorbidity/trajectory association
@@ -7443,6 +7744,9 @@ slots.reference_title = Slot(uri=DISMECH.reference_title, name="reference_title"
 slots.explanation = Slot(uri=DISMECH.explanation, name="explanation", curie=DISMECH.curie('explanation'),
                    model_uri=DISMECH.explanation, domain=None, range=Optional[str])
 
+slots.images = Slot(uri=DISMECH.images, name="images", curie=DISMECH.curie('images'),
+                   model_uri=DISMECH.images, domain=None, range=Optional[Union[str, list[str]]])
+
 slots.references = Slot(uri=DISMECH.references, name="references", curie=DISMECH.curie('references'),
                    model_uri=DISMECH.references, domain=None, range=Optional[Union[dict[Union[str, PublicationReferenceReference], Union[dict, PublicationReference]], list[Union[dict, PublicationReference]]]])
 
@@ -7959,6 +8263,63 @@ slots.hypothesis_label = Slot(uri=DISMECH.hypothesis_label, name="hypothesis_lab
 slots.applies_to_subtypes = Slot(uri=DISMECH.applies_to_subtypes, name="applies_to_subtypes", curie=DISMECH.curie('applies_to_subtypes'),
                    model_uri=DISMECH.applies_to_subtypes, domain=None, range=Optional[Union[str, list[str]]])
 
+slots.discussion_id = Slot(uri=DISMECH.discussion_id, name="discussion_id", curie=DISMECH.curie('discussion_id'),
+                   model_uri=DISMECH.discussion_id, domain=None, range=Optional[str])
+
+slots.prompt = Slot(uri=DISMECH.prompt, name="prompt", curie=DISMECH.curie('prompt'),
+                   model_uri=DISMECH.prompt, domain=None, range=Optional[str])
+
+slots.kind = Slot(uri=DISMECH.kind, name="kind", curie=DISMECH.curie('kind'),
+                   model_uri=DISMECH.kind, domain=None, range=Optional[str])
+
+slots.attaches_to = Slot(uri=DISMECH.attaches_to, name="attaches_to", curie=DISMECH.curie('attaches_to'),
+                   model_uri=DISMECH.attaches_to, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.rationale = Slot(uri=DISMECH.rationale, name="rationale", curie=DISMECH.curie('rationale'),
+                   model_uri=DISMECH.rationale, domain=None, range=Optional[str])
+
+slots.proposed_experiments = Slot(uri=DISMECH.proposed_experiments, name="proposed_experiments", curie=DISMECH.curie('proposed_experiments'),
+                   model_uri=DISMECH.proposed_experiments, domain=None, range=Optional[Union[dict[Union[str, ExperimentName], Union[dict, Experiment]], list[Union[dict, Experiment]]]])
+
+slots.experiment_id = Slot(uri=DISMECH.experiment_id, name="experiment_id", curie=DISMECH.curie('experiment_id'),
+                   model_uri=DISMECH.experiment_id, domain=None, range=Optional[str])
+
+slots.experiment_type = Slot(uri=DISMECH.experiment_type, name="experiment_type", curie=DISMECH.curie('experiment_type'),
+                   model_uri=DISMECH.experiment_type, domain=None, range=Optional[Union[dict, Descriptor]])
+
+slots.model_systems = Slot(uri=DISMECH.model_systems, name="model_systems", curie=DISMECH.curie('model_systems'),
+                   model_uri=DISMECH.model_systems, domain=None, range=Optional[Union[dict[Union[str, ExperimentalModelName], Union[dict, ExperimentalModel]], list[Union[dict, ExperimentalModel]]]])
+
+slots.controls = Slot(uri=DISMECH.controls, name="controls", curie=DISMECH.curie('controls'),
+                   model_uri=DISMECH.controls, domain=None, range=Optional[Union[dict[Union[str, ExperimentalControlName], Union[dict, ExperimentalControl]], list[Union[dict, ExperimentalControl]]]])
+
+slots.decision_criterion = Slot(uri=DISMECH.decision_criterion, name="decision_criterion", curie=DISMECH.curie('decision_criterion'),
+                   model_uri=DISMECH.decision_criterion, domain=None, range=Optional[str])
+
+slots.would_support = Slot(uri=DISMECH.would_support, name="would_support", curie=DISMECH.curie('would_support'),
+                   model_uri=DISMECH.would_support, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.would_refute = Slot(uri=DISMECH.would_refute, name="would_refute", curie=DISMECH.curie('would_refute'),
+                   model_uri=DISMECH.would_refute, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.protocol_reference = Slot(uri=DISMECH.protocol_reference, name="protocol_reference", curie=DISMECH.curie('protocol_reference'),
+                   model_uri=DISMECH.protocol_reference, domain=None, range=Optional[str])
+
+slots.posed_by = Slot(uri=DISMECH.posed_by, name="posed_by", curie=DISMECH.curie('posed_by'),
+                   model_uri=DISMECH.posed_by, domain=None, range=Optional[str])
+
+slots.posed_date = Slot(uri=DISMECH.posed_date, name="posed_date", curie=DISMECH.curie('posed_date'),
+                   model_uri=DISMECH.posed_date, domain=None, range=Optional[Union[str, XSDDateTime]])
+
+slots.resolved_date = Slot(uri=DISMECH.resolved_date, name="resolved_date", curie=DISMECH.curie('resolved_date'),
+                   model_uri=DISMECH.resolved_date, domain=None, range=Optional[Union[str, XSDDateTime]])
+
+slots.resolution_note = Slot(uri=DISMECH.resolution_note, name="resolution_note", curie=DISMECH.curie('resolution_note'),
+                   model_uri=DISMECH.resolution_note, domain=None, range=Optional[str])
+
+slots.discussions = Slot(uri=DISMECH.discussions, name="discussions", curie=DISMECH.curie('discussions'),
+                   model_uri=DISMECH.discussions, domain=None, range=Optional[Union[Union[dict, Discussion], list[Union[dict, Discussion]]]])
+
 slots.target_phenotypes = Slot(uri=DISMECH.target_phenotypes, name="target_phenotypes", curie=DISMECH.curie('target_phenotypes'),
                    model_uri=DISMECH.target_phenotypes, domain=None, range=Optional[Union[Union[dict, PhenotypeDescriptor], list[Union[dict, PhenotypeDescriptor]]]])
 
@@ -8453,6 +8814,33 @@ slots.PhenotypeContext_evidence = Slot(uri=DISMECH.evidence, name="PhenotypeCont
 slots.Dataset_description = Slot(uri=DISMECH.description, name="Dataset_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.Dataset_description, domain=Dataset, range=Optional[str])
 
+slots.Experiment_experiment_id = Slot(uri=DISMECH.experiment_id, name="Experiment_experiment_id", curie=DISMECH.curie('experiment_id'),
+                   model_uri=DISMECH.Experiment_experiment_id, domain=Experiment, range=str)
+
+slots.Experiment_perturbations = Slot(uri=DISMECH.perturbations, name="Experiment_perturbations", curie=DISMECH.curie('perturbations'),
+                   model_uri=DISMECH.Experiment_perturbations, domain=Experiment, range=Optional[Union[dict[Union[str, ExperimentalPerturbationName], Union[dict, "ExperimentalPerturbation"]], list[Union[dict, "ExperimentalPerturbation"]]]])
+
+slots.Experiment_readouts = Slot(uri=DISMECH.readouts, name="Experiment_readouts", curie=DISMECH.curie('readouts'),
+                   model_uri=DISMECH.Experiment_readouts, domain=Experiment, range=Optional[Union[dict[Union[str, ExperimentalReadoutName], Union[dict, "ExperimentalReadout"]], list[Union[dict, "ExperimentalReadout"]]]])
+
+slots.Experiment_assays = Slot(uri=DISMECH.assays, name="Experiment_assays", curie=DISMECH.curie('assays'),
+                   model_uri=DISMECH.Experiment_assays, domain=Experiment, range=Optional[Union[Union[dict, AssayDescriptor], list[Union[dict, AssayDescriptor]]]])
+
+slots.Experiment_evidence = Slot(uri=DISMECH.evidence, name="Experiment_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.Experiment_evidence, domain=Experiment, range=Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]])
+
+slots.ExperimentalPerturbation_target = Slot(uri=DISMECH.target, name="ExperimentalPerturbation_target", curie=DISMECH.curie('target'),
+                   model_uri=DISMECH.ExperimentalPerturbation_target, domain=ExperimentalPerturbation, range=str)
+
+slots.ExperimentalReadout_target = Slot(uri=DISMECH.target, name="ExperimentalReadout_target", curie=DISMECH.curie('target'),
+                   model_uri=DISMECH.ExperimentalReadout_target, domain=ExperimentalReadout, range=str)
+
+slots.ExperimentalReadout_interpretation = Slot(uri=DISMECH.interpretation, name="ExperimentalReadout_interpretation", curie=DISMECH.curie('interpretation'),
+                   model_uri=DISMECH.ExperimentalReadout_interpretation, domain=ExperimentalReadout, range=Optional[str])
+
+slots.ExperimentalControl_perturbations = Slot(uri=DISMECH.perturbations, name="ExperimentalControl_perturbations", curie=DISMECH.curie('perturbations'),
+                   model_uri=DISMECH.ExperimentalControl_perturbations, domain=ExperimentalControl, range=Optional[Union[dict[Union[str, ExperimentalPerturbationName], Union[dict, ExperimentalPerturbation]], list[Union[dict, ExperimentalPerturbation]]]])
+
 slots.ClinicalTrial_name = Slot(uri=DISMECH.name, name="ClinicalTrial_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.ClinicalTrial_name, domain=ClinicalTrial, range=Union[str, ClinicalTrialName])
 
@@ -8708,3 +9096,15 @@ slots.MechanisticHypothesis_hypothesis_group_id = Slot(uri=DISMECH.hypothesis_gr
 
 slots.MechanisticHypothesis_status = Slot(uri=DISMECH.status, name="MechanisticHypothesis_status", curie=DISMECH.curie('status'),
                    model_uri=DISMECH.MechanisticHypothesis_status, domain=MechanisticHypothesis, range=Optional[Union[str, "MechanisticHypothesisStatusEnum"]])
+
+slots.Discussion_discussion_id = Slot(uri=DISMECH.discussion_id, name="Discussion_discussion_id", curie=DISMECH.curie('discussion_id'),
+                   model_uri=DISMECH.Discussion_discussion_id, domain=Discussion, range=str)
+
+slots.Discussion_prompt = Slot(uri=DISMECH.prompt, name="Discussion_prompt", curie=DISMECH.curie('prompt'),
+                   model_uri=DISMECH.Discussion_prompt, domain=Discussion, range=str)
+
+slots.Discussion_kind = Slot(uri=DISMECH.kind, name="Discussion_kind", curie=DISMECH.curie('kind'),
+                   model_uri=DISMECH.Discussion_kind, domain=Discussion, range=Optional[Union[str, "DiscussionKindEnum"]])
+
+slots.Discussion_status = Slot(uri=DISMECH.status, name="Discussion_status", curie=DISMECH.curie('status'),
+                   model_uri=DISMECH.Discussion_status, domain=Discussion, range=Optional[Union[str, "DiscussionStatusEnum"]])

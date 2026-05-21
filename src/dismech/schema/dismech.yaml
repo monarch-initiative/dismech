@@ -1210,12 +1210,18 @@ enums:
       Kind of unresolved/in-progress item captured by a Discussion. Discussions
       are thread-like objects that record open questions, controversies, curation
       todos, emerging hypotheses, or interpretation debates attached to a
-      disease entry or sub-object. Complementary to (but distinct from) explicit
-      structural knowledge gaps; see monarch-initiative/dismech#2617 for the
-      knowledge-gap layer.
+      disease entry or sub-object. Knowledge gaps are represented as a
+      discussion kind so they can reuse the existing pointer, evidence, and
+      lifecycle machinery, while optional proposed experiments capture how a
+      gap could be resolved.
     permissible_values:
       OPEN_QUESTION:
         description: An unresolved scientific question posed by curators or experts
+      KNOWLEDGE_GAP:
+        description: >-
+          A missing causal, evidentiary, model-system, or translational
+          assertion whose resolution would materially improve the disease
+          mechanism model
       CONTROVERSY:
         description: A live disagreement or competing interpretation between published positions
       CURATION_TODO:
@@ -2350,6 +2356,61 @@ slots:
   rationale:
     description: Why this Discussion matters / what hangs on its resolution
     range: string
+  proposed_experiments:
+    description: >-
+      Experiments proposed as ways to resolve this Discussion. The Experiment
+      object is intentionally neutral: whether it is proposed, planned, in
+      progress, or reported is determined by its containing context. Here,
+      nesting under a Discussion means the experiment is proposed as a response
+      to an open item or knowledge gap.
+    multivalued: true
+    range: Experiment
+    inlined_as_list: true
+  experiment_id:
+    description: Stable identifier for an Experiment within a disease entry
+    range: string
+  experiment_type:
+    description: >-
+      Ontology-backed descriptor for the overall experiment or study design.
+      Prefer OBI terms when available; assay-level details should go in the
+      `assays` slot.
+    range: Descriptor
+    inlined: true
+  model_systems:
+    description: >-
+      Experimental model systems used or proposed for an experiment, using the
+      ExperimentalModel pattern and optional NAMO alignment.
+    multivalued: true
+    range: ExperimentalModel
+    inlined_as_list: true
+  controls:
+    description: Experimental controls, comparators, or counterfactual arms
+    multivalued: true
+    range: ExperimentalControl
+    inlined_as_list: true
+  decision_criterion:
+    description: >-
+      Pre-specified qualitative or quantitative criterion for interpreting the
+      experiment relative to the attached discussion or knowledge gap.
+    range: string
+  would_support:
+    description: >-
+      Entity references that would be supported if the experiment meets its
+      decision criterion. Uses the same hash-anchor grammar as `attaches_to`.
+    multivalued: true
+    range: string
+  would_refute:
+    description: >-
+      Entity references that would be weakened or refuted if the experiment
+      meets a contrary result. Uses the same hash-anchor grammar as `attaches_to`.
+    multivalued: true
+    range: string
+  protocol_reference:
+    description: >-
+      Optional protocol, methods paper, or registry reference for the
+      experimental workflow. May be a PMID, DOI, protocols.io DOI, URL, or other
+      stable identifier.
+    range: string
   posed_by:
     description: >-
       Optional attribution for who posed a Discussion. ORCID is preferred when
@@ -2369,11 +2430,11 @@ slots:
     description: >-
       Open or recently-resolved discussion items attached to this entry. Each
       Discussion is a thread-like object with a `prompt`, a `kind`
-      (OPEN_QUESTION, CONTROVERSY, etc.), a `status`, optional `attaches_to`
-      pointers to specific nodes/gaps, and an `evidence` block reusing the
-      standard EvidenceItem shape for citing primary literature, community
-      commentary (e.g., Alzforum), and forum/issue threads. See
-      monarch-initiative/dismech#2617 for the broader knowledge-gap context.
+      (OPEN_QUESTION, KNOWLEDGE_GAP, CONTROVERSY, etc.), a `status`, optional
+      `attaches_to` pointers to specific nodes/gaps, an optional
+      `proposed_experiments` block, and an `evidence` block reusing the standard
+      EvidenceItem shape for citing primary literature, community commentary
+      (e.g., Alzforum), and forum/issue threads.
     multivalued: true
     range: Discussion
     inlined_as_list: true
@@ -3449,6 +3510,134 @@ classes:
       - findings
       - evidence
       - notes
+
+  Experiment:
+    description: >-
+      A structured experiment or protocol-level study design that can be proposed
+      to resolve a knowledge gap, or later reused to represent experiments that
+      have been carried out. The object itself is intentionally status-neutral:
+      proposal, execution, and evidentiary status are expressed by the containing
+      slot or future evidence context.
+    comments:
+      - >-
+        In `Discussion.proposed_experiments`, the containing slot means the
+        experiment is proposed as a response to an open question or knowledge
+        gap.
+      - >-
+        Use `model_systems` for NAMO-aligned models, `perturbations` for
+        pathograph/gene/chemical/exposure manipulations, and `readouts` for
+        ontology-backed outcome or mechanism measurements.
+    slots:
+      - experiment_id
+      - name
+      - description
+      - experiment_type
+      - model_systems
+      - perturbations
+      - assays
+      - readouts
+      - controls
+      - decision_criterion
+      - would_support
+      - would_refute
+      - protocol_reference
+      - datasets
+      - evidence
+      - notes
+    slot_usage:
+      experiment_id:
+        required: true
+      perturbations:
+        description: >-
+          Interventions or manipulations applied in the experiment. These may
+          target disease pathograph nodes, genes, chemical entities, treatments,
+          exposures, triggers, or biological processes.
+        range: ExperimentalPerturbation
+        inlined_as_list: true
+      readouts:
+        description: >-
+          Measurements or outcomes interpreted against disease pathograph nodes,
+          phenotypes, biomarkers, or biological processes.
+        range: ExperimentalReadout
+        inlined_as_list: true
+      assays:
+        description: Ontology-backed assays used by the experiment; prefer OBI terms when available.
+      evidence:
+        description: >-
+          Literature, protocol papers, or dataset evidence supporting the
+          feasibility, precedent, or design rationale for this experiment.
+        recommended: false
+
+  ExperimentalPerturbation:
+    description: >-
+      A structured perturbation, intervention, or exposure used in an
+      experiment. Prefer ontology-backed descriptors for genes, chemicals,
+      treatments, exposures, triggers, and biological processes rather than
+      plain string lists.
+    slots:
+      - name
+      - description
+      - target
+      - gene
+      - genes
+      - chemical_entities
+      - treatment_term
+      - exposure_term
+      - triggers
+      - biological_processes
+      - effect
+      - evidence
+      - notes
+    slot_usage:
+      target:
+        description: >-
+          Entity reference for the pathograph node, phenotype, gene, or other
+          modeled object being perturbed. Uses the same hash-anchor grammar as
+          `attaches_to` when pointing into a disease entry.
+
+  ExperimentalReadout:
+    description: >-
+      A structured readout or outcome measured in an experiment. Use descriptor
+      slots to ground readouts to phenotypes, biomarkers, biological processes,
+      and assays.
+    slots:
+      - name
+      - description
+      - target
+      - phenotype_term
+      - biomarker_term
+      - biological_processes
+      - assays
+      - direction
+      - interpretation
+      - evidence
+      - notes
+    slot_usage:
+      target:
+        description: >-
+          Entity reference for the pathograph node, phenotype, or other modeled
+          object that this readout measures or adjudicates.
+      interpretation:
+        description: >-
+          Curator-facing explanation of how this readout would be interpreted
+          relative to the experiment's decision criterion.
+
+  ExperimentalControl:
+    description: >-
+      A comparator or control condition for an experiment, such as an isogenic
+      wild-type line, mock perturbation, vehicle control, rescue arm, or
+      untreated disease model.
+    slots:
+      - name
+      - description
+      - model_systems
+      - perturbations
+      - evidence
+      - notes
+    slot_usage:
+      perturbations:
+        range: ExperimentalPerturbation
+        inlined_as_list: true
 
   ClinicalTrial:
     description: A clinical trial relevant to treatment or research of a disease
@@ -4619,6 +4808,7 @@ classes:
       - status
       - attaches_to
       - rationale
+      - proposed_experiments
       - evidence
       - posed_by
       - posed_date
