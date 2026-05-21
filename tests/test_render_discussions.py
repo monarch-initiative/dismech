@@ -16,6 +16,12 @@ def test_render_discussion_proposed_experiment(tmp_path: Path) -> None:
         yaml.safe_dump(
             {
                 "name": "Gap Disorder",
+                "pathophysiology": [
+                    {
+                        "name": "Missing Step",
+                        "description": "A declared pathophysiology node.",
+                    }
+                ],
                 "discussions": [
                     {
                         "discussion_id": "gap_test",
@@ -75,3 +81,5 @@ def test_render_discussion_proposed_experiment(tmp_path: Path) -> None:
     assert "Readouts" in html
     assert "Barrier leak should track the perturbation." in html
     assert 'href="#discussions"' in html
+    assert 'id="pathophysiology-missing-step"' in html
+    assert html.count('href="#pathophysiology-missing-step"') >= 4
