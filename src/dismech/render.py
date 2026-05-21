@@ -278,6 +278,27 @@ def _make_anchor_id(prefix: str, value: str) -> str:
     return f"{prefix}-{slug or 'item'}"
 
 
+def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
+    """Resolve YAML semantic refs to in-page HTML fragment links."""
+    ref_index: dict[str, str] = {}
+
+    pathophysiology_items = disorder.get("pathophysiology") or []
+    if isinstance(pathophysiology_items, list):
+        for item in pathophysiology_items:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not name:
+                continue
+            anchor_id = item.get("_anchor_id") or _make_anchor_id(
+                "pathophysiology", str(name)
+            )
+            item.setdefault("_anchor_id", anchor_id)
+            ref_index[f"pathophysiology#{name}"] = f"#{anchor_id}"
+
+    return ref_index
+
+
 @lru_cache(maxsize=8)
 def _build_disorder_page_index(
     disorders_dir: str,
@@ -1327,6 +1348,7 @@ def render_disorder(
     )
     _annotate_model_links(disorder)
     _annotate_hypothesis_group_links(disorder)
+    semantic_ref_index = _build_semantic_ref_index(disorder)
 
     # Set up Jinja2 environment
     if template_path is None:
@@ -1344,6 +1366,9 @@ def render_disorder(
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
     env.filters["curie_to_url"] = curie_to_url
+    env.filters["semantic_ref_href"] = (
+        lambda ref: semantic_ref_index.get(str(ref), "") if ref is not None else ""
+    )
     env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         yaml_path.parent,
