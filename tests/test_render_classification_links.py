@@ -20,21 +20,21 @@ def test_render_classification_page_includes_internal_link_for_mondo_term(
     output_dir = tmp_path / "pages" / "classifications"
 
     _write_yaml(
-        input_dir / "Epilepsy.yaml",
+        input_dir / "Ciliopathy.yaml",
         {
-            "name": "Epilepsy",
-            "disease_term": {"term": {"id": "MONDO:0005027", "label": "epilepsy"}},
+            "name": "Ciliopathy",
+            "disease_term": {"term": {"id": "MONDO:0005308", "label": "ciliopathy"}},
             "classifications": {
-                "harrisons_chapter": [{"classification_value": "epilepsy"}]
+                "mechanistic_category": [{"classification_value": "ciliopathy"}]
             },
         },
     )
 
     render_classification_pages(input_dir=input_dir, output_dir=output_dir)
-    html = (output_dir / "HarrisonsChapterEnum.html").read_text()
+    html = (output_dir / "MechanisticNosologyEnum.html").read_text()
 
     # External MONDO link for the enum value.
-    assert 'href="http://purl.obolibrary.org/obo/MONDO_0005027"' in html
+    assert 'href="http://purl.obolibrary.org/obo/MONDO_0005308"' in html
 
     # Internal DisMech link generated via dismech_page_url filter.
-    assert 'class="linkout dismech-link" href="../disorders/Epilepsy.html"' in html
+    assert 'class="linkout dismech-link" href="../disorders/Ciliopathy.html"' in html
