@@ -955,6 +955,68 @@ def _build_module_summary(module: dict) -> dict:
     }
 
 
+def _build_comorbidity_summary(
+    yaml_path: Path,
+    disorder_pages_by_name: dict[str, str],
+) -> dict:
+    """Build a compact card payload for the comorbidity index page."""
+    data = load_comorbidity(yaml_path) or {}
+    disease_a = data.get("disease_a") or {}
+    disease_b = data.get("disease_b") or {}
+    disease_a_slug = disease_a.get("slug")
+    disease_b_slug = disease_b.get("slug")
+
+    return {
+        "name": data.get("name") or yaml_path.stem,
+        "href": f"{yaml_path.stem}.html",
+        "disease_a": {
+            "label": _format_condition_label(disease_a),
+            "href": _resolve_local_disorder_slug_href(
+                disease_a_slug,
+                disorder_pages_by_name,
+                local_prefix="../disorders/",
+            ),
+        },
+        "disease_b": {
+            "label": _format_condition_label(disease_b),
+            "href": _resolve_local_disorder_slug_href(
+                disease_b_slug,
+                disorder_pages_by_name,
+                local_prefix="../disorders/",
+            ),
+        },
+        "directionality": data.get("directionality") or "UNKNOWN",
+        "curation_status": data.get("curation_status") or "UNKNOWN",
+    }
+
+
+def render_comorbidity_index(
+    comorbidities: list[dict],
+    output_path: Path = Path("pages/comorbidities/index.html"),
+) -> Path:
+    """Render the comorbidity landing page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("comorbidity_index.html.j2")
+
+    html = template.render(
+        comorbidities=sorted(
+            comorbidities,
+            key=lambda comorbidity: (
+                str(comorbidity.get("disease_a", {}).get("label") or "").casefold(),
+                str(comorbidity.get("disease_b", {}).get("label") or "").casefold(),
+            ),
+        )
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
 def _format_condition_label(condition: dict) -> str:
     slug = condition.get("slug")
     if slug:
@@ -1741,14 +1803,24 @@ def render_all_comorbidities(
     if not input_dir.exists():
         return []
     output_dir.mkdir(parents=True, exist_ok=True)
+    disorders_dir = input_dir.parent / "disorders"
+    _, disorder_pages_by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
 
     yaml_files = sorted(input_dir.glob("*.yaml"))
     output_files = []
+    comorbidity_summaries: list[dict] = []
     for yaml_path in yaml_files:
         output_path = output_dir / f"{yaml_path.stem}.html"
         render_comorbidity(yaml_path, output_path, template_path)
         output_files.append(output_path)
+        comorbidity_summaries.append(
+            _build_comorbidity_summary(yaml_path, disorder_pages_by_name)
+        )
         print(f"Rendered comorbidity: {yaml_path.stem} -> {output_path}")
+
+    index_path = render_comorbidity_index(comorbidity_summaries, output_dir / "index.html")
+    output_files.append(index_path)
+    print(f"Rendered comorbidity index -> {index_path}")
     return output_files
 
 
@@ -1911,6 +1983,53 @@ def _build_enum_tree(enum_def: dict) -> tuple[list[dict], dict[str, dict]]:
     return roots, nodes
 
 
+def _build_classification_summary(
+    enum_name: str,
+    enum_info: dict,
+    disorders_by_value: dict[str, list[dict]],
+) -> dict:
+    """Build a compact card payload for the classification index page."""
+    unique_disorders = {
+        disorder.get("slug"): disorder
+        for disorder_list in (disorders_by_value or {}).values()
+        for disorder in disorder_list
+        if isinstance(disorder, dict) and disorder.get("slug")
+    }
+    return {
+        "enum_name": enum_name,
+        "title": enum_info.get("title") or enum_name,
+        "description": enum_info.get("description") or "",
+        "href": f"{slugify(enum_name)}.html",
+        "disorder_count": len(unique_disorders),
+    }
+
+
+def render_classification_index(
+    classifications: list[dict],
+    output_path: Path = Path("pages/classifications/index.html"),
+) -> Path:
+    """Render the classification landing page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("classification_index.html.j2")
+
+    html = template.render(
+        classifications=sorted(
+            classifications,
+            key=lambda classification: str(
+                classification.get("title") or classification.get("enum_name") or ""
+            ).casefold(),
+        )
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
 def render_classification_pages(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/classifications"),
@@ -1992,6 +2111,7 @@ def render_classification_pages(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_paths: list[Path] = []
+    classification_summaries: list[dict] = []
     for enum_name, enum_info in enums.items():
         enum_def = enum_info.get("definition") or {}
         roots, nodes = _build_enum_tree(enum_def)
@@ -2016,6 +2136,19 @@ def render_classification_pages(
         output_path = output_dir / f"{slugify(enum_name)}.html"
         output_path.write_text(html)
         output_paths.append(output_path)
+        classification_summaries.append(
+            _build_classification_summary(
+                enum_name,
+                enum_info,
+                disorders_by_enum_value.get(enum_name) or {},
+            )
+        )
+
+    index_path = render_classification_index(
+        classification_summaries,
+        output_dir / "index.html",
+    )
+    output_paths.append(index_path)
 
     return output_paths
 
