@@ -199,10 +199,24 @@ SOP from `CLAUDE.md`, with these notes:
 - **`evidence_source: HUMAN_CLINICAL`** for review articles, neuroimaging
   meta-analyses, and clinical neurobiology reviews (this is the default for
   most circuit-level evidence).
-- **`evidence_source: PARTIAL`** when an imaging meta-analysis supports
-  circuit dysconnectivity broadly but the abstract does not localize the
-  exact tract the node names — this is common for white-matter findings; do
-  not overclaim.
+- **`supports: PARTIAL`** (with `evidence_source: HUMAN_CLINICAL`) when an
+  imaging meta-analysis supports circuit dysconnectivity broadly but the
+  abstract does not localize the exact tract the node names — this is common
+  for white-matter findings; do not overclaim. Example:
+
+  ```yaml
+  evidence:
+  - reference: PMID:XXXXXXXX
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: "..."
+    explanation: "Meta-analysis supports broad frontostriatal dysconnectivity but does not localize to the specific tract named in this node."
+  ```
+
+  Note: `supports:` (`SUPPORT` / `PARTIAL` / `REFUTE` / `NO_EVIDENCE` /
+  `WRONG_STATEMENT`) and `evidence_source:` (`HUMAN_CLINICAL` /
+  `MODEL_ORGANISM` / `IN_VITRO` / `COMPUTATIONAL` / `OTHER`) are independent
+  fields — `PARTIAL` is only valid on `supports:`.
 - **Pharmacological-efficacy evidence** (e.g. "dopamine-blocking agents are
   effective for tics") is *indirect* mechanistic evidence — mark it
   `PARTIAL` or `SUPPORT` with `evidence_source: HUMAN_CLINICAL` and explain
