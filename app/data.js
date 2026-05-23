@@ -492,7 +492,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-05-04T09:20:00Z",
-    "updated_date": "2026-05-21T13:26:32Z",
+    "updated_date": "2026-05-21T19:05:00Z",
     "subtypes": [],
     "description": "3-hydroxy-3-methylglutaryl-CoA synthase deficiency is an autosomal recessive disorder of hepatic ketone body synthesis caused by biallelic pathogenic variants in HMGCS2. Loss of mitochondrial HMG-CoA synthase 2 activity blocks ketone body biosynthesis during fasting or intercurrent illness, producing acute metabolic decompensation with hypoketotic hypoglycemia, dicarboxylic aciduria, metabolic acidosis, vomiting, lethargy, hepatomegaly, seizures, and in severe cases encephalopathy or coma. Diagnosis is often difficult because routine organic acid and acylcarnitine profiles can be nonspecific outside acute crises; urinary 4-hydroxy-6- methyl-2-pyrone and an elevated plasma C2/C0 acylcarnitine ratio during decompensation improve recognition. Long-term management centers on avoiding fasting, rapid carbohydrate support during illness, and genetic counseling.\n",
     "pathophysiology": [
@@ -2359,7 +2359,7 @@ window.searchData = [
       "Hereditary Peripheral Neuropathy"
     ],
     "creation_date": "2026-05-04T05:21:52Z",
-    "updated_date": "2026-05-09T00:11:53Z",
+    "updated_date": "2026-05-21T20:10:55Z",
     "subtypes": [],
     "description": "Abetalipoproteinemia is a severe autosomal recessive disorder of apoB-containing lipoprotein assembly and secretion caused by biallelic MTTP pathogenic variants. Loss of microsomal triglyceride transfer protein function prevents normal chylomicron export from enterocytes and VLDL export from hepatocytes, producing absent or extremely low apoB-containing lipoproteins, hypocholesterolemia, hypotriglyceridemia, fat malabsorption, and secondary fat-soluble vitamin deficiency. Infants typically present with failure to thrive, diarrhea, vomiting, steatorrhea, acanthocytosis, and abnormal lipid studies; untreated individuals can later develop retinal, neurologic, hematologic, hepatic, and coagulation complications. Management centers on a low-fat diet, essential fatty acid intake, and high-dose fat-soluble vitamin supplementation.\n",
     "pathophysiology": [
@@ -2380,6 +2380,8 @@ window.searchData = [
       "CL:0000182"
     ],
     "biological_processes": [
+      "triglyceride transport",
+      "lipoprotein metabolic process",
       "chylomicron assembly",
       "very-low-density lipoprotein particle assembly",
       "lipid transport",
@@ -2492,7 +2494,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "41",
+    "causal_graph_edges": "46",
     "causal_graph_longest_path": "6"
   },
   {
@@ -2958,7 +2960,7 @@ window.searchData = [
       "Pilosebaceous unit disorder"
     ],
     "creation_date": "2026-01-23T23:13:39Z",
-    "updated_date": "2026-05-14T14:00:00Z",
+    "updated_date": "2026-05-17T00:00:00Z",
     "subtypes": [],
     "description": "Dysregulated keratinocyte differentiation and desquamation within the follicular epithelium promotes retention hyperkeratosis.\n",
     "pathophysiology": [
@@ -3051,8 +3053,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 18,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Acoustic Neuroma",
@@ -17483,7 +17485,7 @@ window.searchData = [
       "Disorder of development or morphogenesis"
     ],
     "creation_date": "2026-05-04T00:00:00Z",
-    "updated_date": "2026-05-09T06:21:15Z",
+    "updated_date": "2026-05-21T21:29:20Z",
     "subtypes": [
       "CGL1",
       "CGL2",
@@ -17594,7 +17596,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "33",
+    "causal_graph_edges": "43",
     "causal_graph_longest_path": "6"
   },
   {
@@ -25015,7 +25017,7 @@ window.searchData = [
       "Leukodystrophy"
     ],
     "creation_date": "2026-05-03T19:07:11Z",
-    "updated_date": "2026-05-19T10:37:45Z",
+    "updated_date": "2026-05-21T21:06:27Z",
     "subtypes": [],
     "description": "Cerebrotendinous xanthomatosis is an autosomal recessive inborn error of bile acid synthesis caused by biallelic pathogenic variants in CYP27A1, encoding mitochondrial sterol 27-hydroxylase. Loss of CYP27A1 activity impairs cholesterol side-chain oxidation and chenodeoxycholic acid synthesis, leading to compensatory sterol precursor metabolism, elevated cholestanol and bile alcohols, sterol deposition in the central nervous system and tendons, and multisystem disease that includes early ocular involvement. Core manifestations include infantile diarrhea or neonatal cholestasis, juvenile cataracts, tendon xanthomas, progressive neurologic dysfunction, peripheral neuropathy, pyramidal and cerebellar signs, psychiatric features, seizures, and treatability with chenodeoxycholic acid when diagnosed early.\n",
     "pathophysiology": [
@@ -25200,7 +25202,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "75",
+    "causal_graph_edges": "78",
     "causal_graph_longest_path": "7"
   },
   {
@@ -26668,7 +26670,7 @@ window.searchData = [
       "notochordal tumor"
     ],
     "creation_date": "2026-04-12T05:10:25Z",
-    "updated_date": "2026-05-18T00:00:00Z",
+    "updated_date": "2026-05-21T00:00:00Z",
     "subtypes": [
       "Conventional Chordoma",
       "Chondroid Chordoma",
@@ -27702,7 +27704,8 @@ window.searchData = [
     ],
     "biochemical": [
       "Arterial Blood Gases",
-      "C-Reactive Protein (CRP)"
+      "C-Reactive Protein (CRP)",
+      "Forced Expiratory Volume in 1 Second (FEV1)"
     ],
     "source_file": "Chronic_Obstructive_Pulmonary_Disease.yaml",
     "page_url": "../pages/disorders/Chronic_Obstructive_Pulmonary_Disease.html",
@@ -27710,7 +27713,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 7,
     "num_treatments": 11,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "1"
   },
   {
@@ -33455,7 +33458,8 @@ window.searchData = [
       "Fat-Soluble Vitamins (A, D, E, K)",
       "Liver Enzymes",
       "Blood Glucose / HbA1c",
-      "Sputum Microbiology"
+      "Sputum Microbiology",
+      "Forced Expiratory Volume in 1 Second (FEV1)"
     ],
     "source_file": "Cystic_Fibrosis.yaml",
     "page_url": "../pages/disorders/Cystic_Fibrosis.html",
@@ -33463,7 +33467,7 @@ window.searchData = [
     "num_pathophysiology": 26,
     "num_genes": 1,
     "num_treatments": 13,
-    "causal_graph_edges": "44",
+    "causal_graph_edges": "45",
     "causal_graph_longest_path": "11"
   },
   {
@@ -42385,7 +42389,7 @@ window.searchData = [
       "Cardiovascular Disease"
     ],
     "creation_date": "2026-03-06T00:00:00Z",
-    "updated_date": "2026-05-18T23:26:01Z",
+    "updated_date": "2026-05-21T19:15:00Z",
     "subtypes": [
       "Heterozygous Familial Hypercholesterolemia",
       "Homozygous Familial Hypercholesterolemia"
@@ -42530,7 +42534,7 @@ window.searchData = [
     "num_pathophysiology": 17,
     "num_genes": 6,
     "num_treatments": 15,
-    "causal_graph_edges": "62",
+    "causal_graph_edges": "63",
     "causal_graph_longest_path": "11"
   },
   {
@@ -43278,7 +43282,7 @@ window.searchData = [
       "Sphingolipidosis"
     ],
     "creation_date": "2026-05-05T11:17:39Z",
-    "updated_date": "2026-05-09T05:21:44Z",
+    "updated_date": "2026-05-21T22:43:22Z",
     "subtypes": [],
     "description": "Farber disease is an ultra-rare autosomal recessive lysosomal sphingolipid storage disorder caused by biallelic ASAH1 pathogenic variants and deficient acid ceramidase activity. Impaired lysosomal ceramide catabolism causes ceramide storage with lipid-laden macrophage granulomas, inflammatory cytokine activation, and a multisystem phenotype classically including periarticular subcutaneous nodules, painful swollen or contractured joints, and progressive hoarse voice from laryngeal involvement, with variable neurologic, respiratory, visceral, skeletal, and ocular involvement.\n",
     "pathophysiology": [
@@ -43381,7 +43385,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "5"
   },
   {
@@ -47884,7 +47888,7 @@ window.searchData = [
       "Inborn Error of Carbohydrate Metabolism"
     ],
     "creation_date": "2026-03-08T12:00:00Z",
-    "updated_date": "2026-05-21T06:12:42Z",
+    "updated_date": "2026-05-21T20:47:59Z",
     "subtypes": [
       "GSD Ia (glucose-6-phosphatase deficiency)",
       "GSD Ib (glucose-6-phosphate transporter deficiency)"
@@ -50640,7 +50644,7 @@ window.searchData = [
       "Inborn error of metabolism"
     ],
     "creation_date": "2026-05-04T00:00:00Z",
-    "updated_date": "2026-05-18T09:41:07Z",
+    "updated_date": "2026-05-21T19:29:29Z",
     "subtypes": [],
     "description": "Hartnup disease is an autosomal recessive neutral aminoaciduria caused mainly by biallelic loss-of-function variants in SLC6A19, which encodes the sodium-dependent neutral amino acid transporter B0AT1. Impaired B0AT1-mediated transport in renal proximal tubule and intestinal epithelial cells causes urinary loss and reduced gastrointestinal uptake of neutral amino acids, including tryptophan. Reduced tryptophan availability can limit endogenous nicotinamide synthesis, producing episodic pellagra-like photosensitive rash and neuropsychiatric manifestations such as ataxia, emotional lability, hallucinations, anxiety, hypotonia, and seizures. Most molecular evidence centers on SLC6A19/B0AT1, while Orphanet also lists CLTRN, an amino acid transport regulator, as a disease-associated gene.\n",
     "pathophysiology": [
@@ -51136,7 +51140,7 @@ window.searchData = [
       "Hereditary Metabolic Diseases"
     ],
     "creation_date": "2026-01-09T07:07:01Z",
-    "updated_date": "2026-05-19T00:02:52Z",
+    "updated_date": "2026-05-21T17:57:54Z",
     "subtypes": [
       "Type 1",
       "Type 2A",
@@ -51280,7 +51284,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "42",
+    "causal_graph_edges": "44",
     "causal_graph_longest_path": "5"
   },
   {
@@ -53958,7 +53962,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-06-12T20:16:27Z",
-    "updated_date": "2026-05-18T08:50:07Z",
+    "updated_date": "2026-05-21T18:27:18Z",
     "subtypes": [],
     "description": "Homocystinuria is an autosomal recessive inborn error of sulfur amino acid metabolism, most commonly caused by deficiency of cystathionine beta-synthase (CBS). The metabolic block at the transsulfuration branchpoint of methionine metabolism causes accumulation of homocysteine and methionine with depletion of downstream products (cystathionine, cysteine). Elevated homocysteine drives multisystem disease through oxidative stress, mitochondrial dysfunction, protein modifications via homocysteine thiolactone, endothelial dysfunction with thrombosis, and NMDA receptor-mediated neurotoxicity. Clinical features include ectopia lentis, skeletal abnormalities with marfanoid habitus, thromboembolism, and cognitive impairment. Disease severity is strongly modified by pyridoxine (vitamin B6) responsiveness.\n",
     "pathophysiology": [
@@ -62731,7 +62735,7 @@ window.searchData = [
       "Glycogen Storage Disease"
     ],
     "creation_date": "2026-03-08T00:00:00Z",
-    "updated_date": "2026-05-21T11:18:18Z",
+    "updated_date": "2026-05-21T19:45:22Z",
     "subtypes": [
       "EPM2A-related Lafora disease",
       "NHLRC1-related Lafora disease"
@@ -68870,7 +68874,8 @@ window.searchData = [
       "Acute Crisis Management",
       "Phenylbutyrate",
       "Metformin",
-      "Gene Therapy (Preclinical)"
+      "Gene Therapy (Preclinical)",
+      "Gene Therapy (Clinical Development)"
     ],
     "environmental": [
       "Dietary Protein",
@@ -68891,8 +68896,8 @@ window.searchData = [
     "num_phenotypes": 14,
     "num_pathophysiology": 8,
     "num_genes": 6,
-    "num_treatments": 9,
-    "causal_graph_edges": "53",
+    "num_treatments": 10,
+    "causal_graph_edges": "54",
     "causal_graph_longest_path": "6"
   },
   {
@@ -82555,7 +82560,7 @@ window.searchData = [
       "Neurological Disorder"
     ],
     "creation_date": "2026-04-04T00:00:00Z",
-    "updated_date": "2026-05-05T04:42:36Z",
+    "updated_date": "2026-05-21T22:12:29Z",
     "subtypes": [
       "Arts Syndrome",
       "CMTX5",
@@ -82665,7 +82670,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "4"
   },
   {
@@ -84272,11 +84277,13 @@ window.searchData = [
       "Movement Disorder"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-05-21T03:16:32Z",
+    "updated_date": "2026-05-21T21:50:55Z",
     "subtypes": [],
-    "description": "Progressive degeneration of dopaminergic neurons in the substantia nigra pars compacta leads to dopamine deficiency in the striatum, causing motor symptoms. Symptoms appear after 60-80% neuron loss.\n",
+    "description": "Progressive degeneration of dopaminergic neurons in the substantia nigra pars compacta is the core neuropathological lesion of Parkinson's disease. Motor signs emerge once an estimated 60-80% of these neurons are lost and the resulting loss of nigrostriatal dopamine input can no longer be compensated.\n",
     "pathophysiology": [
       "Dopaminergic Neuron Loss",
+      "Striatal Dopamine Deficiency",
+      "Basal Ganglia Circuit Dysfunction",
       "Alpha-Synuclein Aggregation",
       "Mitochondrial Dysfunction",
       "Neuroinflammation",
@@ -84291,6 +84298,8 @@ window.searchData = [
     ],
     "cell_types": [
       "Dopaminergic Neuron",
+      "Striatal medium spiny neuron",
+      "GABAergic neuron",
       "Microglia",
       "Astrocyte",
       "Enteric Neuron",
@@ -84300,15 +84309,20 @@ window.searchData = [
     ],
     "cell_type_ids": [
       "CL:0000700",
+      "CL:1001474",
+      "CL:0000617",
       "CL:0000129",
       "CL:0000127",
       "CL:0000107",
       "CL:0000164",
-      "CL:0002618",
+      "CL:2000044",
       "CL:0000669"
     ],
     "biological_processes": [
       "Dopamine Biosynthesis",
+      "Dopaminergic synaptic transmission",
+      "Dopamine Secretion",
+      "GABAergic synaptic transmission",
       "inclusion body assembly",
       "mitochondrion organization",
       "Autophagy",
@@ -84389,11 +84403,11 @@ window.searchData = [
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 12,
+    "num_pathophysiology": 14,
     "num_genes": 9,
     "num_treatments": 6,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Pars Planitis",
@@ -86373,7 +86387,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-05-21T13:15:04Z",
+    "updated_date": "2026-05-21T18:42:36Z",
     "subtypes": [
       "Classic PKU",
       "Mild PKU",
@@ -102088,7 +102102,7 @@ window.searchData = [
       "Neurometabolic Disorder"
     ],
     "creation_date": "2026-05-04T06:39:03Z",
-    "updated_date": "2026-05-09T02:37:24Z",
+    "updated_date": "2026-05-21T20:36:59Z",
     "subtypes": [],
     "description": "Tangier disease is an autosomal recessive ABCA1 deficiency disorder of HDL biogenesis and cellular cholesterol efflux. Biallelic ABCA1 pathogenic variants impair apolipoprotein-mediated cholesterol and phospholipid export, producing extremely low or absent HDL cholesterol and apoA-I, reduced cholesterol removal from peripheral cells, and cholesteryl ester accumulation in tissues. The clinical phenotype includes orange tonsils, hepatosplenomegaly, lymphadenopathy, peripheral neuropathy, ocular and skin/nail findings, and variable premature atherosclerotic cardiovascular disease.\n",
     "pathophysiology": [
@@ -102201,17 +102215,23 @@ window.searchData = [
       "Low-Fat Diet and Lipid Risk Reduction",
       "Peripheral Neuropathy Rehabilitation",
       "Tonsillectomy for Obstructive Tonsillar Disease",
+      "Corneal Transplantation for Vision-Limiting Corneal Opacity",
       "Genetic Counseling and Family Screening"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Low HDL cholesterol",
+      "Low apolipoprotein A-I",
+      "Low total cholesterol",
+      "Elevated plasma triglycerides"
+    ],
     "source_file": "Tangier_Disease.yaml",
     "page_url": "../pages/disorders/Tangier_Disease.html",
     "num_phenotypes": 23,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "29",
+    "num_treatments": 6,
+    "causal_graph_edges": "42",
     "causal_graph_longest_path": "5"
   },
   {
@@ -104763,7 +104783,7 @@ window.searchData = [
       "Endocrine Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-05-09T17:11:56Z",
+    "updated_date": "2026-05-21T06:08:04Z",
     "subtypes": [],
     "description": "Peripheral tissues (muscle, liver, adipose) become resistant to insulin action, requiring higher insulin levels to maintain glucose homeostasis. This leads to compensatory hyperinsulinemia and eventually beta cell exhaustion.\n",
     "pathophysiology": [
@@ -105353,18 +105373,23 @@ window.searchData = [
       "Tenesmus",
       "Weight Loss",
       "Fatigue",
-      "Anemia"
+      "Anemia",
+      "Facial Diplegia"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
       "Systemic",
-      "Hematologic"
+      "Hematologic",
+      "Neurological"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Constitutional",
       "Digestive",
-      "Growth"
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0025085",
@@ -105373,11 +105398,13 @@ window.searchData = [
       "HP:0012702",
       "HP:0001824",
       "HP:0012378",
-      "HP:0001903"
+      "HP:0001903",
+      "HP:0001349"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "RARE"
     ],
     "genes": [
       "IL23R",
@@ -105423,7 +105450,7 @@ window.searchData = [
     ],
     "source_file": "Ulcerative_Colitis.yaml",
     "page_url": "../pages/disorders/Ulcerative_Colitis.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 8,
     "num_pathophysiology": 10,
     "num_genes": 18,
     "num_treatments": 8,
@@ -108065,7 +108092,7 @@ window.searchData = [
       "Liver Disease"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-05-21T03:16:32Z",
+    "updated_date": "2026-05-21T16:57:45Z",
     "subtypes": [],
     "description": "Wilson disease is a rare autosomal recessive disorder of copper metabolism caused by mutations in the ATP7B gene encoding a copper-transporting P-type ATPase. ATP7B dysfunction impairs biliary copper excretion and ceruloplasmin biosynthesis, leading to toxic copper accumulation primarily in the liver and brain, with secondary involvement of the kidneys, eyes, heart, muscles, and bones. Clinical presentations range from asymptomatic liver disease to fulminant hepatic failure, chronic hepatitis, cirrhosis, and diverse neuropsychiatric manifestations including dystonia, tremor, dysarthria, depression, and psychosis. Kayser-Fleischer corneal rings are characteristic, and hemolytic anemia can accompany acute hepatic presentations. Diagnosis relies on the modified Leipzig Scoring System integrating serum ceruloplasmin, urinary copper, hepatic copper content, and genetic testing. Treatment with copper chelators (D-penicillamine, trientine) and zinc salts can prevent disease progression when initiated early; liver transplantation is curative for end-stage hepatic disease.\n",
     "pathophysiology": [
@@ -108283,7 +108310,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "78",
+    "causal_graph_edges": "82",
     "causal_graph_longest_path": "7"
   },
   {
@@ -110672,10 +110699,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 1114,
-  "total_unique_evidence_sources": 20590,
+  "total_unique_evidence_sources": 20609,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 193,
   "total_pathographs": 1107,
-  "total_unique_pathological_events": 5366
+  "total_unique_pathological_events": 5368
 };
 window.dispatchEvent(new Event('searchDataReady'));
