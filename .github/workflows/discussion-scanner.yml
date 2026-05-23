@@ -1,0 +1,119 @@
+name: Discussion Scanner
+
+on:
+  schedule:
+    - cron: "30 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: "How many hours of recent discussion activity to inspect"
+        required: false
+        default: "48"
+        type: string
+      model:
+        description: "Claude model to use for discussion scanning"
+        required: false
+        default: claude-sonnet-4-6
+        type: choice
+        options:
+          - claude-haiku-4-5-20251001
+          - claude-sonnet-4-6
+          - claude-opus-4-7
+      note:
+        description: "Optional note for the manual scanner run"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: discussion-scanner
+  cancel-in-progress: true
+
+jobs:
+  discussion-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      discussions: write
+      issues: write
+      id-token: write
+
+    env:
+      LOOKBACK_HOURS: ${{ inputs.lookback_hours || '48' }}
+      DISCUSSION_MODEL: ${{ inputs.model || 'claude-sonnet-4-6' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.PAT_FOR_PR }}
+
+      - name: Run Discussion Scanner
+        id: discussion-scanner
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.PAT_FOR_PR }}
+          GITHUB_TOKEN: ${{ secrets.PAT_FOR_PR }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.PAT_FOR_PR }}
+          show_full_output: true
+          claude_args: |
+            --dangerously-skip-permissions
+            --model ${{ env.DISCUSSION_MODEL }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            TRIGGER: ${{ github.event_name }}
+            LOOKBACK HOURS: ${{ env.LOOKBACK_HOURS }}
+            MANUAL NOTE: ${{ inputs.note || '' }}
+
+            You are @dragon-ai-agent running the dismech discussion scanner.
+
+            Read `CLAUDE.md` first. Then use `gh` commands to inspect recent
+            GitHub Discussions activity in REPO. Focus on recent discussion
+            comments within LOOKBACK HOURS, excluding comments authored by
+            `dragon-ai-agent`. You may also inspect recently-created discussion
+            bodies when they look like fresh hypothesis starts.
+
+            This is an open-ended discussion helper, not a curation job.
+            Do not edit repository files, do not create branches, and do not
+            open pull requests. You may post at most one discussion comment or
+            create at most one issue in this run. If nothing deserves a response,
+            finish without posting.
+
+            Choose at most one target. Prefer a recent hypothesis discussion or
+            comment where a useful scientific response would advance the thread.
+            Do not respond just to be active.
+
+            If you respond to a hypothesis discussion:
+            - Write like a constructive biomedical collaborator, not like a form.
+            - Do additional literature research beyond the PMIDs already present
+              in the discussion so far.
+            - Help sharpen the hypothesis, note plausible alternatives, suggest
+              tests or model systems, and link relevant papers or repository
+              context.
+            - Keep the response concise enough for a discussion thread.
+
+            If a recent comment has more than two thumbs-up reactions and there
+            is a clear hypothesis that could be tested or integrated, create a
+            GitHub issue instead of posting another discussion comment. Prefer
+            labels `curation` and `high_effort` when they exist. The issue body
+            must link back to the discussion and say that the next agent should
+            use OpenScientist to do an in-silico test of the hypothesis before
+            integrating it into dismech. Include enough context for the curation
+            scanner to act without rereading the entire thread.
+
+            Useful `gh` patterns:
+            - Use GraphQL through `gh api graphql` for Discussions, comments,
+              authors, timestamps, reaction groups, and category names.
+            - Use `gh issue list` before creating an issue to avoid duplicates.
+            - Use `gh issue create` only for the single selected hypothesis
+              handoff.
+
+            General guardrails:
+            - Follow repository conventions in `CLAUDE.md`.
+            - Never create or hand-edit `references_cache/*.md`.
+            - Do not invoke `@dragon-ai-agent please`.
+            - Do not mention automation unless it helps explain the handoff.
