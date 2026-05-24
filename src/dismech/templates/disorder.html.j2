@@ -3701,9 +3701,16 @@
                 {% set mapping_term_id = mapping.term.id if mapping.term and mapping.term.id else None %}
                 {% set mapping_has_local_page = (mapping_term_id | has_local_disorder_page) if mapping_term_id else False %}
                 {% set mapping_dismech_href = (mapping_term_id | dismech_page_url) if mapping_term_id else None %}
-                {# skos:exactMatch denotes the same disease as this page's disease_term: ontology grounding only, never a separate curation target (#1307). #}
+                {# Mapping is ontology grounding only (not a separate curation target) when either #}
+                {# (a) the predicate is skos:exactMatch, or #}
+                {# (b) the mapped term IS this page's own disease_term (a self-mapping under any predicate). #}
+                {# Case (b) covers the closeMatch self-mappings — refined / metastatic / molecular-subtype lenses #}
+                {# on the same MONDO term (e.g., Metastatic_NSCLC.yaml closeMatch MONDO:0005233) — for which #}
+                {# flagging "Not Yet Curated" against the page's own term is misleading (#1307). #}
                 {% set mapping_is_exact = mapping.mapping_predicate == "skos:exactMatch" %}
-                {% set mapping_flag_missing = mapping_term_id and not mapping_has_local_page and not mapping_is_exact %}
+                {% set disease_term_id = disorder.disease_term.term.id if disorder.disease_term and disorder.disease_term.term else None %}
+                {% set mapping_is_self_mapping = mapping_term_id and disease_term_id and mapping_term_id == disease_term_id %}
+                {% set mapping_flag_missing = mapping_term_id and not mapping_has_local_page and not mapping_is_exact and not mapping_is_self_mapping %}
                 <div class="mapping-item">
                     <div class="mapping-title">
                         {% if mapping_term_id %}
