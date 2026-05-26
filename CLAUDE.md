@@ -146,6 +146,7 @@ pathophysiology:
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
+- `dna_repair_synthetic_lethality` — Conserved HRR/FA-BRCA deficiency pattern: HRR or FA/BRCA repair deficiency → replication-associated DNA damage accumulation → PARP/platinum synthetic lethality → POLQ/error-prone repair escape → restored HRR and acquired resistance. Key conformance target: `dna_repair_synthetic_lethality#PARP and Platinum Synthetic Lethality`
 
 ### Evidence Items
 All evidence must have PMID references and support classification:
