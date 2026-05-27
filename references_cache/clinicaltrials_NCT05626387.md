@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05626387
+reference_id: "clinicaltrials:NCT05626387"
 title: "Mycophenolate Mofetil and Prednisolone Versus Prednisolone Alone in Fibrotic Hypersensitivity Pneumonitis: a Randomized Controlled Trial"
 content_type: summary
 ---
