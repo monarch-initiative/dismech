@@ -22075,6 +22075,102 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "COVID-19",
+    "disease_id": "MONDO:0100096",
+    "category": "",
+    "parents": [
+      "coronavirus infectious disease"
+    ],
+    "creation_date": "2026-05-26T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COVID-19 (Coronavirus Disease 2019) is the acute infectious respiratory disease caused by Severe Acute Respiratory Syndrome Coronavirus 2 (SARS-CoV-2). Cell entry depends on viral spike protein binding to ACE2 and TMPRSS2-mediated spike priming on airway and alveolar epithelium. Clinical presentation ranges from asymptomatic infection through self-limited upper-respiratory illness to bilateral viral pneumonia, hypoxemic respiratory failure with acute respiratory distress syndrome, and multisystem involvement. A defining molecular feature of SARS-CoV-2 pathogenesis is the Nsp3 macrodomain (Mac1), a conserved viral mono-ADP-ribosylhydrolase that reverses host PARP-mediated antiviral ADP-ribosylation downstream of the interferon response. This entry models the acute infection only; post-acute sequelae are curated under the separate Long COVID entry.",
+    "pathophysiology": [
+      "SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2",
+      "RNA Virus-Induced Interferon and PARP Activation",
+      "Host PARP9/DTX3L Antiviral ADP-Ribosylation",
+      "Nsp3 Macrodomain De-ADP-Ribosylation Countermeasure",
+      "Enhanced Viral Replication and Tissue Pathology",
+      "Cytokine-Driven Acute Respiratory Distress Syndrome"
+    ],
+    "cell_types": [
+      "ciliated cell",
+      "pulmonary alveolar type 2 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000064",
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "response to virus",
+      "positive regulation of defense response to virus by host",
+      "protein poly-ADP-ribosylation",
+      "protein de-ADP-ribosylation",
+      "negative regulation of defense response to virus by host",
+      "viral life cycle",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Cough",
+      "Dyspnea",
+      "Pneumonia",
+      "Acute Respiratory Distress Syndrome",
+      "Anosmia",
+      "Ageusia",
+      "Lymphopenia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Respiratory",
+      "Neurologic",
+      "Laboratory Abnormality"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0012735",
+      "HP:0002094",
+      "HP:0002090",
+      "HP:0033677",
+      "HP:0000458",
+      "HP:0041051",
+      "HP:4000034"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ACE2",
+      "TMPRSS2"
+    ],
+    "treatments": [
+      "Nirmatrelvir/Ritonavir (Paxlovid)",
+      "Remdesivir",
+      "Dexamethasone",
+      "COVID-19 Vaccination"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COVID-19.yaml",
+    "page_url": "../pages/disorders/COVID-19.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "CRB1 Retinal Dystrophies",
     "disease_id": "MONDO:0013453",
     "category": "Mendelian",
@@ -42115,6 +42211,79 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Fallopian tube benign neoplasm",
+    "disease_id": "MONDO:0000645",
+    "category": "Gynecologic Neoplasm",
+    "parents": [
+      "benign female reproductive system neoplasm",
+      "fallopian tube neoplasm"
+    ],
+    "creation_date": "2026-05-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Benign epithelial tubal neoplasms",
+      "Benign mesenchymal/paratubal smooth muscle tumors"
+    ],
+    "description": "Fallopian tube benign neoplasm is a non-metastasizing neoplastic process of the fallopian tube, including epithelial and mesenchymal benign tumors that can present with pelvic symptoms, adnexal mass effect, or incidental imaging findings.",
+    "pathophysiology": [
+      "Localized benign epithelial or smooth muscle proliferation in tubal/adnexal tissue",
+      "Circumscribed benign adnexal lesion formation",
+      "Progressive enlargement and tubal distortion",
+      "Local adnexal pressure and tissue stretch",
+      "Hypothalamic-pituitary-ovarian axis dysregulation in selected adenofibromas",
+      "Clinical detection by imaging, surgery, or pathology"
+    ],
+    "cell_types": [
+      "fallopian tube epithelial cell",
+      "smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:4052018",
+      "CL:0000192"
+    ],
+    "biological_processes": [
+      "cell population proliferation",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Abdominal mass",
+      "Pelvic pain",
+      "Postmenopausal bleeding",
+      "Abnormality of the menstrual cycle"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Gynecologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0031500",
+      "HP:0034267",
+      "HP:0033840",
+      "HP:0000140"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Surgical excision",
+      "Fertility-preserving laparoscopic excision"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Fallopian_Tube_Benign_Neoplasm.yaml",
+    "page_url": "../pages/disorders/Fallopian_tube_benign_neoplasm.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Familial Adenomatous Polyposis",
     "disease_id": "MONDO:0021056",
     "category": "",
@@ -49729,6 +49898,7 @@ window.searchData = [
     "pathophysiology": [
       "ERBB2 Gene Amplification",
       "Constitutive Receptor Activation",
+      "GRB2 Adaptor Hub",
       "Downstream Oncogenic Signaling",
       "Uncontrolled Proliferation"
     ],
@@ -49741,6 +49911,7 @@ window.searchData = [
     "biological_processes": [
       "ERBB2 signaling pathway",
       "transmembrane receptor protein tyrosine kinase signaling pathway",
+      "protein autophosphorylation",
       "phosphatidylinositol 3-kinase signaling",
       "MAPK cascade",
       "cell population proliferation"
@@ -49785,11 +49956,11 @@ window.searchData = [
     "source_file": "HER2_Positive_Breast_Cancer.yaml",
     "page_url": "../pages/disorders/HER2-Positive_Breast_Cancer.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "HER2-Positive Colorectal Cancer",
@@ -55626,6 +55797,91 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "66",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Hypersensitivity pneumonitis",
+    "disease_id": "MONDO:0017853",
+    "category": "Respiratory Disease",
+    "parents": [
+      "Allergic Respiratory Disease",
+      "Interstitial Lung Disease",
+      "Pneumonitis"
+    ],
+    "creation_date": "2026-05-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Acute inflammatory hypersensitivity pneumonitis",
+      "Chronic non-fibrotic hypersensitivity pneumonitis",
+      "Chronic fibrotic hypersensitivity pneumonitis"
+    ],
+    "description": "Hypersensitivity pneumonitis is an immune-mediated interstitial lung disease caused by repeated inhalation of environmental antigens in susceptible and sensitized individuals, with inflammation centered on small airways and lung parenchyma and potential progression to chronic fibrotic lung disease.",
+    "pathophysiology": [
+      "Repetitive inhaled antigen exposure and sensitization",
+      "Exaggerated humoral and cellular lung immune response",
+      "Bronchiolocentric granulomatous inflammation",
+      "Fibrotic remodeling of interstitial lung architecture",
+      "Progressive respiratory functional decline"
+    ],
+    "cell_types": [
+      "T cell",
+      "alveolar macrophage",
+      "fibroblast",
+      "myofibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000583",
+      "CL:0000057",
+      "CL:0000186"
+    ],
+    "biological_processes": [
+      "immune response",
+      "inflammatory response",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Dyspnea",
+      "Cough",
+      "Ground-glass opacification",
+      "Crackles",
+      "Clubbing"
+    ],
+    "phenotype_categories": [
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0012735",
+      "HP:0025179",
+      "HP:0030830",
+      "HP:0001217"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antigen avoidance",
+      "Systemic glucocorticoids",
+      "Antifibrotic therapy for progressive fibrotic disease",
+      "Lung transplantation for advanced fibrotic disease"
+    ],
+    "environmental": [
+      "Bird protein exposure",
+      "Fungal and microbial antigen exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Hypersensitivity_Pneumonitis.yaml",
+    "page_url": "../pages/disorders/Hypersensitivity_pneumonitis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Hypertensive Heart Disease",
@@ -82337,6 +82593,9 @@ window.searchData = [
       "Cancer-Prone Pre-Ciliated Tubal Cell State",
       "Serous Tubal Intraepithelial Carcinoma Precursor",
       "Homologous Recombination Deficiency",
+      "PARP and Platinum Synthetic Lethality",
+      "POLQ-Mediated Microhomology Repair Escape",
+      "BRCA Reversion and Restored HRR Resistance",
       "Copy-Number Driven Chromosomal Instability",
       "CCNE1 Amplification and Replication Stress",
       "Cell Population Proliferation"
@@ -82354,6 +82613,8 @@ window.searchData = [
       "negative regulation of G1/S transition of mitotic cell cycle",
       "cell population proliferation",
       "double-strand break repair via homologous recombination",
+      "single strand break repair",
+      "alternative end joining",
       "chromosome segregation",
       "G1/S transition of mitotic cell cycle",
       "DNA replication"
@@ -82405,10 +82666,10 @@ window.searchData = [
     "source_file": "Ovarian_High-Grade_Serous_Carcinoma.yaml",
     "page_url": "../pages/disorders/Ovarian_High-Grade_Serous_Carcinoma.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 11,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -111011,11 +111272,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1115,
-  "total_unique_evidence_sources": 20761,
-  "total_unique_disease_categories": 44,
-  "total_unique_phenotype_categories": 194,
-  "total_pathographs": 1108,
-  "total_unique_pathological_events": 5402
+  "total_disorder_pages": 1118,
+  "total_unique_evidence_sources": 20797,
+  "total_unique_disease_categories": 45,
+  "total_unique_phenotype_categories": 195,
+  "total_pathographs": 1111,
+  "total_unique_pathological_events": 5423
 };
 window.dispatchEvent(new Event('searchDataReady'));
