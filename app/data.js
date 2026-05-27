@@ -55628,6 +55628,91 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Hypersensitivity pneumonitis",
+    "disease_id": "MONDO:0017853",
+    "category": "Respiratory Disease",
+    "parents": [
+      "Allergic Respiratory Disease",
+      "Interstitial Lung Disease",
+      "Pneumonitis"
+    ],
+    "creation_date": "2026-05-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Acute inflammatory hypersensitivity pneumonitis",
+      "Chronic non-fibrotic hypersensitivity pneumonitis",
+      "Chronic fibrotic hypersensitivity pneumonitis"
+    ],
+    "description": "Hypersensitivity pneumonitis is an immune-mediated interstitial lung disease caused by repeated inhalation of environmental antigens in susceptible and sensitized individuals, with inflammation centered on small airways and lung parenchyma and potential progression to chronic fibrotic lung disease.",
+    "pathophysiology": [
+      "Repetitive inhaled antigen exposure and sensitization",
+      "Exaggerated humoral and cellular lung immune response",
+      "Bronchiolocentric granulomatous inflammation",
+      "Fibrotic remodeling of interstitial lung architecture",
+      "Progressive respiratory functional decline"
+    ],
+    "cell_types": [
+      "T cell",
+      "alveolar macrophage",
+      "fibroblast",
+      "myofibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000583",
+      "CL:0000057",
+      "CL:0000186"
+    ],
+    "biological_processes": [
+      "immune response",
+      "inflammatory response",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Dyspnea",
+      "Cough",
+      "Ground-glass opacification",
+      "Crackles",
+      "Clubbing"
+    ],
+    "phenotype_categories": [
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0012735",
+      "HP:0025179",
+      "HP:0030830",
+      "HP:0001217"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antigen avoidance",
+      "Systemic glucocorticoids",
+      "Antifibrotic therapy for progressive fibrotic disease",
+      "Lung transplantation for advanced fibrotic disease"
+    ],
+    "environmental": [
+      "Bird protein exposure",
+      "Fungal and microbial antigen exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Hypersensitivity_Pneumonitis.yaml",
+    "page_url": "../pages/disorders/Hypersensitivity_pneumonitis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Hypertensive Heart Disease",
     "disease_id": "MONDO:0001302",
     "category": "Cardiovascular",
@@ -111011,11 +111096,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1115,
-  "total_unique_evidence_sources": 20761,
+  "total_disorder_pages": 1116,
+  "total_unique_evidence_sources": 20770,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 194,
-  "total_pathographs": 1108,
-  "total_unique_pathological_events": 5402
+  "total_pathographs": 1109,
+  "total_unique_pathological_events": 5407
 };
 window.dispatchEvent(new Event('searchDataReady'));
