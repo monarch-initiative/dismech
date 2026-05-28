@@ -614,6 +614,12 @@ gen-module-pages:
     uv run python -m dismech.render --module {{modules_dir}}
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
+# Generate deep-research index page
+[group('Pages')]
+gen-research-index:
+    uv run python -m dismech.render --research
+    @echo "Generated pages/research/index.html"
+
 # Generate a single comorbidity page
 [group('Pages')]
 gen-comorbidity-page file:
