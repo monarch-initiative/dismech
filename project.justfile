@@ -809,6 +809,75 @@ research-disorder provider disorder *args="":
         --separate-citations "$output_file.citations.md" \
         {{args}}
 
+# Deep research on a shared mechanism module using specified provider
+# Examples:
+#   just research-module falcon meiotic_prophase_failure --param max_tokens=12000
+[group('Research')]
+research-module provider module *args="":
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p {{research_dir}}/modules
+    yaml_file="{{modules_dir}}/{{module}}.yaml"
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: Module file not found: $yaml_file"
+        for f in {{modules_dir}}/*.yaml; do basename "$f" .yaml; done | sort
+        exit 1
+    fi
+    module_name=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    print(data.get("name", ""))
+    PY
+    )
+    category=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    print(data.get("category", ""))
+    PY
+    )
+    module_description=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    print(" ".join(str(data.get("description", "")).split()))
+    PY
+    )
+    pathophysiology_summary=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    for node in data.get("pathophysiology") or []:
+        name = node.get("name", "")
+        desc = " ".join(str(node.get("description", "")).split())
+        print(f"- {name}: {desc}")
+    PY
+    )
+    output_file="{{research_dir}}/modules/{{module}}-deep-research-{{provider}}.md"
+    template_file="{{templates_dir}}/module_mechanism_research.md"
+    echo "Researching module: $module_name ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    uv run deep-research-client research \
+        --template "$template_file" \
+        --var "module_name=$module_name" \
+        --var "module_slug={{module}}" \
+        --var "category=$category" \
+        --var "module_description=$module_description" \
+        --var "pathophysiology_summary=$pathophysiology_summary" \
+        $provider_arg \
+        --output "$output_file" \
+        --separate-citations "$output_file.citations.md" \
+        {{args}}
+
 # Deep research on a comorbidity using specified provider
 # Examples:
 #   just research-comorbidity perplexity com_Type_2_Diabetes_Mellitus__Lichen_Simplex_Chronicus__Prurigo_Nodularis
