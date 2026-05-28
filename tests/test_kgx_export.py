@@ -37,6 +37,7 @@ from dismech.export.kgx_export import (
     cell_type_to_edge,
     cellular_component_to_edge,
     chemical_entity_to_edge,
+    disease_comorbidity_to_edge,
     exposure_to_edge,
     extract_nodes,
     gene_to_edge,
@@ -91,6 +92,64 @@ class TestPhenotypeToEdge:
     def test_none_phenotype(self):
         """Test with None phenotype."""
         assert phenotype_to_edge("MONDO:0004979", None) is None
+
+    def test_mondo_typed_phenotype_skipped(self):
+        """MONDO-typed phenotype objects must NOT emit DiseaseToPhenotypicFeatureAssociation.
+
+        These are comorbid diseases (e.g., campylobacteriosis -> Guillain-Barre)
+        and are routed to disease_comorbidity_to_edge instead.
+        """
+        phenotype = {
+            "name": "Guillain-Barre syndrome",
+            "phenotype_term": {
+                "preferred_term": "Guillain-Barre syndrome",
+                "term": {"id": "MONDO:0016218", "label": "Guillain-Barre syndrome"},
+            },
+        }
+        assert phenotype_to_edge("MONDO:0005611", phenotype) is None
+
+
+class TestDiseaseComorbidityToEdge:
+    """Tests for disease_comorbidity_to_edge function."""
+
+    def test_valid_mondo_typed_comorbidity(self):
+        """A MONDO-typed phenotype entry produces a disease-to-disease Association."""
+        phenotype = {
+            "name": "Guillain-Barre syndrome",
+            "phenotype_term": {
+                "preferred_term": "Guillain-Barre syndrome",
+                "term": {"id": "MONDO:0016218", "label": "Guillain-Barre syndrome"},
+            },
+            "evidence": [
+                {
+                    "reference": "PMID:12345",
+                    "supports": "SUPPORT",
+                    "snippet": "Post-infectious complication",
+                    "explanation": "Sequela",
+                }
+            ],
+        }
+        edge = disease_comorbidity_to_edge("MONDO:0005611", phenotype)
+        assert isinstance(edge, Association)
+        assert not isinstance(edge, DiseaseToPhenotypicFeatureAssociation)
+        assert edge.subject == "MONDO:0005611"
+        assert edge.predicate == "biolink:associated_with"
+        assert edge.object == "MONDO:0016218"
+        assert edge.subject_category == "biolink:Disease"
+        assert edge.object_category == "biolink:Disease"
+        assert edge.primary_knowledge_source == KNOWLEDGE_SOURCE
+        assert edge.publications == ["PMID:12345"]
+
+    def test_hp_typed_skipped(self):
+        """HP-typed phenotypes are not comorbidities; function returns None."""
+        phenotype = {
+            "phenotype_term": {"term": {"id": "HP:0030828", "label": "Wheezing"}},
+        }
+        assert disease_comorbidity_to_edge("MONDO:0004979", phenotype) is None
+
+    def test_missing_term_id(self):
+        """Untyped phenotype returns None."""
+        assert disease_comorbidity_to_edge("MONDO:0004979", {"name": "foo"}) is None
 
 
 class TestCellTypeToEdge:
