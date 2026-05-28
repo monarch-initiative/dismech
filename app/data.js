@@ -38470,6 +38470,83 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "EDN3/EDNRB Waardenburg-Shah",
+    "disease_id": "MONDO:0019518",
+    "category": "Genetic",
+    "parents": [
+      "Waardenburg Syndrome",
+      "Hirschsprung Disease",
+      "Neurocristopathy"
+    ],
+    "creation_date": "2026-05-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Waardenburg Syndrome Type 4A",
+      "Waardenburg Syndrome Type 4B"
+    ],
+    "description": "EDN3/EDNRB-related Waardenburg-Shah syndrome is a neural crest signaling-axis disorder in which reduced endothelin-3 ligand or endothelin receptor type B signaling impairs melanoblast and enteric neural crest development. Biallelic loss-of-function in EDNRB or EDN3 causes Waardenburg syndrome type 4A or 4B with sensorineural hearing loss, pigmentary abnormalities, and Hirschsprung disease. Heterozygous variants can contribute to incompletely penetrant disease or Hirschsprung/WS2-like susceptibility, especially for EDNRB, so this entry models the ligand-receptor axis with gene-specific inheritance and evidence notes.",
+    "pathophysiology": [
+      "EDN3 ligand and EDNRB receptor signaling deficiency",
+      "Terminal migration defect of melanoblast and enteric precursors",
+      "Stria vascularis and cutaneous melanocyte deficiency",
+      "Enteric ganglion cell deficiency",
+      "Heterozygous EDNRB susceptibility"
+    ],
+    "cell_types": [
+      "melanoblast",
+      "enteric neuron",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000541",
+      "CL:0007011",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "neural crest cell migration",
+      "pigmentation",
+      "enteric nervous system development"
+    ],
+    "phenotypes": [
+      "Aganglionic megacolon",
+      "Sensorineural hearing impairment",
+      "Pigmentary abnormality"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Audiological",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002251",
+      "HP:0000407"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "EDNRB",
+      "EDN3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "EDN3_EDNRB_Waardenburg_Shah.yaml",
+    "page_url": "../pages/disorders/EDN3_EDNRB_Waardenburg-Shah.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "EFL1-related Shwachman-Diamond syndrome",
     "disease_id": "MONDO:0044205",
     "category": "Mendelian",
@@ -82766,6 +82843,87 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "PAX3 Waardenburg Spectrum",
+    "disease_id": "MONDO:0018094",
+    "category": "Genetic",
+    "parents": [
+      "Waardenburg Syndrome",
+      "Pigmentary Disorder",
+      "Sensorineural Hearing Loss"
+    ],
+    "creation_date": "2026-05-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Waardenburg Syndrome Type 1",
+      "Klein-Waardenburg Syndrome"
+    ],
+    "description": "PAX3 Waardenburg spectrum is an auditory-pigmentary neural crest disorder caused by pathogenic variants in PAX3, a paired-box transcription factor. Heterozygous PAX3 variants classically cause Waardenburg syndrome type 1, with sensorineural hearing loss, pigmentary disturbance, and dystopia canthorum, and can also cause Klein-Waardenburg syndrome/type 3 with musculoskeletal involvement. The shared mechanism is dosage-sensitive or DNA-binding PAX3 dysfunction that disrupts downstream melanocyte regulatory programs, including MITF activation with SOX10, reducing melanoblast and cochlear melanocyte development. Craniofacial-deafness-hand syndrome is an allelic PAX3 condition with overlapping deafness and craniofacial features but is treated here as a related differential rather than a Waardenburg subtype.",
+    "pathophysiology": [
+      "PAX3 transcription factor dysfunction",
+      "Reduced PAX3-SOX10-MITF melanocyte transcriptional program",
+      "Melanoblast and melanocyte developmental deficiency",
+      "Stria vascularis melanocyte deficiency",
+      "Cutaneous hair and iris melanocyte deficiency"
+    ],
+    "cell_types": [
+      "migratory neural crest cell",
+      "melanoblast",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000333",
+      "CL:0000541",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "neural crest cell migration",
+      "melanocyte differentiation",
+      "developmental pigmentation",
+      "pigmentation"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "White forelock",
+      "Heterochromia iridis",
+      "Dystopia canthorum",
+      "Musculoskeletal abnormalities"
+    ],
+    "phenotype_categories": [
+      "Audiological",
+      "Dermatologic",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0002211",
+      "HP:0001100"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "PAX3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PAX3_Waardenburg_Spectrum.yaml",
+    "page_url": "../pages/disorders/PAX3_Waardenburg_Spectrum.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "PCWH syndrome",
     "disease_id": "MONDO:0012198",
     "category": "Mendelian",
@@ -82774,10 +82932,11 @@ window.searchData = [
       "neurocristopathy"
     ],
     "creation_date": "2026-04-13T04:00:00Z",
-    "updated_date": "2026-04-13T23:10:00Z",
+    "updated_date": "2026-05-28T00:00:00Z",
     "subtypes": [],
-    "description": "PCWH syndrome is a severe SOX10-related neurocristopathy whose name reflects the characteristic combination of peripheral demyelinating neuropathy, central dysmyelinating leukodystrophy, Waardenburg syndrome features, and Hirschsprung disease. The disorder results from disruption of SOX10-dependent neural crest and glial development, producing enteric nervous system failure, pigmentary abnormalities, hearing impairment, and diffuse myelin defects.",
+    "description": "PCWH syndrome is a severe SOX10-related neurocristopathy whose name reflects the characteristic combination of peripheral demyelinating neuropathy, central dysmyelinating leukodystrophy, Waardenburg syndrome features, and Hirschsprung disease. The disorder results from disruption of SOX10-dependent neural crest and glial development, producing enteric nervous system failure, pigmentary abnormalities, hearing impairment, and diffuse myelin defects. PCWH is especially associated with truncating SOX10 variants that escape nonsense-mediated decay, allowing production of a mutant protein with dominant-negative or toxic altered-function effects.",
     "pathophysiology": [
+      "NMD-escaping truncated SOX10 protein",
       "SOX10 developmental dysfunction",
       "Abnormal myelinating glial development",
       "Enteric nervous system developmental failure",
@@ -82853,11 +83012,11 @@ window.searchData = [
     "source_file": "PCWH_syndrome.yaml",
     "page_url": "../pages/disorders/PCWH_syndrome.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "PHARC syndrome",
@@ -94978,6 +95137,94 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 0,
     "causal_graph_edges": "6",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "SOX10 Neurocristopathy Spectrum",
+    "disease_id": "MONDO:0013202",
+    "category": "Genetic",
+    "parents": [
+      "Waardenburg Syndrome",
+      "Neurocristopathy",
+      "Sensorineural Hearing Loss"
+    ],
+    "creation_date": "2026-05-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Waardenburg Syndrome Type 2E",
+      "Waardenburg Syndrome Type 4C",
+      "PCWH Syndrome"
+    ],
+    "description": "SOX10 neurocristopathy spectrum is a gene-axis disorder spanning auditory-pigmentary Waardenburg presentations, Waardenburg-Shah syndrome type 4C, and severe PCWH/PCW phenotypes. SOX10 encodes a neural crest and glial lineage transcription factor that regulates melanocyte, enteric nervous system, Schwann-cell, and oligodendrocyte development. The spectrum includes haploinsufficiency from deletions and NMD-sensitive truncating variants, plus NMD-escaping truncating variants that produce expressed mutant SOX10 proteins with dominant-negative or toxic altered-function effects, especially in PCWH.",
+    "pathophysiology": [
+      "SOX10 neural crest and glial lineage dysfunction",
+      "SOX10 haploinsufficiency arm",
+      "NMD-escaping truncated SOX10 protein",
+      "Reduced SOX10-MITF and SOX10-RET regulatory programs",
+      "Melanocyte lineage failure",
+      "Enteric nervous system developmental failure",
+      "Abnormal myelinating glial development"
+    ],
+    "cell_types": [
+      "migratory neural crest cell",
+      "Schwann cell",
+      "oligodendrocyte",
+      "melanoblast",
+      "enteric neuron",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000333",
+      "CL:0002573",
+      "CL:0000128",
+      "CL:0000541",
+      "CL:0007011",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "melanocyte differentiation",
+      "enteric nervous system development",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "Pigmentary abnormality",
+      "Aganglionic megacolon",
+      "Peripheral demyelinating neuropathy"
+    ],
+    "phenotype_categories": [
+      "Audiological",
+      "Dermatologic",
+      "Gastrointestinal",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0002251",
+      "HP:0009830"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SOX10"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SOX10_Neurocristopathy_Spectrum.yaml",
+    "page_url": "../pages/disorders/SOX10_Neurocristopathy_Spectrum.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "5"
   },
   {
@@ -111365,11 +111612,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1119,
-  "total_unique_evidence_sources": 20806,
+  "total_disorder_pages": 1122,
+  "total_unique_evidence_sources": 20831,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 195,
-  "total_pathographs": 1112,
-  "total_unique_pathological_events": 5431
+  "total_pathographs": 1115,
+  "total_unique_pathological_events": 5445
 };
 window.dispatchEvent(new Event('searchDataReady'));
