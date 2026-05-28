@@ -19,38 +19,31 @@ Prepare a mechanism-focused research report for the dismech module above. This
 is not a disease entry. The goal is to support a reusable mechanism module that
 multiple gene-axis disease entries can conform to.
 
-Focus the search on the shared biology of meiotic prophase I failure leading to
-gametogenic failure. Prioritize evidence for:
+Focus the search on the shared biology described in the module description and
+provisional nodes above. Prioritize evidence for:
 
-- The conserved causal chain: meiotic prophase entry, homolog pairing,
-  synaptonemal complex assembly, meiotic homologous-recombination repair,
-  pachytene checkpoint arrest, germ-cell apoptosis, and sex-dimorphic outcomes.
-- The boundary between synaptonemal complex structural genes and homologous
-  recombination / DNA-repair genes.
-- Gene-specific branches for MCM8 and MCM9 somatic DNA repair and cancer
-  predisposition, while distinguishing these from the core meiotic module.
-- Explicit exclusions: gonadal organogenesis and steroidogenesis transcription
-  factor disorders such as NR5A1, WT1, SOX9, SRY, FOXL2, and DHH.
-
-## Key Genes In Scope
-
-SYCE1, MCM8, MCM9, STAG3, HFM1, MSH4, MSH5, DMC1, SYCP3.
+- The conserved causal chain represented by the proposed nodes.
+- The biological distinctions between node subgroups, especially if the module
+  defines branching pathways.
+- Any optional or gene-specific branches described in the node list, while
+  distinguishing them from core module requirements.
+- Explicit exclusions or boundary conditions stated in the module description.
 
 ## Questions To Answer
 
-1. What is the best-supported shared mechanism across these genes?
-2. Should the module be named `meiotic_prophase_failure`,
-   `meiotic_recombination_failure`, or something else?
+1. What is the best-supported shared mechanism for this module?
+2. Is the current module name and scope appropriate, or is a clearer name or
+   narrower boundary supported by the literature?
 3. Which nodes should be core and required for conformance, and which nodes
    should be optional or gene-specific?
-4. Which genes support the synaptonemal-complex branch, the homologous
-   recombination branch, and the somatic DNA-repair/cancer branch?
-5. What evidence supports pachytene checkpoint arrest and apoptosis as the
-   shared terminal mechanism in both 46,XX and 46,XY presentations?
-6. What direct human evidence links the same gene or variant class to both
-   primary ovarian insufficiency and non-obstructive azoospermia?
-7. What model organism evidence clarifies the causal path from meiotic defect
-   to germ-cell loss?
+4. Which genes, variants, exposures, cell types, tissues, or molecular
+   processes support each branch or node?
+5. What evidence supports the causal edges between upstream drivers, central
+   effectors, and downstream consequences?
+6. What direct human evidence links the same causal factor or variant class to
+   multiple clinical or pathological manifestations?
+7. What model organism, in vitro, or other experimental evidence clarifies the
+   causal path from molecular perturbation to phenotype?
 8. What Gene Ontology biological process terms, Cell Ontology cell types, and
    anatomical terms should be used in the module?
 9. What claims are speculative, weakly supported, or should remain out of scope?
