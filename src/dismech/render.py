@@ -1862,11 +1862,40 @@ def render_research_index(
     )
     template = env.get_template("research_index.html.j2")
 
+    provider_map: dict[str, str] = {}
+    for row in rows:
+        for provider in row.get("providers", []):
+            key = provider.get("key")
+            name = provider.get("name")
+            if key and name and key not in provider_map:
+                provider_map[key] = name
+
+    preferred_order = [
+        "openai",
+        "edison",
+        "perplexity",
+        "cyberian",
+        "cyberian-codex",
+        "asta",
+        "fallback",
+    ]
+    provider_options: list[dict] = []
+    seen_keys: set[str] = set()
+    for key in preferred_order:
+        if key in provider_map:
+            provider_options.append({"key": key, "name": provider_map[key]})
+            seen_keys.add(key)
+    for key, name in sorted(provider_map.items(), key=lambda item: item[1].casefold()):
+        if key in seen_keys:
+            continue
+        provider_options.append({"key": key, "name": name})
+
     total_reports = sum(int(row.get("report_count") or 0) for row in rows)
     html = template.render(
         disorders=rows,
         disorder_count=len(rows),
         total_reports=total_reports,
+        provider_options=provider_options,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

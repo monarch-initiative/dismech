@@ -233,6 +233,93 @@
             font-style: normal;
         }
 
+        .provider-filter {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 0.95rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .provider-filter-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .provider-filter h2 {
+            font-size: 1rem;
+            color: var(--gray-900);
+        }
+
+        .provider-filter-note {
+            font-size: 0.84rem;
+            color: var(--gray-600);
+        }
+
+        .provider-filter-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem 0.6rem;
+        }
+
+        .provider-filter-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            padding: 0.28rem 0.58rem;
+            font-size: 0.82rem;
+            color: var(--gray-700);
+            background: #fff;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .provider-filter-item input {
+            margin: 0;
+            accent-color: var(--teal);
+        }
+
+        .provider-filter-item:has(input:checked) {
+            border-color: var(--teal-light);
+            background: var(--teal-50);
+        }
+
+        .provider-filter-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            margin-top: 0.7rem;
+            flex-wrap: wrap;
+        }
+
+        .provider-filter-btn {
+            border: 1px solid var(--gray-200);
+            background: #fff;
+            color: var(--gray-700);
+            border-radius: 8px;
+            padding: 0.25rem 0.55rem;
+            font-size: 0.79rem;
+            font-family: var(--font);
+            cursor: pointer;
+        }
+
+        .provider-filter-btn:hover {
+            border-color: var(--teal-light);
+            color: var(--teal);
+        }
+
+        .provider-filter-status {
+            font-size: 0.82rem;
+            color: var(--gray-600);
+        }
+
         .table-wrap {
             background: #fff;
             border: 1px solid var(--gray-200);
@@ -436,7 +523,7 @@
                     <span><em>Deep research generated using Perplexity search/reasoning workflows.</em></span>
                 </div>
                 <div class="provider-key-item">
-                    <span class="provider-pill provider-asta"><a href="https://github.com/monarch-initiative/dismech/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Asta</a></span>
+                    <span class="provider-pill provider-asta"><a href="https://asta.allen.ai/" target="_blank" rel="noopener noreferrer">Asta</a></span>
                     <span><em>Literature citations and snippets provided by Ai2 Asta.</em></span>
                 </div>
                 <div class="provider-key-item">
@@ -447,6 +534,30 @@
                     <span class="provider-pill provider-fallback">⚠️ Fallback</span>
                     <span><em>Not a true deep research run; produced by fallback extraction logic.</em></span>
                 </div>
+            </div>
+        </section>
+
+        <section class="provider-filter" aria-label="Filter by provider">
+            <div class="provider-filter-head">
+                <h2>Filter By Provider</h2>
+                <div class="provider-filter-note">Multiple selection is supported.</div>
+            </div>
+            <div class="provider-filter-grid">
+                {% for option in provider_options %}
+                <label class="provider-filter-item" for="provider-filter-{{ option.key }}">
+                    <input
+                        id="provider-filter-{{ option.key }}"
+                        type="checkbox"
+                        class="provider-filter-checkbox"
+                        value="{{ option.key }}"
+                    >
+                    {{ option.name }}
+                </label>
+                {% endfor %}
+            </div>
+            <div class="provider-filter-actions">
+                <button type="button" id="provider-filter-clear" class="provider-filter-btn">Clear</button>
+                <div id="provider-filter-status" class="provider-filter-status">Showing all disorders.</div>
             </div>
         </section>
 
@@ -462,7 +573,7 @@
                 </thead>
                 <tbody>
                     {% for disorder in disorders %}
-                    <tr>
+                    <tr class="disorder-row" data-provider-keys="{% for provider in disorder.providers %}{{ provider.key }}{% if not loop.last %},{% endif %}{% endfor %}">
                         <td>
                             {% if disorder.href %}
                             <a href="{{ disorder.href }}">{{ disorder.name }}</a>
@@ -493,5 +604,63 @@
             {% endif %}
         </section>
     </main>
+
+    <script>
+        (function () {
+            const checkboxes = Array.from(document.querySelectorAll('.provider-filter-checkbox'));
+            const rows = Array.from(document.querySelectorAll('tr.disorder-row'));
+            const statusEl = document.getElementById('provider-filter-status');
+            const clearBtn = document.getElementById('provider-filter-clear');
+
+            if (!checkboxes.length || !rows.length || !statusEl || !clearBtn) {
+                return;
+            }
+
+            const getSelected = () => checkboxes.filter((cb) => cb.checked).map((cb) => cb.value);
+
+            const applyFilters = () => {
+                const selected = getSelected();
+                let visible = 0;
+
+                for (const row of rows) {
+                    const keys = (row.dataset.providerKeys || '')
+                        .split(',')
+                        .map((x) => x.trim())
+                        .filter(Boolean);
+
+                    const matches = selected.length === 0 || selected.some((key) => keys.includes(key));
+                    row.style.display = matches ? '' : 'none';
+                    if (matches) {
+                        visible += 1;
+                    }
+                }
+
+                if (selected.length === 0) {
+                    statusEl.textContent = `Showing all disorders (${visible}).`;
+                    return;
+                }
+
+                const selectedNames = checkboxes
+                    .filter((cb) => cb.checked)
+                    .map((cb) => cb.closest('label')?.textContent?.trim())
+                    .filter(Boolean)
+                    .join(', ');
+                statusEl.textContent = `Showing ${visible} disorder(s) matching: ${selectedNames}.`;
+            };
+
+            for (const cb of checkboxes) {
+                cb.addEventListener('change', applyFilters);
+            }
+
+            clearBtn.addEventListener('click', () => {
+                for (const cb of checkboxes) {
+                    cb.checked = false;
+                }
+                applyFilters();
+            });
+
+            applyFilters();
+        })();
+    </script>
 </body>
 </html>
