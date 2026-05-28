@@ -1,0 +1,10 @@
+| Source/tool category | Query strings tried | Outcome | Interpretation |
+|---|---|---|---|
+| Literature search (`paper_search`) | `"PCWH syndrome"`; `"PCWH syndrome" genetic`; `PCWH syndrome OMIM`; `"PCWH" acronym syndrome congenital`; `PCWH syndrome`; `"PCWH"`; `PCWH mendelian syndrome`; `PCWH syndrome case report`; `PCWH genetic syndrome hearing`; `PCWH gene`; `"PCWH" palmoplantar keratoderma`; `PCWH`; `palmoplantar keratoderma woolly hair cardiomyopathy` | 0 papers retrieved for all queries | The term `PCWH syndrome` does not appear to be readily indexed in the literature searched with available tools; likely an ambiguous or nonstandard acronym, or requires expansion/disambiguation. |
+| Clinical trials (`clinical_trials_search`) | `"PCWH" OR "PCWH syndrome"` | 0 clinical trials retrieved | No trial records matched the acronym/disease name; this supports the possibility that the term is not a standard indexed disease label. |
+| Patents (`patent_search`) | `PCWH syndrome` | 0 patents retrieved | No patent activity was captured under this exact disease name, again suggesting poor indexing or acronym ambiguity. |
+| Target-disease platform (`open_targets_search`) | Disease names: `PCWH syndrome`, `PCWH` | Error: `OpenTargets ID search query failed after retries` | OpenTargets did not yield a resolvable disease entity via the tool; combined with null results elsewhere, the safest interpretation is unresolved disease-name ambiguity rather than confirmed absence of a disease concept. |
+| Cross-source synthesis | Exact phrase, acronym-only, and phenotype-oriented variants | No usable indexed evidence found via tools | Evidence retrieval is currently insufficient to assign identifiers, causal genes, or phenotypes for `PCWH syndrome` without an expanded name, synonym, or known gene anchor. |
+
+
+*Table: This table summarizes the tool-based searches performed for 'PCWH syndrome' across literature, trials, patents, and OpenTargets. It is useful for documenting that the acronym could not be confidently resolved with available indexed sources and that further disambiguation is needed.*
