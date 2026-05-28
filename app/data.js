@@ -37736,6 +37736,92 @@ window.searchData = [
     "causal_graph_longest_path": "12"
   },
   {
+    "name": "Dupuytren Contracture",
+    "disease_id": "MONDO:0006345",
+    "category": "Complex",
+    "parents": [
+      "Connective Tissue Disease",
+      "Fibromatosis"
+    ],
+    "creation_date": "2026-05-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A chronic, progressive fibroproliferative disorder of the palmar and digital fascia in which myofibroblast-rich nodules and collagen cords form in the palmar aponeurosis, producing permanent flexion contractures of the fingers (most often the ring and little fingers). It is a highly heritable, polygenic complex trait with a strong predilection for older men of Northern European descent, and is associated with diabetes, alcohol use, smoking, and manual labor.",
+    "pathophysiology": [
+      "Fascial Microinjury and Aberrant Wound Healing",
+      "Profibrotic Signaling and Inflammatory Amplification",
+      "Myofibroblast Activation and Contraction",
+      "Excessive Collagen Deposition and Cord Formation",
+      "Digital Flexion Contracture and Hand Dysfunction"
+    ],
+    "cell_types": [
+      "macrophage",
+      "fibroblast",
+      "myofibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000057",
+      "CL:0000186"
+    ],
+    "biological_processes": [
+      "wound healing",
+      "Wnt signaling pathway",
+      "inflammatory response",
+      "TGF-beta receptor signaling",
+      "extracellular matrix organization",
+      "collagen biosynthetic process"
+    ],
+    "phenotypes": [
+      "Dupuytren contracture",
+      "Finger flexion contracture",
+      "Palmar nodules",
+      "Knuckle pads",
+      "Impaired hand function"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Integumentary"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0005679",
+      "HP:0012785",
+      "HP:0032541",
+      "HP:0033466"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SFRP4",
+      "WNT7B"
+    ],
+    "treatments": [
+      "Collagenase clostridium histolyticum injection",
+      "Percutaneous needle fasciotomy",
+      "Surgical fasciectomy",
+      "Radiotherapy for early disease"
+    ],
+    "environmental": [
+      "Cigarette smoking",
+      "Alcohol consumption",
+      "Diabetes mellitus",
+      "Manual labor and vibration exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Dupuytrens_Contracture.yaml",
+    "page_url": "../pages/disorders/Dupuytren_Contracture.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Dysembryoplastic Neuroepithelial Tumor",
     "disease_id": "MONDO:0005505",
     "category": "",
@@ -66369,30 +66455,37 @@ window.searchData = [
     ],
     "description": "Lyme disease is a tick-borne infectious disease caused by Borrelia burgdorferi and related Borrelia species. It is the most common vector-borne disease in North America and Europe. The disease progresses through stages: early localized (erythema migrans), early disseminated (multiple erythema migrans, neurological, cardiac involvement), and late disseminated (arthritis, chronic neurological). Early antibiotic treatment is highly effective, while delayed treatment may lead to persistent symptoms.\n",
     "pathophysiology": [
+      "Tick-Borne Transmission and Enzootic Cycle",
       "Spirochete Invasion and Dissemination",
       "Complement Evasion via BBK32-Mediated C1r Inhibition",
+      "Alternative Complement Pathway Evasion via Factor H Recruitment",
       "Antigenic Variation via vlsE Gene Conversion",
+      "Inflammatory Response and Tissue Damage",
       "Autoimmune Activation after Persistent Infection",
-      "Inflammatory Response and Tissue Damage"
+      "Post-Infectious Immune Dysregulation"
     ],
     "cell_types": [
       "endothelial cell",
-      "T cell",
       "neutrophil",
-      "macrophage"
+      "macrophage",
+      "T cell",
+      "B cell"
     ],
     "cell_type_ids": [
       "CL:0000115",
-      "CL:0000084",
       "CL:0000775",
-      "CL:0000235"
+      "CL:0000235",
+      "CL:0000084",
+      "CL:0000236"
     ],
     "biological_processes": [
+      "OspA/OspC antigenic switch",
+      "response to temperature stimulus",
       "cell adhesion",
       "negative regulation of complement activation",
       "DNA recombination",
-      "adaptive immune response",
-      "inflammatory response"
+      "inflammatory response",
+      "adaptive immune response"
     ],
     "phenotypes": [
       "Erythema Migrans",
@@ -66461,11 +66554,11 @@ window.searchData = [
     "source_file": "Lyme_Disease.yaml",
     "page_url": "../pages/disorders/Lyme_Disease.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Lymphatic filariasis",
@@ -111272,11 +111365,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1118,
-  "total_unique_evidence_sources": 20797,
+  "total_disorder_pages": 1119,
+  "total_unique_evidence_sources": 20806,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 195,
-  "total_pathographs": 1111,
-  "total_unique_pathological_events": 5423
+  "total_pathographs": 1112,
+  "total_unique_pathological_events": 5431
 };
 window.dispatchEvent(new Event('searchDataReady'));
