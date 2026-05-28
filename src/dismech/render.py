@@ -1749,23 +1749,25 @@ def _display_name_from_slug(slug: str) -> str:
 
 
 def _display_name_from_provider(provider: str) -> str:
-    """Convert provider token in report filenames to a readable label."""
-    provider_key = (provider or "").strip().casefold()
-    explicit_names = {
-        "openai": "OpenAI",
-        "falcon": "Edison",
-    }
-    if provider_key in explicit_names:
-        return explicit_names[provider_key]
-
-    parts = [part for part in re.split(r"[-_]+", provider) if part]
-    if not parts:
-        return provider
-    acronyms = {"ai", "api", "llm", "gpt"}
-    return " ".join(
-        part.upper() if part.lower() in acronyms else part.capitalize()
-        for part in parts
-    )
+    """Normalize provider token to canonical deep-research browser categories."""
+    provider_key = re.sub(
+        r"[^a-z0-9]+", "-", (provider or "").strip().casefold()
+    ).strip("-")
+    if provider_key in {"falcon", "edison"}:
+        return "Edison"
+    if provider_key == "asta":
+        return "Asta"
+    if provider_key in {"openai", "codex"}:
+        return "OpenAI"
+    if provider_key in {"cyberian", "cyberian-codex"}:
+        return "Cyberian"
+    if provider_key == "perplexity":
+        return "Perplexity"
+    if provider_key == "fallback":
+        return "Fallback"
+    if provider_key in {"openscientist", "openscientist-review"}:
+        return "OpenScientist"
+    return "Other"
 
 
 def _collect_research_index_rows(
@@ -1862,33 +1864,16 @@ def render_research_index(
     )
     template = env.get_template("research_index.html.j2")
 
-    provider_map: dict[str, str] = {}
-    for row in rows:
-        for provider in row.get("providers", []):
-            key = provider.get("key")
-            name = provider.get("name")
-            if key and name and key not in provider_map:
-                provider_map[key] = name
-
-    preferred_order = [
-        "openai",
-        "edison",
-        "perplexity",
-        "cyberian",
-        "cyberian-codex",
-        "asta",
-        "fallback",
+    provider_options = [
+        {"key": "edison", "name": "Edison"},
+        {"key": "asta", "name": "Asta"},
+        {"key": "openai", "name": "OpenAI"},
+        {"key": "cyberian", "name": "Cyberian"},
+        {"key": "perplexity", "name": "Perplexity"},
+        {"key": "fallback", "name": "Fallback"},
+        {"key": "openscientist", "name": "OpenScientist"},
+        {"key": "other", "name": "Other"},
     ]
-    provider_options: list[dict] = []
-    seen_keys: set[str] = set()
-    for key in preferred_order:
-        if key in provider_map:
-            provider_options.append({"key": key, "name": provider_map[key]})
-            seen_keys.add(key)
-    for key, name in sorted(provider_map.items(), key=lambda item: item[1].casefold()):
-        if key in seen_keys:
-            continue
-        provider_options.append({"key": key, "name": name})
 
     total_reports = sum(int(row.get("report_count") or 0) for row in rows)
     html = template.render(
