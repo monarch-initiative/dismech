@@ -1750,6 +1750,14 @@ def _display_name_from_slug(slug: str) -> str:
 
 def _display_name_from_provider(provider: str) -> str:
     """Convert provider token in report filenames to a readable label."""
+    provider_key = (provider or "").strip().casefold()
+    explicit_names = {
+        "openai": "OpenAI",
+        "falcon": "Edison",
+    }
+    if provider_key in explicit_names:
+        return explicit_names[provider_key]
+
     parts = [part for part in re.split(r"[-_]+", provider) if part]
     if not parts:
         return provider
@@ -1818,7 +1826,11 @@ def _collect_research_index_rows(
     normalized_rows: list[dict] = []
     for row in rows.values():
         providers = [
-            {"name": provider_name, "count": count}
+            {
+                "name": provider_name,
+                "key": re.sub(r"[^a-z0-9]+", "-", provider_name.casefold()).strip("-"),
+                "count": count,
+            }
             for provider_name, count in sorted(
                 row["provider_counts"].items(),
                 key=lambda item: item[0].casefold(),
