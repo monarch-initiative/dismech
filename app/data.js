@@ -8348,6 +8348,7 @@ window.searchData = [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
+      "Musculoskeletal",
       "Neoplasm",
       "Nervous System",
       "Respiratory"
@@ -8355,7 +8356,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0031459",
       "HP:0100526",
-      "HP:0100006"
+      "HP:0100006",
+      "HP:0010622"
     ],
     "frequencies": [],
     "genes": [
@@ -15071,7 +15073,8 @@ window.searchData = [
       "TSPOAP1 biallelic loss-of-function variants"
     ],
     "treatments": [
-      "Levodopa with decarboxylase inhibitor"
+      "Levodopa with decarboxylase inhibitor",
+      "Agents/Circumstances to Avoid"
     ],
     "environmental": [],
     "biochemical": [
@@ -15082,7 +15085,7 @@ window.searchData = [
     "num_phenotypes": 33,
     "num_pathophysiology": 4,
     "num_genes": 2,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
   },
