@@ -14,7 +14,9 @@ def _write_disorder(path: Path, data: dict) -> None:
 
 def _models_stat_pattern(count: int) -> str:
     return (
-        r'href="#models">\s*<div class="stat-item">\s*<div class="stat-value">'
+        r'href="#models">\s*<div class="stat-item">\s*'
+        r'(?:<div class="stat-icon"[^>]*>[^<]*</div>\s*)?'
+        r'<div class="stat-value">'
         f"{count}"
         r"</div>\s*<div class=\"stat-label\">Models</div>"
     )
