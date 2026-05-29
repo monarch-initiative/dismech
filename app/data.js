@@ -38470,6 +38470,83 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "EDN3/EDNRB Waardenburg-Shah",
+    "disease_id": "MONDO:0019518",
+    "category": "Genetic",
+    "parents": [
+      "Waardenburg Syndrome",
+      "Hirschsprung Disease",
+      "Neurocristopathy"
+    ],
+    "creation_date": "2026-05-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Waardenburg Syndrome Type 4A",
+      "Waardenburg Syndrome Type 4B"
+    ],
+    "description": "EDN3/EDNRB-related Waardenburg-Shah syndrome is a neural crest signaling-axis disorder in which reduced endothelin-3 ligand or endothelin receptor type B signaling impairs melanoblast and enteric neural crest development. Biallelic loss-of-function in EDNRB or EDN3 causes Waardenburg syndrome type 4A or 4B with sensorineural hearing loss, pigmentary abnormalities, and Hirschsprung disease. Heterozygous variants can contribute to incompletely penetrant disease or Hirschsprung/WS2-like susceptibility, especially for EDNRB, so this entry models the ligand-receptor axis with gene-specific inheritance and evidence notes.",
+    "pathophysiology": [
+      "EDN3 ligand and EDNRB receptor signaling deficiency",
+      "Terminal migration defect of melanoblast and enteric precursors",
+      "Stria vascularis and cutaneous melanocyte deficiency",
+      "Enteric ganglion cell deficiency",
+      "Heterozygous EDNRB susceptibility"
+    ],
+    "cell_types": [
+      "melanoblast",
+      "enteric neuron",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000541",
+      "CL:0007011",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "neural crest cell migration",
+      "pigmentation",
+      "enteric nervous system development"
+    ],
+    "phenotypes": [
+      "Aganglionic megacolon",
+      "Sensorineural hearing impairment",
+      "Pigmentary abnormality"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Audiological",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002251",
+      "HP:0000407"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "EDNRB",
+      "EDN3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "EDN3_EDNRB_Waardenburg_Shah.yaml",
+    "page_url": "../pages/disorders/EDN3_EDNRB_Waardenburg-Shah.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "EFL1-related Shwachman-Diamond syndrome",
     "disease_id": "MONDO:0044205",
     "category": "Mendelian",
@@ -41187,22 +41264,57 @@ window.searchData = [
       "Osseous Ewing Sarcoma",
       "Extraosseous Ewing Sarcoma"
     ],
-    "description": "Ewing sarcoma is an aggressive pediatric bone and soft tissue malignancy characterized by the pathognomonic EWS-FLI1 fusion gene, present in approximately 85% of cases. This translocation t(11;22)(q24;q12) creates a chimeric transcription factor that aberrantly activates genes driving proliferation and blocks differentiation. The EWS-FLI1 fusion is both diagnostic and represents a compelling but challenging therapeutic target. Ewing sarcoma exemplifies the concept of fusion oncogene-driven cancer with a single genetic driver.",
+    "description": "Ewing sarcoma is an aggressive pediatric bone and soft tissue malignancy characterized by the pathognomonic EWS-FLI1 fusion gene, present in approximately 85% of cases. This translocation t(11;22)(q24;q12) creates a chimeric transcription factor that forms dosage-sensitive chromatin hubs, rewires chromatin at GGAA microsatellites, activates core regulatory circuitry, represses lineage and tumor-suppressive programs through NuRD/CHD4-associated mechanisms, alters metabolism and DNA repair, and blocks lineage differentiation. The fusion is diagnostic and remains a compelling but challenging therapeutic target; developmental IGF-1/YAP1 signaling, germline GGAA-repeat architecture, ETV6 counter-regulation, DHX9/SLFN11 replication-stress biology, and secondary events such as STAG2 loss can modify the fusion-driven pathograph and contribute to high-risk biology.",
     "pathophysiology": [
       "EWS-FLI1 Fusion Oncogene",
-      "Aberrant Transcriptional Regulation",
-      "Blocked Differentiation"
+      "BAF Complex Retargeting",
+      "EWS-FLI1 Hub and Dosage Control",
+      "GGAA Microsatellite Enhancer Reprogramming",
+      "ETV6 GGAA Counter-Regulation",
+      "GGAA Microsatellite Germline Susceptibility Architecture",
+      "NuRD/CHD4 Repressive Chromatin Program",
+      "Core Regulatory Circuitry Activation",
+      "Blocked Differentiation",
+      "ATF4-Serine-Glycine Metabolic Reprogramming",
+      "Replication Stress and Impaired Homologous Recombination",
+      "R-loop Resolution and Replication-Fork Vulnerability",
+      "STAG2-Modified Enhancer State",
+      "Tumor Cell Proliferation and Survival",
+      "Permissive Progenitor Cell State",
+      "IGF-1/YAP1 Developmental Cooperation"
     ],
     "cell_types": [
-      "mesenchymal stem cell"
+      "mesenchymal stem cell",
+      "early mesenchymal stem cell",
+      "migratory neural crest cell",
+      "limb-derived mesenchymal progenitor cell"
     ],
     "cell_type_ids": [
-      "CL:0000134"
+      "CL:0000134",
+      "CL:0000333"
     ],
     "biological_processes": [
       "positive regulation of transcription by RNA polymerase II",
+      "chromatin remodeling",
       "regulation of gene expression",
-      "cell differentiation"
+      "protein ubiquitination",
+      "protein stabilization",
+      "cell population proliferation",
+      "negative regulation of transcription by RNA polymerase II",
+      "chromatin organization",
+      "DNA repair",
+      "cell differentiation",
+      "mesenchymal cell differentiation",
+      "L-serine biosynthetic process",
+      "L-glutamine transport",
+      "generation of precursor metabolites and energy",
+      "DNA replication",
+      "double-strand break repair via homologous recombination",
+      "DNA damage checkpoint signaling",
+      "chromosome organization",
+      "insulin-like growth factor receptor signaling pathway",
+      "intracellular signal transduction",
+      "cell fate commitment"
     ],
     "phenotypes": [
       "Bone Pain",
@@ -41237,18 +41349,24 @@ window.searchData = [
       "HP:0001903"
     ],
     "frequencies": [
+      "FREQUENT",
       "VERY_FREQUENT",
-      "OCCASIONAL",
-      "FREQUENT"
+      "OCCASIONAL"
     ],
     "genes": [
-      "EWS-FLI1 Fusion"
+      "EWS-FLI1 Fusion",
+      "STAG2",
+      "TP53",
+      "CDKN2A"
     ],
     "treatments": [
       "Neoadjuvant Chemotherapy",
       "Surgical Resection",
       "Radiation Therapy",
-      "Adjuvant Chemotherapy"
+      "Adjuvant Chemotherapy",
+      "PARP Inhibitor Combination Therapy",
+      "LSD1 Inhibitor Therapy",
+      "USP1 Inhibitor Therapy"
     ],
     "environmental": [],
     "biochemical": [
@@ -41257,11 +41375,11 @@ window.searchData = [
     "source_file": "Ewing_Sarcoma.yaml",
     "page_url": "../pages/disorders/Ewing_Sarcoma.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 3,
-    "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "num_pathophysiology": 16,
+    "num_genes": 4,
+    "num_treatments": 7,
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "FAS-related Autoimmune Lymphoproliferative Syndrome",
@@ -82766,6 +82884,87 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "PAX3 Waardenburg Spectrum",
+    "disease_id": "MONDO:0018094",
+    "category": "Genetic",
+    "parents": [
+      "Waardenburg Syndrome",
+      "Pigmentary Disorder",
+      "Sensorineural Hearing Loss"
+    ],
+    "creation_date": "2026-05-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Waardenburg Syndrome Type 1",
+      "Klein-Waardenburg Syndrome"
+    ],
+    "description": "PAX3 Waardenburg spectrum is an auditory-pigmentary neural crest disorder caused by pathogenic variants in PAX3, a paired-box transcription factor. Heterozygous PAX3 variants classically cause Waardenburg syndrome type 1, with sensorineural hearing loss, pigmentary disturbance, and dystopia canthorum, and can also cause Klein-Waardenburg syndrome/type 3 with musculoskeletal involvement. The shared mechanism is dosage-sensitive or DNA-binding PAX3 dysfunction that disrupts downstream melanocyte regulatory programs, including MITF activation with SOX10, reducing melanoblast and cochlear melanocyte development. Craniofacial-deafness-hand syndrome is an allelic PAX3 condition with overlapping deafness and craniofacial features but is treated here as a related differential rather than a Waardenburg subtype.",
+    "pathophysiology": [
+      "PAX3 transcription factor dysfunction",
+      "Reduced PAX3-SOX10-MITF melanocyte transcriptional program",
+      "Melanoblast and melanocyte developmental deficiency",
+      "Stria vascularis melanocyte deficiency",
+      "Cutaneous hair and iris melanocyte deficiency"
+    ],
+    "cell_types": [
+      "migratory neural crest cell",
+      "melanoblast",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000333",
+      "CL:0000541",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "neural crest cell migration",
+      "melanocyte differentiation",
+      "developmental pigmentation",
+      "pigmentation"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "White forelock",
+      "Heterochromia iridis",
+      "Dystopia canthorum",
+      "Musculoskeletal abnormalities"
+    ],
+    "phenotype_categories": [
+      "Audiological",
+      "Dermatologic",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0002211",
+      "HP:0001100"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "PAX3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PAX3_Waardenburg_Spectrum.yaml",
+    "page_url": "../pages/disorders/PAX3_Waardenburg_Spectrum.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "PCWH syndrome",
     "disease_id": "MONDO:0012198",
     "category": "Mendelian",
@@ -82774,10 +82973,11 @@ window.searchData = [
       "neurocristopathy"
     ],
     "creation_date": "2026-04-13T04:00:00Z",
-    "updated_date": "2026-04-13T23:10:00Z",
+    "updated_date": "2026-05-28T00:00:00Z",
     "subtypes": [],
-    "description": "PCWH syndrome is a severe SOX10-related neurocristopathy whose name reflects the characteristic combination of peripheral demyelinating neuropathy, central dysmyelinating leukodystrophy, Waardenburg syndrome features, and Hirschsprung disease. The disorder results from disruption of SOX10-dependent neural crest and glial development, producing enteric nervous system failure, pigmentary abnormalities, hearing impairment, and diffuse myelin defects.",
+    "description": "PCWH syndrome is a severe SOX10-related neurocristopathy whose name reflects the characteristic combination of peripheral demyelinating neuropathy, central dysmyelinating leukodystrophy, Waardenburg syndrome features, and Hirschsprung disease. The disorder results from disruption of SOX10-dependent neural crest and glial development, producing enteric nervous system failure, pigmentary abnormalities, hearing impairment, and diffuse myelin defects. PCWH is especially associated with truncating SOX10 variants that escape nonsense-mediated decay, allowing production of a mutant protein with dominant-negative or toxic altered-function effects.",
     "pathophysiology": [
+      "NMD-escaping truncated SOX10 protein",
       "SOX10 developmental dysfunction",
       "Abnormal myelinating glial development",
       "Enteric nervous system developmental failure",
@@ -82853,11 +83053,11 @@ window.searchData = [
     "source_file": "PCWH_syndrome.yaml",
     "page_url": "../pages/disorders/PCWH_syndrome.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "PHARC syndrome",
@@ -94981,6 +95181,94 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "SOX10 Neurocristopathy Spectrum",
+    "disease_id": "MONDO:0013202",
+    "category": "Genetic",
+    "parents": [
+      "Waardenburg Syndrome",
+      "Neurocristopathy",
+      "Sensorineural Hearing Loss"
+    ],
+    "creation_date": "2026-05-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Waardenburg Syndrome Type 2E",
+      "Waardenburg Syndrome Type 4C",
+      "PCWH Syndrome"
+    ],
+    "description": "SOX10 neurocristopathy spectrum is a gene-axis disorder spanning auditory-pigmentary Waardenburg presentations, Waardenburg-Shah syndrome type 4C, and severe PCWH/PCW phenotypes. SOX10 encodes a neural crest and glial lineage transcription factor that regulates melanocyte, enteric nervous system, Schwann-cell, and oligodendrocyte development. The spectrum includes haploinsufficiency from deletions and NMD-sensitive truncating variants, plus NMD-escaping truncating variants that produce expressed mutant SOX10 proteins with dominant-negative or toxic altered-function effects, especially in PCWH.",
+    "pathophysiology": [
+      "SOX10 neural crest and glial lineage dysfunction",
+      "SOX10 haploinsufficiency arm",
+      "NMD-escaping truncated SOX10 protein",
+      "Reduced SOX10-MITF and SOX10-RET regulatory programs",
+      "Melanocyte lineage failure",
+      "Enteric nervous system developmental failure",
+      "Abnormal myelinating glial development"
+    ],
+    "cell_types": [
+      "migratory neural crest cell",
+      "Schwann cell",
+      "oligodendrocyte",
+      "melanoblast",
+      "enteric neuron",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000333",
+      "CL:0002573",
+      "CL:0000128",
+      "CL:0000541",
+      "CL:0007011",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "melanocyte differentiation",
+      "enteric nervous system development",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "Pigmentary abnormality",
+      "Aganglionic megacolon",
+      "Peripheral demyelinating neuropathy"
+    ],
+    "phenotype_categories": [
+      "Audiological",
+      "Dermatologic",
+      "Gastrointestinal",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0002251",
+      "HP:0009830"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SOX10"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SOX10_Neurocristopathy_Spectrum.yaml",
+    "page_url": "../pages/disorders/SOX10_Neurocristopathy_Spectrum.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "STING-Associated Vasculopathy with Onset in Infancy",
     "disease_id": "MONDO:0014405",
     "category": "Mendelian",
@@ -95208,6 +95496,79 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "SYCE1-related gametogenic failure",
+    "disease_id": "MONDO:1060214",
+    "category": "Mendelian",
+    "parents": [
+      "Infertility disorder",
+      "Primary ovarian insufficiency",
+      "Male infertility"
+    ],
+    "creation_date": "2026-05-28T08:05:49Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SYCE1-related gametogenic failure is an autosomal recessive meiotic disorder caused by biallelic loss-of-function variants in SYCE1, which encodes a central element component of the synaptonemal complex. Because SYCE1 is essential for synapsis of homologous chromosomes during meiotic prophase I, biallelic loss produces a sex-dimorphic gametogenic phenotype with the same underlying lesion: primary ovarian insufficiency in 46,XX individuals and non-obstructive azoospermia from pachytene-stage meiotic arrest in 46,XY individuals. The shared mechanistic theme is failure of synaptonemal complex assembly, leading to meiotic arrest and germ-cell depletion in both sexes.",
+    "pathophysiology": [
+      "Synaptonemal complex assembly failure",
+      "Homologous chromosome synapsis failure",
+      "Meiotic prophase I pachytene checkpoint activation",
+      "Germ-cell depletion and sex-dimorphic gonadal failure"
+    ],
+    "cell_types": [
+      "primary oocyte",
+      "primary spermatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000654",
+      "CL:0000656"
+    ],
+    "biological_processes": [
+      "synaptonemal complex assembly",
+      "homologous chromosome pairing at meiosis",
+      "meiosis I",
+      "meiotic recombination checkpoint signaling",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Premature ovarian insufficiency",
+      "Primary amenorrhea",
+      "Non-obstructive azoospermia",
+      "Spermatogenic arrest"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0008209",
+      "HP:0000786",
+      "HP:0011961",
+      "HP:0008669"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SYCE1"
+    ],
+    "treatments": [
+      "Hormone replacement therapy",
+      "Genetic counseling",
+      "Microdissection testicular sperm extraction (micro-TESE)",
+      "Fertility preservation and oocyte cryopreservation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SYCE1_Related_Gametogenic_Failure.yaml",
+    "page_url": "../pages/disorders/SYCE1-related_gametogenic_failure.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Sagittal Sinus Thrombosis",
@@ -111365,11 +111726,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1119,
-  "total_unique_evidence_sources": 20806,
+  "total_disorder_pages": 1123,
+  "total_unique_evidence_sources": 20882,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 195,
-  "total_pathographs": 1112,
-  "total_unique_pathological_events": 5431
+  "total_pathographs": 1116,
+  "total_unique_pathological_events": 5462
 };
 window.dispatchEvent(new Event('searchDataReady'));
