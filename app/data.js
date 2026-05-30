@@ -2329,6 +2329,7 @@ window.searchData = [
       "Tafamidis",
       "Patisiran",
       "Inotersen",
+      "Eplontersen",
       "Liver Transplant",
       "Heart Transplant",
       "Supportive Care"
@@ -2345,7 +2346,7 @@ window.searchData = [
     "num_phenotypes": 13,
     "num_pathophysiology": 5,
     "num_genes": 3,
-    "num_treatments": 6,
+    "num_treatments": 7,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "4"
   },
@@ -8348,6 +8349,7 @@ window.searchData = [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
+      "Musculoskeletal",
       "Neoplasm",
       "Nervous System",
       "Respiratory"
@@ -8355,7 +8357,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0031459",
       "HP:0100526",
-      "HP:0100006"
+      "HP:0100006",
+      "HP:0010622"
     ],
     "frequencies": [],
     "genes": [
@@ -15071,7 +15074,8 @@ window.searchData = [
       "TSPOAP1 biallelic loss-of-function variants"
     ],
     "treatments": [
-      "Levodopa with decarboxylase inhibitor"
+      "Levodopa with decarboxylase inhibitor",
+      "Agents/Circumstances to Avoid"
     ],
     "environmental": [],
     "biochemical": [
@@ -15082,7 +15086,7 @@ window.searchData = [
     "num_phenotypes": 33,
     "num_pathophysiology": 4,
     "num_genes": 2,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
   },
@@ -111727,7 +111731,7 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 1123,
-  "total_unique_evidence_sources": 20882,
+  "total_unique_evidence_sources": 20883,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 195,
   "total_pathographs": 1116,
