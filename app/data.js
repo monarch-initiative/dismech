@@ -190,9 +190,11 @@ window.searchData = [
     "description": "22q11.2 deletion syndrome is a chromosomal microdeletion disorder caused by hemizygous deletion of 1.5-3 Mb at chromosome 22q11.2. It is the most common microdeletion syndrome, occurring in approximately 1:4000 live births. The phenotype is highly variable but classically includes conotruncal cardiac defects, thymic hypoplasia with T-cell immunodeficiency, hypocalcemia from parathyroid hypoplasia, and characteristic facial features. The deleted region contains TBX1, haploinsufficiency of which disrupts pharyngeal arch and cardiac neural crest development.\n",
     "pathophysiology": [
       "TBX1 haploinsufficiency and pharyngeal arch development",
+      "Multigene dosage and miRNA regulatory disruption",
       "Cardiac neural crest migration defect",
       "Thymic hypoplasia and T-cell immunodeficiency",
-      "Parathyroid hypoplasia and hypocalcemia"
+      "Parathyroid hypoplasia and hypocalcemia",
+      "Cortical circuit and neurotransmitter vulnerability"
     ],
     "cell_types": [
       "neural crest cell",
@@ -200,7 +202,9 @@ window.searchData = [
       "migratory cardiac neural crest cell",
       "cortical thymic epithelial cell",
       "medullary thymic epithelial cell",
-      "T cell"
+      "T cell",
+      "neural progenitor cell",
+      "neuron"
     ],
     "cell_type_ids": [
       "CL:0011012",
@@ -208,25 +212,31 @@ window.searchData = [
       "CL:2000073",
       "CL:0002364",
       "CL:0002365",
-      "CL:0000084"
+      "CL:0000084",
+      "CL:0011020",
+      "CL:0000540"
     ],
     "biological_processes": [
       "pharyngeal system development",
+      "miRNA processing",
       "cardiac neural crest cell migration involved in outflow tract morphogenesis",
       "outflow tract morphogenesis",
       "neural crest cell differentiation involved in thymus development",
-      "neural crest cell differentiation involved in parathyroid gland development"
+      "neural crest cell differentiation involved in parathyroid gland development",
+      "neurogenesis"
     ],
     "phenotypes": [
       "Conotruncal heart defect",
       "Hypocalcemia",
       "Thymic hypoplasia",
+      "Complete thymic aplasia",
       "Velopharyngeal insufficiency",
       "Cleft palate",
       "Intellectual disability",
       "Schizophrenia",
       "Hypoparathyroidism",
-      "T-cell immunodeficiency"
+      "T-cell immunodeficiency",
+      "Recurrent infections"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -240,13 +250,15 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001710",
       "HP:0002901",
+      "HP:0000777",
       "HP:0005359",
       "HP:0000220",
       "HP:0000175",
       "HP:0001249",
       "HP:0100753",
       "HP:0008198",
-      "HP:0005352"
+      "HP:0005374",
+      "HP:0002719"
     ],
     "frequencies": [
       "FREQUENT",
@@ -260,6 +272,8 @@ window.searchData = [
       "Cardiac surgery",
       "Calcium and vitamin D supplementation",
       "Thymus transplantation",
+      "Immunoglobulin replacement therapy",
+      "Genetic counseling",
       "Speech therapy",
       "Immunological monitoring"
     ],
@@ -267,11 +281,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "22q11.2_Deletion_Syndrome.yaml",
     "page_url": "../pages/disorders/22q11.2_Deletion_Syndrome.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
     "num_genes": 2,
-    "num_treatments": 5,
-    "causal_graph_edges": "3",
+    "num_treatments": 7,
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "1"
   },
   {
@@ -293,12 +307,16 @@ window.searchData = [
       "Metabolic and growth regulation abnormalities"
     ],
     "cell_types": [
+      "chondrocyte",
       "neuron"
     ],
     "cell_type_ids": [
+      "CL:0000138",
       "CL:0000540"
     ],
     "biological_processes": [
+      "chondrocyte differentiation",
+      "chondrocyte development",
       "neurodevelopment"
     ],
     "phenotypes": [
@@ -314,15 +332,24 @@ window.searchData = [
       "Behavioral abnormality",
       "Seizure",
       "Congenital heart disease",
+      "CNS structural anomalies",
+      "Renal malformation",
+      "Craniosynostosis",
+      "Telangiectasia",
+      "Gastrointestinal anomalies",
+      "Hypothyroidism",
       "Nephroblastoma",
       "Facial dysmorphism"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Digestive",
+      "Endocrine",
       "Genitourinary",
       "Growth",
       "Head and Neck",
+      "Integument",
       "Limbs",
       "Musculoskeletal",
       "Neoplasm",
@@ -331,7 +358,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001263",
       "HP:0001249",
-      "HP:0001156",
+      "HP:0005863",
       "HP:0004322",
       "HP:0001513",
       "HP:0000729",
@@ -341,6 +368,12 @@ window.searchData = [
       "HP:0000708",
       "HP:0001250",
       "HP:0001627",
+      "HP:0002119",
+      "HP:0000077",
+      "HP:0001363",
+      "HP:0001009",
+      "HP:0011024",
+      "HP:0000821",
       "HP:0002667",
       "HP:0001999"
     ],
@@ -354,6 +387,7 @@ window.searchData = [
     ],
     "treatments": [
       "Supportive care",
+      "Genetic counseling",
       "Speech therapy",
       "Physical therapy"
     ],
@@ -361,10 +395,10 @@ window.searchData = [
     "biochemical": [],
     "source_file": "2q37_Microdeletion_Syndrome.yaml",
     "page_url": "../pages/disorders/2q37_Microdeletion_Syndrome.html",
-    "num_phenotypes": 14,
+    "num_phenotypes": 20,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "2"
   },
@@ -1324,7 +1358,9 @@ window.searchData = [
       "Cerebral amyloid deposition",
       "Neurofibrillary degeneration",
       "Synaptic BRI2 loss",
-      "Impaired glutamatergic transmission"
+      "Impaired glutamatergic transmission",
+      "Increased APP processing and Abeta burden",
+      "ADan-induced mitochondrial oxidative apoptosis"
     ],
     "cell_types": [
       "neuron"
@@ -1333,18 +1369,25 @@ window.searchData = [
       "CL:0000540"
     ],
     "biological_processes": [
-      "synaptic signaling"
+      "synaptic transmission, glutamatergic",
+      "amyloid precursor protein metabolic process",
+      "response to oxidative stress",
+      "intrinsic apoptotic signaling pathway"
     ],
     "phenotypes": [
       "Cataract",
       "Sensorineural hearing impairment",
       "Ataxia",
-      "Dementia"
+      "Intention tremor",
+      "Dysarthria",
+      "Dementia",
+      "Psychosis"
     ],
     "phenotype_categories": [
       "Ophthalmologic",
       "Otologic",
-      "Neurologic"
+      "Neurologic",
+      "Psychiatric"
     ],
     "phenotype_hpo_categories": [
       "Ear",
@@ -1355,7 +1398,10 @@ window.searchData = [
       "HP:0000518",
       "HP:0000407",
       "HP:0001251",
-      "HP:0000726"
+      "HP:0002080",
+      "HP:0001260",
+      "HP:0000726",
+      "HP:0000709"
     ],
     "frequencies": [
       "FREQUENT"
@@ -1363,17 +1409,21 @@ window.searchData = [
     "genes": [
       "ITM2B"
     ],
-    "treatments": [],
+    "treatments": [
+      "Genetic counseling and cascade testing",
+      "Supportive multidisciplinary care",
+      "Physical therapy for gait and balance impairment"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "ADan_amyloidosis.yaml",
     "page_url": "../pages/disorders/ADan_amyloidosis.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "AGAT Deficiency",
@@ -2329,6 +2379,7 @@ window.searchData = [
       "Tafamidis",
       "Patisiran",
       "Inotersen",
+      "Eplontersen",
       "Liver Transplant",
       "Heart Transplant",
       "Supportive Care"
@@ -2345,7 +2396,7 @@ window.searchData = [
     "num_phenotypes": 13,
     "num_pathophysiology": 5,
     "num_genes": 3,
-    "num_treatments": 6,
+    "num_treatments": 7,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "4"
   },
@@ -8348,6 +8399,7 @@ window.searchData = [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
+      "Musculoskeletal",
       "Neoplasm",
       "Nervous System",
       "Respiratory"
@@ -8355,7 +8407,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0031459",
       "HP:0100526",
-      "HP:0100006"
+      "HP:0100006",
+      "HP:0010622"
     ],
     "frequencies": [],
     "genes": [
@@ -15071,7 +15124,8 @@ window.searchData = [
       "TSPOAP1 biallelic loss-of-function variants"
     ],
     "treatments": [
-      "Levodopa with decarboxylase inhibitor"
+      "Levodopa with decarboxylase inhibitor",
+      "Agents/Circumstances to Avoid"
     ],
     "environmental": [],
     "biochemical": [
@@ -15082,7 +15136,7 @@ window.searchData = [
     "num_phenotypes": 33,
     "num_pathophysiology": 4,
     "num_genes": 2,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
   },
@@ -42967,6 +43021,7 @@ window.searchData = [
       "Bempedoic Acid",
       "Evinacumab (Anti-ANGPTL3)",
       "Lomitapide",
+      "Mipomersen",
       "LDL Apheresis",
       "Liver Transplantation",
       "Dietary Modification",
@@ -42994,8 +43049,8 @@ window.searchData = [
     "num_phenotypes": 14,
     "num_pathophysiology": 17,
     "num_genes": 6,
-    "num_treatments": 15,
-    "causal_graph_edges": "63",
+    "num_treatments": 16,
+    "causal_graph_edges": "64",
     "causal_graph_longest_path": "11"
   },
   {
@@ -61906,7 +61961,13 @@ window.searchData = [
     "genes": [
       "GPC4"
     ],
-    "treatments": [],
+    "treatments": [
+      "Genetic counseling",
+      "Audiologic evaluation and monitoring",
+      "Developmental and educational support",
+      "Ophthalmologic evaluation for lacrimal anomalies",
+      "Orthopedic and hand evaluation"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Keipert_syndrome.yaml",
@@ -61914,8 +61975,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "5",
+    "num_treatments": 5,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "3"
   },
   {
@@ -71705,7 +71766,8 @@ window.searchData = [
       "Mismatch repair deficiency / MSI-high state"
     ],
     "treatments": [
-      "Encorafenib Plus Binimetinib and Cetuximab for BRAF V600E Disease"
+      "Encorafenib Plus Binimetinib and Cetuximab for BRAF V600E Disease",
+      "Cetuximab for RAS Wild-Type Disease Stratified by APC Mutation Status"
     ],
     "environmental": [
       "Obesity",
@@ -71717,7 +71779,7 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 6,
     "num_genes": 4,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -78598,6 +78660,7 @@ window.searchData = [
     ],
     "treatments": [
       "AAV9/MFSD8 gene therapy",
+      "Milasen (patient-customized splice-modulating ASO)",
       "PFKFB3 inhibitor AZ67"
     ],
     "environmental": [],
@@ -78610,8 +78673,8 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "20",
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "7"
   },
   {
@@ -95659,7 +95722,7 @@ window.searchData = [
       "Lysosomal Storage Disease"
     ],
     "creation_date": "2026-02-05T21:04:11Z",
-    "updated_date": "2026-05-06T21:25:12Z",
+    "updated_date": "2026-05-30T05:21:52Z",
     "subtypes": [
       "Intermediate-Severe Salla Disease"
     ],
@@ -95744,7 +95807,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "6"
   },
   {
@@ -111727,10 +111790,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 1123,
-  "total_unique_evidence_sources": 20882,
+  "total_unique_evidence_sources": 20949,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 195,
   "total_pathographs": 1116,
-  "total_unique_pathological_events": 5462
+  "total_unique_pathological_events": 5466
 };
 window.dispatchEvent(new Event('searchDataReady'));
