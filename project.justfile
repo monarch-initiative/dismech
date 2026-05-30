@@ -614,6 +614,12 @@ gen-module-pages:
     uv run python -m dismech.render --module {{modules_dir}}
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
+# Generate deep-research index page
+[group('Pages')]
+gen-research-index:
+    uv run python -m dismech.render --research
+    @echo "Generated pages/research/index.html"
+
 # Generate a single comorbidity page
 [group('Pages')]
 gen-comorbidity-page file:
@@ -809,6 +815,75 @@ research-disorder provider disorder *args="":
         --separate-citations "$output_file.citations.md" \
         {{args}}
 
+# Deep research on a shared mechanism module using specified provider
+# Examples:
+#   just research-module falcon meiotic_prophase_failure --param max_tokens=12000
+[group('Research')]
+research-module provider module *args="":
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p {{research_dir}}/modules
+    yaml_file="{{modules_dir}}/{{module}}.yaml"
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: Module file not found: $yaml_file"
+        for f in {{modules_dir}}/*.yaml; do basename "$f" .yaml; done | sort
+        exit 1
+    fi
+    module_name=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    print(data.get("name", ""))
+    PY
+    )
+    category=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    print(data.get("category", ""))
+    PY
+    )
+    module_description=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    print(" ".join(str(data.get("description", "")).split()))
+    PY
+    )
+    pathophysiology_summary=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    for node in data.get("pathophysiology") or []:
+        name = node.get("name", "")
+        desc = " ".join(str(node.get("description", "")).split())
+        print(f"- {name}: {desc}")
+    PY
+    )
+    output_file="{{research_dir}}/modules/{{module}}-deep-research-{{provider}}.md"
+    template_file="{{templates_dir}}/module_mechanism_research.md"
+    echo "Researching module: $module_name ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    uv run deep-research-client research \
+        --template "$template_file" \
+        --var "module_name=$module_name" \
+        --var "module_slug={{module}}" \
+        --var "category=$category" \
+        --var "module_description=$module_description" \
+        --var "pathophysiology_summary=$pathophysiology_summary" \
+        $provider_arg \
+        --output "$output_file" \
+        --separate-citations "$output_file.citations.md" \
+        {{args}}
+
 # Deep research on a comorbidity using specified provider
 # Examples:
 #   just research-comorbidity perplexity com_Type_2_Diabetes_Mellitus__Lichen_Simplex_Chronicus__Prurigo_Nodularis
@@ -876,6 +951,40 @@ research-comorbidity provider comorbidity *args="":
 	    --separate-citations "$output_file.citations.md" \
 	    {{args}}
 
+# Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
+# Asks the deep-research provider for trial-level R^2, PTE, STE, joint-model,
+# regulatory qualification, and negative/refuting evidence linking the surrogate
+# to the clinical outcome. Output mirrors research-disorder shape.
+# Examples:
+#   just research-surrogacy openscientist Chronic_Kidney_Disease "estimated glomerular filtration rate" "end-stage kidney disease"
+#   just research-surrogacy perplexity Osteoporosis "bone mineral density" "vertebral fracture"
+[group('Research')]
+research-surrogacy provider disease surrogate clinical_outcome *args="":
+	#!/usr/bin/env bash
+	set -e
+	mkdir -p {{research_dir}}/surrogacy
+	yaml_file="{{kb_dir}}/{{disease}}.yaml"
+	if [ ! -f "$yaml_file" ]; then
+	    echo "Error: Disorder file not found: $yaml_file"
+	    for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort | head -20
+	    exit 1
+	fi
+	disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+	# Filename-safe slug from the surrogate label
+	surrogate_slug=$(echo "{{surrogate}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-60)
+	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
+	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
+	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+	uv run deep-research-client research \
+	    --template {{templates_dir}}/disease_surrogacy_research.md \
+	    --var "disease_name=$disease_name" \
+	    --var "surrogate={{surrogate}}" \
+	    --var "clinical_outcome={{clinical_outcome}}" \
+	    $provider_arg \
+	    --output "$output_file" \
+	    --separate-citations "$output_file.citations.md" \
+	    {{args}}
+
 # Deep research on a disorder using cyberian with codex agent
 [group('Research')]
 research-disorder-cyberian-codex disorder *args="":
@@ -907,6 +1016,53 @@ research-disorder-cyberian-codex disorder *args="":
 [group('Research')]
 research-providers:
     uv run deep-research-client providers
+
+# One TSV row per disorder summarizing deep-research provider coverage.
+# Summary lines are prefixed with "#" so the table stays easy to grep/awk.
+# Examples:
+#   just research-status
+#   just research-status --provider openscientist
+#   just research-status --missing-provider openscientist
+[group('Research')]
+research-status *args="":
+    @uv run python scripts/deep_research_coverage.py status {{args}}
+
+# Launch deep research for every disorder missing the requested provider.
+# Use provider slugs from deep-research-client, e.g. falcon or openscientist.
+# Examples:
+#   just research-missing-provider openscientist --dry-run
+#   just research-missing-provider openscientist --max-disorders 5 -- --param max_iterations=1
+[group('Research')]
+research-missing-provider provider *args="":
+    @uv run python scripts/deep_research_coverage.py run-missing {{provider}} {{args}}
+
+# List hypothesis-search coverage for mechanistic_hypotheses in disorder YAML.
+# Examples:
+#   just research-hypotheses
+#   just research-hypotheses --disorder Long_COVID
+#   just research-hypotheses --missing-provider openscientist
+[group('Research')]
+research-hypotheses *args="":
+    @uv run python scripts/hypothesis_deep_research.py list {{args}}
+
+# Focused deep research on one mechanistic_hypotheses entry.
+# Provider slugs follow deep-research-client; edison is accepted as an alias for falcon.
+# Output: kb/hypotheses/<Disorder>/<hypothesis_group_id>/<provider>.md
+# Examples:
+#   just research-hypothesis openscientist Long_COVID canonical_persistence_immune_model --dry-run
+#   just research-hypothesis falcon Long_COVID canonical_persistence_immune_model
+#   just research-hypothesis openscientist Long_COVID canonical_persistence_immune_model -- --param max_iterations=1
+[group('Research')]
+research-hypothesis provider disorder hypothesis_group_id *args="":
+    @uv run python scripts/hypothesis_deep_research.py run {{provider}} {{disorder}} {{hypothesis_group_id}} {{args}}
+
+# Run hypothesis-search jobs for hypotheses missing a provider.
+# Examples:
+#   just research-hypotheses-missing-provider openscientist --disorder Long_COVID --dry-run
+#   just research-hypotheses-missing-provider falcon --max-hypotheses 3
+[group('Research')]
+research-hypotheses-missing-provider provider *args="":
+    @uv run python scripts/hypothesis_deep_research.py run-missing {{provider}} {{args}}
 
 # Rehydrate an existing Edison trajectory into a full research report with its
 # recovered artifacts and a separate citations file using deep-research-client.

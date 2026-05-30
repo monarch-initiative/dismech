@@ -1205,6 +1205,44 @@ enums:
       DEPRECATED:
         description: Historical hypothesis no longer supported as the current model
 
+  DiscussionKindEnum:
+    description: >-
+      Kind of unresolved/in-progress item captured by a Discussion. Discussions
+      are thread-like objects that record open questions, controversies, curation
+      todos, emerging hypotheses, or interpretation debates attached to a
+      disease entry or sub-object. Knowledge gaps are represented as a
+      discussion kind so they can reuse the existing pointer, evidence, and
+      lifecycle machinery, while optional proposed experiments capture how a
+      gap could be resolved.
+    permissible_values:
+      OPEN_QUESTION:
+        description: An unresolved scientific question posed by curators or experts
+      KNOWLEDGE_GAP:
+        description: >-
+          A missing causal, evidentiary, model-system, or translational
+          assertion whose resolution would materially improve the disease
+          mechanism model
+      CONTROVERSY:
+        description: A live disagreement or competing interpretation between published positions
+      CURATION_TODO:
+        description: A curation task captured inline (e.g., "phenotype needs HPO term refinement")
+      EMERGING_HYPOTHESIS:
+        description: A recently reported hypothesis under active discussion in the community
+      INTERPRETATION:
+        description: A discussion about how to interpret existing evidence or model an edge
+
+  DiscussionStatusEnum:
+    description: Lifecycle status for a Discussion
+    permissible_values:
+      OPEN:
+        description: Posed but not yet under active discussion
+      UNDER_DISCUSSION:
+        description: Actively being discussed in one or more linked venues
+      RESOLVED:
+        description: Closed with a documented resolution; kept for provenance
+      ARCHIVED:
+        description: No longer active and not resolved (deferred, stale, or superseded)
+
   ComorbidityDirectionEnum:
     description: Directionality of a comorbidity/trajectory association
     permissible_values:
@@ -1334,7 +1372,6 @@ enums:
           expert-authored, peer-reviewed summaries updated on a rolling basis;
           they are the gold-standard narrative resource for rare Mendelian
           disease phenotyping and management.
-
 slots:
   name:
     examples:
@@ -2234,6 +2271,27 @@ slots:
     examples:
       - value: cm
     range: string
+  loinc_term:
+    description: >-
+      LOINC code for a measured analyte or clinical observation (e.g., LOINC:2823-3
+      for serum potassium). Binds to the LOINC namespace.
+    range: Term
+    inlined: true
+  lower_bound:
+    description: >-
+      Lower bound of a reference interval (inclusive). Null indicates no lower limit.
+    range: float
+  upper_bound:
+    description: >-
+      Upper bound of a reference interval (inclusive). Null indicates no upper limit.
+    range: float
+  reference_ranges:
+    description: >-
+      Clinical laboratory reference intervals for this biomarker,
+      keyed by LOINC code with population qualifier and UCUM units.
+    multivalued: true
+    range: ReferenceRange
+    inlined_as_list: true
   function:
     range: string
   regulatory_category:
@@ -2293,6 +2351,113 @@ slots:
     description: Disease subtypes for which this hypothesis is intended to apply
     multivalued: true
     range: string
+  discussion_id:
+    description: Stable identifier for a Discussion, used as the target of cross-references
+    range: string
+  prompt:
+    description: The unresolved question, controversy, or todo articulated by a Discussion
+    range: string
+  kind:
+    description: Categorical type of a Discussion (narrowed via slot_usage to DiscussionKindEnum)
+    range: string
+  attaches_to:
+    description: >-
+      Multivalued list of entity references pointing at the disease nodes,
+      gaps, phenotypes, or other objects this item is about. Uses a hash-anchor
+      grammar consistent with `conforms_to`:
+      `[<file>:]<kind>#<name>`. Examples:
+      `pathophysiology#Amyloid Plaque Formation`,
+      `phenotype#Memory Loss`,
+      `Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation`.
+      Range is `string` for now; a custom EntityRef type with parser support
+      can be introduced later without breaking existing data.
+    multivalued: true
+    range: string
+  rationale:
+    description: Why this Discussion matters / what hangs on its resolution
+    range: string
+  proposed_experiments:
+    description: >-
+      Experiments proposed as ways to resolve this Discussion. The Experiment
+      object is intentionally neutral: whether it is proposed, planned, in
+      progress, or reported is determined by its containing context. Here,
+      nesting under a Discussion means the experiment is proposed as a response
+      to an open item or knowledge gap.
+    multivalued: true
+    range: Experiment
+    inlined_as_list: true
+  experiment_id:
+    description: Stable identifier for an Experiment within a disease entry
+    range: string
+  experiment_type:
+    description: >-
+      Ontology-backed descriptor for the overall experiment or study design.
+      Prefer OBI terms when available; assay-level details should go in the
+      `assays` slot.
+    range: Descriptor
+    inlined: true
+  model_systems:
+    description: >-
+      Experimental model systems used or proposed for an experiment, using the
+      ExperimentalModel pattern and optional NAMO alignment.
+    multivalued: true
+    range: ExperimentalModel
+    inlined_as_list: true
+  controls:
+    description: Experimental controls, comparators, or counterfactual arms
+    multivalued: true
+    range: ExperimentalControl
+    inlined_as_list: true
+  decision_criterion:
+    description: >-
+      Pre-specified qualitative or quantitative criterion for interpreting the
+      experiment relative to the attached discussion or knowledge gap.
+    range: string
+  would_support:
+    description: >-
+      Entity references that would be supported if the experiment meets its
+      decision criterion. Uses the same hash-anchor grammar as `attaches_to`.
+    multivalued: true
+    range: string
+  would_refute:
+    description: >-
+      Entity references that would be weakened or refuted if the experiment
+      meets a contrary result. Uses the same hash-anchor grammar as `attaches_to`.
+    multivalued: true
+    range: string
+  protocol_reference:
+    description: >-
+      Optional protocol, methods paper, or registry reference for the
+      experimental workflow. May be a PMID, DOI, protocols.io DOI, URL, or other
+      stable identifier.
+    range: string
+  posed_by:
+    description: >-
+      Optional attribution for who posed a Discussion. ORCID is preferred when
+      available (e.g., `ORCID:0000-0002-1825-0097`); a github handle or email
+      is acceptable.
+    range: string
+  posed_date:
+    description: Date the Discussion was first posed (ISO 8601)
+    range: datetime
+  resolved_date:
+    description: Date the Discussion's status moved to RESOLVED (ISO 8601)
+    range: datetime
+  resolution_note:
+    description: Short summary written when a Discussion is marked RESOLVED
+    range: string
+  discussions:
+    description: >-
+      Open or recently-resolved discussion items attached to this entry. Each
+      Discussion is a thread-like object with a `prompt`, a `kind`
+      (OPEN_QUESTION, KNOWLEDGE_GAP, CONTROVERSY, etc.), a `status`, optional
+      `attaches_to` pointers to specific nodes/gaps, an optional
+      `proposed_experiments` block, and an `evidence` block reusing the standard
+      EvidenceItem shape for citing primary literature, community commentary
+      (e.g., Alzforum), and forum/issue threads.
+    multivalued: true
+    range: Discussion
+    inlined_as_list: true
   target_phenotypes:
     description: Phenotypes that this treatment or trial addresses or targets
     multivalued: true
@@ -2428,10 +2593,13 @@ slots:
   updated_date:
     description: >-
       ISO 8601/RFC 3339 timestamp string for when this disease entry was last
-      updated (e.g., 2025-06-12T20:16:27Z)
+      updated (e.g., 2025-06-12T20:16:27Z). Deprecated: use git history for
+      authoritative change timestamps. Existing entries may retain this field;
+      new entries should omit it.
     range: string
     pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'
-    recommended: true
+    recommended: false
+    deprecated: true
   curation_history:
     description: Audit trail of AI-assisted curation events
     multivalued: true
@@ -3366,6 +3534,134 @@ classes:
       - evidence
       - notes
 
+  Experiment:
+    description: >-
+      A structured experiment or protocol-level study design that can be proposed
+      to resolve a knowledge gap, or later reused to represent experiments that
+      have been carried out. The object itself is intentionally status-neutral:
+      proposal, execution, and evidentiary status are expressed by the containing
+      slot or future evidence context.
+    comments:
+      - >-
+        In `Discussion.proposed_experiments`, the containing slot means the
+        experiment is proposed as a response to an open question or knowledge
+        gap.
+      - >-
+        Use `model_systems` for NAMO-aligned models, `perturbations` for
+        pathograph/gene/chemical/exposure manipulations, and `readouts` for
+        ontology-backed outcome or mechanism measurements.
+    slots:
+      - experiment_id
+      - name
+      - description
+      - experiment_type
+      - model_systems
+      - perturbations
+      - assays
+      - readouts
+      - controls
+      - decision_criterion
+      - would_support
+      - would_refute
+      - protocol_reference
+      - datasets
+      - evidence
+      - notes
+    slot_usage:
+      experiment_id:
+        required: true
+      perturbations:
+        description: >-
+          Interventions or manipulations applied in the experiment. These may
+          target disease pathograph nodes, genes, chemical entities, treatments,
+          exposures, triggers, or biological processes.
+        range: ExperimentalPerturbation
+        inlined_as_list: true
+      readouts:
+        description: >-
+          Measurements or outcomes interpreted against disease pathograph nodes,
+          phenotypes, biomarkers, or biological processes.
+        range: ExperimentalReadout
+        inlined_as_list: true
+      assays:
+        description: Ontology-backed assays used by the experiment; prefer OBI terms when available.
+      evidence:
+        description: >-
+          Literature, protocol papers, or dataset evidence supporting the
+          feasibility, precedent, or design rationale for this experiment.
+        recommended: false
+
+  ExperimentalPerturbation:
+    description: >-
+      A structured perturbation, intervention, or exposure used in an
+      experiment. Prefer ontology-backed descriptors for genes, chemicals,
+      treatments, exposures, triggers, and biological processes rather than
+      plain string lists.
+    slots:
+      - name
+      - description
+      - target
+      - gene
+      - genes
+      - chemical_entities
+      - treatment_term
+      - exposure_term
+      - triggers
+      - biological_processes
+      - effect
+      - evidence
+      - notes
+    slot_usage:
+      target:
+        description: >-
+          Entity reference for the pathograph node, phenotype, gene, or other
+          modeled object being perturbed. Uses the same hash-anchor grammar as
+          `attaches_to` when pointing into a disease entry.
+
+  ExperimentalReadout:
+    description: >-
+      A structured readout or outcome measured in an experiment. Use descriptor
+      slots to ground readouts to phenotypes, biomarkers, biological processes,
+      and assays.
+    slots:
+      - name
+      - description
+      - target
+      - phenotype_term
+      - biomarker_term
+      - biological_processes
+      - assays
+      - direction
+      - interpretation
+      - evidence
+      - notes
+    slot_usage:
+      target:
+        description: >-
+          Entity reference for the pathograph node, phenotype, or other modeled
+          object that this readout measures or adjudicates.
+      interpretation:
+        description: >-
+          Curator-facing explanation of how this readout would be interpreted
+          relative to the experiment's decision criterion.
+
+  ExperimentalControl:
+    description: >-
+      A comparator or control condition for an experiment, such as an isogenic
+      wild-type line, mock perturbation, vehicle control, rescue arm, or
+      untreated disease model.
+    slots:
+      - name
+      - description
+      - model_systems
+      - perturbations
+      - evidence
+      - notes
+    slot_usage:
+      perturbations:
+        range: ExperimentalPerturbation
+        inlined_as_list: true
+
   ClinicalTrial:
     description: A clinical trial relevant to treatment or research of a disease
     comments:
@@ -3620,6 +3916,62 @@ classes:
         description: Human-readable interpretation of the link for display and curation review.
       evidence:
         description: Evidence supporting this biomarker-to-pathograph-node readout link
+  ReferenceRange:
+    description: >-
+      A population reference interval for a clinical laboratory analyte. Captures
+      the numeric normal range (lower and upper bounds), measurement unit in UCUM
+      notation, population qualifier, and data provenance. Complements
+      ModelVariableDescriptor thresholds (which define disease-model activation
+      points) with empirically grounded clinical reference intervals.
+    comments:
+      - Use LOINC codes for loinc_term to enable cross-analyte queries
+      - Use UCUM notation for unit (e.g., "mmol/L", "g/dL", "U/L")
+      - population describes age group, sex, fasting state, or other stratifiers
+      - Omit lower_bound or upper_bound when the interval is one-sided
+    slots:
+      - loinc_term
+      - lower_bound
+      - upper_bound
+      - unit
+      - population
+      - source
+      - evidence
+      - notes
+    slot_usage:
+      loinc_term:
+        description: >-
+          LOINC code for the measured analyte (e.g., LOINC:2823-3 for serum
+          potassium, LOINC:2777-1 for serum phosphate). Required for
+          machine-queryable reference interval lookups.
+        recommended: true
+      lower_bound:
+        description: >-
+          Lower bound of the reference interval (inclusive). Omit when there
+          is no clinically meaningful lower limit (e.g., analytes where only
+          elevation is abnormal).
+      upper_bound:
+        description: >-
+          Upper bound of the reference interval (inclusive). Omit when there
+          is no clinically meaningful upper limit (e.g., analytes where only
+          low values are abnormal).
+      unit:
+        description: >-
+          UCUM unit string for the measured quantity (e.g., "mmol/L", "g/dL",
+          "mIU/L"). Should match the unit used for lower_bound and upper_bound.
+        recommended: true
+      population:
+        description: >-
+          Population or stratification qualifier for this interval (e.g.,
+          "adults", "female 20-60y", "fasting", "pediatric 0-12mo").
+          Omit for universal adult reference ranges without stratification.
+      source:
+        description: >-
+          Provenance for this reference interval (e.g., "LOINC distribution",
+          "Tietz Clinical Guide 4th ed.", "KDIGO 2017", "Mayo Clinic Labs").
+      evidence:
+        description: >-
+          Evidence items supporting this reference interval (typically a
+          clinical guideline PMID or structured-source reference).
   SurrogateEndpoint:
     description: >-
       A regulatory surrogate endpoint assertion curated from FDA's surrogate
@@ -3880,6 +4232,7 @@ classes:
       - biomarker_term
       - presence
       - readouts
+      - reference_ranges
       - evidence
       - specificity
       - frequency
@@ -4002,6 +4355,7 @@ classes:
       - mappings
       - external_assertions
       - tracked_issues
+      - discussions
       - notes
       - review_notes
       - curation_history
@@ -4515,6 +4869,41 @@ classes:
         required: true
       status:
         range: MechanisticHypothesisStatusEnum
+
+  Discussion:
+    description: >-
+      A thread-like record of an open question, controversy, curation todo,
+      emerging hypothesis, or interpretation debate attached to a disease entry
+      or sub-object. Discussions capture the *discourse* layer of curation
+      (what is being argued or asked), complementing the structural
+      knowledge-gap layer proposed in monarch-initiative/dismech#2617 (what is
+      missing from the model). External thread links (e.g., Alzforum
+      commentaries, GitHub issues) are not modelled as a separate slot;
+      instead they are cited via the standard `evidence` block using the same
+      EvidenceItem shape as primary literature.
+    slots:
+      - discussion_id
+      - prompt
+      - kind
+      - status
+      - attaches_to
+      - rationale
+      - proposed_experiments
+      - evidence
+      - posed_by
+      - posed_date
+      - resolved_date
+      - resolution_note
+      - notes
+    slot_usage:
+      discussion_id:
+        required: true
+      prompt:
+        required: true
+      kind:
+        range: DiscussionKindEnum
+      status:
+        range: DiscussionStatusEnum
 
   DiseaseCollection:
     slots:

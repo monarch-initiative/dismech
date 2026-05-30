@@ -192,6 +192,76 @@ def test_environmental_food_source_slot_accepts_chebi_nutrient(validator):
     assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
+def test_discussion_knowledge_gap_proposed_experiment_validates(validator):
+    """Knowledge-gap discussions can carry structured proposed experiments."""
+    data = {
+        "name": "Test Disease",
+        "discussions": [
+            {
+                "discussion_id": "gap_test_mechanism",
+                "prompt": "Which experiment would resolve the missing mechanism?",
+                "kind": "KNOWLEDGE_GAP",
+                "status": "OPEN",
+                "attaches_to": ["pathophysiology#Missing Mechanism"],
+                "proposed_experiments": [
+                    {
+                        "experiment_id": "exp_test",
+                        "name": "Isogenic perturbation assay",
+                        "experiment_type": {
+                            "preferred_term": "controlled perturbation experiment"
+                        },
+                        "model_systems": [
+                            {
+                                "name": "Human organ-on-chip model",
+                                "experimental_model_type": "ORGAN_ON_CHIP",
+                                "namo_type": "namo:OrganOnChip",
+                                "organism": {
+                                    "preferred_term": "human",
+                                    "term": {
+                                        "id": "NCBITaxon:9606",
+                                        "label": "Homo sapiens",
+                                    },
+                                },
+                            }
+                        ],
+                        "perturbations": [
+                            {
+                                "name": "Gene correction",
+                                "target": "gene#TEST1",
+                                "gene": {"preferred_term": "TEST1"},
+                            }
+                        ],
+                        "readouts": [
+                            {
+                                "name": "Cell-state readout",
+                                "target": "pathophysiology#Missing Mechanism",
+                                "biological_processes": [
+                                    {
+                                        "preferred_term": "autophagy",
+                                        "term": {
+                                            "id": "GO:0006914",
+                                            "label": "autophagy",
+                                        },
+                                    }
+                                ],
+                                "direction": "POSITIVE",
+                            }
+                        ],
+                        "controls": [{"name": "Isogenic wild-type control"}],
+                        "decision_criterion": "Rescue should normalize the readout.",
+                        "would_support": ["pathophysiology#Missing Mechanism"],
+                    }
+                ],
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
 def test_environmental_context_slot_accepts_built_environment_terms(validator):
     """Environmental entries may annotate ENVO built-environment descendants."""
     data = {
@@ -576,6 +646,34 @@ def test_subtypes_have_disease_term(filepath):
             f"{Path(filepath).name}: subtypes missing subtype_term: {missing}",
             stacklevel=1,
         )
+
+
+def test_reference_range_on_biochemical_validates(validator):
+    """ReferenceRange entries on a Biochemical block should pass schema validation."""
+    data = {
+        "name": "Test Disease",
+        "biochemical": [
+            {
+                "name": "Serum Potassium",
+                "reference_ranges": [
+                    {
+                        "loinc_term": {
+                            "id": "LOINC:2823-3",
+                            "label": "Potassium [Moles/volume] in Serum or Plasma",
+                        },
+                        "lower_bound": 3.5,
+                        "upper_bound": 5.0,
+                        "unit": "mmol/L",
+                        "population": "adults",
+                        "source": "KDIGO 2017",
+                    }
+                ],
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
 
 
 def test_disorder_count():

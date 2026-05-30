@@ -238,6 +238,107 @@ def test_render_mondo_mapping_highlights_missing_disorder_page(tmp_path: Path) -
     assert 'href="http://purl.obolibrary.org/obo/MONDO_0099999"' in html
 
 
+def test_render_mondo_mapping_exactmatch_is_grounding_only(tmp_path: Path) -> None:
+    """skos:exactMatch MONDO mappings denote the same disease as this page's
+    disease_term, so they are ontology grounding only and must not be flagged
+    as an uncurated disease (#1307)."""
+    acne_path = tmp_path / "Acne_Vulgaris.yaml"
+    _write_disorder(
+        acne_path,
+        {
+            "name": "Acne Vulgaris",
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "acne vulgaris"}},
+            "mappings": {
+                "mondo_mappings": [
+                    {
+                        "term": {"id": "MONDO:0099999", "label": "acne vulgaris"},
+                        "mapping_source": "MONDO",
+                        "mapping_predicate": "skos:exactMatch",
+                    }
+                ]
+            },
+        },
+    )
+
+    output_path = tmp_path / "pages" / "disorders" / "Acne_Vulgaris.html"
+    render_disorder(acne_path, output_path=output_path)
+
+    html = output_path.read_text()
+    assert "Not Yet Curated" not in html
+    assert '<span class="curation-gap-badge"' not in html
+    assert 'class="mapping-label missing-disease-name"' not in html
+    assert 'class="missing-ontology-link"' not in html
+    # External ontology grounding link is still rendered.
+    assert 'href="http://purl.obolibrary.org/obo/MONDO_0099999"' in html
+
+
+def test_render_mondo_mapping_closematch_still_flagged(tmp_path: Path) -> None:
+    """Non-exact predicates (closeMatch/relatedMatch/broadMatch) may point to a
+    genuinely distinct disease, so the curation-gap signal is preserved until a
+    maintainer decides otherwise (#1307)."""
+    acne_path = tmp_path / "Acne_Vulgaris.yaml"
+    _write_disorder(
+        acne_path,
+        {
+            "name": "Acne Vulgaris",
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "acne vulgaris"}},
+            "mappings": {
+                "mondo_mappings": [
+                    {
+                        "term": {"id": "MONDO:0099999", "label": "uncurated disease"},
+                        "mapping_source": "MONDO",
+                        "mapping_predicate": "skos:closeMatch",
+                    }
+                ]
+            },
+        },
+    )
+
+    output_path = tmp_path / "pages" / "disorders" / "Acne_Vulgaris.html"
+    render_disorder(acne_path, output_path=output_path)
+
+    html = output_path.read_text()
+    assert '<span class="curation-gap-badge">Not Yet Curated</span>' in html
+    assert 'class="mapping-label missing-disease-name"' in html
+    assert 'href="http://purl.obolibrary.org/obo/MONDO_0099999"' in html
+
+
+def test_render_mondo_mapping_self_mapping_is_grounding_only(tmp_path: Path) -> None:
+    """A non-exact predicate (e.g. closeMatch) whose mapped MONDO term IS this
+    page's own disease_term is ontology grounding only — typical of refined /
+    metastatic / molecular-subtype lenses on the same MONDO term (e.g.
+    Metastatic_NSCLC.yaml closeMatch MONDO:0005233). It must not be flagged as
+    an uncurated disease (#1307)."""
+    acne_path = tmp_path / "Acne_Vulgaris.yaml"
+    _write_disorder(
+        acne_path,
+        {
+            "name": "Acne Vulgaris (severe)",
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "acne vulgaris"}},
+            "mappings": {
+                "mondo_mappings": [
+                    {
+                        "term": {"id": "MONDO:0000001", "label": "acne vulgaris"},
+                        "mapping_source": "MONDO",
+                        "mapping_predicate": "skos:closeMatch",
+                    }
+                ]
+            },
+        },
+    )
+
+    output_path = tmp_path / "pages" / "disorders" / "Acne_Vulgaris.html"
+    render_disorder(acne_path, output_path=output_path)
+
+    html = output_path.read_text()
+    assert "Not Yet Curated" not in html
+    assert '<span class="curation-gap-badge"' not in html
+    assert 'class="mapping-label missing-disease-name"' not in html
+    assert 'class="missing-ontology-link"' not in html
+    # External ontology grounding link is still rendered.
+    assert 'href="http://purl.obolibrary.org/obo/MONDO_0000001"' in html
+
+
 def test_render_subtype_terms_are_grounding_only(tmp_path: Path) -> None:
     """Subtype ontology grounding should not imply local disorder pages."""
     acne_path = tmp_path / "Acne_Vulgaris.yaml"

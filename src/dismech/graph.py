@@ -37,6 +37,9 @@ class Edge:
     relationship: str | None = None
     direction: str | None = None
     endpoint_context: str | None = None
+    hypothesis_groups: list[str] = field(default_factory=list)
+    causal_link_type: str | None = None
+    intermediate_mechanisms: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -136,6 +139,17 @@ def _gene_lookup_keys(
         keys.update(_name_lookup_key(item.get("name")))
 
     return keys
+
+
+def _coerce_string_list(value: Any) -> list[str]:
+    """Normalize schema values that may be absent, scalar, or multivalued."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item is not None and str(item).strip()]
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    return [str(value)]
 
 
 _NON_CONTRIBUTING_RELATIONSHIP_TYPES = {
@@ -322,6 +336,14 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                         target=target,
                         predicate="causes",
                         source_type="pathophysiology",
+                        description=edge_item.get("description"),
+                        hypothesis_groups=_coerce_string_list(
+                            edge_item.get("hypothesis_groups")
+                        ),
+                        causal_link_type=edge_item.get("causal_link_type"),
+                        intermediate_mechanisms=_coerce_string_list(
+                            edge_item.get("intermediate_mechanisms")
+                        ),
                     )
                 )
 
@@ -343,6 +365,14 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                         target=target,
                         predicate="leads_to",
                         source_type="phenotype",
+                        description=edge_item.get("description"),
+                        hypothesis_groups=_coerce_string_list(
+                            edge_item.get("hypothesis_groups")
+                        ),
+                        causal_link_type=edge_item.get("causal_link_type"),
+                        intermediate_mechanisms=_coerce_string_list(
+                            edge_item.get("intermediate_mechanisms")
+                        ),
                     )
                 )
 
@@ -1069,6 +1099,12 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
             edge_data["direction"] = edge.direction
         if edge.endpoint_context:
             edge_data["endpoint_context"] = edge.endpoint_context
+        if edge.hypothesis_groups:
+            edge_data["hypothesis_groups"] = edge.hypothesis_groups
+        if edge.causal_link_type:
+            edge_data["causal_link_type"] = edge.causal_link_type
+        if edge.intermediate_mechanisms:
+            edge_data["intermediate_mechanisms"] = edge.intermediate_mechanisms
         edges_json.append(edge_data)
 
     return json.dumps(

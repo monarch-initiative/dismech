@@ -146,6 +146,14 @@ pathophysiology:
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
+- `dna_repair_synthetic_lethality` — Conserved HRR/FA-BRCA deficiency pattern: HRR or FA/BRCA repair deficiency → replication-associated DNA damage accumulation → PARP/platinum synthetic lethality → POLQ/error-prone repair escape → restored HRR and acquired resistance. Key conformance target: `dna_repair_synthetic_lethality#PARP and Platinum Synthetic Lethality`
+- `rtk_grb2_signaling_adaptation` — Conserved RTK/GRB2 adaptor pattern: activated RTK phosphotyrosine docking → GRB2 adaptor hub → RAS-MAPK/PI3K-AKT proliferation output, with an emerging GRB2-RAD51 replication-fork protection branch. Key conformance target: `rtk_grb2_signaling_adaptation#GRB2 Adaptor Hub`
+- `parp_parg_macrodomain_viral_evasion` — Conserved antiviral ADP-ribosylation pattern: viral/interferon PARP induction → NAD-dependent antiviral ADP-ribosylation → PARG/host reset → viral macrodomain de-ADP-ribosylation countermeasure → enhanced viral replication/pathogenesis. Key conformance target: `parp_parg_macrodomain_viral_evasion#Viral Macrodomain De-ADP-Ribosylation Countermeasure`
+
+**Module-level hypotheses and gaps:**
+- Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
+- Causal edges opt into those groups with `downstream[].hypothesis_groups`. In conforming disorder entries, copy and specialize the same grouping only when the disease-specific causal edge belongs to that model.
+- Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
 
 ### Evidence Items
 All evidence must have PMID references and support classification:
@@ -170,18 +178,17 @@ Model organism evidence should not be the only support for human phenotypes; kee
 
 ### Entry Metadata Dates
 
-Each `Disease` entry should include lifecycle timestamps:
+Each `Disease` entry should include a creation timestamp:
 
 ```yaml
 creation_date: "2025-06-12T20:16:27Z"
-updated_date: "2025-07-03T11:05:10Z"
 ```
 
 Rules:
 - Use ISO 8601 / RFC 3339 datetime strings.
 - Keep `creation_date` stable after first creation.
-- Update `updated_date` whenever curated content changes.
 - Prefer UTC (`Z` suffix) for consistency.
+- **Do not add `updated_date` to new entries.** The field is deprecated — git history is the authoritative change log. Existing entries that still carry `updated_date` may retain it until a future bulk cleanup.
 
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
@@ -560,6 +567,27 @@ cat references_cache/pmid_12345678.md
 # Or fetch fresh and validate
 just validate-references kb/disorders/MyDisease.yaml
 ```
+
+### 2a. Deep-Research (Falcon/DR) Tool Outputs — Extra Verification Needed
+
+Deep-research tools (Falcon, DGO, etc.) synthesize information across many sources but are **known to fabricate or misattribute citations, misquote snippets, and invent ontology identifiers**. When using DR outputs for curation:
+
+**Treat DR outputs as *leads*, not ground truth.** Every PMID, snippet, and ontology term from a DR summary must be independently verified before committing.
+
+**Three categories of hallucination risk:**
+1. **Fabricated PMIDs** — The cited paper does not exist, or the PMID belongs to an unrelated paper
+2. **Misquoted snippets** — The snippet is paraphrased or invented rather than an exact quote from the real abstract
+3. **Invented ontology terms** — HP, GO, CL, MAXO, CHEBI, or NCIT identifiers that don't exist or whose canonical label doesn't match `term.label`
+
+**Mandatory verification workflow for any curation step sourced from DR:**
+1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
+2. For **each snippet**: manually verify it is an exact substring of the abstract by comparing against the cached file in `references_cache/PMID_XXXX.md`
+3. For **each ontology term** (HP, GO, CL, MAXO, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms-file kb/disorders/YourDisease.yaml`
+4. Run the full validation suite before committing (see Validation Workflow below)
+
+If a DR-suggested citation cannot be verified against the real abstract, do not use it. Find an alternative source or remove the claim entirely.
+
+**Historical note:** Issue #1737 audited DR-sourced entries and found ~1% hallucination rate in the cache layer — the dismech validation stack catches these errors, but only *after* the curator runs the checks. Treating DR outputs as leads rather than ground truth is the most reliable protection.
 
 ### 3. Validation Workflow
 

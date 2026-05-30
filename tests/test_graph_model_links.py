@@ -234,6 +234,42 @@ def test_build_causal_graph_includes_biomarker_readout_links() -> None:
     ]
 
 
+def test_graph_to_json_includes_hypothesis_group_edge_metadata() -> None:
+    """Pathograph edges should preserve curated hypothesis group links."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "Upstream mechanism",
+                "downstream": [
+                    {
+                        "target": "Downstream mechanism",
+                        "description": "Mechanistic bridge.",
+                        "hypothesis_groups": ["canonical_model"],
+                        "causal_link_type": "INDIRECT_KNOWN_INTERMEDIATES",
+                        "intermediate_mechanisms": ["Intermediate step"],
+                    }
+                ],
+            },
+            {"name": "Downstream mechanism"},
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+    edge = next(
+        edge
+        for edge in data["edges"]
+        if edge["source"] == "Upstream mechanism"
+        and edge["target"] == "Downstream mechanism"
+    )
+
+    assert edge["description"] == "Mechanistic bridge."
+    assert edge["hypothesis_groups"] == ["canonical_model"]
+    assert edge["causal_link_type"] == "INDIRECT_KNOWN_INTERMEDIATES"
+    assert edge["intermediate_mechanisms"] == ["Intermediate step"]
+
+
 def test_graph_to_json_includes_matching_histopathology_terms() -> None:
     """Matching pathograph nodes should expose NCIT-backed histopathology metadata."""
     disorder = {

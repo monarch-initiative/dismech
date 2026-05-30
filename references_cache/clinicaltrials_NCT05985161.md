@@ -8,4 +8,4 @@ content_type: summary
 
 ## Content
 
-The purpose of this study is to find out whether selinexor is an effective treatment for people who have a relapsed/refractory Wilms tumor, rhabdoid tumor, MPNST, or another solid tumor that makes a higher than normal amount of XPO1 or has genetic changes that increase the activity of XP01.
+The purpose of this study is to find out whether selinexor is an effective treatment for people who have a relapsed/refractory Wilms tumor, rhabdoid tumor, MPNST, BCOR-driven sarcoma, or another solid tumor that makes a higher than normal amount of XPO1 or has genetic changes that increase the activity of XP01.
