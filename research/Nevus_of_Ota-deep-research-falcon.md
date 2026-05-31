@@ -1175,7 +1175,7 @@ A table image from this study (efficacy by subtype and factors such as location/
 The ophthalmology review emphasizes that monitoring for glaucoma and melanoma is central and that multimodal imaging is increasingly used to standardize complication detection and follow-up. (abdolrahimzadeh2023anupdateon pages 1-3)
 
 ### 12.5 MAXO term suggestions (examples)
-* Laser therapy (MAXO:0000058, “laser therapy”)
+* Laser therapy (NCIT:C15986, “laser therapy”)
 * Ophthalmologic monitoring/surveillance (MAXO term may require lookup; concept: “medical monitoring”)
 
 ---

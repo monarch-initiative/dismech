@@ -717,7 +717,7 @@ A breakthrough finding identified mutant microglial clones as the driver of LCH-
 
 **Transcriptomics**: Gene expression profiling identified 2,113 differentially expressed genes (FDR<0.01) in LCH CD207+ cells compared to control epidermal Langerhans cells ([PMID: 20220088](https://pubmed.ncbi.nlm.nih.gov/20220088/)).
 
-**Key Biomarkers**: 
+**Key Biomarkers**:
 - **Osteopontin (SPP1/OPN)**: CSF biomarker for CNS-LCH—"Osteopontin was the only consistently elevated CSF protein in patients with CNS-LCH compared with patients with other brain pathologies" ([PMID: 29624648](https://pubmed.ncbi.nlm.nih.gov/29624648/)). High serum OPN levels correlate with poorer survival in multisystem LCH with high-risk organ involvement ([PMID: 28326824](https://pubmed.ncbi.nlm.nih.gov/28326824/)).
 - **MMP-7 and TNF-α**: Proposed as prognostic biomarkers for adult PLCH ([PMID: 41720965](https://pubmed.ncbi.nlm.nih.gov/41720965/)).
 - **Cell-free BRAF V600E DNA**: Monitoring biomarker for treatment response ([PMID: 41823178](https://pubmed.ncbi.nlm.nih.gov/41823178/)).
@@ -893,7 +893,7 @@ Overall SIR **2.07** (95% CI 1.74–2.45) for secondary primary malignancies aft
 
 | Treatment | MAXO Term | Indication |
 |-----------|-----------|------------|
-| **Vinblastine + Prednisone** (12 months) | MAXO:0000058 | MS-LCH, multifocal SS-LCH |
+| **Vinblastine + Prednisone** (12 months) | NCIT:C15986 | MS-LCH, multifocal SS-LCH |
 | Topical corticosteroids | MAXO:0001479 | Localized skin/bone |
 | Smoking cessation | MAXO:0009015 | PLCH |
 
@@ -1172,7 +1172,7 @@ The BRAF V600E/WT iPSC model represents a transformative advance and the first h
 
 | MAXO ID | Term | Application |
 |---------|------|-------------|
-| MAXO:0000058 | Chemotherapy | VBL/pred, cladribine |
+| NCIT:C15986 | Chemotherapy | VBL/pred, cladribine |
 | MAXO:0001525 | Targeted therapy | BRAF/MEK inhibitors |
 | MAXO:0000647 | Hormone replacement | DI, APD |
 | MAXO:0000747 | HSCT | Salvage refractory LCH |

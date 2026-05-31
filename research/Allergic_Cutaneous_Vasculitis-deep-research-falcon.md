@@ -1151,7 +1151,7 @@ From a 2023 practical guide:
 - Additional vasculitis-related observational/interventional trials relevant to immune-complex vasculitis phenotyping and relapse prevention include studies comparing **IgA-positive vs IgA-negative immune complex vasculitis (NCT01815190)** and adult IgA vasculitis relapse prevention with colchicine (**NCT04008316**). (NCT01815190 chunk 1, NCT04008316 chunk 2)
 
 **MAXO suggestions (treatment actions):**
-- Systemic glucocorticoid therapy — **MAXO:0000058**
+- Systemic glucocorticoid therapy — **NCIT:C15986**
 - Colchicine therapy — **MAXO:0000745** (drug-based action; placeholder mapping)
 - Dapsone therapy — **MAXO:0000746** (placeholder mapping)
 - Skin biopsy — **MAXO:0000476** (diagnostic action; placeholder mapping)

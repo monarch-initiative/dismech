@@ -1175,7 +1175,7 @@ Not quantified SUFU-specifically in the available evidence beyond:
 **MAXO (treatment action ontology) suggestions**
 - Surgical excision of BCC: MAXO:0000455 (excision)
 - Mohs micrographic surgery: MAXO:0000462 (Mohs surgery)
-- Hedgehog pathway inhibitor therapy: MAXO:0001026 (targeted therapy) / MAXO:0000058 (drug therapy)
+- Hedgehog pathway inhibitor therapy: MAXO:0001026 (targeted therapy) / NCIT:C15986 (drug therapy)
 - Dermatologic surveillance: MAXO:0000127 (screening)
 
 ### 12.2 Pediatric medulloblastoma (SUFU carriers)

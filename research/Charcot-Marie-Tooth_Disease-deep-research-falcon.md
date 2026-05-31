@@ -931,7 +931,7 @@ This report will be used to populate a disease knowledge base entry with:
 
 ## Comprehensive Disease Characteristics Report: Charcot–Marie–Tooth Disease (CMT)
 
-**Target disease:** Charcot–Marie–Tooth disease (CMT) (hereditary motor and sensory neuropathy spectrum; Mendelian). 
+**Target disease:** Charcot–Marie–Tooth disease (CMT) (hereditary motor and sensory neuropathy spectrum; Mendelian).
 
 **Evidence note / limitations:** The tool-accessible corpus for this run contains high-quality peer‑reviewed clinical genetics, outcomes, and treatment/trial sources (2023–2024 emphasized), but it does **not** include direct pulls from OMIM/Orphanet/MeSH/MONDO authority pages. Therefore, **formal identifiers (OMIM/ORPHA/MeSH/MONDO/ICD)** cannot be reliably populated from this evidence set and are flagged as *not available from retrieved sources*.
 
@@ -945,7 +945,7 @@ Charcot–Marie–Tooth disease (CMT) is among the most common inherited periphe
 CMT and related inherited neuropathies are commonly classified clinically/electrophysiologically into demyelinating (CMT1), axonal (CMT2), and intermediate forms, with additional related categories such as hereditary motor neuropathy (HMN), hereditary sensory neuropathy (HSN), and hereditary neuropathy with liability to pressure palsies (HNPP). In a large specialist-center cohort (2009–2023; n=1515), the clinical distribution included **CMT1 41.0%**, **CMT2 19.4%**, **intermediate CMT 13.5%**, **HMN 9.2%**, **HSN 6.1%**, **HNPP 4.8%**, and others. (record2024wholegenomesequencing pages 1-2)
 
 ### 1.2 Common synonyms / alternate names
-Within this evidence set, CMT is discussed under: 
+Within this evidence set, CMT is discussed under:
 - **Charcot–Marie–Tooth disease (CMT)**
 - **CMT1A** (most common genetic subtype; PMP22 duplication)
 - **CMTX1** (GJB1)
@@ -997,8 +997,8 @@ Although phenotype is heterogeneous, commonly highlighted clinical manifestation
 
 ### Example: CMT4J (FIG4-related) clinical features
 A 2024 Neurology cross-sectional cohort (n=19; 14 pediatric, 5 adult) reported:
-- Most frequent neuromuscular symptoms: **gross motor delay** and **distal > proximal muscle weakness** (14/19). 
-- Most common non-neuromuscular symptoms: **cognitive** and **respiratory deficits** (each 8/19). 
+- Most frequent neuromuscular symptoms: **gross motor delay** and **distal > proximal muscle weakness** (14/19).
+- Most common non-neuromuscular symptoms: **cognitive** and **respiratory deficits** (each 8/19).
 - Nonuniform slowing of conduction velocities in 6 patients; asymmetric weakness in 2 patients.
 - CMTPedS and QoL/adaptive behavior scales affected in most patients; neurofilament light correlated with CMTPedS in pediatrics. (mandarakas2024multicentervalidationof pages 5-6)
 
@@ -1155,7 +1155,7 @@ No disease-curative pharmacotherapy is established in the evidence set; current 
 - **PLEO-CMT (NCT02579759)**: Phase 3, randomized, double-blind, placebo-controlled; **enrollment 323**; **completed**. Primary endpoint: mean ONLS at months 12 and 15; included 10MWT and CMTNS-v2 derived measures among secondary endpoints; a quality issue caused premature discontinuation of one dose arm in 2017. (NCT02579759 chunk 1)
 - **PREMIER (NCT04762758)**: Phase 3, randomized, double-blind; planned **~350**; status reported as active not recruiting; primary outcomes include modified ONLS and 10mWT through month 15; estimated primary completion April 2024. (NCT04762758 chunk 1)
 
-**MAXO suggestions:** combination pharmacotherapy (MAXO:0000058 drug therapy), gait rehabilitation adjunct (MAXO:0000011 physical therapy), functional outcome assessment (MAXO:0000745 clinical assessment).
+**MAXO suggestions:** combination pharmacotherapy (NCIT:C15986 drug therapy), gait rehabilitation adjunct (MAXO:0000011 physical therapy), functional outcome assessment (MAXO:0000745 clinical assessment).
 
 ### (B) PMP22 lowering (gene silencing / RNA therapeutics; preclinical)
 A 2023 review summarizes multiple preclinical approaches targeting PMP22 overexpression, including siRNA formulations, AAV-mediated silencing, and ASOs that reversed CMT1A features in rodent models (review-level summary with multiple cited studies). (okamoto2023thecurrentstate pages 16-17)
@@ -1184,7 +1184,7 @@ Primary prevention of genetic CMT is not generally applicable in the classical p
 
 # 14. Other Species / Natural Disease
 
-The retrieved evidence set did not include a structured discussion of naturally occurring CMT analogs in companion animals (OMIA/VetCompass). 
+The retrieved evidence set did not include a structured discussion of naturally occurring CMT analogs in companion animals (OMIA/VetCompass).
 
 ---
 

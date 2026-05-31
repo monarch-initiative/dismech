@@ -1017,7 +1017,7 @@ Real-world data: ORR 57.4% for combined BRAFi+MEKi vs 39.8% BRAFi monotherapy; m
 | **Vemurafenib + Cobimetinib** | BRAFi + MEKi | BRAF V600E kinase inhibition + MEK1/2 inhibition | 2015 |
 | **Encorafenib + Binimetinib** | BRAFi + MEKi | BRAF V600E/K kinase inhibition + MEK1/2 inhibition | 2018 |
 
-**MAXO terms**: MAXO:0001084 (targeted molecular therapy); MAXO:0000058 (pharmacotherapy)
+**MAXO terms**: MAXO:0001084 (targeted molecular therapy); NCIT:C15986 (Pharmacotherapy)
 
 **CHEBI terms**: Vemurafenib (CHEBI:63637), Dabrafenib (CHEBI:75045), Trametinib (CHEBI:75998), Encorafenib (CHEBI:145372), Binimetinib (CHEBI:145371), Cobimetinib (CHEBI:145373)
 

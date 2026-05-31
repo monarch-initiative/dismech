@@ -1160,7 +1160,7 @@ No disease-modifying therapy for HDL2 was identified in retrieved sources; manag
 - Care coordination/social work, legal/financial planning, and palliative care considerations (anderson2025huntingtondiseaselike2 pages 10-11, anderson2025huntingtondiseaselike2 pages 11-14)
 
 ### MAXO term suggestions (examples)
-- Symptomatic pharmacotherapy: **MAXO:0000058** (drug therapy)
+- Symptomatic pharmacotherapy: **NCIT:C15986** (drug therapy)
 - Physical therapy: **MAXO:0000012**
 - Speech therapy: **MAXO:0000129**
 - Genetic counseling: **MAXO:0000079**

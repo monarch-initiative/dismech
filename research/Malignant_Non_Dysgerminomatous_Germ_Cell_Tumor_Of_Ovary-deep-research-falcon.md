@@ -26,7 +26,7 @@ citation_count: 33
 ## Target Disease
 - **Disease Name:** Malignant Non-Dysgerminomatous Germ Cell Tumor Of Ovary
 - **MONDO ID:**  (if available)
-- **Category:** 
+- **Category:**
 
 ## Research Objectives
 
@@ -487,7 +487,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
 ## Target Disease
 - **Disease Name:** Malignant Non-Dysgerminomatous Germ Cell Tumor Of Ovary
 - **MONDO ID:**  (if available)
-- **Category:** 
+- **Category:**
 
 ## Research Objectives
 
@@ -1159,7 +1159,7 @@ Guideline synthesis lists key adverse prognostic factors including **stage > I**
 **MAXO suggestions (examples):**
 - MAXO:0000004 **surgical procedure** (fertility-sparing resection)
 - MAXO:0000747 **chemotherapy** (BEP regimen)
-- MAXO:0000058 **active surveillance**
+- NCIT:C15986 **active surveillance**
 
 ### 12.2 Neoadjuvant chemotherapy (NACT)
 A 2023 systematic review/meta-analysis of retrospective series reported that in advanced MOGCT:

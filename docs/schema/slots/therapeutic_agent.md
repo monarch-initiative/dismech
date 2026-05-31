@@ -1,9 +1,9 @@
 
 
-# Slot: therapeutic_agent 
+# Slot: therapeutic_agent
 
 
-_The drug, chemical, or therapeutic agent used in a treatment. Use when the MAXO term is generic (e.g., pharmacotherapy) but specific drugs are involved._
+_The drug, chemical, or therapeutic agent used in a treatment. Use when the treatment term is generic (e.g., NCIT:C15986 Pharmacotherapy) but specific drugs are involved._
 
 
 
@@ -74,7 +74,7 @@ Alias: therapeutic_agent
 ```yaml
 name: therapeutic_agent
 description: The drug, chemical, or therapeutic agent used in a treatment. Use when
-  the MAXO term is generic (e.g., pharmacotherapy) but specific drugs are involved.
+  the treatment term is generic (e.g., NCIT:C15986 Pharmacotherapy) but specific drugs are involved.
 comments:
 - Bind to CHEBI for specific chemicals/drugs
 - Can also use NCIT for drug classes when CHEBI term unavailable

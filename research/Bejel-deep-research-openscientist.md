@@ -1026,7 +1026,7 @@ The WHO/UNICEF mass treatment campaigns of the 1950s-60s treated over **50 milli
 - **Socioeconomic development:** Poverty reduction in endemic areas
 - **Health education:** Community awareness of transmission routes (MAXO:0000015)
 - **Safe sexual practices:** Relevant for emerging sexually transmitted TEN in MSM populations
-- **MAXO terms:** MAXO:0000058 (preventive measure); MAXO:0000521 (hygiene intervention)
+- **MAXO terms:** NCIT:C15986 (preventive measure); MAXO:0000521 (hygiene intervention)
 
 ### Secondary Prevention
 

@@ -904,7 +904,7 @@ No universally accepted BRAF-specific first-line standard exists. Options includ
 
 #### Second-Line and Beyond (Standard of Care)
 
-**Encorafenib + Cetuximab ± Binimetinib** (BEACON regimen) — MAXO:0000058 (targeted therapy)
+**Encorafenib + Cetuximab ± Binimetinib** (BEACON regimen) — NCIT:C15986 (targeted therapy)
 
 The BEACON CRC trial established this as the definitive standard: "encorafenib plus cetuximab with binimetinib {9.3 versus 5.9 months; hazard ratio (HR) [95% confidence interval (CI)]: 0.60 [0.47-0.75]} or without binimetinib [9.3 versus 5.9 months; HR (95% CI): 0.61 (0.48-0.77)] significantly improved overall survival (OS) compared with the previous standard of care" ([PMID: 35653981](https://pubmed.ncbi.nlm.nih.gov/35653981/)).
 
@@ -1179,7 +1179,7 @@ This model explains several clinical observations:
 | **CL (Cell Ontology)** | CL:1000320 (Goblet cell of colon), CL:0002250 (Colonic stem cell), CL:0000084 (T cell), CL:0002553 (Fibroblast of colon) |
 | **UBERON** | UBERON:0001156 (Ascending colon), UBERON:0001159 (Sigmoid colon), UBERON:0002107 (Liver), UBERON:0002358 (Peritoneum) |
 | **CHEBI** | CHEBI:90227 (Encorafenib), CHEBI:75047 (Cetuximab), CHEBI:90870 (Binimetinib), CHEBI:63637 (Vemurafenib) |
-| **MAXO** | MAXO:0000058 (Targeted therapy), MAXO:0000004 (Surgical procedure), MAXO:0001298 (Chemotherapy), MAXO:0000750 (Colonoscopy) |
+| **MAXO** | NCIT:C15986 (Targeted therapy), MAXO:0000004 (Surgical procedure), MAXO:0001298 (Chemotherapy), MAXO:0000750 (Colonoscopy) |
 
 ---
 

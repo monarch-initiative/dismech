@@ -993,7 +993,7 @@ Components:
 
 ### Supportive Care
 
-- Blood pressure monitoring and control (MAXO:0000058)
+- Blood pressure monitoring and control (NCIT:C15986)
 - Dietary modifications (sodium restriction, appropriate protein intake)
 - Avoidance of nephrotoxic agents
 - Regular ophthalmologic and audiologic surveillance

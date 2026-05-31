@@ -919,7 +919,7 @@ Acute HCV infection itself has very low direct mortality (<0.1%). The disease bu
 
 The advent of DAAs has transformed acute HCV treatment:
 
-**First-line regimens (MAXO:0000058 — pharmacotherapy):**
+**First-line regimens (NCIT:C15986 — Pharmacotherapy):**
 
 | Regimen | Duration | SVR Rate | Evidence |
 |---|---|---|---|
@@ -940,7 +940,7 @@ The advent of DAAs has transformed acute HCV treatment:
 - **NS5A inhibitors** (pibrentasvir, velpatasvir, ledipasvir, daclatasvir): Disrupt viral replication complex and assembly
 - **NS5B polymerase inhibitors** (sofosbuvir): Chain-terminating nucleotide analog; blocks RNA synthesis
 
-**MAXO terms:** MAXO:0000058 (pharmacotherapy); MAXO:0001001 (antiviral therapy)
+**MAXO terms:** NCIT:C15986 (Pharmacotherapy); MAXO:0001001 (antiviral therapy)
 
 ### Pharmacogenomics
 

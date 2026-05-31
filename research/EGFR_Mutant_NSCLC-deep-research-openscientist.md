@@ -919,7 +919,7 @@ Liquid biopsy concordance: "The concordance between plasma and tissue testing wa
 
 ### First-Line Metastatic Treatment
 
-**Standard of care: Osimertinib** (MAXO:0000058 — pharmacotherapy)
+**Standard of care: Osimertinib** (NCIT:C15986 — Pharmacotherapy)
 
 "Osimertinib demonstrates superior efficacy across multiple endpoints in patients with EGFR-mutant" NSCLC — meta-analysis of 16 studies (4,931 patients): ORR RR = 1.59 (95% CI 1.16–2.17) ([PMID: 41907704](https://pubmed.ncbi.nlm.nih.gov/41907704/)).
 
@@ -1222,7 +1222,7 @@ This report synthesizes 104 publications across multiple evidence types:
 | Chemical | Osimertinib | CHEBI:90943 |
 | Chemical | Gefitinib | CHEBI:49668 |
 | Chemical | Erlotinib | CHEBI:114785 |
-| Treatment | Pharmacotherapy | MAXO:0000058 |
+| Treatment | Pharmacotherapy | NCIT:C15986 |
 | Treatment | Surgical resection | MAXO:0000004 |
 | Treatment | Radiation therapy | MAXO:0000015 |
 | Treatment | Genetic testing | MAXO:0000127 |

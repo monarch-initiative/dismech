@@ -1120,7 +1120,7 @@ SEOM‑GEINO grade 2 glioma guidelines (published 2024; based on 2023 guideline 
 - Surgical tumor resection: **MAXO:0000445** (surgical excision; placeholder—exact MAXO mapping should be validated)
 - Radiotherapy: **MAXO:0000127** (radiation therapy; placeholder)
 - Temozolomide chemotherapy: **MAXO:0000647** (antineoplastic drug therapy; placeholder)
-- Targeted therapy with IDH inhibitor (vorasidenib): **MAXO:0000058** (targeted therapy; placeholder)
+- Targeted therapy with IDH inhibitor (vorasidenib): **NCIT:C15986** (targeted therapy; placeholder)
 
 *Note:* MAXO IDs above are suggestions and should be verified against the MAXO ontology.
 

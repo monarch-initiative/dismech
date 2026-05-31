@@ -85,13 +85,16 @@ def test_tabular_export_flattens_assertions_descriptors_and_evidence():
                 {
                     "name": "Valproate",
                     "treatment_term": {
-                        "preferred_term": "pharmacotherapy",
-                        "term": {"id": "MAXO:0000058", "label": "pharmacotherapy"},
+                        "preferred_term": "Pharmacotherapy",
+                        "term": {"id": "NCIT:C15986", "label": "Pharmacotherapy"},
                         "qualifiers": [
                             {
                                 "predicate": {
                                     "preferred_term": "therapeutic agent",
-                                    "term": {"id": "NCIT:C2259", "label": "Therapeutic Agent"},
+                                    "term": {
+                                        "id": "NCIT:C2259",
+                                        "label": "Therapeutic Agent",
+                                    },
                                 },
                                 "value": {
                                     "preferred_term": "antibiotic",
@@ -110,7 +113,11 @@ def test_tabular_export_flattens_assertions_descriptors_and_evidence():
 
         history_path = kb_dir / "Example.history.yaml"
         with open(history_path, "w") as stream:
-            yaml.safe_dump({"name": "Historical Example", "phenotypes": []}, stream, sort_keys=False)
+            yaml.safe_dump(
+                {"name": "Historical Example", "phenotypes": []},
+                stream,
+                sort_keys=False,
+            )
 
         exporter = TabularExporter()
         files = exporter.discover_disorder_files(kb_dir, include_history=False)
@@ -126,7 +133,11 @@ def test_tabular_export_flattens_assertions_descriptors_and_evidence():
         assert summary.postcomposition_count >= 1
 
         assertions = _read_tsv(output_dir / "assertions.tsv")
-        assert {row["section"] for row in assertions} == {"pathophysiology", "phenotypes", "treatments"}
+        assert {row["section"] for row in assertions} == {
+            "pathophysiology",
+            "phenotypes",
+            "treatments",
+        }
 
         descriptors = _read_tsv(output_dir / "descriptors.tsv")
         descriptor_paths = {row["path"] for row in descriptors}
@@ -135,16 +146,23 @@ def test_tabular_export_flattens_assertions_descriptors_and_evidence():
         assert "cell_types[0]" in descriptor_paths
         assert "phenotype_contexts[0].genetic_context.gene" in descriptor_paths
 
-        treatment_term_row = next(row for row in descriptors if row["path"] == "treatment_term")
+        treatment_term_row = next(
+            row for row in descriptors if row["path"] == "treatment_term"
+        )
         assert treatment_term_row["section_name"] == "Valproate"
         assert treatment_term_row["section"] == "treatments"
         assert treatment_term_row["parent_path"] == "$"
         assert treatment_term_row["parent_name"] == "Valproate"
         assert treatment_term_row["qualifier_therapeutic_agent"] == "Antibiotic"
         assert treatment_term_row["qualifier_therapeutic_agent_ids"] == "NCIT:C258"
-        assert treatment_term_row["qualifier_therapeutic_agent_predicate_ids"] == "NCIT:C2259"
+        assert (
+            treatment_term_row["qualifier_therapeutic_agent_predicate_ids"]
+            == "NCIT:C2259"
+        )
 
-        phenotype_term_row = next(row for row in descriptors if row["path"] == "phenotype_term")
+        phenotype_term_row = next(
+            row for row in descriptors if row["path"] == "phenotype_term"
+        )
         assert phenotype_term_row["postcomp_temporality"] == "RECURRENT"
         assert phenotype_term_row["postcomp_clinical_course"] == "PROGRESSIVE"
         assert phenotype_term_row["postcomp_severity"] == "SEVERE"
@@ -157,14 +175,18 @@ def test_tabular_export_flattens_assertions_descriptors_and_evidence():
             if row["descriptor_path"] == "phenotype_term"
         }
         assert phenotype_postcomposition["temporality"]["value_literal"] == "RECURRENT"
-        assert phenotype_postcomposition["clinical_course"]["value_literal"] == "PROGRESSIVE"
+        assert (
+            phenotype_postcomposition["clinical_course"]["value_literal"]
+            == "PROGRESSIVE"
+        )
         assert phenotype_postcomposition["severity"]["value_literal"] == "SEVERE"
         assert phenotype_postcomposition["onset"]["value_literal"] == "CHILDHOOD"
 
         qualifier_row = next(
             row
             for row in postcomposition
-            if row["relation_type"] == "qualifier" and row["descriptor_path"] == "treatment_term"
+            if row["relation_type"] == "qualifier"
+            and row["descriptor_path"] == "treatment_term"
         )
         assert qualifier_row["section_name"] == "Valproate"
         assert qualifier_row["predicate_term_id"] == "NCIT:C2259"
@@ -177,7 +199,9 @@ def test_tabular_export_flattens_assertions_descriptors_and_evidence():
 
         assert (output_dir / "sections" / "phenotypes" / "assertions.tsv").exists()
         assert (output_dir / "sections" / "treatments" / "assertions.tsv").exists()
-        assert (output_dir / "sections" / "treatments" / "descriptor_postcomposition.tsv").exists()
+        assert (
+            output_dir / "sections" / "treatments" / "descriptor_postcomposition.tsv"
+        ).exists()
 
 
 def test_tabular_export_flattens_treatment_dietary_modifications():
@@ -231,7 +255,9 @@ def test_tabular_export_flattens_treatment_dietary_modifications():
         exporter.export([yaml_path], output_dir=output_dir)
 
         descriptors = _read_tsv(output_dir / "descriptors.tsv")
-        treatment_term_row = next(row for row in descriptors if row["path"] == "treatment_term")
+        treatment_term_row = next(
+            row for row in descriptors if row["path"] == "treatment_term"
+        )
         assert treatment_term_row["postcomp_dietary_modification"] == (
             "AVOID wheat food product; AVOID barley seed (raw)"
         )
@@ -244,7 +270,8 @@ def test_tabular_export_flattens_treatment_dietary_modifications():
         dietary_rows = [
             row
             for row in postcomposition
-            if row["relation_type"] == "dietary_modification" and row["descriptor_path"] == "treatment_term"
+            if row["relation_type"] == "dietary_modification"
+            and row["descriptor_path"] == "treatment_term"
         ]
         assert len(dietary_rows) == 2
         assert dietary_rows[0]["predicate_preferred_term"] == "AVOID"

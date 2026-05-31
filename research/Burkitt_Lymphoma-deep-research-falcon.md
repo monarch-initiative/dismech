@@ -1169,7 +1169,7 @@ ClinicalTrials.gov search retrieved multiple recruiting/active CAR-T trials broa
 *Note:* Eligibility specifics for Burkitt lymphoma require per-trial confirmation from the full record text.
 
 ### Suggested MAXO terms (treatment-action ontology; high-level)
-- **Chemotherapy** (MAXO:0000058; suggested)
+- **Chemotherapy** (NCIT:C15986; suggested)
 - **Monoclonal antibody therapy (rituximab/anti-CD20)** (MAXO term suggestion)
 - **Hematopoietic stem cell transplantation** (MAXO term suggestion; relevant in refractory settings) (malfona2024refractoryburkittlymphoma pages 1-2)
 - **CAR T-cell therapy** (MAXO term suggestion; investigational) (NCT06735495 chunk 1)

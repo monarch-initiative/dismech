@@ -1149,7 +1149,7 @@ From retrieved ClinicalTrials.gov records:
 - **NCT05840510 (KRYSTAL‑19, Phase 1/2):** adagrasib + nab‑sirolimus (terminated; enrolled 6). (NCT05840510 chunk 1)
 
 ### Suggested MAXO terms (treatment actions; suggestions)
-- Targeted molecular therapy (MAXO:0000058; broad suggestion)
+- Targeted molecular therapy (NCIT:C15986; broad suggestion)
 - Antineoplastic agent therapy (MAXO:0000011)
 - Drug combination therapy (MAXO:0000747)
 

@@ -90,7 +90,7 @@ attenuated fetal androgen production, and may present in childhood rather
 than adulthood.
 
 Treatment is supportive and lifelong. Long-term testosterone replacement
-(captured here as MAXO:0000058 pharmacotherapy with CHEBI:17347 testosterone
+(captured here as NCIT:C15986 pharmacotherapy with CHEBI:17347 testosterone
 as the therapeutic agent) addresses hypogonadism, supports secondary
 sexual characteristics, and protects bone health. Genetic counseling
 addresses the rare familial recurrence risk (notably for RSPO1 biallelic

@@ -1104,7 +1104,7 @@ Delafontaine et al. (JCI 2024) report CTD variants and show:
 
 ### 6.4 Immune cell involvement (suggested CL terms)
 Evidence supports T-cell skewing toward Th17 and systemic immune activation.
-- Suggested **Cell Ontology (CL)** terms: 
+- Suggested **Cell Ontology (CL)** terms:
   - **CL:0000624** CD4-positive, alpha-beta T cell
   - **CL:0000899** T helper 17 cell
   - **CL:0000542** lymphocyte
@@ -1235,7 +1235,7 @@ ClinicalTrials.gov: https://clinicaltrials.gov/study/NCT06878365 (NCT06878365 ch
 ClinicalTrials.gov: https://clinicaltrials.gov/study/NCT06235580 (NCT06235580 chunk 1)
 
 ### 12.4 Suggested MAXO terms (examples)
-- **MAXO:0000058** immunosuppressive therapy (for systemic immunosuppression)
+- **NCIT:C15986** immunosuppressive therapy (for systemic immunosuppression)
 - **MAXO:0000755** Janus kinase inhibitor therapy (for ruxolitinib/baricitinib class)
 - **MAXO:0000600** lung transplantation
 (These are ontology suggestions; exact MAXO IDs should be validated against the current MAXO release.) (tsui2018analysisofpulmonary pages 8-10, lepelley2020mutationsincopa pages 4-5, kato2021augmentationofstimulator pages 6-10)

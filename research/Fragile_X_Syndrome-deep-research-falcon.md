@@ -1188,7 +1188,7 @@ A compact cross-intervention summary is provided below:
 *Table: This table summarizes key Fragile X syndrome therapeutic studies and trial programs emphasized in the gathered evidence, including recent 2024 findings and older targeted treatment programs. It is useful for comparing mechanisms, study designs, endpoints, outcomes, and trial identifiers across leading pharmacologic approaches.*
 
 ### 12.4 Suggested MAXO terms (best-effort)
-- Pharmacotherapy (MAXO:0000058)
+- Pharmacotherapy (NCIT:C15986)
 - Behavioral therapy (MAXO:0000506)
 - Speech therapy (MAXO:0001193)
 - Genetic counseling (MAXO:0000070)

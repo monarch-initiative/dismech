@@ -1175,7 +1175,7 @@ A retrospective cohort comparing surgery-based therapy (SBT) vs definitive chemo
 
 ### 12.4 Suggested MAXO terms (examples)
 * Radiotherapy **MAXO:0000016** (suggested)
-* Chemotherapy **MAXO:0000058** (suggested)
+* Chemotherapy **NCIT:C15986** (suggested)
 * Surgery / surgical excision **MAXO:0000004** (suggested)
 * Immune checkpoint inhibitor therapy **MAXO:0001527** (suggested)
 

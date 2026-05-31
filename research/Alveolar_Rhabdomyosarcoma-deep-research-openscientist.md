@@ -965,7 +965,7 @@ The INSTRuCT consortium analysis of 1,095 M1 RMS patients found *"5-year Overall
 
 ## 12. Treatment
 
-### Pharmacotherapy (MAXO:0000058 — chemotherapy)
+### Pharmacotherapy (NCIT:C15986 — chemotherapy)
 
 #### Standard Chemotherapy
 
@@ -1018,7 +1018,7 @@ The treatment algorithm is risk-stratified based on:
 4. Age and tumor size
 
 **MAXO terms applicable:**
-- MAXO:0000058 — chemotherapy
+- NCIT:C15986 — chemotherapy
 - MAXO:0000004 — surgical procedure
 - MAXO:0000014 — radiation therapy
 - MAXO:0001298 — immunotherapy

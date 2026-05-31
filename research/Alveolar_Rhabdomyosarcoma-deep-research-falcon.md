@@ -1164,7 +1164,7 @@ Fusion status is emphasized as a key prognostic biomarker used alongside clinica
 - **NCT04994132 / ARST2031** (start 2021; active-not-recruiting; estimated primary completion 2026): phase III comparing VINO-AC vs VAC induction approaches, followed by vinorelbine + oral cyclophosphamide maintenance for 24 weeks; includes correlative ctDNA and genomic prognostic objectives. (NCT04994132 chunk 1)
 
 ### 12.4 MAXO (Medical Action Ontology) suggestions
-- Chemotherapy (MAXO:0000058)
+- Chemotherapy (NCIT:C15986)
 - Surgical resection (MAXO:0000011)
 - Radiotherapy (MAXO:0000014)
 - Molecular genetic testing (MAXO:0001001)

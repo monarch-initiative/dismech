@@ -1181,7 +1181,7 @@ Neonatal androgen therapy options include testosterone IM or topical DHT; orchid
 Desmopressin is used with careful titration and attention to osmolality and thirst/adipsia issues. (gan2019disordersofhypothalamo‐pituitary pages 40-42, iglesias2024anupdateon pages 15-16)
 
 ### 12.6 MAXO suggestions (management actions)
-* Hormone replacement therapy: **MAXO:0000058** (general)
+* Hormone replacement therapy: **NCIT:C15986** (general)
 * Growth hormone therapy: **MAXO:0000424** (if available in your MAXO version)
 * Hydrocortisone therapy / glucocorticoid replacement: map under hormone replacement
 * Levothyroxine therapy: map under hormone replacement

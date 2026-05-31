@@ -1206,7 +1206,7 @@ SCA3/MJD is progressive with severe disability and reduced life expectancy:
 No disease-modifying therapy is established; management is largely supportive/symptomatic (paulino2023autophagyinspinocerebellar pages 1-2, sohail2023adifficultcase pages 1-2).
 
 **Suggested MAXO terms (examples):**
-- Symptomatic treatment — **MAXO:0000058** (supportive care; general) (sohail2023adifficultcase pages 1-2)
+- Symptomatic treatment — **NCIT:C15986** (supportive care; general) (sohail2023adifficultcase pages 1-2)
 - Physical therapy / rehabilitation — **MAXO:0000012** (not directly evidenced in retrieved excerpts; include only if supported by additional sources)
 
 ### 12.2 Disease-modifying and experimental therapeutics (2023–2024 emphasis)

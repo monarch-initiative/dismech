@@ -53,7 +53,7 @@ Key cached sources:
   levodopa responsiveness are the main diagnostic anchors available from the
   cached evidence.
 - Levodopa with a decarboxylase inhibitor is the evidence-backed treatment
-  anchor; the YAML binds the action to MAXO:0000058 pharmacotherapy and the
+  anchor; the YAML binds the action to NCIT:C15986 pharmacotherapy and the
   therapeutic agent to CHEBI:15765 L-dopa.
 - TSPOAP1 was included because ORPHA:101150 lists it as a disease-causing
   loss-of-function gene and PMID:33539324 provides human, mouse, and in vitro

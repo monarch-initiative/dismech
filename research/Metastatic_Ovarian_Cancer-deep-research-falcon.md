@@ -1102,7 +1102,7 @@ A 2024 update on SORAYA reports **final median OS 15.0 months** (95% CI 11.5–1
 ### Suggested MAXO terms (treatments)
 * Cytoreductive surgery — **MAXO:0001175** (suggested)
 * Neoadjuvant chemotherapy — **MAXO:0000748** (suggested)
-* Platinum-based chemotherapy — **MAXO:0000058** (suggested)
+* Platinum-based chemotherapy — **NCIT:C15986** (suggested)
 * PARP inhibitor therapy — **MAXO:0001021** (suggested)
 * Anti-VEGF therapy — **MAXO:0000625** (suggested)
 * Antibody–drug conjugate therapy — **MAXO:0001301** (suggested)

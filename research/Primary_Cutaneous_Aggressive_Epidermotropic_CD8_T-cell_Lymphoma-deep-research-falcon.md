@@ -1119,7 +1119,7 @@ In the 2018 case series, outcomes included multiple complete responses in indivi
 A 2023 case report reiterates poor baseline prognosis (“5-year survival rate of less than 40%”) and describes multi-line therapy culminating in allo-HSCT, followed by relapse treated with ruxolitinib. (sopena2023hematopoieticstemcell pages 1-2, sopena2023hematopoieticstemcell pages 2-3)
 
 ### 12.4 MAXO terms (treatment action ontology; suggested)
-- **Chemotherapy** (MAXO:0000058)
+- **Chemotherapy** (NCIT:C15986)
 - **Radiation therapy** (MAXO:0000014)
 - **Allogeneic hematopoietic stem cell transplantation** (MAXO term; concept supported by clinical text)
 - **Janus kinase inhibitor therapy** (MAXO concept)

@@ -1068,7 +1068,7 @@ Chemotherapy remains the backbone of care, with widely used regimens including *
 For advanced solid tumors, early specialized palliative care involvement is recommended by ASCO guideline update (not PDAC-specific but applicable to metastatic PDAC). (roth2020recentadvancesin pages 5-6)
 
 #### Suggested MAXO terms (examples)
-* Combination chemotherapy regimen — MAXO:0000058 (chemotherapy; map regimen as a combination)
+* Combination chemotherapy regimen — NCIT:C15986 (chemotherapy; map regimen as a combination)
 * Maintenance therapy with PARP inhibitor — MAXO: (PARP inhibitor therapy; ontology mapping needs curation)
 * Immune checkpoint inhibitor therapy — MAXO:0001270 (immunotherapy; checkpoint inhibitor subterm may exist)
 * Palliative care — MAXO:0000603

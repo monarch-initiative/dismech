@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Add MAXO treatment terms to all disorder files.
+Add treatment ontology terms to all disorder files.
 """
 
 import re
@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 
-# Mapping from treatment keywords to MAXO terms
+# Mapping from treatment keywords to MAXO/NCIT terms
 # Order matters: more specific patterns should come first
 MAXO_MAPPINGS = [
     # Specific therapies first
@@ -43,8 +43,8 @@ MAXO_MAPPINGS = [
     (r"symptom\s*manage", {"id": "MAXO:0000950", "label": "supportive care"}),
     (r"symptomatic", {"id": "MAXO:0000950", "label": "supportive care"}),
     # Drug therapies - generic
-    (r"pharmacother", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"medication", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
+    (r"pharmacother", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"medication", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
     # Specific drug classes
     (r"beta.?block", {"id": "MAXO:0000186", "label": "beta adrenergic agent therapy"}),
     (
@@ -55,13 +55,13 @@ MAXO_MAPPINGS = [
         r"inhaled\s*corticosteroid",
         {"id": "MAXO:0000312", "label": "respiratory tract agent therapy"},
     ),
-    (r"corticosteroid", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"steroid", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"immuno.?suppress", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"antibiotic", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
+    (r"corticosteroid", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"steroid", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"immuno.?suppress", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"antibiotic", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
     (r"antiviral", {"id": "MAXO:0000168", "label": "antiviral agent therapy"}),
     (r"antiretroviral", {"id": "MAXO:0000573", "label": "antiretroviral therapy"}),
-    (r"antipsychotic", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
+    (r"antipsychotic", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
     (
         r"antihypertensive",
         {"id": "MAXO:0000181", "label": "cardiovascular agent therapy"},
@@ -69,10 +69,10 @@ MAXO_MAPPINGS = [
     (r"anticoagul", {"id": "MAXO:0000181", "label": "cardiovascular agent therapy"}),
     (r"aspirin", {"id": "MAXO:0000181", "label": "cardiovascular agent therapy"}),
     (r"statin", {"id": "MAXO:0000189", "label": "dyslipidemic agent therapy"}),
-    (r"IVIG|immunoglobulin", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"biologic", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"targeted\s*therap", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"immunother", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
+    (r"IVIG|immunoglobulin", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"biologic", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"targeted\s*therap", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"immunother", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
     # Hormones
     (r"growth\s*hormone", {"id": "MAXO:0000283", "label": "hormone modifying therapy"}),
     (r"hormone", {"id": "MAXO:0000283", "label": "hormone modifying therapy"}),
@@ -142,7 +142,7 @@ MAXO_MAPPINGS = [
     # More cardiovascular
     (r"ACE\s*inhibitor", {"id": "MAXO:0000652", "label": "ACE inhibitor therapy"}),
     (r"ARB", {"id": "MAXO:0000181", "label": "cardiovascular agent therapy"}),
-    (r"diuretic", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
+    (r"diuretic", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
     (
         r"calcium\s*channel\s*block",
         {"id": "MAXO:0000434", "label": "calcium channel blocking agent therapy"},
@@ -153,23 +153,23 @@ MAXO_MAPPINGS = [
     (r"platelet\s*transfus", {"id": "MAXO:0000756", "label": "blood transfusion"}),
     (r"transfusion", {"id": "MAXO:0000756", "label": "blood transfusion"}),
     # Specific drugs as pharmacotherapy
-    (r"colchicine", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"NSAID", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"DMARD", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"interferon", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"anti.?IL", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"tetrabenazine", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"SSRI", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"valproic", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"ethosuximide", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"levetiracetam", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"tafamidis", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"patisiran", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"inotersen", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"aminosalicylate", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"immunomodulator", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"phosphodiesterase", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"monobenzone", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
+    (r"colchicine", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"NSAID", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"DMARD", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"interferon", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"anti.?IL", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"tetrabenazine", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"SSRI", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"valproic", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"ethosuximide", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"levetiracetam", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"tafamidis", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"patisiran", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"inotersen", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"aminosalicylate", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"immunomodulator", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"phosphodiesterase", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"monobenzone", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
     # Behavioral and avoidance
     (r"avoidance", {"id": "MAXO:0001014", "label": "medical action avoidance"}),
     (r"smoking\s*cessation", {"id": "MAXO:0000077", "label": "behavioral counseling"}),
@@ -209,8 +209,8 @@ MAXO_MAPPINGS = [
     (r"pain\s*relief", {"id": "MAXO:0000457", "label": "pain management"}),
     # Prophylaxis
     (r"prophylaxis", {"id": "MAXO:0000017", "label": "preventative therapy"}),
-    (r"opportunistic\s*infection", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
-    (r"latent\s*TB", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
+    (r"opportunistic\s*infection", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
+    (r"latent\s*TB", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
     # Blood glucose monitoring - no good MAXO term for monitoring
     # (r'blood\s*glucose', ...),
     # Vector control (environmental)
@@ -221,10 +221,10 @@ MAXO_MAPPINGS = [
         {"id": "MAXO:0000267", "label": "gastrointestinal agent therapy"},
     ),
     # More drugs
-    (r"glucocorticoid", {"id": "MAXO:0000058", "label": "pharmacotherapy"}),
+    (r"glucocorticoid", {"id": "NCIT:C15986", "label": "Pharmacotherapy"}),
     (
         r"mineralocorticoid\s*receptor",
-        {"id": "MAXO:0000058", "label": "pharmacotherapy"},
+        {"id": "NCIT:C15986", "label": "Pharmacotherapy"},
     ),
     (
         r"receptor\s*antagonist",

@@ -1127,7 +1127,7 @@ A consistent real-world implementation point is the high incidence of early-cycl
 **MAXO suggestions (treatments):**
 - Antineoplastic drug therapy (MAXO:0000746)
 - Monoclonal antibody therapy (MAXO:0000748)
-- Combination chemotherapy (MAXO:0000058)
+- Combination chemotherapy (NCIT:C15986)
 
 #### 11.2 HER2 targeting with antibody–drug conjugate (trastuzumab deruxtecan)
 DESTINY‑Gastric04 (phase 3) demonstrates improved outcomes for **second-line** HER2-positive metastatic gastric/GEJ cancer when compared with ramucirumab+paclitaxel.

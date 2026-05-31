@@ -1,6 +1,6 @@
 
 
-# Class: TreatmentDescriptor 
+# Class: TreatmentDescriptor
 
 
 _A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)_
@@ -21,78 +21,78 @@ URI: [dismech:class/TreatmentDescriptor](https://w3id.org/monarch-initiative/dis
     click TreatmentDescriptor href "../../classes/TreatmentDescriptor/"
       Descriptor <|-- TreatmentDescriptor
         click Descriptor href "../../classes/Descriptor/"
-      
+
       TreatmentDescriptor : description
-        
+
       TreatmentDescriptor : laterality
-        
-          
-    
-        
-        
+
+
+
+
+
         TreatmentDescriptor --> "0..1" LateralityEnum : laterality
         click LateralityEnum href "../../enums/LateralityEnum/"
-    
 
-        
+
+
       TreatmentDescriptor : located_in
-        
-          
-    
-        
-        
+
+
+
+
+
         TreatmentDescriptor --> "0..1" AnatomicalEntityDescriptor : located_in
         click AnatomicalEntityDescriptor href "../../classes/AnatomicalEntityDescriptor/"
-    
 
-        
+
+
       TreatmentDescriptor : modifier
-        
-          
-    
-        
-        
+
+
+
+
+
         TreatmentDescriptor --> "0..1" ModifierEnum : modifier
         click ModifierEnum href "../../enums/ModifierEnum/"
-    
 
-        
+
+
       TreatmentDescriptor : preferred_term
-        
+
       TreatmentDescriptor : qualifiers
-        
-          
-    
-        
-        
+
+
+
+
+
         TreatmentDescriptor --> "*" Qualifier : qualifiers
         click Qualifier href "../../classes/Qualifier/"
-    
 
-        
+
+
       TreatmentDescriptor : term
-        
-          
-    
-        
-        
+
+
+
+
+
         TreatmentDescriptor --> "0..1 _recommended_" Term : term
         click Term href "../../classes/Term/"
-    
 
-        
+
+
       TreatmentDescriptor : therapeutic_agent
-        
-          
-    
-        
-        
+
+
+
+
+
         TreatmentDescriptor --> "*" ChemicalEntityDescriptor : therapeutic_agent
         click ChemicalEntityDescriptor href "../../classes/ChemicalEntityDescriptor/"
-    
 
-        
-      
+
+
+
 ```
 
 
@@ -188,7 +188,7 @@ slot_usage:
   therapeutic_agent:
     name: therapeutic_agent
     description: The drug(s) or chemical agent(s) used in this treatment. Use when
-      the MAXO term is generic (e.g., pharmacotherapy MAXO:0000058) but specific drugs
+      the treatment term is generic (e.g., NCIT:C15986 Pharmacotherapy) but specific drugs
       are involved.
     comments:
     - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
@@ -217,7 +217,7 @@ slot_usage:
   therapeutic_agent:
     name: therapeutic_agent
     description: The drug(s) or chemical agent(s) used in this treatment. Use when
-      the MAXO term is generic (e.g., pharmacotherapy MAXO:0000058) but specific drugs
+      the treatment term is generic (e.g., NCIT:C15986 Pharmacotherapy) but specific drugs
       are involved.
     comments:
     - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
@@ -226,7 +226,7 @@ attributes:
   therapeutic_agent:
     name: therapeutic_agent
     description: The drug(s) or chemical agent(s) used in this treatment. Use when
-      the MAXO term is generic (e.g., pharmacotherapy MAXO:0000058) but specific drugs
+      the treatment term is generic (e.g., NCIT:C15986 Pharmacotherapy) but specific drugs
       are involved.
     comments:
     - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
