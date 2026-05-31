@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Add treatment ontology terms to all disorder files.
+Add MAXO treatment terms to all disorder files.
 """
 
 import re
@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 
-# Mapping from treatment keywords to MAXO/NCIT terms
+# Mapping from treatment keywords to MAXO terms
 # Order matters: more specific patterns should come first
 MAXO_MAPPINGS = [
     # Specific therapies first

@@ -2,10 +2,7 @@
 
 import pytest
 
-pytest.importorskip(
-    "biolink_model",
-    reason="biolink-model not installed (install with: uv sync --group export)",
-)
+pytest.importorskip("biolink_model", reason="biolink-model not installed (install with: uv sync --group export)")
 
 from biolink_model.datamodel.pydanticmodel_v2 import (
     AnatomicalEntity,
@@ -88,10 +85,7 @@ class TestPhenotypeToEdge:
     def test_missing_term_id(self):
         """Test with phenotype_term but no term.id."""
         phenotype = {
-            "phenotype_term": {
-                "preferred_term": "Wheezing",
-                "term": {"label": "Wheezing"},
-            }
+            "phenotype_term": {"preferred_term": "Wheezing", "term": {"label": "Wheezing"}}
         }
         assert phenotype_to_edge("MONDO:0004979", phenotype) is None
 
@@ -244,16 +238,11 @@ class TestTreatmentToEdge:
             "name": "Inhaled Corticosteroid",
             "treatment_term": {
                 "preferred_term": "respiratory tract agent therapy",
-                "term": {
-                    "id": "MAXO:0000312",
-                    "label": "respiratory tract agent therapy",
-                },
+                "term": {"id": "MAXO:0000312", "label": "respiratory tract agent therapy"},
             },
         }
         edge = treatment_to_edge("MONDO:0004979", treatment)
-        assert isinstance(
-            edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation
-        )
+        assert isinstance(edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation)
         # Treatment is subject, disease is object
         assert edge.subject == "MAXO:0000312"
         assert edge.predicate == "biolink:treats_or_applied_or_studied_to_treat"
@@ -345,9 +334,7 @@ class TestExposureToEdge:
         environmental = {
             "name": "Physical Activity Restrictions",
             "effect": "Reduces risk of aortic dissection.",
-            "exposure_term": {
-                "term": {"id": "XCO:0000059", "label": "physical activity"}
-            },
+            "exposure_term": {"term": {"id": "XCO:0000059", "label": "physical activity"}},
         }
         edge = exposure_to_edge("MONDO:0007947", environmental)
         assert edge is not None
@@ -376,9 +363,7 @@ class TestExposureToEdge:
                 "exposure_term": {"term": {"id": "ECTO:0000001"}},
             }
             edge = exposure_to_edge("MONDO:0004979", environmental)
-            assert edge.predicate == "biolink:contributes_to", (
-                f"got non-default for {effect!r}"
-            )
+            assert edge.predicate == "biolink:contributes_to", f"got non-default for {effect!r}"
 
 
 class TestMolecularFunctionToEdge:
@@ -512,9 +497,7 @@ class TestInheritanceToEdge:
             },
         }
         edge = inheritance_to_edge("MONDO:0004979", inheritance)
-        assert isinstance(
-            edge, DiseaseOrPhenotypicFeatureToGeneticInheritanceAssociation
-        )
+        assert isinstance(edge, DiseaseOrPhenotypicFeatureToGeneticInheritanceAssociation)
         assert edge.subject == "MONDO:0004979"
         assert edge.predicate == "biolink:has_mode_of_inheritance"
         assert edge.object == "HP:0000006"
@@ -528,7 +511,9 @@ class TestInheritanceToEdge:
 
     def test_missing_term_id(self):
         """Test with inheritance_term but no term.id."""
-        inheritance = {"inheritance_term": {"preferred_term": "Autosomal dominant"}}
+        inheritance = {
+            "inheritance_term": {"preferred_term": "Autosomal dominant"}
+        }
         assert inheritance_to_edge("MONDO:0004979", inheritance) is None
 
 
@@ -560,7 +545,9 @@ class TestInfectiousAgentToEdge:
 
     def test_missing_term_id(self):
         """Test with infectious_agent_term but no term.id."""
-        agent = {"infectious_agent_term": {"preferred_term": "Chlamydia trachomatis"}}
+        agent = {
+            "infectious_agent_term": {"preferred_term": "Chlamydia trachomatis"}
+        }
         assert infectious_agent_to_edge("MONDO:0004979", agent) is None
 
 
@@ -591,7 +578,9 @@ class TestHistopathologyToEdge:
 
     def test_missing_term_id(self):
         """Test with finding_term but no term.id."""
-        finding = {"finding_term": {"preferred_term": "Squamous metaplasia"}}
+        finding = {
+            "finding_term": {"preferred_term": "Squamous metaplasia"}
+        }
         assert histopathology_to_edge("MONDO:0004979", finding) is None
 
 
@@ -622,7 +611,9 @@ class TestBiomarkerToEdge:
 
     def test_missing_term_id(self):
         """Test with biomarker_term but no term.id."""
-        biochemical = {"biomarker_term": {"preferred_term": "Mesothelin"}}
+        biochemical = {
+            "biomarker_term": {"preferred_term": "Mesothelin"}
+        }
         assert biomarker_to_edge("MONDO:0004979", biochemical) is None
 
 
@@ -636,9 +627,7 @@ class TestTherapeuticAgentToEdge:
             "term": {"id": "NCIT:C65216", "label": "Adalimumab"},
         }
         edge = therapeutic_agent_to_edge("MONDO:0004979", agent)
-        assert isinstance(
-            edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation
-        )
+        assert isinstance(edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation)
         # Agent is subject, disease is object
         assert edge.subject == "NCIT:C65216"
         assert edge.predicate == "biolink:treats_or_applied_or_studied_to_treat"
@@ -664,9 +653,7 @@ class TestTreatmentTargetPhenotypeToEdge:
         edge = treatment_target_phenotype_to_edge(
             "MONDO:0004979", "NCIT:C15986", phenotype
         )
-        assert isinstance(
-            edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation
-        )
+        assert isinstance(edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation)
         assert edge.subject == "NCIT:C15986"
         assert edge.predicate == "biolink:treats_or_applied_or_studied_to_treat"
         assert edge.object == "HP:0012378"
@@ -677,12 +664,9 @@ class TestTreatmentTargetPhenotypeToEdge:
     def test_missing_term_id(self):
         """Test with missing term.id."""
         phenotype = {"preferred_term": "Fatigue"}
-        assert (
-            treatment_target_phenotype_to_edge(
-                "MONDO:0004979", "NCIT:C15986", phenotype
-            )
-            is None
-        )
+        assert treatment_target_phenotype_to_edge(
+            "MONDO:0004979", "NCIT:C15986", phenotype
+        ) is None
 
 
 class TestGeneToEdgeWithGeneTerm:
@@ -798,10 +782,7 @@ class TestTransform:
             "infectious_agent": [
                 {
                     "infectious_agent_term": {
-                        "term": {
-                            "id": "NCBITaxon:813",
-                            "label": "Chlamydia trachomatis",
-                        },
+                        "term": {"id": "NCBITaxon:813", "label": "Chlamydia trachomatis"},
                     },
                 },
             ],
@@ -925,52 +906,28 @@ class TestExtractNodes:
                 {
                     "name": "Mechanism A",
                     "cell_types": [
-                        {
-                            "preferred_term": "Cell A",
-                            "term": {"id": "CL:0000001", "label": "cell a"},
-                        },
+                        {"preferred_term": "Cell A", "term": {"id": "CL:0000001", "label": "cell a"}},
                     ],
                     "locations": [
-                        {
-                            "preferred_term": "Location A",
-                            "term": {"id": "UBERON:0000001", "label": "location a"},
-                        },
+                        {"preferred_term": "Location A", "term": {"id": "UBERON:0000001", "label": "location a"}},
                     ],
                     "biological_processes": [
-                        {
-                            "preferred_term": "Process A",
-                            "term": {"id": "GO:0000001", "label": "process a"},
-                        },
+                        {"preferred_term": "Process A", "term": {"id": "GO:0000001", "label": "process a"}},
                     ],
                     "molecular_functions": [
-                        {
-                            "preferred_term": "Function A",
-                            "term": {"id": "GO:0000002", "label": "function a"},
-                        },
+                        {"preferred_term": "Function A", "term": {"id": "GO:0000002", "label": "function a"}},
                     ],
                     "cellular_components": [
-                        {
-                            "preferred_term": "Component A",
-                            "term": {"id": "GO:0000003", "label": "component a"},
-                        },
+                        {"preferred_term": "Component A", "term": {"id": "GO:0000003", "label": "component a"}},
                     ],
                     "chemical_entities": [
-                        {
-                            "preferred_term": "Chemical A",
-                            "term": {"id": "CHEBI:00001", "label": "chemical a"},
-                        },
+                        {"preferred_term": "Chemical A", "term": {"id": "CHEBI:00001", "label": "chemical a"}},
                     ],
                     "pathways": [
-                        {
-                            "preferred_term": "Pathway A",
-                            "term": {"id": "GO:0000004", "label": "pathway a"},
-                        },
+                        {"preferred_term": "Pathway A", "term": {"id": "GO:0000004", "label": "pathway a"}},
                     ],
                     "protein_complexes": [
-                        {
-                            "preferred_term": "Complex A",
-                            "term": {"id": "GO:0000005", "label": "complex a"},
-                        },
+                        {"preferred_term": "Complex A", "term": {"id": "GO:0000005", "label": "complex a"}},
                     ],
                 },
             ],
@@ -980,17 +937,11 @@ class TestExtractNodes:
                     "treatment_term": {
                         "term": {"id": "MAXO:0000001", "label": "treatment a"},
                         "therapeutic_agent": [
-                            {
-                                "preferred_term": "Drug A",
-                                "term": {"id": "NCIT:C00001", "label": "drug a"},
-                            },
+                            {"preferred_term": "Drug A", "term": {"id": "NCIT:C00001", "label": "drug a"}},
                         ],
                     },
                     "target_phenotypes": [
-                        {
-                            "preferred_term": "Target Phenotype A",
-                            "term": {"id": "HP:0000003", "label": "target phenotype a"},
-                        },
+                        {"preferred_term": "Target Phenotype A", "term": {"id": "HP:0000003", "label": "target phenotype a"}},
                     ],
                 },
             ],
@@ -1016,10 +967,7 @@ class TestExtractNodes:
                 {
                     "name": "Agent A",
                     "infectious_agent_term": {
-                        "term": {
-                            "id": "NCBITaxon:813",
-                            "label": "Chlamydia trachomatis",
-                        },
+                        "term": {"id": "NCBITaxon:813", "label": "Chlamydia trachomatis"},
                     },
                 },
             ],
@@ -1168,10 +1116,7 @@ class TestExtractNodes:
                 {
                     "name": "Alpelisib (BYL719)",
                     "treatment_term": {
-                        "term": {
-                            "id": "MAXO:0000648",
-                            "label": "enzyme inhibitor agent therapy",
-                        },
+                        "term": {"id": "MAXO:0000648", "label": "enzyme inhibitor agent therapy"},
                     },
                 },
             ],
