@@ -1,0 +1,19 @@
+| Disambiguation anchor / step | Information to supply or query | Why it is needed | Downstream resource(s) to query next | Expected output |
+|---|---|---|---|---|
+| Expanded disease name | Full expansion of **PCWH**: `________________________` | Resolves acronym ambiguity and enables exact disease matching | OMIM, Orphanet, MONDO, MeSH, ICD-11 | Canonical disease label; synonyms; stable disease identifiers |
+| PMID or article title | PMID: `________________` / Title: `________________________` | Anchors the disease to a primary source and avoids name drift | PubMed, OMIM references, Orphanet references | Primary case report/review; phenotype description; inheritance clues |
+| Causal gene symbol | Gene: `________________` | Gene-first lookup is often the fastest route for Mendelian disorders | OMIM gene/phenotype entries, ClinVar, ClinGen, GeneReviews, GTR | Gene–disease validity; pathogenic variants; inheritance pattern; testing options |
+| Phenotype triad / core features | Key features: `________________ / ________________ / ________________` | Distinguishes similarly named or acronym-overlapping syndromes | HPO, OMIM clinical synopsis, Orphanet, DECIPHER, GeneReviews | Probable syndrome match; phenotype profile; differential diagnosis set |
+| Suspected synonym(s) | Alternate name(s): `________________________` | Captures legacy names and alternate indexing terms | OMIM aliases, Orphanet synonyms, MONDO cross-references, MeSH | Mapped synonym set; merged disease concept |
+| Inheritance clue | AD / AR / XL / mitochondrial / unknown: `________________` | Narrows candidate disorders and interpretation of variants | OMIM, GeneReviews, ClinGen, pedigree/case reports | Likely inheritance model; counseling implications |
+| Family / ancestry clue | Consanguinity, founder population, ancestry, geography: `________________________` | Can point to founder disorders or population-enriched variants | OMIM, Orphanet, gnomAD, population case series | Founder variants; population distribution; carrier clues |
+| Query OMIM | Search exact name, synonym, and gene | Core Mendelian disease catalog | OMIM | Phenotype MIM; gene MIM; allelic disorders; clinical synopsis |
+| Query Orphanet | Search exact name, synonym, and phenotype keywords | Rare disease nomenclature and epidemiology | Orphanet | Orpha number; prevalence; expert centers; summary of disease |
+| Query MONDO | Search mapped disease concepts and cross-references | Harmonizes disease IDs across ontologies | MONDO | MONDO ID; cross-links to OMIM/Orphanet/MeSH/ICD |
+| Query ClinVar / ClinGen | Search by gene and suspected phenotype | Establishes variant pathogenicity and gene–disease validity | ClinVar, ClinGen | Pathogenic/LP variants; assertion criteria; validity classification |
+| Query GeneReviews / GTR | Search confirmed disease name or causal gene | Finds testing strategy and management guidance | GeneReviews, Genetic Testing Registry | Diagnostic approach; differential diagnosis; gene panels; WES/WGS utility |
+| Resolution checkpoint | Record matched identifiers: OMIM `_____`, Orpha `_____`, MONDO `_____`, Gene `_____` | Confirms the acronym has been correctly resolved | Internal curation record / knowledge base | Final normalized disease concept ready for phenotype, mechanism, diagnostics, and treatment extraction |
+| If unresolved after above steps | Escalate with one concrete anchor still missing: expanded name / PMID / gene / phenotype triad | Prevents unsupported inference from acronym similarity alone | Manual expert review, source document retrieval | Safe stop condition; avoids hallucinated disease assignment |
+
+
+*Table: This table provides a fill-in workflow for resolving the ambiguous acronym “PCWH syndrome.” It helps map a minimal set of anchors to the next resources to query and the expected outputs needed to identify the correct disease concept.*
