@@ -6680,7 +6680,7 @@ class TreatmentEffectEnum(EnumDefinitionImpl):
 
 class MedicalActionCategoryEnum(EnumDefinitionImpl):
     """
-    High-level category for a clinical action currently represented in the treatments section
+    Broad functional category for a clinical action currently represented in the treatments section. Specific actions such as genetic counseling should be represented by treatment_term, while this category stays at the level needed for validation and rendering.
     """
     THERAPEUTIC = PermissibleValue(
         text="THERAPEUTIC",
@@ -6694,13 +6694,13 @@ class MedicalActionCategoryEnum(EnumDefinitionImpl):
     MONITORING = PermissibleValue(
         text="MONITORING",
         description="""Clinical, laboratory, imaging, or longitudinal follow-up used to observe disease status or complications. These actions should not use target_mechanisms or target_phenotypes.""")
-    GENETIC_COUNSELING = PermissibleValue(
-        text="GENETIC_COUNSELING",
-        description="""Counseling, carrier testing, recurrence-risk counseling, cascade testing, or reproductive planning. These actions should not use target_mechanisms or target_phenotypes because they do not directly modify disease pathophysiology or phenotypes.""")
+    COUNSELING_INFORMATIONAL = PermissibleValue(
+        text="COUNSELING_INFORMATIONAL",
+        description="""Counseling, education, risk communication, cascade-testing support, or reproductive planning actions. Use this broad category for genetic counseling and related informational interventions. These actions should not use target_mechanisms or target_phenotypes because they do not directly modify disease pathophysiology or phenotypes.""")
 
     _defn = EnumDefinition(
         name="MedicalActionCategoryEnum",
-        description="High-level category for a clinical action currently represented in the treatments section",
+        description="Broad functional category for a clinical action currently represented in the treatments section. Specific actions such as genetic counseling should be represented by treatment_term, while this category stays at the level needed for validation and rendering.",
     )
 
 class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):

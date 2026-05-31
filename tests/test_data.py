@@ -25,7 +25,7 @@ NON_THERAPEUTIC_ACTION_CATEGORIES = {
     "DIAGNOSTIC",
     "SCREENING",
     "MONITORING",
-    "GENETIC_COUNSELING",
+    "COUNSELING_INFORMATIONAL",
 }
 
 
@@ -501,14 +501,14 @@ def test_treatment_action_category_validates(validator):
     assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
-def test_non_therapeutic_action_target_check_catches_genetic_counseling():
+def test_non_therapeutic_action_target_check_catches_counseling():
     """Annotated non-therapeutic actions must not link as pathograph treatments."""
     data = {
         "name": "Test Disease",
         "treatments": [
             {
                 "name": "Genetic counseling",
-                "action_category": "GENETIC_COUNSELING",
+                "action_category": "COUNSELING_INFORMATIONAL",
                 "target_mechanisms": [{"target": "Primary mechanism"}],
             }
         ],
