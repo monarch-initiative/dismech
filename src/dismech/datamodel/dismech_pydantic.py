@@ -1956,6 +1956,32 @@ class TreatmentEffectEnum(str, Enum):
     """
 
 
+class MedicalActionCategoryEnum(str, Enum):
+    """
+    High-level category for a clinical action currently represented in the treatments section
+    """
+    THERAPEUTIC = "THERAPEUTIC"
+    """
+    An action intended to treat, prevent, mitigate, or manage disease processes, complications, or symptoms. These actions may link to pathophysiology nodes or phenotypes through target_mechanisms or target_phenotypes.
+    """
+    DIAGNOSTIC = "DIAGNOSTIC"
+    """
+    A diagnostic procedure or testing action used to establish or refine a diagnosis. These actions should not use target_mechanisms or target_phenotypes because they do not treat pathophysiology nodes or phenotypes.
+    """
+    SCREENING = "SCREENING"
+    """
+    Screening or surveillance intended to detect disease, risk, or early manifestations. These actions should not use target_mechanisms or target_phenotypes.
+    """
+    MONITORING = "MONITORING"
+    """
+    Clinical, laboratory, imaging, or longitudinal follow-up used to observe disease status or complications. These actions should not use target_mechanisms or target_phenotypes.
+    """
+    GENETIC_COUNSELING = "GENETIC_COUNSELING"
+    """
+    Counseling, carrier testing, recurrence-risk counseling, cascade testing, or reproductive planning. These actions should not use target_mechanisms or target_phenotypes because they do not directly modify disease pathophysiology or phenotypes.
+    """
+
+
 class MechanisticHypothesisStatusEnum(str, Enum):
     """
     Curation/maturity status for a disease-level mechanistic hypothesis
@@ -11529,6 +11555,7 @@ class Treatment(ConfiguredBaseModel):
                        'ComorbidityHypothesis',
                        'UpstreamConditionHypothesis',
                        'MechanisticHypothesis']} })
+    action_category: Optional[MedicalActionCategoryEnum] = Field(default=None, description="""Optional high-level category for a clinical action in the treatments section. Use THERAPEUTIC for actions that treat, prevent, mitigate, or manage disease mechanisms or symptoms; use non-therapeutic categories for screening, diagnosis, monitoring, and genetic counseling.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The MAXO term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
     regimen_term: Optional[RegimenDescriptor] = Field(default=None, description="""The NCIT term for this treatment regimen""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     target_phenotypes: Optional[list[PhenotypeDescriptor]] = Field(default=None, description="""Phenotypes that this treatment or trial addresses or targets""", json_schema_extra = { "linkml_meta": {'comments': ["Should reference phenotype names defined in the same disease's "

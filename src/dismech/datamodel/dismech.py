@@ -3622,6 +3622,7 @@ class Treatment(YAMLRoot):
 
     name: Union[str, TreatmentName] = None
     description: Optional[str] = None
+    action_category: Optional[Union[str, "MedicalActionCategoryEnum"]] = None
     treatment_term: Optional[Union[dict, TreatmentDescriptor]] = None
     regimen_term: Optional[Union[dict, RegimenDescriptor]] = None
     target_phenotypes: Optional[Union[Union[dict, PhenotypeDescriptor], list[Union[dict, PhenotypeDescriptor]]]] = empty_list()
@@ -3643,6 +3644,9 @@ class Treatment(YAMLRoot):
 
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
+
+        if self.action_category is not None and not isinstance(self.action_category, MedicalActionCategoryEnum):
+            self.action_category = MedicalActionCategoryEnum(self.action_category)
 
         if self.treatment_term is not None and not isinstance(self.treatment_term, TreatmentDescriptor):
             self.treatment_term = TreatmentDescriptor(**as_dict(self.treatment_term))
@@ -6674,6 +6678,31 @@ class TreatmentEffectEnum(EnumDefinitionImpl):
         description="How a treatment affects a pathophysiology mechanism node",
     )
 
+class MedicalActionCategoryEnum(EnumDefinitionImpl):
+    """
+    High-level category for a clinical action currently represented in the treatments section
+    """
+    THERAPEUTIC = PermissibleValue(
+        text="THERAPEUTIC",
+        description="""An action intended to treat, prevent, mitigate, or manage disease processes, complications, or symptoms. These actions may link to pathophysiology nodes or phenotypes through target_mechanisms or target_phenotypes.""")
+    DIAGNOSTIC = PermissibleValue(
+        text="DIAGNOSTIC",
+        description="""A diagnostic procedure or testing action used to establish or refine a diagnosis. These actions should not use target_mechanisms or target_phenotypes because they do not treat pathophysiology nodes or phenotypes.""")
+    SCREENING = PermissibleValue(
+        text="SCREENING",
+        description="""Screening or surveillance intended to detect disease, risk, or early manifestations. These actions should not use target_mechanisms or target_phenotypes.""")
+    MONITORING = PermissibleValue(
+        text="MONITORING",
+        description="""Clinical, laboratory, imaging, or longitudinal follow-up used to observe disease status or complications. These actions should not use target_mechanisms or target_phenotypes.""")
+    GENETIC_COUNSELING = PermissibleValue(
+        text="GENETIC_COUNSELING",
+        description="""Counseling, carrier testing, recurrence-risk counseling, cascade testing, or reproductive planning. These actions should not use target_mechanisms or target_phenotypes because they do not directly modify disease pathophysiology or phenotypes.""")
+
+    _defn = EnumDefinition(
+        name="MedicalActionCategoryEnum",
+        description="High-level category for a clinical action currently represented in the treatments section",
+    )
+
 class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):
     """
     Curation/maturity status for a disease-level mechanistic hypothesis
@@ -7887,6 +7916,9 @@ slots.gene_term = Slot(uri=DISMECH.gene_term, name="gene_term", curie=DISMECH.cu
 
 slots.treatment_term = Slot(uri=DISMECH.treatment_term, name="treatment_term", curie=DISMECH.curie('treatment_term'),
                    model_uri=DISMECH.treatment_term, domain=None, range=Optional[Union[dict, TreatmentDescriptor]])
+
+slots.action_category = Slot(uri=DISMECH.action_category, name="action_category", curie=DISMECH.curie('action_category'),
+                   model_uri=DISMECH.action_category, domain=None, range=Optional[Union[str, "MedicalActionCategoryEnum"]])
 
 slots.regimen_term = Slot(uri=DISMECH.regimen_term, name="regimen_term", curie=DISMECH.curie('regimen_term'),
                    model_uri=DISMECH.regimen_term, domain=None, range=Optional[Union[dict, RegimenDescriptor]])
