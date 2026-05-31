@@ -190,9 +190,11 @@ window.searchData = [
     "description": "22q11.2 deletion syndrome is a chromosomal microdeletion disorder caused by hemizygous deletion of 1.5-3 Mb at chromosome 22q11.2. It is the most common microdeletion syndrome, occurring in approximately 1:4000 live births. The phenotype is highly variable but classically includes conotruncal cardiac defects, thymic hypoplasia with T-cell immunodeficiency, hypocalcemia from parathyroid hypoplasia, and characteristic facial features. The deleted region contains TBX1, haploinsufficiency of which disrupts pharyngeal arch and cardiac neural crest development.\n",
     "pathophysiology": [
       "TBX1 haploinsufficiency and pharyngeal arch development",
+      "Multigene dosage and miRNA regulatory disruption",
       "Cardiac neural crest migration defect",
       "Thymic hypoplasia and T-cell immunodeficiency",
-      "Parathyroid hypoplasia and hypocalcemia"
+      "Parathyroid hypoplasia and hypocalcemia",
+      "Cortical circuit and neurotransmitter vulnerability"
     ],
     "cell_types": [
       "neural crest cell",
@@ -200,7 +202,9 @@ window.searchData = [
       "migratory cardiac neural crest cell",
       "cortical thymic epithelial cell",
       "medullary thymic epithelial cell",
-      "T cell"
+      "T cell",
+      "neural progenitor cell",
+      "neuron"
     ],
     "cell_type_ids": [
       "CL:0011012",
@@ -208,25 +212,31 @@ window.searchData = [
       "CL:2000073",
       "CL:0002364",
       "CL:0002365",
-      "CL:0000084"
+      "CL:0000084",
+      "CL:0011020",
+      "CL:0000540"
     ],
     "biological_processes": [
       "pharyngeal system development",
+      "miRNA processing",
       "cardiac neural crest cell migration involved in outflow tract morphogenesis",
       "outflow tract morphogenesis",
       "neural crest cell differentiation involved in thymus development",
-      "neural crest cell differentiation involved in parathyroid gland development"
+      "neural crest cell differentiation involved in parathyroid gland development",
+      "neurogenesis"
     ],
     "phenotypes": [
       "Conotruncal heart defect",
       "Hypocalcemia",
       "Thymic hypoplasia",
+      "Complete thymic aplasia",
       "Velopharyngeal insufficiency",
       "Cleft palate",
       "Intellectual disability",
       "Schizophrenia",
       "Hypoparathyroidism",
-      "T-cell immunodeficiency"
+      "T-cell immunodeficiency",
+      "Recurrent infections"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -240,13 +250,15 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001710",
       "HP:0002901",
+      "HP:0000777",
       "HP:0005359",
       "HP:0000220",
       "HP:0000175",
       "HP:0001249",
       "HP:0100753",
       "HP:0008198",
-      "HP:0005352"
+      "HP:0005374",
+      "HP:0002719"
     ],
     "frequencies": [
       "FREQUENT",
@@ -260,6 +272,8 @@ window.searchData = [
       "Cardiac surgery",
       "Calcium and vitamin D supplementation",
       "Thymus transplantation",
+      "Immunoglobulin replacement therapy",
+      "Genetic counseling",
       "Speech therapy",
       "Immunological monitoring"
     ],
@@ -267,11 +281,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "22q11.2_Deletion_Syndrome.yaml",
     "page_url": "../pages/disorders/22q11.2_Deletion_Syndrome.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
     "num_genes": 2,
-    "num_treatments": 5,
-    "causal_graph_edges": "3",
+    "num_treatments": 7,
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "1"
   },
   {
@@ -293,12 +307,16 @@ window.searchData = [
       "Metabolic and growth regulation abnormalities"
     ],
     "cell_types": [
+      "chondrocyte",
       "neuron"
     ],
     "cell_type_ids": [
+      "CL:0000138",
       "CL:0000540"
     ],
     "biological_processes": [
+      "chondrocyte differentiation",
+      "chondrocyte development",
       "neurodevelopment"
     ],
     "phenotypes": [
@@ -314,15 +332,24 @@ window.searchData = [
       "Behavioral abnormality",
       "Seizure",
       "Congenital heart disease",
+      "CNS structural anomalies",
+      "Renal malformation",
+      "Craniosynostosis",
+      "Telangiectasia",
+      "Gastrointestinal anomalies",
+      "Hypothyroidism",
       "Nephroblastoma",
       "Facial dysmorphism"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Digestive",
+      "Endocrine",
       "Genitourinary",
       "Growth",
       "Head and Neck",
+      "Integument",
       "Limbs",
       "Musculoskeletal",
       "Neoplasm",
@@ -331,7 +358,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001263",
       "HP:0001249",
-      "HP:0001156",
+      "HP:0005863",
       "HP:0004322",
       "HP:0001513",
       "HP:0000729",
@@ -341,6 +368,12 @@ window.searchData = [
       "HP:0000708",
       "HP:0001250",
       "HP:0001627",
+      "HP:0002119",
+      "HP:0000077",
+      "HP:0001363",
+      "HP:0001009",
+      "HP:0011024",
+      "HP:0000821",
       "HP:0002667",
       "HP:0001999"
     ],
@@ -354,6 +387,7 @@ window.searchData = [
     ],
     "treatments": [
       "Supportive care",
+      "Genetic counseling",
       "Speech therapy",
       "Physical therapy"
     ],
@@ -361,10 +395,10 @@ window.searchData = [
     "biochemical": [],
     "source_file": "2q37_Microdeletion_Syndrome.yaml",
     "page_url": "../pages/disorders/2q37_Microdeletion_Syndrome.html",
-    "num_phenotypes": 14,
+    "num_phenotypes": 20,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "2"
   },
@@ -1324,7 +1358,9 @@ window.searchData = [
       "Cerebral amyloid deposition",
       "Neurofibrillary degeneration",
       "Synaptic BRI2 loss",
-      "Impaired glutamatergic transmission"
+      "Impaired glutamatergic transmission",
+      "Increased APP processing and Abeta burden",
+      "ADan-induced mitochondrial oxidative apoptosis"
     ],
     "cell_types": [
       "neuron"
@@ -1333,18 +1369,25 @@ window.searchData = [
       "CL:0000540"
     ],
     "biological_processes": [
-      "synaptic signaling"
+      "synaptic transmission, glutamatergic",
+      "amyloid precursor protein metabolic process",
+      "response to oxidative stress",
+      "intrinsic apoptotic signaling pathway"
     ],
     "phenotypes": [
       "Cataract",
       "Sensorineural hearing impairment",
       "Ataxia",
-      "Dementia"
+      "Intention tremor",
+      "Dysarthria",
+      "Dementia",
+      "Psychosis"
     ],
     "phenotype_categories": [
       "Ophthalmologic",
       "Otologic",
-      "Neurologic"
+      "Neurologic",
+      "Psychiatric"
     ],
     "phenotype_hpo_categories": [
       "Ear",
@@ -1355,7 +1398,10 @@ window.searchData = [
       "HP:0000518",
       "HP:0000407",
       "HP:0001251",
-      "HP:0000726"
+      "HP:0002080",
+      "HP:0001260",
+      "HP:0000726",
+      "HP:0000709"
     ],
     "frequencies": [
       "FREQUENT"
@@ -1363,17 +1409,21 @@ window.searchData = [
     "genes": [
       "ITM2B"
     ],
-    "treatments": [],
+    "treatments": [
+      "Genetic counseling and cascade testing",
+      "Supportive multidisciplinary care",
+      "Physical therapy for gait and balance impairment"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "ADan_amyloidosis.yaml",
     "page_url": "../pages/disorders/ADan_amyloidosis.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "AGAT Deficiency",
@@ -2329,6 +2379,7 @@ window.searchData = [
       "Tafamidis",
       "Patisiran",
       "Inotersen",
+      "Eplontersen",
       "Liver Transplant",
       "Heart Transplant",
       "Supportive Care"
@@ -2345,7 +2396,7 @@ window.searchData = [
     "num_phenotypes": 13,
     "num_pathophysiology": 5,
     "num_genes": 3,
-    "num_treatments": 6,
+    "num_treatments": 7,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "4"
   },
@@ -3497,7 +3548,11 @@ window.searchData = [
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Recombinant human growth hormone therapy"
+      "Recombinant human growth hormone therapy",
+      "Genetic counseling",
+      "Thyroid hormone replacement",
+      "Orthopedic evaluation and monitoring",
+      "Developmental and educational support"
     ],
     "environmental": [],
     "biochemical": [],
@@ -3506,7 +3561,7 @@ window.searchData = [
     "num_phenotypes": 6,
     "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 1,
+    "num_treatments": 5,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "2"
   },
@@ -8348,6 +8403,7 @@ window.searchData = [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
+      "Musculoskeletal",
       "Neoplasm",
       "Nervous System",
       "Respiratory"
@@ -8355,7 +8411,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0031459",
       "HP:0100526",
-      "HP:0100006"
+      "HP:0100006",
+      "HP:0010622"
     ],
     "frequencies": [],
     "genes": [
@@ -15071,7 +15128,8 @@ window.searchData = [
       "TSPOAP1 biallelic loss-of-function variants"
     ],
     "treatments": [
-      "Levodopa with decarboxylase inhibitor"
+      "Levodopa with decarboxylase inhibitor",
+      "Agents/Circumstances to Avoid"
     ],
     "environmental": [],
     "biochemical": [
@@ -15082,7 +15140,7 @@ window.searchData = [
     "num_phenotypes": 33,
     "num_pathophysiology": 4,
     "num_genes": 2,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
   },
@@ -20836,7 +20894,8 @@ window.searchData = [
       "Biallelic CHRNA1 loss-of-function variants"
     ],
     "treatments": [
-      "Genetic counseling"
+      "Genetic counseling",
+      "Perinatal supportive and palliative care"
     ],
     "environmental": [],
     "biochemical": [],
@@ -20845,7 +20904,7 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 2,
     "num_genes": 1,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
   },
@@ -21459,6 +21518,82 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "COA8-Related COX Deficiency",
+    "disease_id": "MONDO:0033652",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-05-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COA8-related COX deficiency (mitochondrial complex IV deficiency nuclear type 17, MC4DN17) is a nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic loss-of-function variants in COA8 (formerly APOPT1), a Complex IV assembly/stability factor. The classic presentation is a cavitating leukoencephalopathy with a biphasic course (acute regression followed by stabilization), but the spectrum also includes a later-onset, myopathy-predominant phenotype with exercise intolerance, ragged-red fibers, ptosis, peripheral neuropathy, and hearing loss. It conforms to the conserved Complex IV assembly deficiency mechanism, with dominant central white matter and skeletal muscle involvement.\n",
+    "pathophysiology": [
+      "COA8 Loss and Defective Complex IV Assembly",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "skeletal muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000188"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Leukoencephalopathy",
+      "Ragged-red muscle fibers",
+      "Exercise intolerance",
+      "Hearing impairment",
+      "Peripheral neuropathy",
+      "Ptosis",
+      "Seizures",
+      "Retinitis pigmentosa",
+      "Amenorrhea"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002352",
+      "HP:0003200",
+      "HP:0003546",
+      "HP:0000365",
+      "HP:0009830",
+      "HP:0000508",
+      "HP:0001250",
+      "HP:0000510",
+      "HP:0000141"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COA8 pathogenic variants causing COX deficiency"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COA8-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/COA8-Related_COX_Deficiency.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "COFS Syndrome",
@@ -22169,6 +22304,190 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "COX10-Related COX Deficiency",
+    "disease_id": "MONDO:0033635",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-05-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COX10-related COX deficiency (mitochondrial complex IV deficiency nuclear type 3, MC4DN3) is a nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX10, which encodes heme O synthase, the first committed enzyme of the heme A biosynthetic pathway that supplies the heme a cofactor of COX. Loss of COX10 produces a defect in heme A biosynthesis and a range of early-onset phenotypes including Leigh syndrome and multisystem mitochondrial disease. It conforms to the conserved Complex IV assembly deficiency mechanism, with the defect localized to heme A biosynthesis.\n",
+    "pathophysiology": [
+      "COX10 Loss and Defective Heme A Biosynthesis",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "heme A biosynthetic process",
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Encephalopathy",
+      "Muscle weakness",
+      "Lactic acidosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001298",
+      "HP:0001324",
+      "HP:0003128"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COX10 pathogenic variants causing MC4DN3"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COX10-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/COX10-Related_COX_Deficiency.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "COX15-Related COX Deficiency",
+    "disease_id": "MONDO:0014051",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-05-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COX15-related COX deficiency is a nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX15, which encodes heme A synthase, the final enzyme of heme A biosynthesis that generates the heme a prosthetic group of COX. Loss of COX15 produces a defect in heme A biosynthesis and classically causes early-onset fatal hypertrophic cardiomyopathy; Leigh syndrome has also been reported. It conforms to the conserved Complex IV assembly deficiency mechanism, with the defect localized to heme A biosynthesis and dominant cardiac involvement.\n",
+    "pathophysiology": [
+      "COX15 Loss and Defective Heme A Biosynthesis",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "heme A biosynthetic process",
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Lactic acidosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0003128"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COX15 pathogenic variants causing COX deficiency"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COX15-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/COX15-Related_COX_Deficiency.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "COX18-Related COX Deficiency",
+    "disease_id": "MONDO:0033885",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-05-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COX18-related COX deficiency is a nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX18, an assembly factor required for maturation and membrane insertion of the mtDNA-encoded subunit COX2 (MT-CO2). Reported in 2023 in a single patient, it presents as a neonatal encephalo-cardio-myopathy with hypertrophic cardiomyopathy, infantile myopathy, axonal sensory neuropathy, and failure to thrive. It conforms to the conserved Complex IV assembly deficiency mechanism, with the defect localized to COX2 maturation.\n",
+    "pathophysiology": [
+      "COX18 Loss and Defective COX2 Maturation",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Peripheral neuropathy",
+      "Failure to thrive",
+      "Encephalopathy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0009830",
+      "HP:0001508",
+      "HP:0001298"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COX18 pathogenic variants causing COX deficiency"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COX18-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/COX18-Related_COX_Deficiency.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "CRB1 Retinal Dystrophies",
@@ -34732,7 +35051,9 @@ window.searchData = [
       "Cochlear Implantation",
       "Hearing Aid Usage",
       "Genetic Counseling",
-      "Supportive Care"
+      "Supportive Care",
+      "Antiseizure Pharmacotherapy",
+      "Vestibular Rehabilitation"
     ],
     "environmental": [],
     "biochemical": [],
@@ -34741,7 +35062,7 @@ window.searchData = [
     "num_phenotypes": 11,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 6,
+    "num_treatments": 8,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "1"
   },
@@ -42967,6 +43288,7 @@ window.searchData = [
       "Bempedoic Acid",
       "Evinacumab (Anti-ANGPTL3)",
       "Lomitapide",
+      "Mipomersen",
       "LDL Apheresis",
       "Liver Transplantation",
       "Dietary Modification",
@@ -42994,8 +43316,8 @@ window.searchData = [
     "num_phenotypes": 14,
     "num_pathophysiology": 17,
     "num_genes": 6,
-    "num_treatments": 15,
-    "causal_graph_edges": "63",
+    "num_treatments": 16,
+    "causal_graph_edges": "64",
     "causal_graph_longest_path": "11"
   },
   {
@@ -61906,7 +62228,13 @@ window.searchData = [
     "genes": [
       "GPC4"
     ],
-    "treatments": [],
+    "treatments": [
+      "Genetic counseling",
+      "Audiologic evaluation and monitoring",
+      "Developmental and educational support",
+      "Ophthalmologic evaluation for lacrimal anomalies",
+      "Orthopedic and hand evaluation"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Keipert_syndrome.yaml",
@@ -61914,8 +62242,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "5",
+    "num_treatments": 5,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "3"
   },
   {
@@ -71705,7 +72033,8 @@ window.searchData = [
       "Mismatch repair deficiency / MSI-high state"
     ],
     "treatments": [
-      "Encorafenib Plus Binimetinib and Cetuximab for BRAF V600E Disease"
+      "Encorafenib Plus Binimetinib and Cetuximab for BRAF V600E Disease",
+      "Cetuximab for RAS Wild-Type Disease Stratified by APC Mutation Status"
     ],
     "environmental": [
       "Obesity",
@@ -71717,7 +72046,7 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 6,
     "num_genes": 4,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -76460,6 +76789,7 @@ window.searchData = [
       "DMPK"
     ],
     "treatments": [
+      "Anesthetic and Drug Precautions",
       "Pharmacotherapy for Myotonia",
       "Cardiac Monitoring and Pacemaker",
       "Supportive Care",
@@ -76472,7 +76802,7 @@ window.searchData = [
     "num_phenotypes": 11,
     "num_pathophysiology": 10,
     "num_genes": 1,
-    "num_treatments": 4,
+    "num_treatments": 5,
     "causal_graph_edges": "22",
     "causal_graph_longest_path": "6"
   },
@@ -78598,6 +78928,7 @@ window.searchData = [
     ],
     "treatments": [
       "AAV9/MFSD8 gene therapy",
+      "Milasen (patient-customized splice-modulating ASO)",
       "PFKFB3 inhibitor AZ67"
     ],
     "environmental": [],
@@ -78610,8 +78941,8 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "20",
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "7"
   },
   {
@@ -93167,20 +93498,37 @@ window.searchData = [
     ],
     "phenotypes": [
       "Craniosynostosis",
-      "Early-onset cerebellar ataxia"
+      "Early-onset cerebellar ataxia",
+      "Delayed closure of the anterior fontanelle",
+      "Clavicular hypoplasia",
+      "Anal malformation",
+      "Genitourinary malformation",
+      "Porokeratosis"
     ],
     "phenotype_categories": [
       "Craniofacial",
-      "Neurologic"
+      "Neurologic",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Skin"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
       "Head and Neck",
+      "Integument",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001363",
-      "HP:0001251"
+      "HP:0001251",
+      "HP:0001476",
+      "HP:0006710",
+      "HP:0004378",
+      "HP:0000119",
+      "HP:0000951"
     ],
     "frequencies": [],
     "genes": [],
@@ -93189,7 +93537,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "RNU12-related_Minor_Spliceopathy.yaml",
     "page_url": "../pages/disorders/RNU12-related_minor_spliceopathy.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 7,
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 0,
@@ -95044,6 +95392,135 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "SCO1-Related COX Deficiency",
+    "disease_id": "MONDO:0033636",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-05-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SCO1-related COX deficiency (mitochondrial complex IV deficiency nuclear type 4, MC4DN4) is a nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in SCO1, a copper-delivery metallochaperone. The classic presentation is neonatal-onset hepatic failure and encephalopathy with lactic acidosis; the phenotypic spectrum has been expanded to include developmental and epileptic encephalopathy with progressive hypopituitarism. It conforms to the conserved Complex IV assembly deficiency mechanism, with the assembly defect localized to copper delivery and dominant hepatic, neurologic, and endocrine involvement.\n",
+    "pathophysiology": [
+      "SCO1 Loss and Defective Copper Delivery to COX",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "copper ion transport",
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Hepatic failure",
+      "Encephalopathy",
+      "Seizures",
+      "Hypopituitarism",
+      "Lactic acidosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Endocrine",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001399",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0040075",
+      "HP:0003128"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SCO1 pathogenic variants causing MC4DN4"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SCO1-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/SCO1-Related_COX_Deficiency.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "SCO2-Related Fatal Infantile Cardioencephalomyopathy",
+    "disease_id": "MONDO:0011451",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-05-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SCO2-related fatal infantile cardioencephalomyopathy is a nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in SCO2, a copper-delivery metallochaperone required to assemble the CuA center of COX. Affected infants present with hypertrophic cardiomyopathy, encephalopathy, hypotonia, and lactic acidosis, and typically die in infancy. The disorder conforms to the conserved Complex IV assembly deficiency mechanism, with the assembly defect localized to copper delivery and the dominant tissue involvement being cardiac.\n",
+    "pathophysiology": [
+      "SCO2 Loss and Defective Copper Delivery to COX",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "copper ion transport",
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Encephalopathy",
+      "Lactic acidosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001298",
+      "HP:0003128"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SCO2 pathogenic variants causing cardioencephalomyopathy"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SCO2-Related_Fatal_Infantile_Cardioencephalomyopathy.yaml",
+    "page_url": "../pages/disorders/SCO2-Related_Fatal_Infantile_Cardioencephalomyopathy.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "SHH_Holoprosencephaly_Spectrum",
     "disease_id": "MONDO:0007733",
     "category": "Genetic",
@@ -95382,17 +95859,27 @@ window.searchData = [
       "Pulmonary hypoplasia",
       "Congenital diaphragmatic hernia",
       "Abnormal heart morphology",
-      "Intellectual disability"
+      "Intellectual disability",
+      "Intrauterine growth retardation",
+      "Camptodactyly",
+      "Thin corpus callosum",
+      "Hearing impairment"
     ],
     "phenotype_categories": [
       "Ophthalmologic",
       "Respiratory",
       "Cardiac",
-      "Neurodevelopmental"
+      "Neurodevelopmental",
+      "Prenatal",
+      "Musculoskeletal",
+      "Neurological",
+      "Otolaryngological"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Ear",
       "Eye",
+      "Growth",
       "Musculoskeletal",
       "Nervous System",
       "Respiratory"
@@ -95403,21 +95890,30 @@ window.searchData = [
       "HP:0002089",
       "HP:0000776",
       "HP:0001627",
-      "HP:0001249"
+      "HP:0001249",
+      "HP:0001511",
+      "HP:0012385",
+      "HP:0033725",
+      "HP:0000365"
     ],
     "frequencies": [],
     "genes": [
       "STRA6"
     ],
-    "treatments": [],
+    "treatments": [
+      "Supportive neonatal intensive care",
+      "Pulmonary hypertension pharmacotherapy",
+      "Surgical repair of diaphragmatic defects",
+      "Genetic counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "STRA6-related_syndromic_microphthalmia.yaml",
     "page_url": "../pages/disorders/STRA6-related_syndromic_microphthalmia.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 10,
     "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 0,
+    "num_treatments": 4,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "4"
   },
@@ -95496,6 +95992,77 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "SURF1-Related Leigh Syndrome",
+    "disease_id": "MONDO:0700250",
+    "category": "Mendelian",
+    "parents": [
+      "Leigh Syndrome",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-05-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SURF1-related Leigh syndrome is the most common nuclear cause of isolated cytochrome c oxidase (COX, Complex IV) deficiency. Biallelic loss-of-function variants in SURF1, which encodes an early COX assembly factor, abolish maturation of the Complex IV holoenzyme. Affected children typically present in infancy with subacute necrotizing encephalomyelopathy (Leigh syndrome): psychomotor regression, brainstem and basal ganglia lesions on MRI, hypotonia, and lactic acidosis. It is the prototypical assembly-factor COX deficiency and conforms to the conserved Complex IV assembly deficiency mechanism.\n",
+    "pathophysiology": [
+      "SURF1 Loss and Defective Complex IV Assembly",
+      "Impaired Terminal Electron Transfer and ATP Synthesis",
+      "Lactic Acidosis from Reduced Oxidative Metabolism"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport",
+      "lactate biosynthetic process"
+    ],
+    "phenotypes": [
+      "Developmental regression",
+      "Delayed growth and development",
+      "Abnormal brainstem morphology",
+      "Lactic acidosis",
+      "Encephalopathy",
+      "Muscular hypotonia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002376",
+      "HP:0001263",
+      "HP:0002363",
+      "HP:0003128",
+      "HP:0001298",
+      "HP:0001252"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SURF1 pathogenic variants causing Leigh syndrome"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Reduced cytochrome c oxidase (Complex IV) enzyme activity"
+    ],
+    "source_file": "SURF1-Related_Leigh_Syndrome.yaml",
+    "page_url": "../pages/disorders/SURF1-Related_Leigh_Syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "SYCE1-related gametogenic failure",
@@ -95659,7 +96226,7 @@ window.searchData = [
       "Lysosomal Storage Disease"
     ],
     "creation_date": "2026-02-05T21:04:11Z",
-    "updated_date": "2026-05-06T21:25:12Z",
+    "updated_date": "2026-05-30T05:21:52Z",
     "subtypes": [
       "Intermediate-Severe Salla Disease"
     ],
@@ -95744,7 +96311,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "6"
   },
   {
@@ -104327,6 +104894,7 @@ window.searchData = [
       "CLCN1"
     ],
     "treatments": [
+      "Myotonia-Aggravating Drug Precautions",
       "Mexiletine therapy",
       "Carbamazepine therapy",
       "Physical therapy"
@@ -104338,7 +104906,7 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
   },
@@ -109149,6 +109717,8 @@ window.searchData = [
       "extracellular matrix organization",
       "collagen biosynthetic process",
       "neuron apoptotic process",
+      "neuroinflammatory response",
+      "microglial cell activation",
       "cuproptosis",
       "ferroptosis"
     ],
@@ -109194,6 +109764,10 @@ window.searchData = [
       "Depression",
       "Psychosis",
       "Personality Changes",
+      "Bipolar Affective Disorder",
+      "Hypomimic Face",
+      "Sleep Disturbance",
+      "Autonomic Dysfunction",
       "Cardiomyopathy",
       "Heart Failure",
       "Cardiac Arrhythmia",
@@ -109281,6 +109855,10 @@ window.searchData = [
       "HP:0000716",
       "HP:0000709",
       "HP:0000751",
+      "HP:0007302",
+      "HP:0000338",
+      "HP:0002360",
+      "HP:0012332",
       "HP:0001638",
       "HP:0001635",
       "HP:0011675",
@@ -109311,7 +109889,8 @@ window.searchData = [
       "Zinc Acetate",
       "Low Copper Diet",
       "Tetrathiomolybdate",
-      "Liver Transplantation"
+      "Liver Transplantation",
+      "AAV-Mediated ATP7B Gene Therapy"
     ],
     "environmental": [
       "Dietary Copper"
@@ -109324,11 +109903,11 @@ window.searchData = [
     ],
     "source_file": "Wilsons_Disease.yaml",
     "page_url": "../pages/disorders/Wilson_Disease.html",
-    "num_phenotypes": 55,
+    "num_phenotypes": 59,
     "num_pathophysiology": 11,
     "num_genes": 1,
-    "num_treatments": 6,
-    "causal_graph_edges": "82",
+    "num_treatments": 7,
+    "causal_graph_edges": "84",
     "causal_graph_longest_path": "7"
   },
   {
@@ -111726,11 +112305,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1123,
-  "total_unique_evidence_sources": 20882,
+  "total_disorder_pages": 1130,
+  "total_unique_evidence_sources": 20986,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 195,
-  "total_pathographs": 1116,
-  "total_unique_pathological_events": 5462
+  "total_pathographs": 1123,
+  "total_unique_pathological_events": 5475
 };
 window.dispatchEvent(new Event('searchDataReady'));
