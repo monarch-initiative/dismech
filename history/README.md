@@ -13,5 +13,5 @@ history/schema/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
 See `docs/history.md` and `src/dismech/schema/history.yaml` for the record
 format. Validate records with `just validate-history-all`.
 
-Legacy `kb/disorders/*.history.yaml` files have been migrated into
-`history/disorders/<SLUG>/` as `MIGRATION` records.
+Legacy `kb/disorders/*.history.yaml` files have been compacted into
+`history/disorders/<SLUG>/` as `GENERAL` entry-history summaries.

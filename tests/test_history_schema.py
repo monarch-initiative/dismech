@@ -51,6 +51,22 @@ def test_history_record_requires_details(schema_view):
     assert slots["details"].required is True
 
 
+def test_history_actor_preserves_agent_tool_metadata(schema_view):
+    induced = schema_view.class_induced_slots("HistoryActor")
+    slots = {slot.name: slot for slot in induced}
+
+    assert "model" in slots
+    assert "agent_tool" in slots
+    assert "agent_version" in slots
+
+
+def test_history_event_types_include_general_not_migration(schema_view):
+    enum = schema_view.get_enum("HistoryEventTypeEnum")
+
+    assert "GENERAL" in enum.permissible_values
+    assert "MIGRATION" not in enum.permissible_values
+
+
 def test_history_record_validates_multiple_actors(validator):
     record = {
         "history_version": 1,
@@ -67,6 +83,8 @@ def test_history_record_validates_multiple_actors(validator):
                     "type": "ai_agent",
                     "name": "codex",
                     "model": "gpt-5",
+                    "agent_tool": "codex",
+                    "agent_version": "1.0",
                 },
                 {
                     "type": "human",
@@ -162,3 +180,14 @@ def test_committed_history_records_follow_layout():
         if kind in KIND_DIRS:
             expected_parent = HISTORY_DIR / KIND_DIRS[kind] / slug
             assert path.parent == expected_parent
+
+
+def test_committed_history_records_do_not_use_migration_event():
+    history_files = sorted(HISTORY_DIR.glob("**/*.yaml"))
+    assert history_files
+
+    assert not list(HISTORY_DIR.glob("**/*legacy-import*.yaml"))
+    for path in history_files:
+        record = yaml.safe_load(path.read_text())
+        for event in record["events"]:
+            assert event["type"] != "MIGRATION"

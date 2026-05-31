@@ -184,9 +184,9 @@ Rules:
 
 ### History Records
 
-For structured curation, review, audit, and migration provenance, add append-only
-history records under `history/`, not inside the KB YAML and not beside KB files
-as `kb/**/*.history.yaml`.
+For structured curation, review, and audit provenance, add append-only history
+records under `history/`, not inside the KB YAML and not beside KB files as
+`kb/**/*.history.yaml`.
 
 Path pattern:
 
@@ -200,7 +200,8 @@ history/schema/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
 Each history file records one session for one target. Use `actors:` as a
 non-empty list even for single-actor sessions, include `links:` for relevant
 issues, PRs, and other URLs, keep `summary` short, and put rich review/curation
-notes in the required `details` field.
+notes in the required `details` field. For AI-assisted curation, include the
+model plus agent tool/version fields when they are known.
 
 Validate history records with:
 

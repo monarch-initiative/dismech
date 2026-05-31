@@ -1,7 +1,7 @@
 # History Records
 
-Dismech history records are append-only YAML files for curation, review, audit,
-and migration sessions. They replace the old pattern of colocating
+Dismech history records are append-only YAML files for curation, review, and
+audit sessions. They replace the old pattern of colocating
 `*.history.yaml` files beside KB entries and avoid putting provenance inside the
 KB object itself.
 
@@ -18,8 +18,10 @@ Use UTC timestamps in filenames, for example
 `2026-05-31T174412Z-codex-a3f9c2.yaml`. The short suffix prevents same-second
 collisions when multiple sessions touch the same target.
 
-Legacy `kb/disorders/*.history.yaml` files were migrated into this layout as
-`MIGRATION` records with the original legacy YAML preserved in `details`.
+Legacy `kb/disorders/*.history.yaml` files were compacted into this layout as
+`GENERAL` entry-history summaries. They summarize old `edit_history` activity
+by action, date range, model, agent tool, and agent version instead of
+preserving every old edit event verbatim.
 
 ## Format
 
@@ -42,6 +44,8 @@ session:
     - type: ai_agent
       name: codex
       model: gpt-5
+      agent_tool: codex
+      agent_version: 1.0
     - type: human
       name: cjm
 
@@ -70,11 +74,11 @@ events:
 
 Use the smallest useful vocabulary:
 
+- `GENERAL`: general or legacy curation activity that is not more specifically classified.
 - `CREATE`: initial creation of a target.
 - `EDIT`: content or metadata edit.
 - `REVIEW`: review that may or may not produce edits.
 - `AUDIT`: structured inspection, compliance check, or triage.
-- `MIGRATION`: bulk or schema-driven migration.
 
 Use one of these outcomes:
 
