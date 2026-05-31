@@ -421,6 +421,86 @@ treatments:
 - A dedicated `treatment.name` (e.g., "Duloxetine") should still match common clinical usage; `therapeutic_agent` carries the machine-readable identifier.
 - Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (Pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
 
+### Therapeutic Modality and Antisense Oligonucleotide (ASO) Detail
+
+A treatment's **modality** (the kind of therapeutic platform) is captured by the
+enum-backed `therapeutic_modality` slot — **not** the free-text `role` slot, which
+is overloaded across host roles, pathophysiology-node roles, and treatment roles.
+Prefer `therapeutic_modality` for platform classification so treatments are
+queryable by modality across diseases.
+
+`therapeutic_modality` values: `SMALL_MOLECULE`, `MONOCLONAL_ANTIBODY`,
+`ANTISENSE_OLIGONUCLEOTIDE`, `SIRNA`, `MRNA_THERAPY`, `GENE_THERAPY`,
+`GENE_EDITING`, `CELL_THERAPY`, `PROTEIN_REPLACEMENT`, `PEPTIDE`, `VACCINE`,
+`RADIOTHERAPY`, `SURGERY`, `DEVICE`, `BEHAVIORAL`, `OTHER`.
+
+`therapeutic_modality` complements (does not replace) `treatment_term` (the MAXO
+action) and `therapeutic_agent` (the specific drug). A pharmacotherapy ASO still
+uses `MAXO:0000058` for `treatment_term` and an NCIT/CHEBI `therapeutic_agent`.
+
+When `therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE`, add a structured
+`aso_details` block (`AntisenseOligonucleotideDetail`) capturing the molecular
+mechanism, RNA target, splice exon, chemistry, and conjugation:
+
+- `aso_mechanism`: `RNASE_H_KNOCKDOWN`, `SPLICE_MODULATION_EXON_SKIPPING`,
+  `SPLICE_MODULATION_EXON_INCLUSION`, `STERIC_BLOCKADE`, `MIRNA_MODULATION`
+- `target_gene`: `GeneDescriptor` bound to HGNC (lowercase `hgnc:` prefix)
+- `target_transcript`: free text for the RNA target / element (e.g., `APOB mRNA`,
+  `SMN2 ISS-N1`)
+- `target_exon`: free text for splice-switching ASOs (e.g., `exon 51`)
+- `aso_chemistry`: `PHOSPHOROTHIOATE`, `PHOSPHORODIAMIDATE_MORPHOLINO`,
+  `TWO_PRIME_O_METHYL`, `TWO_PRIME_O_METHOXYETHYL`, `LOCKED_NUCLEIC_ACID`,
+  `CONSTRAINED_ETHYL`, `OTHER`
+- `conjugation`: `UNCONJUGATED`, `GALNAC`, `LIPID`, `PEPTIDE`, `ANTIBODY`, `OTHER`
+
+**Example — RNase H knockdown ASO (mipomersen, APOB):**
+```yaml
+treatments:
+- name: Mipomersen
+  therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
+  aso_details:
+    aso_mechanism: RNASE_H_KNOCKDOWN
+    target_gene:
+      preferred_term: APOB
+      term:
+        id: hgnc:603
+        label: APOB
+    target_transcript: APOB mRNA
+    aso_chemistry: TWO_PRIME_O_METHOXYETHYL
+    conjugation: UNCONJUGATED
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: mipomersen
+      term:
+        id: NCIT:C174575
+        label: Mipomersen
+```
+
+**Example — splice-switching exon-skipping ASO (eteplirsen, DMD exon 51):**
+```yaml
+  therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
+  aso_details:
+    aso_mechanism: SPLICE_MODULATION_EXON_SKIPPING
+    target_gene:
+      preferred_term: DMD
+      term:
+        id: hgnc:2928
+        label: DMD
+    target_exon: exon 51
+    aso_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
+    conjugation: UNCONJUGATED
+```
+
+**Example — GalNAc-conjugated ASO (eplontersen, TTR):** same as the RNase H
+example but with `conjugation: GALNAC` and the TTR `target_gene`.
+
+Leave `aso_details` absent for non-ASO treatments. The structured fields are
+optional — populate what is documented and omit fields you cannot source.
+
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
