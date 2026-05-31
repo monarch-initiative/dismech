@@ -2,9 +2,11 @@
 
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
+history_schema_path := "src/dismech/schema/history.yaml"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
+history_dir := "history"
 ref_validator_config := "conf/reference_validator_config.yaml"
 mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
 # Wrapper script that patches linkml-reference-validator for network resilience
@@ -81,6 +83,31 @@ validate file:
 [group('QC')]
 validate-schema file:
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+
+# Validate a single history record
+[group('QC')]
+validate-history file:
+    uv run linkml-validate --schema {{history_schema_path}} --target-class HistoryRecord {{file}}
+
+# Validate all history records
+[group('QC')]
+validate-history-all:
+    #!/usr/bin/env bash
+    set -e
+    if [[ ! -d "{{history_dir}}" ]]; then
+        echo "No history directory found."
+        exit 0
+    fi
+    files=()
+    while IFS= read -r f; do
+        files+=("$f")
+    done < <(find "{{history_dir}}" -type f -name '*.yaml' | sort)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No history YAML files found in {{history_dir}}."
+        exit 0
+    fi
+    printf 'Validating %s history record(s).\n' "${#files[@]}"
+    uv run linkml-validate --schema {{history_schema_path}} --target-class HistoryRecord "${files[@]}"
 
 # Schema validation for all files
 [group('QC')]

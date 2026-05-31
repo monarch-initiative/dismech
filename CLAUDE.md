@@ -182,6 +182,35 @@ Rules:
 - Prefer UTC (`Z` suffix) for consistency.
 - **Do not add `updated_date` to new entries.** The field is deprecated — git history is the authoritative change log. Existing entries that still carry `updated_date` may retain it until a future bulk cleanup.
 
+### History Records
+
+For structured curation, review, audit, and migration provenance, add append-only
+history records under `history/`, not inside the KB YAML and not beside KB files
+as `kb/**/*.history.yaml`.
+
+Path pattern:
+
+```text
+history/disorders/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
+history/modules/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
+history/comorbidities/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
+history/schema/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
+```
+
+Each history file records one session for one target. Use `actors:` as a
+non-empty list even for single-actor sessions, include `links:` for relevant
+issues, PRs, and other URLs, keep `summary` short, and put rich review/curation
+notes in the required `details` field.
+
+Validate history records with:
+
+```bash
+just validate-history path/to/history.yaml
+just validate-history-all
+```
+
+See `docs/history.md` and `src/dismech/schema/history.yaml` for the full format.
+
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
 - MODEL_ORGANISM: any in vivo animal data (mouse, zebrafish, dog/cat/horse veterinary case series, primate, or other non-human animals), even if observational and not interventional.

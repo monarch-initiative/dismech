@@ -1,0 +1,223 @@
+id: https://w3id.org/monarch-initiative/dismech/history
+name: dismech_history
+title: Disorder Mechanisms History Schema
+description: Append-only curation session history for dismech KB targets
+license: BSD-3-Clause
+
+imports:
+  - linkml:types
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  dismech: https://w3id.org/monarch-initiative/dismech/
+  xsd: http://www.w3.org/2001/XMLSchema#
+
+default_prefix: dismech
+default_range: string
+
+enums:
+  HistoryTargetKindEnum:
+    description: Kind of repository object described by a history record
+    permissible_values:
+      disorder:
+        description: Disorder KB entry under kb/disorders
+      module:
+        description: Mechanism module under kb/modules
+      comorbidity:
+        description: Comorbidity KB entry under kb/comorbidities
+      schema:
+        description: Schema or schema-adjacent source file
+      other:
+        description: Other repository target
+
+  HistoryActorTypeEnum:
+    description: Category of actor participating in a curation session
+    permissible_values:
+      human:
+        description: Human curator or reviewer
+      ai_agent:
+        description: AI coding or curation agent
+      automation:
+        description: Deterministic script, workflow, or service
+      other:
+        description: Other actor type
+
+  HistoryEventTypeEnum:
+    description: Type of curation event recorded in a session
+    permissible_values:
+      CREATE:
+        description: Initial creation of a target
+      EDIT:
+        description: Content or metadata edit
+      REVIEW:
+        description: Review that may or may not produce edits
+      AUDIT:
+        description: Structured inspection, compliance check, or triage
+      MIGRATION:
+        description: Bulk or schema-driven migration
+
+  HistoryOutcomeEnum:
+    description: High-level outcome of a curation event
+    permissible_values:
+      changed:
+        description: The event changed the target
+      no_change:
+        description: The event reviewed or audited the target without changes
+      needs_followup:
+        description: The event identified follow-up work
+      blocked:
+        description: The event could not be completed
+
+slots:
+  history_version:
+    description: Version of the history record format
+    range: integer
+    required: true
+  target:
+    description: Repository object that this history file is about
+    range: HistoryTarget
+    inlined: true
+    required: true
+  session:
+    description: Curation session that produced the recorded events
+    range: HistorySession
+    inlined: true
+    required: true
+  links:
+    description: External or repository links relevant to this history record
+    range: HistoryLinks
+    inlined: true
+  events:
+    description: Events recorded during the session
+    range: HistoryEvent
+    multivalued: true
+    inlined_as_list: true
+    minimum_cardinality: 1
+    required: true
+
+  kind:
+    description: Target kind
+    range: HistoryTargetKindEnum
+    required: true
+  slug:
+    description: Stable target slug, usually matching the file stem
+    range: string
+  path:
+    description: Repository-relative target path
+    range: string
+    required: true
+
+  id:
+    description: Stable session identifier, usually matching the history filename stem
+    range: string
+    required: true
+  timestamp:
+    description: ISO 8601 timestamp for the session
+    range: string
+    pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'
+    required: true
+  actors:
+    description: One or more actors participating in the session
+    range: HistoryActor
+    multivalued: true
+    inlined_as_list: true
+    minimum_cardinality: 1
+    required: true
+
+  type:
+    description: Local type discriminator, narrowed by class slot usage
+    range: string
+    required: true
+  name:
+    description: Human-readable actor name
+    range: string
+    required: true
+  model:
+    description: Model identifier for AI-assisted curation, when applicable
+    range: string
+
+  issues:
+    description: GitHub issues or external issue URLs relevant to the session
+    range: uri
+    multivalued: true
+  prs:
+    description: Pull request URLs relevant to the session
+    range: uri
+    multivalued: true
+  urls:
+    description: Other relevant URLs
+    range: uri
+    multivalued: true
+
+  outcome:
+    description: High-level event outcome
+    range: HistoryOutcomeEnum
+    required: true
+  sections:
+    description: Lightweight names of target sections considered or changed
+    range: string
+    multivalued: true
+  summary:
+    description: Short display summary of the event
+    range: string
+    required: true
+  details:
+    description: Rich free-text notes, rationale, caveats, or follow-up context
+    range: string
+    required: true
+
+classes:
+  HistoryRecord:
+    description: Append-only curation session history for a single target
+    tree_root: true
+    slots:
+      - history_version
+      - target
+      - session
+      - links
+      - events
+
+  HistoryTarget:
+    description: Repository object described by a history record
+    slots:
+      - kind
+      - slug
+      - path
+
+  HistorySession:
+    description: One curation or review session
+    slots:
+      - id
+      - timestamp
+      - actors
+
+  HistoryActor:
+    description: Actor participating in a curation session
+    slots:
+      - type
+      - name
+      - model
+    slot_usage:
+      type:
+        description: Actor category
+        range: HistoryActorTypeEnum
+
+  HistoryLinks:
+    description: Links relevant to a history record
+    slots:
+      - issues
+      - prs
+      - urls
+
+  HistoryEvent:
+    description: A curation, review, audit, or migration event
+    slots:
+      - type
+      - outcome
+      - sections
+      - summary
+      - details
+    slot_usage:
+      type:
+        description: Event type
+        range: HistoryEventTypeEnum
