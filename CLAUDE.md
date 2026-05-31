@@ -149,6 +149,10 @@ pathophysiology:
 - `dna_repair_synthetic_lethality` — Conserved HRR/FA-BRCA deficiency pattern: HRR or FA/BRCA repair deficiency → replication-associated DNA damage accumulation → PARP/platinum synthetic lethality → POLQ/error-prone repair escape → restored HRR and acquired resistance. Key conformance target: `dna_repair_synthetic_lethality#PARP and Platinum Synthetic Lethality`
 - `rtk_grb2_signaling_adaptation` — Conserved RTK/GRB2 adaptor pattern: activated RTK phosphotyrosine docking → GRB2 adaptor hub → RAS-MAPK/PI3K-AKT proliferation output, with an emerging GRB2-RAD51 replication-fork protection branch. Key conformance target: `rtk_grb2_signaling_adaptation#GRB2 Adaptor Hub`
 - `parp_parg_macrodomain_viral_evasion` — Conserved antiviral ADP-ribosylation pattern: viral/interferon PARP induction → NAD-dependent antiviral ADP-ribosylation → PARG/host reset → viral macrodomain de-ADP-ribosylation countermeasure → enhanced viral replication/pathogenesis. Key conformance target: `parp_parg_macrodomain_viral_evasion#Viral Macrodomain De-ADP-Ribosylation Countermeasure`
+- `lysosomal_substrate_accumulation` — Conserved lysosomal storage disease pattern: lysosomal hydrolase/cofactor deficiency → undegraded substrate accumulation in the lysosome → autophagic-lysosomal dysfunction and secondary cascade → storage-cell cytotoxicity and neuroinflammation → progressive multisystem/neurodegenerative disease. Conforming disorder nodes substitute the disorder-specific deficient enzyme, stored substrate, and storage cell type (e.g., glucocerebrosidase/glucocerebroside/Gaucher cell; hexosaminidase/GM2 ganglioside/neuron; alpha-galactosidase A/Gb3/endothelium). Key conformance target: `lysosomal_substrate_accumulation#Lysosomal Substrate Accumulation`
+- `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
+- `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
+- `cardiac_ion_channel_repolarization` — Conserved cardiac channelopathy pattern: cardiac ion-channel or calcium-handling variant → altered action-potential duration / Ca²⁺ handling → arrhythmogenic substrate and triggered activity (EADs/DADs, dispersion of repolarization, reentry) → ventricular tachyarrhythmia → syncope and sudden cardiac death, with a parallel sinoatrial-node automaticity-failure branch producing bradyarrhythmia. For inherited arrhythmia syndromes in structurally normal hearts (Long QT, Short QT, Brugada, RYR2-CPVT, Timothy, torsade/short-coupled VF, familial sick sinus). Key conformance target: `cardiac_ion_channel_repolarization#Arrhythmogenic Substrate and Triggered Activity`
 
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
@@ -416,6 +420,86 @@ treatments:
 - For NCIT drug-class terms, the local `ncit` adapter is configured in `conf/oak_config.yaml`.
 - A dedicated `treatment.name` (e.g., "Duloxetine") should still match common clinical usage; `therapeutic_agent` carries the machine-readable identifier.
 - Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
+
+### Therapeutic Modality and Antisense Oligonucleotide (ASO) Detail
+
+A treatment's **modality** (the kind of therapeutic platform) is captured by the
+enum-backed `therapeutic_modality` slot — **not** the free-text `role` slot, which
+is overloaded across host roles, pathophysiology-node roles, and treatment roles.
+Prefer `therapeutic_modality` for platform classification so treatments are
+queryable by modality across diseases.
+
+`therapeutic_modality` values: `SMALL_MOLECULE`, `MONOCLONAL_ANTIBODY`,
+`ANTISENSE_OLIGONUCLEOTIDE`, `SIRNA`, `MRNA_THERAPY`, `GENE_THERAPY`,
+`GENE_EDITING`, `CELL_THERAPY`, `PROTEIN_REPLACEMENT`, `PEPTIDE`, `VACCINE`,
+`RADIOTHERAPY`, `SURGERY`, `DEVICE`, `BEHAVIORAL`, `OTHER`.
+
+`therapeutic_modality` complements (does not replace) `treatment_term` (the MAXO
+action) and `therapeutic_agent` (the specific drug). A pharmacotherapy ASO still
+uses `MAXO:0000058` for `treatment_term` and an NCIT/CHEBI `therapeutic_agent`.
+
+When `therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE`, add a structured
+`aso_details` block (`AntisenseOligonucleotideDetail`) capturing the molecular
+mechanism, RNA target, splice exon, chemistry, and conjugation:
+
+- `aso_mechanism`: `RNASE_H_KNOCKDOWN`, `SPLICE_MODULATION_EXON_SKIPPING`,
+  `SPLICE_MODULATION_EXON_INCLUSION`, `STERIC_BLOCKADE`, `MIRNA_MODULATION`
+- `target_gene`: `GeneDescriptor` bound to HGNC (lowercase `hgnc:` prefix)
+- `target_transcript`: free text for the RNA target / element (e.g., `APOB mRNA`,
+  `SMN2 ISS-N1`)
+- `target_exon`: free text for splice-switching ASOs (e.g., `exon 51`)
+- `aso_chemistry`: `PHOSPHOROTHIOATE`, `PHOSPHORODIAMIDATE_MORPHOLINO`,
+  `TWO_PRIME_O_METHYL`, `TWO_PRIME_O_METHOXYETHYL`, `LOCKED_NUCLEIC_ACID`,
+  `CONSTRAINED_ETHYL`, `OTHER`
+- `conjugation`: `UNCONJUGATED`, `GALNAC`, `LIPID`, `PEPTIDE`, `ANTIBODY`, `OTHER`
+
+**Example — RNase H knockdown ASO (mipomersen, APOB):**
+```yaml
+treatments:
+- name: Mipomersen
+  therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
+  aso_details:
+    aso_mechanism: RNASE_H_KNOCKDOWN
+    target_gene:
+      preferred_term: APOB
+      term:
+        id: hgnc:603
+        label: APOB
+    target_transcript: APOB mRNA
+    aso_chemistry: TWO_PRIME_O_METHOXYETHYL
+    conjugation: UNCONJUGATED
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: mipomersen
+      term:
+        id: NCIT:C174575
+        label: Mipomersen
+```
+
+**Example — splice-switching exon-skipping ASO (eteplirsen, DMD exon 51):**
+```yaml
+  therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
+  aso_details:
+    aso_mechanism: SPLICE_MODULATION_EXON_SKIPPING
+    target_gene:
+      preferred_term: DMD
+      term:
+        id: hgnc:2928
+        label: DMD
+    target_exon: exon 51
+    aso_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
+    conjugation: UNCONJUGATED
+```
+
+**Example — GalNAc-conjugated ASO (eplontersen, TTR):** same as the RNase H
+example but with `conjugation: GALNAC` and the TTR `target_gene`.
+
+Leave `aso_details` absent for non-ASO treatments. The structured fields are
+optional — populate what is documented and omit fields you cannot source.
 
 ### Subtype Naming Conventions
 
