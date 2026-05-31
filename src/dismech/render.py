@@ -1743,6 +1743,163 @@ def render_module_index(
     return output_path
 
 
+def _display_name_from_slug(slug: str) -> str:
+    """Convert a disorder slug-like token to a human-readable label."""
+    return re.sub(r"\s+", " ", slug.replace("_", " ")).strip()
+
+
+def _display_name_from_provider(provider: str) -> str:
+    """Normalize provider token to canonical deep-research browser categories."""
+    provider_key = re.sub(
+        r"[^a-z0-9]+", "-", (provider or "").strip().casefold()
+    ).strip("-")
+    if provider_key in {"falcon", "edison"}:
+        return "Edison"
+    if provider_key == "asta":
+        return "Asta"
+    if provider_key in {"openai", "codex"}:
+        return "OpenAI"
+    if provider_key in {"cyberian", "cyberian-codex"}:
+        return "Cyberian"
+    if provider_key == "perplexity":
+        return "Perplexity"
+    if provider_key == "fallback":
+        return "Fallback"
+    if provider_key in {"openscientist", "openscientist-review"}:
+        return "OpenScientist"
+    return "Other"
+
+
+def _collect_research_index_rows(
+    research_dir: Path,
+    disorders_dir: Path,
+) -> list[dict]:
+    """Collect report-count and provider metadata per disorder for index rendering."""
+    if not research_dir.exists():
+        return []
+
+    _, disorder_pages_by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+
+    page_name_by_filename: dict[str, str] = {}
+    for yaml_path in sorted(disorders_dir.glob("*.yaml")):
+        if yaml_path.name.endswith(".history.yaml"):
+            continue
+        disorder = load_disorder(yaml_path) or {}
+        disorder_name = disorder.get("name") or yaml_path.stem
+        page_name_by_filename[f"{slugify(str(disorder_name))}.html"] = str(disorder_name)
+
+    rows: dict[str, dict] = {}
+    report_pattern = re.compile(
+        r"^(?P<slug>.+)-deep-research-(?P<provider>[^.]+)\.md$",
+        re.IGNORECASE,
+    )
+
+    for report_path in sorted(research_dir.glob("*.md")):
+        match = report_pattern.match(report_path.name)
+        if not match:
+            continue
+
+        slug = match.group("slug")
+        provider = _display_name_from_provider(match.group("provider"))
+        lookup = _normalize_disorder_lookup(_display_name_from_slug(slug))
+        page_filename = disorder_pages_by_name.get(lookup)
+        row_key = page_filename or slug
+
+        if row_key not in rows:
+            disorder_name = (
+                page_name_by_filename.get(page_filename)
+                if page_filename
+                else _display_name_from_slug(slug)
+            )
+            rows[row_key] = {
+                "name": disorder_name,
+                "report_count": 0,
+                "provider_counts": defaultdict(int),
+                "href": (
+                    f"../disorders/{page_filename}#literature-summaries"
+                    if page_filename
+                    else None
+                ),
+            }
+
+        rows[row_key]["report_count"] += 1
+        rows[row_key]["provider_counts"][provider] += 1
+
+    normalized_rows: list[dict] = []
+    for row in rows.values():
+        providers = [
+            {
+                "name": provider_name,
+                "key": re.sub(r"[^a-z0-9]+", "-", provider_name.casefold()).strip("-"),
+                "count": count,
+            }
+            for provider_name, count in sorted(
+                row["provider_counts"].items(),
+                key=lambda item: item[0].casefold(),
+            )
+        ]
+        normalized_rows.append(
+            {
+                "name": row["name"],
+                "href": row["href"],
+                "report_count": row["report_count"],
+                "provider_count": len(providers),
+                "providers": providers,
+            }
+        )
+
+    normalized_rows.sort(key=lambda row: str(row.get("name") or "").casefold())
+    return normalized_rows
+
+
+def render_research_index(
+    rows: list[dict],
+    output_path: Path = Path("pages/research/index.html"),
+) -> Path:
+    """Render the deep-research disorder index page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("research_index.html.j2")
+
+    provider_options = [
+        {"key": "edison", "name": "Edison"},
+        {"key": "asta", "name": "Asta"},
+        {"key": "openai", "name": "OpenAI"},
+        {"key": "cyberian", "name": "Cyberian"},
+        {"key": "perplexity", "name": "Perplexity"},
+        {"key": "fallback", "name": "Fallback"},
+        {"key": "openscientist", "name": "OpenScientist"},
+        {"key": "other", "name": "Other"},
+    ]
+
+    total_reports = sum(int(row.get("report_count") or 0) for row in rows)
+    html = template.render(
+        disorders=rows,
+        disorder_count=len(rows),
+        total_reports=total_reports,
+        provider_options=provider_options,
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_research_index_page(
+    research_dir: Path = Path("research"),
+    disorders_dir: Path = Path("kb/disorders"),
+    output_path: Path = Path("pages/research/index.html"),
+) -> Path:
+    """Collect and render a browsable deep-research index page."""
+    rows = _collect_research_index_rows(research_dir, disorders_dir)
+    rendered_path = render_research_index(rows, output_path)
+    print(f"Rendered research index -> {rendered_path}")
+    return rendered_path
+
+
 def render_all_modules(
     input_dir: Path = Path("kb/modules"),
     output_dir: Path = Path("pages/modules"),
@@ -2172,6 +2329,7 @@ def render_all_disorders(
     output_dir.mkdir(parents=True, exist_ok=True)
     render_all_comorbidities()
     render_all_modules(disorders_dir=input_dir)
+    render_research_index_page(disorders_dir=input_dir)
 
     yaml_files = [
         path
@@ -2210,6 +2368,7 @@ def main():
         "--comorbidity", action="store_true", help="Render comorbidity page(s)"
     )
     parser.add_argument("--module", action="store_true", help="Render module page(s)")
+    parser.add_argument("--research", action="store_true", help="Render research index")
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
     parser.add_argument("--template", "-t", help="Custom template path")
 
@@ -2243,6 +2402,19 @@ def main():
             output_path = Path(args.output) if args.output else None
             result = render_module(input_path, output_path, template_path)
             print(f"Generated: {result}")
+        return
+
+    if args.research:
+        research_dir = Path(args.path) if args.path else Path("research")
+        output_path = (
+            Path(args.output) if args.output else Path("pages/research/index.html")
+        )
+        result = render_research_index_page(
+            research_dir=research_dir,
+            disorders_dir=Path("kb/disorders"),
+            output_path=output_path,
+        )
+        print(f"Generated: {result}")
         return
 
     if args.all or args.path is None:
