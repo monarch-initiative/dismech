@@ -264,15 +264,15 @@ cell_types:
     id: CL:0000815
     label: regulatory T cell
 
-# Example: treatment more specific than generic MAXO term
+# Example: treatment more specific than generic pharmacotherapy term
 treatments:
 - name: Anti-TNF Biologic Therapy
   description: Treatment with TNF inhibitors such as adalimumab or infliximab.
   treatment_term:
     preferred_term: anti-TNF biologic therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
 ```
 
 **Guidelines:**
@@ -309,7 +309,6 @@ treatments:
 ```
 
 Common MAXO terms:
-- `MAXO:0000058` - pharmacotherapy (drug treatments)
 - `MAXO:0000004` - surgical procedure
 - `MAXO:0000011` - physical therapy
 - `MAXO:0000079` - genetic counseling
@@ -321,6 +320,7 @@ Common MAXO terms:
 - `MAXO:0000950` - supportive care
 
 Common NCIT clinical intervention terms:
+- `NCIT:C15986` - Pharmacotherapy (drug treatments)
 - `NCIT:C49236` - Therapeutic Procedure
 - `NCIT:C15329` - Surgical Procedure
 - `NCIT:C16186` - Orthopedic Surgical Procedure
@@ -336,14 +336,14 @@ uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 
 #### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
 
-MAXO treatment terms describe the **medical action** (e.g., pharmacotherapy, chemotherapy,
+Treatment terms describe the **medical action** (e.g., Pharmacotherapy, chemotherapy,
 vaccination) but not the specific agent involved. When the action is generic but a
-specific drug or drug class is involved, combine the MAXO action term with the
+specific drug or drug class is involved, combine the generic treatment term with the
 `therapeutic_agent` slot, which is multivalued and bindable to CHEBI (for specific drugs)
 or NCIT (for drug classes).
 
 **When to use `therapeutic_agent`:**
-- `treatment_term` is a generic MAXO action like `MAXO:0000058` (pharmacotherapy),
+- `treatment_term` is a generic action like `NCIT:C15986` (Pharmacotherapy),
   `MAXO:0000647` (chemotherapy), `MAXO:0001017` (vaccination), or `MAXO:0000014` (radiation therapy)
 - A specific drug, chemical, or drug class is referenced in the `name` / `description`
 - You want the treatment to be machine-queryable by drug identity
@@ -361,10 +361,10 @@ treatments:
 - name: Duloxetine
   description: SNRI, FDA-approved for fibromyalgia chronic pain management.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: duloxetine
       term:
@@ -380,8 +380,8 @@ treatments:
   treatment_term:
     preferred_term: anti-TNF biologic therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: monoclonal antibody
       term:
@@ -415,11 +415,11 @@ treatments:
 ```
 
 **Guidelines:**
-- `therapeutic_agent` is optional at the schema level but **recommended whenever `treatment_term` is MAXO:0000058** or another generic action term where a specific drug is involved.
+- `therapeutic_agent` is optional at the schema level but **recommended whenever `treatment_term` is NCIT:C15986** or another generic action term where a specific drug is involved.
 - Use OAK to verify CHEBI terms: `uv run runoak -i sqlite:obo:chebi search "duloxetine"`
 - For NCIT drug-class terms, the local `ncit` adapter is configured in `conf/oak_config.yaml`.
 - A dedicated `treatment.name` (e.g., "Duloxetine") should still match common clinical usage; `therapeutic_agent` carries the machine-readable identifier.
-- Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
+- Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (Pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
 
 ### Subtype Naming Conventions
 
