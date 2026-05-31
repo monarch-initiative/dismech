@@ -932,7 +932,7 @@ This report will be used to populate a disease knowledge base entry with:
 ## Comprehensive Research Report: Cervical Squamous Cell Carcinoma (CSCC)
 
 ### Scope and evidence note
-This report synthesizes evidence retrieved in the current tool session (peer‑reviewed primary studies, systematic reviews, guidelines, and OpenTargets associations). Where ontology IDs (e.g., MONDO, MeSH) were not explicitly available in retrieved sources, they are reported as “not found” rather than inferred. Evidence types are labeled when possible (human epidemiology/clinical trial/guideline/translational).
+This report synthesizes evidence retrieved in the current tool session (peer‑reviewed primary studies, systematic reviews, guidelines, and OpenTargets associations). Where ontology IDs (e.g., MONDO, MeSH) were not explicitly available in retrieved sources, they are reported as “not found” rather than inferred. Evidence types are labeled when possible (human epidemiology/clinical trial/guideline/translational). 
 
 ---
 
@@ -942,7 +942,7 @@ This report synthesizes evidence retrieved in the current tool session (peer‑r
 Cervical squamous cell carcinoma (CSCC) is the most common histologic subtype of cervical cancer, arising from squamous epithelium of the cervix and strongly linked to persistent high‑risk human papillomavirus (hrHPV) infection. CSCC accounts for ~85% of cervical cancers in a recent clinical review spanning 2018–2025, consistent with long‑standing epidemiology. (nagdev2026advancesinscreening pages 1-2)
 
 ### 1.2 Key identifiers and classification
-A structured summary of identifiers and nomenclature supported by retrieved sources is provided in the embedded artifact.
+A structured summary of identifiers and nomenclature supported by retrieved sources is provided in the embedded artifact. 
 
 | Identifier type | Code/ID | Preferred label | Synonyms/alternate names | Source/URL/date |
 |---|---|---|---|---|
@@ -1015,7 +1015,7 @@ Direct quantitative gene–environment interaction estimates were not identified
 
 ---
 
-## 3. Phenotypes (clinical presentation)
+## 3. Phenotypes (clinical presentation) 
 
 ### 3.1 Common phenotypes (signs/symptoms)
 Recent guideline and clinical review materials in the retrieved set describe typical presenting features including abnormal vaginal bleeding/discharge and pelvic pain (not always CSCC‑specific but common across cervical cancer). (nagdev2026advancesinscreening pages 1-2)
@@ -1069,7 +1069,7 @@ HPV16 E6 has been described as promoting PD‑L1 expression via a miR‑143/HIF�
 ### 6.3 Spatial transcriptomics: metabolic states and oncogenic regulators (2024 primary study)
 A 2024 Journal of Translational Medicine study used spatial transcriptomics integrated with scRNA‑seq and TCGA analyses to map hypermetabolic versus hypometabolic regions in CSCC and identify regulatory factors. (zhou2024spatialtranscriptomicsreveals pages 1-2, zhou2024spatialtranscriptomicsreveals pages 9-12)
 
-Key reported findings include:
+Key reported findings include: 
 - Leading edge regions were characterized as uniformly hypermetabolic, whereas tumor core contained mixed hyper‑ and hypometabolic spots. (zhou2024spatialtranscriptomicsreveals pages 9-12)
 - APP was identified as a signaling molecule released by cancer cells with higher expression in hypermetabolic regions, and APP expression correlated with transcription factor TRPS1; functional knockdowns reduced proliferation/migration/invasion in vitro. (zhou2024spatialtranscriptomicsreveals pages 1-2, zhou2024spatialtranscriptomicsreveals pages 14-17)
 - Immune context differed by region, with PD‑L1 and IDO1 elevated in tumor center in one excerpted analysis, consistent with immune suppression. (zhou2024spatialtranscriptomicsreveals pages 14-17, zhou2024spatialtranscriptomicsreveals pages 6-9)
@@ -1176,7 +1176,7 @@ A separate checkpoint-focused review reports pembrolizumab median OS 28.6 vs 16.
 The immunotherapy review notes increased toxicities with combination regimens (e.g., anemia, neuropathy) and highlights immune-related adverse events as clinically relevant. (dey2025immunotherapyincervical pages 7-8)
 
 ### 12.4 Suggested MAXO mappings (examples)
-- NCIT:C15986 (radiotherapy)
+- MAXO:0000058 (radiotherapy)
 - MAXO:0000010 (chemotherapy)
 - MAXO term for immune checkpoint inhibitor therapy (e.g., “immune checkpoint inhibitor therapy”)—exact MAXO ID not retrieved in this session.
 
@@ -1185,7 +1185,7 @@ The immunotherapy review notes increased toxicities with combination regimens (e
 ## 13. Prevention
 
 ### 13.1 WHO elimination strategy and targets
-A 2025 global elimination analysis summarizes WHO’s 90–70–90 strategy by 2030:
+A 2025 global elimination analysis summarizes WHO’s 90–70–90 strategy by 2030: 
 - 90% of girls vaccinated by age 15,
 - 70% of women screened with high-performance tests by ages 35 and 45,
 - 90% of women with cervical disease treated. (zhou2025globalcervicalcancer pages 1-2)

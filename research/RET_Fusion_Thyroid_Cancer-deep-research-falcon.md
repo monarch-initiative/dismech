@@ -1127,7 +1127,7 @@ Acquired resistance to selective RET inhibitors may involve:
 Next‑generation RET inhibitors are being developed with activity against solvent‑front and gatekeeper mutants (e.g., preclinical development described in 2023 review; APS03118 potency against G810 and V804 mutants, with PDX/intracranial models) (clark2023selectiveretinhibitors pages 9-11).
 
 ### 12.3 Suggested MAXO terms (examples)
-* Targeted therapy — **NCIT:C15986** (suggested)  
+* Targeted therapy — **MAXO:0000058** (suggested)  
 * Tyrosine kinase inhibitor therapy — **MAXO:0000647** (suggested)  
 * Molecularly targeted therapy based on gene fusion — (suggested; if available in MAXO)
 

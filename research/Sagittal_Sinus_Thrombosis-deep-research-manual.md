@@ -46,7 +46,7 @@ YAML.
 - Mappings added after OAK verification include ICD10CM:I67.6
   Nonpyogenic thrombosis of intracranial venous system and MONDO:0002695
   sagittal sinus thrombosis.
-- Treatment terms use broad but verified actions: NCIT:C15986
+- Treatment terms use broad but verified actions: MAXO:0000058
   pharmacotherapy with CHEBI:28304 heparin, NCIT:C52003 Thrombectomy, and
   MAXO:0000004 surgical procedure.
 

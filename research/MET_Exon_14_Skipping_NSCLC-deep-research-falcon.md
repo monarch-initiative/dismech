@@ -1175,7 +1175,7 @@ In a 3-year testing/outcomes series, immunotherapy-treated patients (n=13) had O
 
 ### 12.6 Suggested MAXO terms (examples)
 - **MAXO:0000757** targeted therapy
-- **NCIT:C15986** drug therapy
+- **MAXO:0000058** drug therapy
 - **MAXO:0000468** molecular targeted therapy
 - For MET TKI administration, represent as targeted small molecule therapy (ontology mapping may require MAXO term resolution outside this run).
 

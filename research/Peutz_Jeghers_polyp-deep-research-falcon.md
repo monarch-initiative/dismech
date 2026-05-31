@@ -1110,7 +1110,7 @@ Direct mortality rates and life expectancy were not available in retrieved evide
 - **Pancreatic surveillance in high-risk cohorts including PJS:** CAPS5 NCT02000089 (recruiting) evaluates early pancreatic cancer markers in pancreatic juice and related endpoints in high-risk individuals including PJS. URL: https://clinicaltrials.gov/study/NCT02000089 (NCT02000089 chunk 2)
 
 ### MAXO suggestions (treatment/prevention actions)
-- MAXO:0000011 (Endoscopy), MAXO:0000567 (Polypectomy), NCIT:C15986 (Cancer surveillance), MAXO:0000127 (Genetic counseling)
+- MAXO:0000011 (Endoscopy), MAXO:0000567 (Polypectomy), MAXO:0000058 (Cancer surveillance), MAXO:0000127 (Genetic counseling)
 (These are ontology suggestions; MAXO IDs should be verified against the MAXO ontology release used by the knowledge base.)
 
 

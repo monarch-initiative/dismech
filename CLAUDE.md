@@ -146,6 +146,18 @@ pathophysiology:
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
+- `dna_repair_synthetic_lethality` — Conserved HRR/FA-BRCA deficiency pattern: HRR or FA/BRCA repair deficiency → replication-associated DNA damage accumulation → PARP/platinum synthetic lethality → POLQ/error-prone repair escape → restored HRR and acquired resistance. Key conformance target: `dna_repair_synthetic_lethality#PARP and Platinum Synthetic Lethality`
+- `rtk_grb2_signaling_adaptation` — Conserved RTK/GRB2 adaptor pattern: activated RTK phosphotyrosine docking → GRB2 adaptor hub → RAS-MAPK/PI3K-AKT proliferation output, with an emerging GRB2-RAD51 replication-fork protection branch. Key conformance target: `rtk_grb2_signaling_adaptation#GRB2 Adaptor Hub`
+- `parp_parg_macrodomain_viral_evasion` — Conserved antiviral ADP-ribosylation pattern: viral/interferon PARP induction → NAD-dependent antiviral ADP-ribosylation → PARG/host reset → viral macrodomain de-ADP-ribosylation countermeasure → enhanced viral replication/pathogenesis. Key conformance target: `parp_parg_macrodomain_viral_evasion#Viral Macrodomain De-ADP-Ribosylation Countermeasure`
+- `lysosomal_substrate_accumulation` — Conserved lysosomal storage disease pattern: lysosomal hydrolase/cofactor deficiency → undegraded substrate accumulation in the lysosome → autophagic-lysosomal dysfunction and secondary cascade → storage-cell cytotoxicity and neuroinflammation → progressive multisystem/neurodegenerative disease. Conforming disorder nodes substitute the disorder-specific deficient enzyme, stored substrate, and storage cell type (e.g., glucocerebrosidase/glucocerebroside/Gaucher cell; hexosaminidase/GM2 ganglioside/neuron; alpha-galactosidase A/Gb3/endothelium). Key conformance target: `lysosomal_substrate_accumulation#Lysosomal Substrate Accumulation`
+- `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
+- `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
+- `cardiac_ion_channel_repolarization` — Conserved cardiac channelopathy pattern: cardiac ion-channel or calcium-handling variant → altered action-potential duration / Ca²⁺ handling → arrhythmogenic substrate and triggered activity (EADs/DADs, dispersion of repolarization, reentry) → ventricular tachyarrhythmia → syncope and sudden cardiac death, with a parallel sinoatrial-node automaticity-failure branch producing bradyarrhythmia. For inherited arrhythmia syndromes in structurally normal hearts (Long QT, Short QT, Brugada, RYR2-CPVT, Timothy, torsade/short-coupled VF, familial sick sinus). Key conformance target: `cardiac_ion_channel_repolarization#Arrhythmogenic Substrate and Triggered Activity`
+
+**Module-level hypotheses and gaps:**
+- Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
+- Causal edges opt into those groups with `downstream[].hypothesis_groups`. In conforming disorder entries, copy and specialize the same grouping only when the disease-specific causal edge belongs to that model.
+- Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
 
 ### Evidence Items
 All evidence must have PMID references and support classification:
@@ -259,8 +271,8 @@ treatments:
   treatment_term:
     preferred_term: anti-TNF biologic therapy
     term:
-      id: NCIT:C15986
-      label: Pharmacotherapy
+      id: MAXO:0000058
+      label: pharmacotherapy
 ```
 
 **Guidelines:**
@@ -296,8 +308,8 @@ treatments:
       label: Orthopedic Surgical Procedure
 ```
 
-Common treatment terms:
-- `NCIT:C15986` - Pharmacotherapy (drug treatments)
+Common MAXO terms:
+- `MAXO:0000058` - pharmacotherapy (drug treatments)
 - `MAXO:0000004` - surgical procedure
 - `MAXO:0000011` - physical therapy
 - `MAXO:0000079` - genetic counseling
@@ -324,14 +336,14 @@ uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 
 #### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
 
-Treatment ontology terms describe the **medical action** (e.g., pharmacotherapy, chemotherapy,
+MAXO treatment terms describe the **medical action** (e.g., pharmacotherapy, chemotherapy,
 vaccination) but not the specific agent involved. When the action is generic but a
-specific drug or drug class is involved, combine the treatment action term with the
+specific drug or drug class is involved, combine the MAXO action term with the
 `therapeutic_agent` slot, which is multivalued and bindable to CHEBI (for specific drugs)
 or NCIT (for drug classes).
 
 **When to use `therapeutic_agent`:**
-- `treatment_term` is a generic treatment action like `NCIT:C15986` (Pharmacotherapy),
+- `treatment_term` is a generic MAXO action like `MAXO:0000058` (pharmacotherapy),
   `MAXO:0000647` (chemotherapy), `MAXO:0001017` (vaccination), or `MAXO:0000014` (radiation therapy)
 - A specific drug, chemical, or drug class is referenced in the `name` / `description`
 - You want the treatment to be machine-queryable by drug identity
@@ -349,10 +361,10 @@ treatments:
 - name: Duloxetine
   description: SNRI, FDA-approved for fibromyalgia chronic pain management.
   treatment_term:
-    preferred_term: Pharmacotherapy
+    preferred_term: pharmacotherapy
     term:
-      id: NCIT:C15986
-      label: Pharmacotherapy
+      id: MAXO:0000058
+      label: pharmacotherapy
     therapeutic_agent:
     - preferred_term: duloxetine
       term:
@@ -368,8 +380,8 @@ treatments:
   treatment_term:
     preferred_term: anti-TNF biologic therapy
     term:
-      id: NCIT:C15986
-      label: Pharmacotherapy
+      id: MAXO:0000058
+      label: pharmacotherapy
     therapeutic_agent:
     - preferred_term: monoclonal antibody
       term:
@@ -403,7 +415,7 @@ treatments:
 ```
 
 **Guidelines:**
-- `therapeutic_agent` is optional at the schema level but **recommended whenever `treatment_term` is NCIT:C15986** or another generic action term where a specific drug is involved.
+- `therapeutic_agent` is optional at the schema level but **recommended whenever `treatment_term` is MAXO:0000058** or another generic action term where a specific drug is involved.
 - Use OAK to verify CHEBI terms: `uv run runoak -i sqlite:obo:chebi search "duloxetine"`
 - For NCIT drug-class terms, the local `ncit` adapter is configured in `conf/oak_config.yaml`.
 - A dedicated `treatment.name` (e.g., "Duloxetine") should still match common clinical usage; `therapeutic_agent` carries the machine-readable identifier.

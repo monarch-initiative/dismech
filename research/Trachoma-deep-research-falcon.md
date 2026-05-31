@@ -1090,7 +1090,7 @@ SAFE remains the backbone of trachoma management and elimination:
 * **Facial cleanliness** and **Environmental improvement:** to reduce reinfection/transmission and sustain gains. (sitoe2024ongoingtransmissionof pages 1-2, ageed2024eliminatingtrachomain pages 2-3)
 
 **MAXO term suggestions:**
-* Antibiotic therapy: NCIT:C15986 (if using a general antibiotic therapy term)
+* Antibiotic therapy: MAXO:0000058 (if using a general antibiotic therapy term)
 * Mass drug administration: MAXO term not confirmed in retrieved evidence; would be mapped under population-level preventive treatment.
 * Trichiasis surgery / eyelid surgery: MAXO:0001070 (surgical procedure; specify eyelid correction if available)
 

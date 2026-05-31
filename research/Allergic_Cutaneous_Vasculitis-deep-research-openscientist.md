@@ -1075,7 +1075,7 @@ No specific pharmacogenomic associations (PharmGKB, CPIC) have been established 
 
 ### Primary Prevention
 
-- **Drug safety monitoring (NCIT:C15986 - pharmacovigilance):** Awareness of drugs known to cause vasculitis
+- **Drug safety monitoring (MAXO:0000058 - pharmacovigilance):** Awareness of drugs known to cause vasculitis
 - **Infection prevention:** Vaccination (where applicable), hygiene measures
 - **Avoidance of known triggers:** In patients with prior drug-induced vasculitis, avoidance of the implicated drug and chemically related agents
 
@@ -1277,7 +1277,7 @@ The therapeutic approach is graduated: trigger removal and supportive care for m
 | Cell Types | CL | CL:0000775 (Neutrophil), CL:0000115 (Endothelial cell), CL:0000097 (Mast cell), CL:0000236 (B cell), CL:0000576 (Monocyte) |
 | Anatomy | UBERON | UBERON:0002097 (Skin), UBERON:0002067 (Dermis), UBERON:0002103 (Lower extremity) |
 | Chemicals | CHEBI | CHEBI:23359 (Colchicine), CHEBI:4325 (Dapsone), CHEBI:50858 (Corticosteroid), CHEBI:2948 (Azathioprine) |
-| Treatment | MAXO | MAXO:0001298 (Pharmacotherapy), MAXO:0000950 (Supportive care), NCIT:C15986 (Pharmacovigilance) |
+| Treatment | MAXO | MAXO:0001298 (Pharmacotherapy), MAXO:0000950 (Supportive care), MAXO:0000058 (Pharmacovigilance) |
 
 ---
 

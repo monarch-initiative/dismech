@@ -976,7 +976,7 @@ ROS1 rearrangement detection is **mandatory** before initiating TKI therapy. Mul
 
 ### First-Line Targeted Therapy
 
-**NCIT:C15986 (Pharmacotherapy)**
+**MAXO:0000058 (pharmacotherapy)**
 
 | Agent | Class | Mechanism | Key Data | CHEBI/DrugBank |
 |---|---|---|---|---|
@@ -1261,7 +1261,7 @@ The pathophysiology of ROS1+ NSCLC can be understood as a multi-level cascade:
 | **CL** | CL:0000066, CL:0002063, CL:0000158 |
 | **UBERON** | UBERON:0002048, UBERON:0000955, UBERON:0002481, UBERON:0002107, UBERON:0000977 |
 | **CHEBI** | CHEBI:64310 (crizotinib) |
-| **MAXO** | NCIT:C15986, MAXO:0000647, MAXO:0001298, MAXO:0000004 |
+| **MAXO** | MAXO:0000058, MAXO:0000647, MAXO:0001298, MAXO:0000004 |
 
 ---
 

@@ -113,5 +113,5 @@ preferred when it gives materially better oncology specificity:
 - vorinostat (PMID:17577020)
 
 This avoids mixing in very broad generic MAXO treatment labels when a more
-oncology-specific NCIT procedure is available, while still using `NCIT:C15986`
+oncology-specific NCIT procedure is available, while still using `MAXO:0000058`
 for systemic pharmacotherapy actions paired with specific antineoplastic agents.

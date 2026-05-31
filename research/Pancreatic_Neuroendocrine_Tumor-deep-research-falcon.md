@@ -1206,7 +1206,7 @@ In metastatic settings, retrospective and registry analyses reported improved 5-
 
 ### 12.6 MAXO term suggestions (treatment normalization)
 *Ontology mapping suggestions (not extracted verbatim from papers):*
-- **Surgical resection (NCIT:C15986)**
+- **Surgical resection (MAXO:0000058)**
 - **Active surveillance (MAXO:0000054)**
 - **Somatostatin receptor PET imaging (MAXO: imaging procedure; may require local MAXO mapping)**
 - **Peptide receptor radionuclide therapy (PRRT) (MAXO:0000146)**

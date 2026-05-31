@@ -949,7 +949,7 @@ There is no formal staging system for BS. Clinically, disease can be categorized
 
 ### Pharmacotherapy
 
-**First-line: Indomethacin** (NCIT:C15986 — pharmacological treatment)
+**First-line: Indomethacin** (MAXO:0000058 — pharmacological treatment)
 - Non-selective COX inhibitor; reduces PGE₂ production
 - Corrects hyperreninemia, improves electrolyte balance, promotes growth
 - Dose: 1–3 mg/kg/day in divided doses

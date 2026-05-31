@@ -1147,7 +1147,7 @@ ICC explicitly connects **ABL‑class Ph‑like lesions** (ABL1/ABL2/CSF1R/PDGFR
 The ELN 2024 adult recommendations are an authoritative expert-panel source emphasizing that adult ALL management requires **comprehensive biologic characterization and MRD-driven risk stratification**, with MRD methodology standardization and genomic high-risk groups (e.g., Ph-like ALL, IKZF1 deletions) considered in risk assessment (gokbuget2024diagnosisprognosticfactors pages 13-14).
 
 ### 12.3 Suggested MAXO terms (high level)
-- **Chemotherapy** (NCIT:C15986)
+- **Chemotherapy** (MAXO:0000058)
 - **Tyrosine kinase inhibitor therapy** (for ABL‑class or BCR::ABL1‑positive disease) (duffield2023internationalconsensusclassification pages 3-4)
 - **Blinatumomab therapy / bispecific antibody therapy** (MAXO term depends on local MAXO implementation) (brivio2024nakedantibodiesand pages 3-4)
 - **Measurable residual disease monitoring** (diagnostic action; MAXO not always used for monitoring)

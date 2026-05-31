@@ -1090,7 +1090,7 @@ The treatment backbone remains **maximal safe resection** followed by **radiothe
 
 **Suggested MAXO terms (examples):**
 - Maximal surgical resection: **MAXO:0001175** (neurosurgical tumor resection; placeholder mapping)
-- Radiotherapy: **NCIT:C15986**
+- Radiotherapy: **MAXO:0000058**
 - Alkylating chemotherapy (temozolomide): **MAXO:0000647** (chemotherapy; placeholder mapping)
 
 ### 8.2. Tumor Treating Fields (TTFields) — real-world implementation and safety

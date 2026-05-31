@@ -975,9 +975,9 @@ Prospective trial data: "Complete remission was achieved in 95.1% of patients. W
 | Drug | CHEBI Term | Mechanism | MAXO Term |
 |------|-----------|-----------|-----------|
 | All-trans retinoic acid (ATRA/Tretinoin) | CHEBI:15367 | Degrades PML-RARA; restores differentiation | MAXO:0001298 (retinoid therapy) |
-| Arsenic trioxide (ATO) | CHEBI:30621 | Binds PML B-box2; triggers SUMOylation and degradation of PML-RARA | NCIT:C15986 (chemotherapy) |
+| Arsenic trioxide (ATO) | CHEBI:30621 | Binds PML B-box2; triggers SUMOylation and degradation of PML-RARA | MAXO:0000058 (chemotherapy) |
 | Dexamethasone | CHEBI:41879 | DS prophylaxis/treatment | MAXO:0000644 (corticosteroid therapy) |
-| Hydroxyurea | CHEBI:44423 | WBC control during induction | NCIT:C15986 (chemotherapy) |
+| Hydroxyurea | CHEBI:44423 | WBC control during induction | MAXO:0000058 (chemotherapy) |
 
 **First-Line for High-Risk APL** (WBC >10 x10^9/L):
 - **ATRA + ATO + anthracycline (idarubicin)**: Addition of chemotherapy for cytoreduction

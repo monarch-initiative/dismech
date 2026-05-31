@@ -1136,7 +1136,7 @@ A 2024 review reported BEATcc outcomes for adding atezolizumab to bevacizumab + 
 Routine tumor genomic profiling can identify targetable alterations; a 2023 prospective sequencing cohort emphasized HER2-directed opportunities and recommended routine HER2 evaluation in advanced/recurrent disease to facilitate targeted trial access. (friedman2023assessingthegenomic pages 17-18)
 
 ### Suggested MAXO terms (examples)
-* Concurrent chemoradiotherapy — **MAXO:0000045 (radiotherapy)** + **NCIT:C15986 (chemotherapy)** (map to your specific MAXO version)
+* Concurrent chemoradiotherapy — **MAXO:0000045 (radiotherapy)** + **MAXO:0000058 (chemotherapy)** (map to your specific MAXO version)
 * Brachytherapy — **MAXO term for brachytherapy/radiotherapy procedure**
 * Immune checkpoint inhibitor therapy (anti–PD-1) — **MAXO term for immunotherapy**
 * Antibody–drug conjugate therapy — **MAXO term for targeted drug delivery/antibody therapy**

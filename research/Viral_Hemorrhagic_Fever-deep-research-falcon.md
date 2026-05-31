@@ -1186,7 +1186,7 @@ For most VHFs, **supportive care is the cornerstone** (fluids/electrolytes, moni
 - **Favipiravir** and other candidates appear as investigational in VHF management discussions. (srivastav2024compendiummanagementof pages 4-6)
 
 ### 12.5 MAXO term suggestions (examples)
-- Supportive care: **NCIT:C15986** (supportive therapy; generic)
+- Supportive care: **MAXO:0000058** (supportive therapy; generic)
 - Intravenous fluid administration
 - Administration of monoclonal antibody therapy
 - Vaccination

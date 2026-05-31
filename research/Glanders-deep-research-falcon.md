@@ -1137,7 +1137,7 @@ A 2025 expert review recommends prolonged, aggressive antimicrobial therapy guid
 
 **Suggested MAXO terms (examples):**
 - MAXO:0000746 antibiotic therapy
-- NCIT:C15986 intravenous drug administration
+- MAXO:0000058 intravenous drug administration
 
 ### 12.2 Veterinary treatment vs policy
 International veterinary policy generally discourages treating infected equids (due to relapse and zoonotic risk) and favors euthanasia plus quarantine/testing for contacts. (torres2025glandersanancient pages 9-10, torres2025glandersanancient pages 7-9)

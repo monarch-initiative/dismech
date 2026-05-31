@@ -966,7 +966,7 @@ Survivors face chronic, progressive disease. The main morbidities include:
 
 ### Pharmacotherapy
 
-**Bisphosphonates** (NCIT:C15986 — Pharmacotherapy):
+**Bisphosphonates** (MAXO:0000058 — pharmacotherapy):
 - Synthetic PPi analogs (etidronate, pamidronate) have been the mainstay of treatment
 - However, the largest natural history study found no survival benefit in matched analysis ([PMID: 34355424](https://pubmed.ncbi.nlm.nih.gov/34355424/))
 - Individual case reports describe resolution of calcifications with early bisphosphonate therapy ([PMID: 21932012](https://pubmed.ncbi.nlm.nih.gov/21932012/), [PMID: 39457141](https://pubmed.ncbi.nlm.nih.gov/39457141/))
@@ -977,7 +977,7 @@ Survivors face chronic, progressive disease. The main morbidities include:
 - Standard treatment for hypophosphatemic rickets in survivors
 - Concerns about increasing ectopic calcification risk when raising plasma phosphate in ENPP1 deficiency ([PMID: 33465815](https://pubmed.ncbi.nlm.nih.gov/33465815/))
 
-**Antihypertensives** (NCIT:C15986):
+**Antihypertensives** (MAXO:0000058):
 - Multiple agents often required for severe refractory neonatal hypertension
 
 ### Advanced Therapeutics
@@ -1327,7 +1327,7 @@ GWAS evidence establishes ENPP1 as a bidirectional regulator — loss-of-functio
 | **CL** | CL:0000359 (VSMC), CL:0000182 (hepatocyte), CL:0000062 (osteoblast) |
 | **UBERON** | UBERON:0000947 (aorta), UBERON:0001621 (coronary artery), UBERON:0002036 (tunica media) |
 | **CHEBI** | CHEBI:29888 (PPi), CHEBI:15422 (ATP), CHEBI:16335 (adenosine) |
-| **MAXO** | MAXO:0001521 (ERT), NCIT:C15986 (Pharmacotherapy), MAXO:0000079 (genetic counseling) |
+| **MAXO** | MAXO:0001521 (ERT), MAXO:0000058 (pharmacotherapy), MAXO:0000079 (genetic counseling) |
 
 ---
 

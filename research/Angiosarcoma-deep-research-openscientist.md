@@ -1001,7 +1001,7 @@ Histological diagnosis relies on identification of malignant endothelial cells f
 
 **Neoadjuvant chemotherapy**: Applied to improve R0 resection rates; response evenly divided between poor (Grades I–II) and good responders (Grades III–IV) ([PMID: 38722225](https://pubmed.ncbi.nlm.nih.gov/38722225/)).
 
-- **MAXO terms**: NCIT:C15986 (chemotherapy)
+- **MAXO terms**: MAXO:0000058 (chemotherapy)
 
 ### Immunotherapy
 
