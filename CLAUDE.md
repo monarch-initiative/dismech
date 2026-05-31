@@ -434,9 +434,9 @@ queryable by modality across diseases.
 `GENE_EDITING`, `CELL_THERAPY`, `PROTEIN_REPLACEMENT`, `PEPTIDE`, `VACCINE`,
 `RADIOTHERAPY`, `SURGERY`, `DEVICE`, `BEHAVIORAL`, `OTHER`.
 
-`therapeutic_modality` complements (does not replace) `treatment_term` (the MAXO
+`therapeutic_modality` complements (does not replace) `treatment_term` (the treatment
 action) and `therapeutic_agent` (the specific drug). A pharmacotherapy ASO still
-uses `MAXO:0000058` for `treatment_term` and an NCIT/CHEBI `therapeutic_agent`.
+uses `NCIT:C15986` for `treatment_term` and an NCIT/CHEBI `therapeutic_agent`.
 
 When `therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE`, add a structured
 `aso_details` block (`AntisenseOligonucleotideDetail`) capturing the molecular
@@ -469,10 +469,10 @@ treatments:
     aso_chemistry: TWO_PRIME_O_METHOXYETHYL
     conjugation: UNCONJUGATED
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: mipomersen
       term:
