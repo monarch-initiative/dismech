@@ -4042,12 +4042,12 @@ class TreatmentDescriptor(Descriptor):
                                                              'treatment. Use when the '
                                                              'MAXO term is generic '
                                                              '(e.g., pharmacotherapy '
-                                                             'MAXO:0000058) but '
+                                                             'NCIT:C15986) but '
                                                              'specific drugs are '
                                                              'involved.',
                                               'name': 'therapeutic_agent'}}})
 
-    therapeutic_agent: Optional[list[ChemicalEntityDescriptor]] = Field(default=None, description="""The drug(s) or chemical agent(s) used in this treatment. Use when the MAXO term is generic (e.g., pharmacotherapy MAXO:0000058) but specific drugs are involved.""", json_schema_extra = { "linkml_meta": {'comments': ['Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for '
+    therapeutic_agent: Optional[list[ChemicalEntityDescriptor]] = Field(default=None, description="""The drug(s) or chemical agent(s) used in this treatment. Use when the MAXO term is generic (e.g., pharmacotherapy NCIT:C15986) but specific drugs are involved.""", json_schema_extra = { "linkml_meta": {'comments': ['Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for '
                       'aspirin)',
                       'Use NCIT for drug classes when specific CHEBI term unavailable'],
          'domain_of': ['TreatmentDescriptor']} })
