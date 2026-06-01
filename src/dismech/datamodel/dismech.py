@@ -6684,19 +6684,29 @@ class MedicalActionCategoryEnum(EnumDefinitionImpl):
     """
     THERAPEUTIC = PermissibleValue(
         text="THERAPEUTIC",
-        description="""An action intended to treat, prevent, mitigate, or manage disease processes, complications, or symptoms. These actions may link to pathophysiology nodes or phenotypes through target_mechanisms or target_phenotypes.""")
+        title="Therapeutic Procedure",
+        description="""An action intended to treat, prevent, mitigate, or manage disease processes, complications, or symptoms. These actions may link to pathophysiology nodes or phenotypes through target_mechanisms or target_phenotypes.""",
+        meaning=NCIT["C49236"])
     DIAGNOSTIC = PermissibleValue(
         text="DIAGNOSTIC",
-        description="""A diagnostic procedure or testing action used to establish or refine a diagnosis. These actions should not use target_mechanisms or target_phenotypes because they do not treat pathophysiology nodes or phenotypes.""")
+        title="Diagnostic Procedure",
+        description="""A diagnostic procedure or testing action used to establish or refine a diagnosis. These actions should not use target_mechanisms or target_phenotypes because they do not treat pathophysiology nodes or phenotypes.""",
+        meaning=NCIT["C18020"])
     SCREENING = PermissibleValue(
         text="SCREENING",
-        description="""Screening or surveillance intended to detect disease, risk, or early manifestations. These actions should not use target_mechanisms or target_phenotypes.""")
+        title="Disease Screening",
+        description="""Screening or surveillance intended to detect disease, risk, or early manifestations. These actions should not use target_mechanisms or target_phenotypes.""",
+        meaning=NCIT["C15419"])
     MONITORING = PermissibleValue(
         text="MONITORING",
-        description="""Clinical, laboratory, imaging, or longitudinal follow-up used to observe disease status or complications. These actions should not use target_mechanisms or target_phenotypes.""")
+        title="Monitoring",
+        description="""Clinical, laboratory, imaging, or longitudinal follow-up used to observe disease status or complications. These actions should not use target_mechanisms or target_phenotypes.""",
+        meaning=NCIT["C61256"])
     COUNSELING_INFORMATIONAL = PermissibleValue(
         text="COUNSELING_INFORMATIONAL",
-        description="""Counseling, education, risk communication, cascade-testing support, or reproductive planning actions. Use this broad category for genetic counseling and related informational interventions. These actions should not use target_mechanisms or target_phenotypes because they do not directly modify disease pathophysiology or phenotypes.""")
+        title="Counseling",
+        description="""Counseling, education, risk communication, cascade-testing support, or reproductive planning actions. Use this broad category for genetic counseling and related informational interventions. These actions should not use target_mechanisms or target_phenotypes because they do not directly modify disease pathophysiology or phenotypes.""",
+        meaning=NCIT["C61547"])
 
     _defn = EnumDefinition(
         name="MedicalActionCategoryEnum",
