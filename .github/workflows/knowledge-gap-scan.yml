@@ -1,0 +1,179 @@
+name: Knowledge Gap Scan
+
+on:
+  schedule:
+    # Weekly Friday scan, in parallel with the general literature scan.
+    - cron: "0 13 * * 5"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Number of days back to scan when no explicit date range is supplied"
+        required: false
+        default: "7"
+        type: string
+      date_from:
+        description: "Optional explicit FIRST_PDATE start date, YYYY-MM-DD"
+        required: false
+        default: ""
+        type: string
+      date_to:
+        description: "Optional explicit FIRST_PDATE end date, YYYY-MM-DD"
+        required: false
+        default: ""
+        type: string
+      max_records:
+        description: "Maximum Europe PMC records to include in the packet"
+        required: false
+        default: "200"
+        type: string
+      max_issues:
+        description: "Maximum GitHub issues to create"
+        required: false
+        default: "5"
+        type: string
+      model:
+        description: "Claude model to use for issue handoff"
+        required: false
+        default: claude-haiku-4-5-20251001
+        type: choice
+        options:
+          - claude-haiku-4-5-20251001
+          - claude-sonnet-4-6
+          - claude-opus-4-7
+      create_issues:
+        description: "Create GitHub handoff issues after generating the packet"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: knowledge-gap-scan
+  cancel-in-progress: true
+
+jobs:
+  knowledge-gap-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    env:
+      SCAN_DAYS: ${{ inputs.days || '7' }}
+      DATE_FROM: ${{ inputs.date_from || '' }}
+      DATE_TO: ${{ inputs.date_to || '' }}
+      MAX_RECORDS: ${{ inputs.max_records || '200' }}
+      MAX_ISSUES: ${{ inputs.max_issues || '5' }}
+      ISSUE_HANDOFF_MODEL: ${{ inputs.model || 'claude-haiku-4-5-20251001' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install python tools
+        run: uv sync
+
+      - name: Generate deterministic knowledge-gap packet
+        run: |
+          set -euo pipefail
+          if [[ -n "$DATE_FROM" || -n "$DATE_TO" ]]; then
+            if [[ -z "$DATE_FROM" || -z "$DATE_TO" ]]; then
+              echo "date_from and date_to must be provided together" >&2
+              exit 2
+            fi
+            DATE_ARGS=(--date-from "$DATE_FROM" --date-to "$DATE_TO")
+          else
+            DATE_ARGS=(--days "$SCAN_DAYS")
+          fi
+
+          uv run python scripts/knowledge_gap_scan.py \
+            "${DATE_ARGS[@]}" \
+            --max-records "$MAX_RECORDS" \
+            --output-json output/knowledge_gap_scan/knowledge_gap_scan.json \
+            --output-md output/knowledge_gap_scan/knowledge_gap_scan.md
+
+      - name: Upload knowledge-gap packet
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-gap-scan-packet
+          path: |
+            output/knowledge_gap_scan/knowledge_gap_scan.json
+            output/knowledge_gap_scan/knowledge_gap_scan.md
+
+      - name: Create knowledge-gap handoff issues
+        if: ${{ github.event_name == 'schedule' || inputs.create_issues }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          show_full_output: true
+          claude_args: |
+            --model ${{ env.ISSUE_HANDOFF_MODEL }}
+            --allowedTools "Bash(gh label list:*),Bash(gh issue list:*),Bash(gh issue create:*),Bash(cat:*),Bash(sed:*),Bash(rg:*),Bash(head:*)"
+          prompt: |
+            REPO: ${{ github.repository }}
+            MAX ISSUES: ${{ env.MAX_ISSUES }}
+            MODEL: ${{ env.ISSUE_HANDOFF_MODEL }}
+
+            You are running the mechanistic knowledge-gap scan handoff for dismech.
+
+            Read `CLAUDE.md` and `output/knowledge_gap_scan/knowledge_gap_scan.md`.
+            You may inspect relevant `kb/disorders/*.yaml` files that the packet names.
+
+            Your only allowed write action is creating GitHub issues. Do not edit files.
+            Do not create pull requests. Do not fetch or edit `references_cache/*.md`.
+            Do not use the `@dragon-ai-agent please` phrase.
+
+            For each candidate, first check for an existing open issue that already
+            mentions the PMID:
+
+            `gh issue list --repo "$REPO" --search "PMID:<ID> in:body is:open" --json number,title`
+
+            Skip candidates that already have an open issue.
+
+            Create at most MAX ISSUES total. Prioritize candidate issues where:
+            - the gap signal concerns a disease mechanism, causal edge, model-system
+              limitation, contradictory evidence, treatment mechanism, biomarker, or
+              translational bottleneck
+            - the paper has a deterministic existing disease-file match that looks
+              biologically central, not incidental
+            - the issue can be handed to another agent to decide whether to add a
+              `discussions` entry with `kind: KNOWLEDGE_GAP`, propose experiments,
+              or launch focused mechanistic-hypothesis research
+
+            Skip candidates where the signal is only generic boilerplate such as
+            "more research is needed" with no mechanistic object, engineering topic,
+            non-disease basic biology, broad public-health scope, or weak incidental
+            disease mention.
+
+            For an existing disease knowledge-gap issue:
+            - labels: `curation,low_effort`
+            - title: `[kgap-scan] <Disease name>: <short gap phrase>`
+            - body must include the publication details from the packet verbatim:
+              PMID, title, journal/date, DOI, Europe PMC/PubMed links, and abstract
+            - body must include a clearly separated `Gap Signal` section with the
+              relevant signal sentence(s) from the packet
+            - body must include a clearly separated `Handoff Objective` section
+              naming the likely YAML file, the possible mechanism/discussion area,
+              and the specific question the next agent should investigate
+            - body must include this instruction:
+              `Do not curate directly from this issue text. Treat this as a lead:
+              verify the PMID, exact snippets, ontology terms, and whether the gap
+              belongs in discussions, mechanistic_hypotheses, or neither.`
+
+            For a broad cross-disease, missing-disease, or module-level gap:
+            - create it only when the paper gives a concrete mechanistic gap that is
+              too broad for a single existing YAML file
+            - labels: `curation,high_effort`
+            - title: `[kgap-scan:scope] <short mechanism or disease-family gap>`
+            - body must include the same publication details, gap signal, and a
+              statement that downstream work should decide whether this is a new
+              disease entry, module, or research note
+
+            If no candidate is strong enough, create no issues and finish quietly.

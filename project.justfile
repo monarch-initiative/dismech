@@ -1556,6 +1556,16 @@ list-research:
 literature-scan days='7' max_records='100':
     uv run python scripts/literature_scan.py --days {{days}} --max-records {{max_records}}
 
+# Generate a deterministic Europe PMC mechanistic knowledge-gap scan packet
+[group('Research')]
+knowledge-gap-scan days='7' max_records='200':
+    uv run python scripts/knowledge_gap_scan.py --days {{days}} --max-records {{max_records}}
+
+# Generate a mechanistic knowledge-gap scan packet for an explicit publication-date range
+[group('Research')]
+knowledge-gap-scan-range date_from date_to max_records='200':
+    uv run python scripts/knowledge_gap_scan.py --date-from {{date_from}} --date-to {{date_to}} --max-records {{max_records}}
+
 # Generate a disorder review report (markdown + PDF) for expert review
 # Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml
 # Output: Kleefstra_Syndrome_review.md and Kleefstra_Syndrome_review.pdf
