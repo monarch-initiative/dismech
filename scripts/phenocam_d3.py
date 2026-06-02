@@ -152,7 +152,98 @@ def _collect_nodes(disease: dict, modules: dict) -> dict:
                 }
 
     return catalog
-def _build_nodes(catalog: dict) -> list: return []
+VARIANT_TYPE_QUALITY = {
+    "loss_of_function_variant": "LOSS_OF_FUNCTION",
+    "gain_of_function_variant": "GAIN_OF_FUNCTION",
+}
+
+
+def _node_label(node: dict, collection: str) -> str:
+    """Build multi-line label for a node."""
+    if collection == "variants":
+        gene = (node.get("gene") or {}).get("symbol", node.get("id", ""))
+        vtype = (node.get("variant_type") or {}).get("label", "variant")
+        short_vtype = vtype.replace("loss_of_function_variant", "LOF").replace("gain_of_function_variant", "GOF")
+        parts = [gene, short_vtype]
+    elif collection == "molecular_activities":
+        gene = (node.get("gene") or {}).get("symbol", "")
+        mf = (node.get("molecular_function") or {}).get("label", "")
+        cx = node.get("complex_name", "")
+        name = gene or cx or node.get("id", "")
+        short_mf = mf[:22] + "…" if len(mf) > 22 else mf
+        parts = [name, short_mf] if short_mf else [name]
+    elif collection == "molecular_entities":
+        ent = (node.get("entity") or {}).get("label", "")
+        gene = (node.get("gene") or {}).get("symbol", "")
+        name = ent or gene or node.get("id", "")
+        parts = [name[:28] + "…" if len(name) > 28 else name]
+    elif collection == "cellular_processes":
+        ct = (node.get("cell_type") or {}).get("label", "")
+        bp = (node.get("biological_process") or {}).get("label", "")
+        short_bp = bp[:20] + "…" if len(bp) > 20 else bp
+        parts = [ct, short_bp] if ct else [short_bp or node.get("id", "")]
+    elif collection == "tissue_processes":
+        anat = (node.get("anatomy") or {}).get("label", "")
+        bp = (node.get("biological_process") or {}).get("label", "")
+        short_bp = bp[:20] + "…" if len(bp) > 20 else bp
+        parts = [anat, short_bp] if anat else [short_bp or node.get("id", "")]
+    elif collection == "modulators":
+        agent = (node.get("agent") or {}).get("label", node.get("id", ""))
+        parts = [agent[:28] + "…" if len(agent) > 28 else agent]
+    elif collection == "chemical_exposures":
+        agent = (node.get("agent") or {}).get("label", node.get("id", ""))
+        parts = [agent[:28] + "…" if len(agent) > 28 else agent]
+    elif collection == "environmental_factors":
+        factor = (node.get("factor") or {}).get("label", node.get("id", ""))
+        parts = [factor[:28] + "…" if len(factor) > 28 else factor]
+    else:
+        parts = [node.get("id", "?")]
+    return "\n".join(p for p in parts if p)
+
+
+def _node_short_label(node: dict, collection: str) -> str:
+    if collection == "molecular_activities":
+        return (node.get("gene") or {}).get("symbol", "") or node.get("complex_name", "") or node.get("id", "")
+    if collection == "variants":
+        return (node.get("gene") or {}).get("symbol", node.get("id", ""))
+    return _node_label(node, collection).split("\n")[0]
+
+
+def _build_nodes(catalog: dict) -> list:
+    """Convert catalog entries (non-phenotype) to DATA.nodes format."""
+    result = []
+    for nid, entry in catalog.items():
+        col = entry["collection"]
+        if col == PHENOTYPE_COLLECTION:
+            continue
+        node = entry["node"]
+        node_type = NODE_TYPE_MAP.get(col, "activity")
+        gene = (node.get("gene") or {}).get("symbol", "")
+        mf = (node.get("molecular_function") or {}).get("label", "")
+        loc = (node.get("location") or {}).get("label", "")
+        bp = (node.get("biological_process") or {}).get("label", "")
+        # Derive quality: explicit field wins; fall back to variant_type mapping
+        quality = node.get("quality")
+        if quality is None and col == "variants":
+            vt_label = (node.get("variant_type") or {}).get("label", "")
+            quality = VARIANT_TYPE_QUALITY.get(vt_label)
+        result.append({
+            "id": nid,
+            "label": _node_label(node, col),
+            "short_label": _node_short_label(node, col),
+            "type": node_type,
+            "node_kind": col,
+            "gene": gene,
+            "function": mf,
+            "function_short": mf[:18] + "…" if len(mf) > 18 else mf,
+            "location": loc,
+            "process": bp,
+            "module_id": entry["module_id"],
+            "hypothesis_ids": node.get("hypotheses") or [],
+            "quality": quality,
+            "description": node.get("description", ""),
+        })
+    return result
 def _build_edges(disease: dict, catalog: dict) -> list: return []
 def _assign_hg_colors(disease: dict) -> dict: return {}
 def _build_hypothesis_groups(disease: dict, catalog: dict, colors: dict) -> list: return []

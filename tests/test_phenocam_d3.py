@@ -38,3 +38,48 @@ def test_collect_nodes_includes_phenotypes():
     catalog = _collect_nodes(disease, modules)
     assert "bcc" in catalog
     assert catalog["bcc"]["collection"] == "phenotypes"
+
+
+def test_build_nodes_maps_molecular_activity():
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _build_nodes
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    modules = _load_modules(disease)
+    catalog = _collect_nodes(disease, modules)
+    nodes = _build_nodes(catalog)
+    node_map = {n["id"]: n for n in nodes}
+
+    # Module molecular activity
+    n = node_map["ptch1_inhibition"]
+    assert n["type"] == "activity"
+    assert n["node_kind"] == "molecular_activities"
+    assert n["module_id"] == "hedgehog_signaling"
+    assert "PTCH1" in n["label"]
+
+
+def test_build_nodes_maps_variant():
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _build_nodes
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    modules = _load_modules(disease)
+    catalog = _collect_nodes(disease, modules)
+    nodes = _build_nodes(catalog)
+    node_map = {n["id"]: n for n in nodes}
+
+    n = node_map["ptch1_lof"]
+    assert n["type"] == "local_activity"
+    assert n["node_kind"] == "variants"
+    assert n["quality"] == "LOSS_OF_FUNCTION"
+    assert "PTCH1" in n["label"]
+
+
+def test_build_nodes_excludes_phenotypes():
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _build_nodes
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    modules = _load_modules(disease)
+    catalog = _collect_nodes(disease, modules)
+    nodes = _build_nodes(catalog)
+    ids = {n["id"] for n in nodes}
+    assert "bcc" not in ids
+    assert "medulloblastoma" not in ids
