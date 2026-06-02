@@ -317,3 +317,15 @@ def test_unrouted_phenotypes():
     assert pheno_map["plantar_pits"]["unrouted"] is True
     assert pheno_map["cardiac_fibroma"]["unrouted"] is True
     assert pheno_map["ovarian_fibroma"]["unrouted"] is True
+
+
+def test_v2_node_count_matches_v1():
+    """V2 DATA must have >=19 nodes, >=11 phenotype routes, >=20 edges (matching V1)."""
+    from scripts.phenocam_d3 import build_data
+    from pathlib import Path
+    data = build_data(Path("causal_models/diseases/Gorlin_Syndrome.yaml"))
+    assert len(data["nodes"]) >= 19, f"Expected >=19 nodes, got {len(data['nodes'])}"
+    assert len(data["phenotype_routes"]) >= 11, (
+        f"Expected >=11 phenotype_routes, got {len(data['phenotype_routes'])}"
+    )
+    assert len(data["edges"]) >= 20, f"Expected >=20 edges, got {len(data['edges'])}"
