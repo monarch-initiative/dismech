@@ -40911,7 +40911,8 @@ window.searchData = [
       "Accelerated Dendritic Spine Maturation",
       "AMPA Receptor Trafficking Disruption",
       "Postsynaptic Density Destabilization",
-      "Cortical Circuit Hard-Wiring"
+      "Cortical Circuit Hard-Wiring",
+      "GABAergic Interneuron Dysfunction"
     ],
     "cell_types": [
       "Pyramidal Neuron",
@@ -40925,7 +40926,8 @@ window.searchData = [
       "CL:0000617",
       "CL:0000115",
       "CL:0000127",
-      "CL:0000129"
+      "CL:0000129",
+      "CL:0011005"
     ],
     "biological_processes": [
       "Synaptic Transmission",
@@ -40938,7 +40940,8 @@ window.searchData = [
       "Dendritic spine maturation",
       "AMPA receptor trafficking",
       "Postsynaptic density assembly",
-      "Regulation of synaptic plasticity"
+      "Regulation of synaptic plasticity",
+      "GABAergic synaptic transmission"
     ],
     "phenotypes": [
       "Seizures",
@@ -41047,10 +41050,10 @@ window.searchData = [
     "source_file": "Epilepsy.yaml",
     "page_url": "../pages/disorders/Epilepsy.html",
     "num_phenotypes": 26,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 14,
     "num_treatments": 9,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -53370,7 +53373,8 @@ window.searchData = [
       "Icatibant acute attack therapy",
       "Ecallantide acute attack therapy",
       "Sebetralstat oral acute attack therapy",
-      "Long-term kallikrein-pathway prophylaxis"
+      "Long-term kallikrein-pathway prophylaxis",
+      "Donidalorsen"
     ],
     "environmental": [],
     "biochemical": [
@@ -53382,8 +53386,8 @@ window.searchData = [
     "num_phenotypes": 19,
     "num_pathophysiology": 4,
     "num_genes": 4,
-    "num_treatments": 5,
-    "causal_graph_edges": "11",
+    "num_treatments": 6,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -113278,10 +113282,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 1131,
-  "total_unique_evidence_sources": 21157,
+  "total_unique_evidence_sources": 21159,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 196,
   "total_pathographs": 1124,
-  "total_unique_pathological_events": 5517
+  "total_unique_pathological_events": 5518
 };
 window.dispatchEvent(new Event('searchDataReady'));
