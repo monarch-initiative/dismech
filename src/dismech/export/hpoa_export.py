@@ -18,13 +18,31 @@ Rules
 * Evidence with ``evidence_source: MODEL_ORGANISM`` is dropped (HPOA is a
   human-phenotype resource). ``IN_VITRO`` is kept and coded ``PCS`` because
   dismech's in-vitro evidence is overwhelmingly human iPSC / cell-line work.
+* ``supports`` handling: ``NO_EVIDENCE`` items are dropped (the cited reference
+  does not mention the claim, so a positive row would be misleading);
+  ``REFUTE`` / ``WRONG_STATEMENT`` become ``NOT``-qualified rows; ``PARTIAL`` is
+  kept as a normal positive row (HPOA has no partial qualifier, and partial
+  support still attests the association) with no qualifier; ``SUPPORT`` /
+  missing is a normal positive row.
+* A phenotype whose ``frequency`` enum is ``EXCLUDED`` asserts the phenotype is
+  *absent*; it is emitted as a ``NOT``-qualified row with an empty frequency
+  column rather than a positive row carrying the "Excluded" frequency term.
 * One row per (phenotype, surviving evidence item) pair. Phenotypes with no
   surviving evidence still emit one ``IEA`` row anchored on the MONDO disease.
+  This IEA fallback applies to HPO-phenotype rows only — MONDO-typed
+  comorbidity entries with no surviving evidence emit no row, because asserting
+  a disease-disease comorbidity with zero evidence is not warranted.
+* The ``reference`` column passes through whatever prefix the evidence item
+  carries (``PMID:``, ``ORPHA:``, ``DOI:``, ``clinicaltrials:``, ``CGGV:``,
+  …); HPOA consumers should not assume column 5 is always a PMID.
 * Untyped phenotypes (no ``phenotype_term.term.id``) get a synthetic
   ``DISMECH:<entry-slug>#<phen-slug>`` CURIE in column 4.
 * Frequency is extracted from the phenotype description when a literal ``X%``,
   ``X-Y%`` or ``X/N`` is present; otherwise the dismech frequency enum is
-  mapped to an HPO Frequency term.
+  mapped to an HPO Frequency term. Enum lookup tolerates case/separator
+  variants (``Frequent``, ``very frequent``) and already-resolved HP frequency
+  terms (``HP:0040282`` / ``HP_0040282``); genuinely ambiguous free text
+  (``Common``, ``Variable``, …) is left unmapped rather than guessed.
 * ``aspect`` defaults to ``P`` (phenotypic abnormality); a proper OAK-based
   classification (C / I / M / H) is a follow-up.
 """
@@ -62,10 +80,20 @@ EVIDENCE_CODE: dict[Any, str | None] = {
     None: "IEA",
 }
 
+# supports value -> HPOA qualifier. Anything absent here (SUPPORT, PARTIAL)
+# becomes a positive row with an empty qualifier: PARTIAL support still attests
+# the phenotype-disease association and HPOA has no dedicated partial qualifier.
 SUPPORTS_TO_QUALIFIER: dict[Any, str] = {
     "REFUTE": "NOT",
     "WRONG_STATEMENT": "NOT",
 }
+
+# supports values whose evidence item is dropped entirely (no HPOA row).
+# NO_EVIDENCE means the cited reference does not mention the claim at all, so
+# emitting it as a positive PCS/IEA row would falsely imply the paper supports
+# the phenotype-disease link. REFUTE/WRONG_STATEMENT are NOT dropped — they
+# become NOT-qualified rows via SUPPORTS_TO_QUALIFIER.
+DROP_SUPPORTS: frozenset[str] = frozenset({"NO_EVIDENCE"})
 
 HPOA_COLUMNS = [
     "database_id",
@@ -107,10 +135,28 @@ def slugify(text: str) -> str:
     return s or "unnamed"
 
 
+_HP_FREQ_TERM = re.compile(r"HP[:_](\d{7})$")
+
+
+def normalize_frequency_enum(value: Any) -> str | None:
+    """Map a raw ``frequency`` value to a canonical ``FrequencyEnum`` key.
+
+    Tolerates case and separator variants (``Frequent``, ``very frequent`` ->
+    ``FREQUENT`` / ``VERY_FREQUENT``). Returns ``None`` for absent or
+    genuinely ambiguous free text (``Common``, ``Variable``), which is left
+    unmapped rather than guessed.
+    """
+    if not value:
+        return None
+    key = re.sub(r"[\s\-]+", "_", str(value).strip()).upper()
+    return key if key in FREQUENCY_TO_HP else None
+
+
 def parse_frequency(phenotype: dict[str, Any]) -> str | None:
     """Pick a frequency value for the HPOA frequency column.
 
-    Order: literal percent range, literal single percent, literal ratio, then
+    Order: literal percent range, literal single percent, literal ratio, an
+    already-resolved HP Frequency term (``HP:0040282`` / ``HP_0040282``), then
     the dismech enum mapped to an HPO Frequency term. Returns ``None`` only
     when no source is available.
     """
@@ -126,9 +172,14 @@ def parse_frequency(phenotype: dict[str, Any]) -> str | None:
         if m:
             return f"{m.group(1)}/{m.group(2)}"
 
-    enum = phenotype.get("frequency")
-    if enum:
-        return FREQUENCY_TO_HP.get(enum)
+    raw = phenotype.get("frequency")
+    if raw:
+        m = _HP_FREQ_TERM.match(str(raw).strip())
+        if m:
+            return f"HP:{m.group(1)}"
+        key = normalize_frequency_enum(raw)
+        if key:
+            return FREQUENCY_TO_HP[key]
     return None
 
 
@@ -137,13 +188,16 @@ def _human_evidence(
 ) -> Iterator[dict[str, Any]]:
     """Yield surviving evidence items with their HPOA evidence code attached."""
     for item in items or []:
+        supports = item.get("supports")
+        if supports in DROP_SUPPORTS:
+            continue
         code = EVIDENCE_CODE.get(item.get("evidence_source"), "IEA")
         if code is None:
             continue
         ref = item.get("reference")
         if not ref:
             continue
-        yield {"reference": ref, "code": code, "supports": item.get("supports")}
+        yield {"reference": ref, "code": code, "supports": supports}
 
 
 def hpoa_rows_for_disorder(
@@ -188,7 +242,12 @@ def hpoa_rows_for_disorder(
             continue
 
         hpo_id = term_id or f"DISMECH:{entry_slug}#{slugify(phen_name)}"
-        frequency = parse_frequency(phenotype) or ""
+        # An EXCLUDED frequency asserts the phenotype is absent: emit a
+        # NOT-qualified row with no frequency rather than a positive row
+        # carrying the "Excluded" frequency term.
+        excluded = normalize_frequency_enum(phenotype.get("frequency")) == "EXCLUDED"
+        default_qualifier = "NOT" if excluded else ""
+        frequency = "" if excluded else (parse_frequency(phenotype) or "")
         evidence_items = list(_human_evidence(phenotype.get("evidence")))
         if not evidence_items:
             # Phenotype has no surviving human evidence — emit one IEA row
@@ -202,7 +261,9 @@ def hpoa_rows_for_disorder(
                 {
                     "database_id": disease_id,
                     "disease_name": disease_name,
-                    "qualifier": SUPPORTS_TO_QUALIFIER.get(ev["supports"], ""),
+                    "qualifier": SUPPORTS_TO_QUALIFIER.get(
+                        ev["supports"], default_qualifier
+                    ),
                     "hpo_id": hpo_id,
                     "reference": ev["reference"],
                     "evidence": ev["code"],
@@ -241,6 +302,9 @@ def export(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
         hp_f.write("#tracker: https://github.com/monarch-initiative/dismech\n")
         hp_f.write(
             "#rules: human evidence only (MODEL_ORGANISM excluded); "
+            "NO_EVIDENCE dropped; REFUTE/WRONG_STATEMENT/EXCLUDED-frequency -> NOT; "
+            "PARTIAL kept as positive; "
+            "reference column may be PMID/ORPHA/DOI/clinicaltrials/CGGV; "
             "untyped phenotypes get DISMECH:<entry-slug>#<phen-slug> CURIEs; "
             "MONDO-typed entries routed to disease_comorbidity.tsv\n"
         )

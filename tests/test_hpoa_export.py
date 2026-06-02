@@ -8,6 +8,7 @@ from dismech.export.hpoa_export import (
     FREQUENCY_TO_HP,
     export,
     hpoa_rows_for_disorder,
+    normalize_frequency_enum,
     parse_frequency,
     slugify,
 )
@@ -55,6 +56,74 @@ def test_parse_frequency_falls_back_to_enum():
 def test_parse_frequency_returns_none_when_missing():
     assert parse_frequency({"description": "no number"}) is None
     assert parse_frequency({}) is None
+
+
+def test_normalize_frequency_enum_tolerates_variants():
+    assert normalize_frequency_enum("Frequent") == "FREQUENT"
+    assert normalize_frequency_enum("very frequent") == "VERY_FREQUENT"
+    assert normalize_frequency_enum("Very-Rare") == "VERY_RARE"
+    # genuinely ambiguous free text is left unmapped rather than guessed
+    assert normalize_frequency_enum("Common") is None
+    assert normalize_frequency_enum("Variable") is None
+    assert normalize_frequency_enum(None) is None
+
+
+def test_parse_frequency_enum_case_insensitive():
+    assert parse_frequency({"frequency": "Frequent"}) == "HP:0040282"
+    assert parse_frequency({"frequency": "very frequent"}) == "HP:0040281"
+
+
+def test_parse_frequency_accepts_resolved_hp_term():
+    assert parse_frequency({"frequency": "HP_0040281"}) == "HP:0040281"
+    assert parse_frequency({"frequency": "HP:0040283"}) == "HP:0040283"
+
+
+def test_excluded_frequency_emits_not_qualifier_and_blank_frequency(tmp_path):
+    """frequency: EXCLUDED asserts absence -> NOT-qualified row, no frequency."""
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "phenotypes": [
+                {
+                    "name": "A",
+                    "frequency": "EXCLUDED",
+                    "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
+                    "evidence": [
+                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "SUPPORT"},
+                    ],
+                },
+            ],
+        },
+    )
+    rows, _ = hpoa_rows_for_disorder(yaml_path)
+    assert rows[0]["qualifier"] == "NOT"
+    assert rows[0]["frequency"] == ""
+
+
+def test_partial_support_kept_as_positive(tmp_path):
+    """PARTIAL support is a positive row with no qualifier (not dropped, not NOT)."""
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "phenotypes": [
+                {
+                    "name": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
+                    "evidence": [
+                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "PARTIAL"},
+                    ],
+                },
+            ],
+        },
+    )
+    rows, _ = hpoa_rows_for_disorder(yaml_path)
+    assert len(rows) == 1
+    assert rows[0]["qualifier"] == ""
+    assert rows[0]["reference"] == "PMID:1"
 
 
 def test_model_organism_evidence_dropped(tmp_path):
@@ -194,6 +263,77 @@ def test_refute_emits_NOT_qualifier(tmp_path):
     )
     rows, _ = hpoa_rows_for_disorder(yaml_path)
     assert rows[0]["qualifier"] == "NOT"
+
+
+def test_no_evidence_support_dropped(tmp_path):
+    """NO_EVIDENCE items are dropped; a SUPPORT sibling on the same phenotype survives."""
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "phenotypes": [
+                {
+                    "name": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
+                    "evidence": [
+                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "SUPPORT"},
+                        {"reference": "PMID:2", "evidence_source": "HUMAN_CLINICAL", "supports": "NO_EVIDENCE"},
+                    ],
+                },
+            ],
+        },
+    )
+    hpoa, _ = hpoa_rows_for_disorder(yaml_path)
+    refs = [r["reference"] for r in hpoa]
+    assert refs == ["PMID:1"]
+
+
+def test_no_evidence_only_phenotype_falls_back_to_iea(tmp_path):
+    """A phenotype whose only evidence is NO_EVIDENCE still emits one IEA row on the disease."""
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "phenotypes": [
+                {
+                    "name": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
+                    "evidence": [
+                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "NO_EVIDENCE"},
+                    ],
+                },
+            ],
+        },
+    )
+    hpoa, _ = hpoa_rows_for_disorder(yaml_path)
+    assert len(hpoa) == 1
+    assert hpoa[0]["reference"] == "MONDO:0000001"
+    assert hpoa[0]["evidence"] == "IEA"
+
+
+def test_no_evidence_comorbidity_dropped(tmp_path):
+    """A MONDO-typed phenotype with only NO_EVIDENCE produces no comorbidity row."""
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "phenotypes": [
+                {
+                    "name": "A",
+                    "phenotype_term": {"term": {"id": "MONDO:0016218", "label": "comorbid"}},
+                    "evidence": [
+                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "NO_EVIDENCE"},
+                    ],
+                },
+            ],
+        },
+    )
+    hpoa, comorb = hpoa_rows_for_disorder(yaml_path)
+    assert hpoa == []
+    assert comorb == []
 
 
 def test_non_mondo_disease_skipped(tmp_path):
