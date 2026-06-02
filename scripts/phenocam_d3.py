@@ -244,7 +244,85 @@ def _build_nodes(catalog: dict) -> list:
             "description": node.get("description", ""),
         })
     return result
-def _build_edges(disease: dict, catalog: dict) -> list: return []
+def _edge_context(source_id: str, target_id: str, catalog: dict) -> tuple:
+    """Return (edge_context, module_id)."""
+    src = catalog.get(source_id, {})
+    tgt = catalog.get(target_id, {})
+    src_mod = src.get("module_id")
+    tgt_mod = tgt.get("module_id")
+    if src_mod and src_mod == tgt_mod:
+        return "module_internal", src_mod
+    if src_mod or tgt_mod:
+        return "cross_module", src_mod or tgt_mod
+    return "disease_local", None
+
+
+def _evidence_list(evidence: list) -> list:
+    result = []
+    for ev in (evidence or []):
+        ref = ev.get("reference", "")
+        result.append({
+            "type": "literature",
+            "id": ref,
+            "snippet": ev.get("snippet", ""),
+        })
+    return result
+
+
+def _build_edges(disease: dict, catalog: dict) -> list:
+    result = []
+
+    # Disease causal_relations
+    for rel in disease.get("causal_relations") or []:
+        src = rel.get("subject", "")
+        tgt = rel.get("object", "")
+        if not src or not tgt:
+            continue
+        if src not in catalog or tgt not in catalog:
+            continue
+        pred = (rel.get("predicate") or {})
+        pred_id = pred.get("id", "RO:0002411")
+        eco = rel.get("eco") or {}
+        ctx, mod_id = _edge_context(src, tgt, catalog)
+        result.append({
+            "source": src,
+            "target": tgt,
+            "relation": RO_LABELS.get(pred_id, pred.get("label", "")),
+            "relation_id": pred_id,
+            "eco_id": eco.get("id", ""),
+            "eco_label": eco.get("label", ""),
+            "evidence": _evidence_list(rel.get("evidence")),
+            "hypothesis_ids": rel.get("hypotheses") or [],
+            "edge_context": ctx,
+            "module_id": mod_id,
+        })
+
+    # Module internal causal_relations
+    for mid, mod in _load_modules(disease).items():
+        for rel in mod.get("causal_relations") or []:
+            src = rel.get("subject", "")
+            tgt = rel.get("object", "")
+            if not src or not tgt:
+                continue
+            if src not in catalog or tgt not in catalog:
+                continue
+            pred = (rel.get("predicate") or {})
+            pred_id = pred.get("id", "RO:0002411")
+            eco = rel.get("eco") or {}
+            result.append({
+                "source": src,
+                "target": tgt,
+                "relation": RO_LABELS.get(pred_id, pred.get("label", "")),
+                "relation_id": pred_id,
+                "eco_id": eco.get("id", ""),
+                "eco_label": eco.get("label", ""),
+                "evidence": _evidence_list(rel.get("evidence")),
+                "hypothesis_ids": rel.get("hypotheses") or [],
+                "edge_context": "module_internal",
+                "module_id": mid,
+            })
+
+    return result
 def _assign_hg_colors(disease: dict) -> dict: return {}
 def _build_hypothesis_groups(disease: dict, catalog: dict, colors: dict) -> list: return []
 def _build_phenotype_nodes(disease: dict) -> list: return []

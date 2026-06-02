@@ -83,3 +83,38 @@ def test_build_nodes_excludes_phenotypes():
     ids = {n["id"] for n in nodes}
     assert "bcc" not in ids
     assert "medulloblastoma" not in ids
+
+
+def test_build_edges_causal_relations():
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _build_edges
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    modules = _load_modules(disease)
+    catalog = _collect_nodes(disease, modules)
+    edges = _build_edges(disease, catalog)
+    edge_map = {(e["source"], e["target"]): e for e in edges}
+
+    # Cross-module edge: ptch1_lof (disease-local) → ptch1_inhibition (module node)
+    e = edge_map[("ptch1_lof", "ptch1_inhibition")]
+    assert e["relation_id"] == "RO:0002411"
+    assert "ptch1_driven" in e["hypothesis_ids"]
+    assert e["edge_context"] == "cross_module"
+
+    # Module-internal edge (from hedgehog_signaling module causal_relations)
+    # Both source and target are module nodes — first module edge
+    e = edge_map.get(("ptch1_inhibition", "smo_activity"))
+    assert e is not None
+    assert e["edge_context"] == "module_internal"
+
+
+def test_build_edges_skips_unresolved():
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _build_edges
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    modules = _load_modules(disease)
+    catalog = _collect_nodes(disease, modules)
+    edges = _build_edges(disease, catalog)
+    ids = set(catalog.keys())
+    for e in edges:
+        assert e["source"] in ids, f"Unresolved source: {e['source']}"
+        assert e["target"] in ids, f"Unresolved target: {e['target']}"
