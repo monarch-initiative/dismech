@@ -150,3 +150,38 @@ def test_hypothesis_colors_assigned():
     assert "ptch1_driven" in colors
     assert "sufu_driven" in colors
     assert colors["ptch1_driven"].startswith("#")
+
+
+def test_phenotype_nodes():
+    from scripts.phenocam_d3 import _build_phenotype_nodes
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    phenos = _build_phenotype_nodes(disease)
+    ids = {p["id"] for p in phenos}
+    assert "pheno:bcc" in ids
+    assert "pheno:medulloblastoma" in ids
+    bcc = next(p for p in phenos if p["id"] == "pheno:bcc")
+    assert bcc["hpo_id"] == "HP:0002671"
+    assert "Basal cell carcinoma" in bcc["label"]
+
+
+def test_phenotype_edges():
+    from scripts.phenocam_d3 import _build_phenotype_edges, _build_disease_node
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    edges = _build_phenotype_edges(disease)
+    dn = _build_disease_node(disease)
+    assert dn["term_id"] == "MONDO:0007187"
+    bcc_edge = next((e for e in edges if e["source"] == "pheno:bcc"), None)
+    assert bcc_edge is not None
+    assert bcc_edge["target"] == "disease:gorlin_syndrome"
+
+
+def test_modules_meta():
+    from scripts.phenocam_d3 import _load_modules, _build_modules_meta
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    modules = _load_modules(disease)
+    meta = _build_modules_meta(disease, modules)
+    assert len(meta) == 1
+    assert meta[0]["id"] == "hedgehog_signaling"

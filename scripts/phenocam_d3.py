@@ -373,10 +373,68 @@ def _build_hypothesis_groups(disease: dict, catalog: dict, hg_colors: dict) -> l
             "states": states,
         })
     return result
-def _build_phenotype_nodes(disease: dict) -> list: return []
-def _build_phenotype_edges(disease: dict) -> list: return []
-def _build_disease_node(disease: dict) -> dict: return {}
-def _build_modules_meta(disease: dict, modules: dict) -> list: return []
+def _build_phenotype_nodes(disease: dict) -> list:
+    result = []
+    for pheno in disease.get("phenotypes") or []:
+        pid = pheno.get("id", "")
+        hpo = pheno.get("hpo_term") or {}
+        result.append({
+            "id": f"pheno:{pid}",
+            "label": hpo.get("label", pid),
+            "hpo_id": hpo.get("id", ""),
+            "hpo_label": hpo.get("label", ""),
+            "description": pheno.get("description", ""),
+            "hypothesis_ids": pheno.get("hypotheses") or [],
+        })
+    return result
+
+
+def _build_phenotype_edges(disease: dict) -> list:
+    result = []
+    disease_id = disease.get("id", "unknown")
+    disease_node_id = f"disease:{disease_id}"
+    for hp in disease.get("has_phenotype") or []:
+        pref = hp.get("phenotype_ref", "")
+        rel = hp.get("relation") or {}
+        eco = hp.get("eco") or {}
+        evidence = _evidence_list(hp.get("evidence"))
+        result.append({
+            "source": f"pheno:{pref}",
+            "target": disease_node_id,
+            "phenotype_label": "",
+            "relation": rel.get("label", "has phenotype"),
+            "relation_id": rel.get("id", "RO:0002200"),
+            "eco_id": eco.get("id", ""),
+            "eco_label": eco.get("label", ""),
+            "evidence": evidence,
+            "hypothesis_ids": [],
+        })
+    return result
+
+
+def _build_disease_node(disease: dict) -> dict:
+    disease_id = disease.get("id", "unknown")
+    term = disease.get("realises_disease") or {}
+    return {
+        "id": f"disease:{disease_id}",
+        "name": disease.get("name", disease_id),
+        "term_id": term.get("id", ""),
+        "term_label": term.get("label", ""),
+    }
+
+
+def _build_modules_meta(disease: dict, modules: dict) -> list:
+    result = []
+    for imp in disease.get("imports") or []:
+        mid = imp.get("module", "")
+        mod = modules.get(mid, {})
+        result.append({
+            "id": mid,
+            "name": mod.get("name", mid),
+            "description": mod.get("description", ""),
+            "sources": mod.get("sources") or [],
+        })
+    return result
 
 
 if __name__ == "__main__":
