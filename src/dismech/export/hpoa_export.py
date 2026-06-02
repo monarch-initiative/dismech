@@ -142,13 +142,15 @@ def normalize_frequency_enum(value: Any) -> str | None:
     """Map a raw ``frequency`` value to a canonical ``FrequencyEnum`` key.
 
     Tolerates case and separator variants (``Frequent``, ``very frequent`` ->
-    ``FREQUENT`` / ``VERY_FREQUENT``). Returns ``None`` for absent or
-    genuinely ambiguous free text (``Common``, ``Variable``), which is left
-    unmapped rather than guessed.
+    ``FREQUENT`` / ``VERY_FREQUENT``) and Orphanet-style banded labels whose
+    leading word is the canonical band (``Frequent (79-30%)`` -> ``FREQUENT``).
+    Returns ``None`` for absent or genuinely ambiguous free text (``Common``,
+    ``Rare``, ``Variable``), which is left unmapped rather than guessed.
     """
     if not value:
         return None
-    key = re.sub(r"[\s\-]+", "_", str(value).strip()).upper()
+    text = re.sub(r"\s*\([^)]*\)\s*$", "", str(value).strip())
+    key = re.sub(r"[\s\-]+", "_", text).upper()
     return key if key in FREQUENCY_TO_HP else None
 
 

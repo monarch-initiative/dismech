@@ -62,8 +62,13 @@ def test_normalize_frequency_enum_tolerates_variants():
     assert normalize_frequency_enum("Frequent") == "FREQUENT"
     assert normalize_frequency_enum("very frequent") == "VERY_FREQUENT"
     assert normalize_frequency_enum("Very-Rare") == "VERY_RARE"
+    # Orphanet-style banded labels: leading word is the canonical band
+    assert normalize_frequency_enum("Frequent (79-30%)") == "FREQUENT"
+    assert normalize_frequency_enum("Very frequent (99-80%)") == "VERY_FREQUENT"
+    assert normalize_frequency_enum("Occasional (29-5%)") == "OCCASIONAL"
     # genuinely ambiguous free text is left unmapped rather than guessed
     assert normalize_frequency_enum("Common") is None
+    assert normalize_frequency_enum("Rare") is None
     assert normalize_frequency_enum("Variable") is None
     assert normalize_frequency_enum(None) is None
 
