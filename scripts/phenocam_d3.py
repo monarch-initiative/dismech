@@ -287,9 +287,11 @@ def _build_edges(disease: dict, catalog: dict, modules: dict | None = None) -> l
         pred_id = pred.get("id", "RO:0002411")
         eco = rel.get("eco") or {}
         ctx, mod_id = _edge_context(src, tgt, catalog)
+        # Phenotype targets use the "pheno:" prefix in dagre (renderer convention)
+        tgt_dagre = f"pheno:{tgt}" if catalog[tgt]["collection"] == PHENOTYPE_COLLECTION else tgt
         result.append({
             "source": src,
-            "target": tgt,
+            "target": tgt_dagre,
             "relation": RO_LABELS.get(pred_id, pred.get("label", "")),
             "relation_id": pred_id,
             "eco_id": eco.get("id", ""),

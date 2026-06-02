@@ -108,16 +108,18 @@ def test_build_edges_causal_relations():
 
 
 def test_build_edges_skips_unresolved():
-    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _build_edges
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _build_edges, PHENOTYPE_COLLECTION
     import yaml
     disease = yaml.safe_load(GORLIN.read_text())
     modules = _load_modules(disease)
     catalog = _collect_nodes(disease, modules)
-    edges = _build_edges(disease, catalog)
+    edges = _build_edges(disease, catalog, modules)
     ids = set(catalog.keys())
+    pheno_ids = {f"pheno:{nid}" for nid, e in catalog.items() if e["collection"] == PHENOTYPE_COLLECTION}
+    valid_targets = ids | pheno_ids
     for e in edges:
         assert e["source"] in ids, f"Unresolved source: {e['source']}"
-        assert e["target"] in ids, f"Unresolved target: {e['target']}"
+        assert e["target"] in valid_targets, f"Unresolved target: {e['target']}"
 
 
 def test_hypothesis_groups_have_states():
