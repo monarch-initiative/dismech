@@ -1,11 +1,9 @@
 """Tests for HPOA-extended exporter."""
 from pathlib import Path
 
-import pytest
 import yaml
 
 from dismech.export.hpoa_export import (
-    FREQUENCY_TO_HP,
     export,
     hpoa_rows_for_disorder,
     normalize_frequency_enum,
