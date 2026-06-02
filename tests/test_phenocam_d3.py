@@ -165,6 +165,12 @@ def test_phenotype_nodes():
     bcc = next(p for p in phenos if p["id"] == "bcc")
     assert bcc["phenotype_id"] == "HP:0002671"
     assert "Basal cell carcinoma" in bcc["phenotype_label"]
+    # bcc and medulloblastoma have causal chains — not unrouted
+    assert bcc["unrouted"] is False
+    assert next(p for p in phenos if p["id"] == "medulloblastoma")["unrouted"] is False
+    # falx_calcification has no causal chain — unrouted
+    assert next(p for p in phenos if p["id"] == "falx_calcification")["unrouted"] is True
+    assert next(p for p in phenos if p["id"] == "macrocephaly")["unrouted"] is True
 
 
 def test_phenotype_edges():

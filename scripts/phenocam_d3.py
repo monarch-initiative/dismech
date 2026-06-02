@@ -383,6 +383,12 @@ def _build_hypothesis_groups(disease: dict, catalog: dict, hg_colors: dict) -> l
 
 
 def _build_phenotype_nodes(disease: dict) -> list:
+    # Phenotypes that appear as targets in causal_relations have an explained path
+    routed_ids = {
+        rel["object"]
+        for rel in disease.get("causal_relations") or []
+        if rel.get("object")
+    }
     result = []
     for pheno in disease.get("phenotypes") or []:
         pid = pheno.get("id", "")
@@ -392,7 +398,7 @@ def _build_phenotype_nodes(disease: dict) -> list:
             "phenotype_label": hpo.get("label", pid),
             "phenotype_id": hpo.get("id", ""),
             "phenotype_state": None,
-            "unrouted": False,
+            "unrouted": pid not in routed_ids,
             "description": pheno.get("description", ""),
             "hypothesis_ids": pheno.get("hypotheses") or [],
         })
