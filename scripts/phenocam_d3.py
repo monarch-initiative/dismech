@@ -108,9 +108,50 @@ def main():
     print(f"✓ {out}")
 
 
-# Stub implementations — filled in Tasks 3–7
-def _load_modules(disease: dict) -> dict: return {}
-def _collect_nodes(disease: dict, modules: dict) -> dict: return {}
+# Implementations — Tasks 3–7
+def _load_modules(disease: dict) -> dict:
+    """Return {module_id: module_dict} for all imports."""
+    modules = {}
+    for imp in disease.get("imports") or []:
+        mid = imp.get("module")
+        if not mid:
+            continue
+        path = MODULES_DIR / f"{mid}.yaml"
+        if path.exists():
+            modules[mid] = yaml.safe_load(path.read_text())
+    return modules
+
+
+def _collect_nodes(disease: dict, modules: dict) -> dict:
+    """Return flat catalog: {node_id: {node, collection, is_module, module_id}}."""
+    catalog = {}
+
+    # Module nodes first (lower priority — disease nodes override on id collision)
+    for mid, mod in modules.items():
+        for col in NODE_COLLECTIONS + [PHENOTYPE_COLLECTION]:
+            for node in mod.get(col) or []:
+                nid = node.get("id")
+                if nid:
+                    catalog[nid] = {
+                        "node": node,
+                        "collection": col,
+                        "is_module": True,
+                        "module_id": mid,
+                    }
+
+    # Disease-local nodes (override module nodes with same id)
+    for col in NODE_COLLECTIONS + [PHENOTYPE_COLLECTION]:
+        for node in disease.get(col) or []:
+            nid = node.get("id")
+            if nid:
+                catalog[nid] = {
+                    "node": node,
+                    "collection": col,
+                    "is_module": False,
+                    "module_id": None,
+                }
+
+    return catalog
 def _build_nodes(catalog: dict) -> list: return []
 def _build_edges(disease: dict, catalog: dict) -> list: return []
 def _assign_hg_colors(disease: dict) -> dict: return {}
