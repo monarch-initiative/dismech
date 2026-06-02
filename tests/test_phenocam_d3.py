@@ -185,3 +185,23 @@ def test_modules_meta():
     meta = _build_modules_meta(disease, modules)
     assert len(meta) == 1
     assert meta[0]["id"] == "hedgehog_signaling"
+
+
+def test_render_html_produces_valid_html():
+    from scripts.phenocam_d3 import build_data, render_html
+    data = build_data(GORLIN)
+    html = render_html(data)
+    assert html.startswith("<!DOCTYPE html")
+    assert "__DATA__" not in html
+    assert "Gorlin Syndrome" in html
+    assert "d3" in html.lower()
+    assert "dagre" in html.lower()
+    assert len(html) > 10_000
+
+
+def test_render_html_node_count():
+    from scripts.phenocam_d3 import build_data
+    data = build_data(GORLIN)
+    assert len(data["nodes"]) >= 5
+    assert len(data["edges"]) >= 3
+    assert len(data["phenotype_nodes"]) >= 4

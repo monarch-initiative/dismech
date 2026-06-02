@@ -1614,3 +1614,13 @@ phenocam-test:
 [group('PhenoCAM')]
 phenocam-viz:
     uv run python scripts/phenocam_mermaid.py --all
+
+# Generate D3+dagre interactive HTML visualization for a PhenoCAM V2 disease file
+[group('PhenoCAM')]
+phenocam-d3 file="causal_models/diseases/Gorlin_Syndrome.yaml":
+    uv run python scripts/phenocam_d3.py {{file}}
+
+# Generate D3+dagre HTML for all PhenoCAM V2 diseases
+[group('PhenoCAM')]
+phenocam-d3-all:
+    uv run python scripts/phenocam_d3.py --all
