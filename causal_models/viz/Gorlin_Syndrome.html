@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pheno-CAM: Gorlin Syndrome</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; }
+#header {
+  padding: 16px 24px; background: white; border-bottom: 1px solid #dee2e6;
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+}
+#header h1 { font-size: 20px; color: #212529; }
+#header .disease-term { color: #6c757d; font-size: 14px; }
+#hypothesis-legend {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  font-size: 12px;
+}
+.hg-legend-item {
+  display: flex; align-items: center; gap: 6px;
+}
+.hg-legend-swatch {
+  width: 24px; height: 3px; border-radius: 2px;
+}
+.hg-legend-freq {
+  font-size: 10px; color: #6c757d;
+}
+#canvas { width: 100%; height: calc(100vh - 70px); }
+svg { width: 100%; height: 100%; }
+
+.node rect {
+  rx: 6; ry: 6; stroke-width: 2; cursor: pointer;
+  transition: opacity 0.3s;
+}
+.node text { font-size: 11px; pointer-events: none; }
+.node .gene-label { font-weight: 700; font-size: 13px; }
+.node .func-label { font-size: 10px; fill: #495057; }
+.node .state-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.edge path { fill: none; stroke-width: 1.5; }
+.edge marker { fill: #868e96; }
+.edge .edge-label { font-size: 9px; fill: #868e96; }
+
+.process-node rect {
+  rx: 6; ry: 6; fill: #ede0f7; stroke: #6f42c1; stroke-width: 2; cursor: pointer;
+}
+.process-node text { font-size: 11px; pointer-events: none; }
+.process-node .gene-label { font-weight: 700; font-size: 12px; fill: #3d1f6d; }
+.process-node .func-label { font-size: 9px; fill: #6f42c1; }
+.process-node .state-badge { font-size: 9px; font-weight: 700; fill: #3d1f6d; }
+.process-node.state-increased rect { fill: #d4edda; stroke: #28a745; }
+.process-node.state-decreased rect { fill: #fde8e8; stroke: #e57373; }
+.process-node.state-absent rect { fill: #f8d7da; stroke: #dc3545; stroke-dasharray: 4,2; }
+.process-node.state-constitutively_active rect { fill: #c3e6cb; stroke: #1b5e20; stroke-width: 3; }
+.process-node.state-increased .state-badge { fill: #155724; }
+.process-node.state-decreased .state-badge { fill: #721c24; }
+.process-node.state-absent .state-badge { fill: #721c24; }
+
+.node.local-activity rect { fill: #e8daef; stroke: #6f42c1; }
+.node.local-activity .gene-label { fill: #3d1f6d; }
+
+.phenotype-node rect {
+  rx: 12; ry: 12; fill: #fff3cd; stroke: #ffc107; stroke-width: 2;
+}
+.phenotype-node text { font-size: 11px; font-weight: 600; fill: #856404; }
+.phenotype-node.state-increased rect { fill: #d4edda; stroke: #28a745; }
+.phenotype-node.state-decreased rect { fill: #fde8e8; stroke: #e57373; }
+.phenotype-node.state-absent rect { fill: #f8d7da; stroke: #dc3545; stroke-dasharray: 4,2; }
+.phenotype-node .state-badge { font-size: 9px; font-weight: 700; fill: #155724; }
+.phenotype-node.state-decreased .state-badge { fill: #721c24; }
+.phenotype-node.unrouted rect { stroke-dasharray: 4,2; opacity: 0.7; }
+.disease-node rect { rx: 12; ry: 12; fill: #cfe2ff; stroke: #0d6efd; stroke-width: 2; }
+.disease-node text { font-size: 12px; font-weight: 700; fill: #084298; pointer-events: none; }
+.disease-node .disease-term { font-size: 9px; fill: #6c757d; font-weight: 400; }
+.phenotype-edge path { fill: none; stroke: #ffc107; stroke-width: 1.5; stroke-dasharray: 5,3; }
+.process-edge path { fill: none; stroke: #6f42c1; stroke-width: 1.5; }
+.process-to-pheno-edge path { fill: none; stroke: #ffc107; stroke-width: 1.5; stroke-dasharray: 5,3; }
+.pheno-disease-edge path { fill: none; stroke: #0d6efd; stroke-width: 1.5; stroke-dasharray: 5,3; }
+
+/* Perturbation state colors */
+.state-normal rect { fill: #f8f9fa; stroke: #dee2e6; }
+.state-absent rect { fill: #f8d7da; stroke: #dc3545; stroke-dasharray: 4,2; }
+.state-decreased rect { fill: #fde8e8; stroke: #e57373; }
+.state-increased rect { fill: #d4edda; stroke: #28a745; }
+.state-constitutively_active rect { fill: #c3e6cb; stroke: #1b5e20; stroke-width: 3; }
+.state-substrate_accumulated rect { fill: #fff3cd; stroke: #ff8f00; }
+.state-haploinsufficient rect { fill: #fde8e8; stroke: #e57373; stroke-dasharray: 4,2; }
+
+.state-primary rect { stroke-width: 3; }
+.state-primary .gene-label { text-decoration: underline; }
+
+/* Module background shading */
+.module-bg rect { pointer-events: none; }
+
+.state-split rect {
+  fill: #f0e6ff;
+  stroke: #9b59b6;
+  stroke-width: 2;
+  stroke-dasharray: 4,2;
+}
+
+/* V2 node kinds */
+.node.kind-entity rect { fill: #fef9e7; stroke: #d4ac0d; }
+.node.kind-process rect { fill: #d5f5e3; stroke: #1e8449; }
+.node.kind-tissue rect { fill: #e8daef; stroke: #7d3c98; }
+.node.kind-modulator rect { fill: #eaf2ff; stroke: #2e4057; stroke-dasharray: 6,2; }
+.node.kind-variant rect { fill: #ffd6d6; stroke: #c0392b; stroke-width: 2.5; }
+
+/* Legend */
+#legend {
+  position: absolute; bottom: 16px; left: 16px; background: white;
+  border: 1px solid #dee2e6; border-radius: 8px; padding: 12px 16px;
+  font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+#legend h3 { font-size: 12px; margin-bottom: 8px; color: #495057; }
+.legend-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.legend-swatch {
+  width: 20px; height: 14px; border-radius: 3px; flex-shrink: 0;
+}
+
+/* Tooltip */
+#tooltip {
+  position: absolute; display: none; background: white; border: 1px solid #dee2e6;
+  border-radius: 6px; padding: 12px 16px; font-size: 12px; max-width: 420px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); pointer-events: none; z-index: 100;
+  line-height: 1.4;
+}
+#tooltip .tt-title { font-weight: 700; margin-bottom: 6px; font-size: 13px; }
+#tooltip .tt-subtitle { color: #6c757d; font-size: 11px; margin-bottom: 6px; }
+#tooltip .tt-detail { color: #495057; margin: 3px 0; }
+#tooltip .tt-detail b { color: #212529; }
+#tooltip .tt-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid #e9ecef; }
+#tooltip .tt-evidence { font-size: 11px; color: #6c757d; font-style: italic; margin-top: 4px; }
+#tooltip .tt-ref { font-size: 10px; color: #0d6efd; }
+#tooltip .tt-state { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+#tooltip .tt-state-increased { background: #d4edda; color: #155724; }
+#tooltip .tt-state-decreased { background: #fde8e8; color: #721c24; }
+#tooltip .tt-state-absent { background: #f8d7da; color: #721c24; }
+#tooltip .tt-state-constitutively_active { background: #c3e6cb; color: #155724; }
+#tooltip .tt-state-substrate_accumulated { background: #fff3cd; color: #856404; }
+#tooltip .tt-eco { font-size: 10px; color: #0d6efd; background: #e7f1ff; padding: 1px 6px; border-radius: 3px; display: inline-block; }
+#tooltip.pinned { pointer-events: auto; border-color: #0d6efd; box-shadow: 0 4px 16px rgba(13,110,253,0.25); max-height: 80vh; overflow-y: auto; }
+#tooltip .tt-close { position: absolute; top: 4px; right: 8px; cursor: pointer; font-size: 16px; color: #6c757d; display: none; }
+#tooltip .tt-close:hover { color: #212529; }
+#tooltip.pinned .tt-close { display: block; }
+#tooltip .tt-raw { margin-top: 8px; }
+#tooltip .tt-raw summary { font-size: 10px; color: #6c757d; cursor: pointer; user-select: none; }
+#tooltip .tt-raw summary:hover { color: #495057; }
+#tooltip .tt-raw pre { font-size: 9px; max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 8px; border-radius: 4px; white-space: pre-wrap; word-break: break-word; margin-top: 4px; font-family: 'SF Mono', Monaco, 'Courier New', monospace; }
+
+.edge path.edge-hover { stroke: transparent; stroke-width: 12; cursor: pointer; fill: none; }
+</style>
+</head>
+<body>
+<div id="header">
+  <div>
+    <h1>Pheno-CAM: Gorlin Syndrome</h1>
+    <span class="disease-term">MONDO:0007187 &mdash; nevoid basal cell carcinoma syndrome</span>
+  </div>
+  <div id="hypothesis-legend"></div>
+</div>
+<div id="canvas"><svg></svg></div>
+<div id="legend">
+  <h3>Perturbation States</h3>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f8f9fa;border:1px solid #dee2e6"></div> Normal</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#c3e6cb;border:2px solid #1b5e20"></div> Constitutively active</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#d4edda;border:1px solid #28a745"></div> Increased</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fde8e8;border:1px solid #e57373"></div> Decreased</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f8d7da;border:1px dashed #dc3545"></div> Absent</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:1px solid #ff8f00"></div> Accumulated</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#e8daef;border:2px solid #6f42c1"></div> Local activity</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#ede0f7;border:2px solid #6f42c1"></div> Process</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:2px solid #ffc107;border-radius:8px"></div> Phenotype</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:2px dashed #ffc107;border-radius:8px;opacity:0.7"></div> Unrouted phenotype</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#cfe2ff;border:2px solid #0d6efd;border-radius:8px"></div> Disease</div>
+  <div class="legend-item" style="margin-top:6px"><div style="width:20px;height:2px;background:#1b5e20"></div> <b>Bold border</b> = primary site</div>
+</div>
+<div id="tooltip"><span class="tt-close">&times;</span></div>
+<script>
+const DATA = {
+  "disease_name": "Gorlin Syndrome",
+  "disease_id": "gorlin_syndrome",
+  "disease_term": {
+    "id": "MONDO:0007187",
+    "label": "nevoid basal cell carcinoma syndrome"
+  },
+  "modules": [
+    {
+      "id": "hedgehog_signaling",
+      "name": "Hedgehog Signaling Pathway",
+      "description": "Core Hedgehog signal transduction from ligand reception at the primary cilium through SMO activation, SUFU-mediated GLI sequestration, and GLI transcription factor processing.",
+      "sources": [
+        {
+          "type": "go_cam",
+          "source_id": "gomodel:693b3c0900001389",
+          "source_name": "SMO activation promotes GLI1 transcription activator activity (Human)"
+        },
+        {
+          "type": "go_cam",
+          "source_id": "gomodel:693b3c0900001501",
+          "source_name": "SMO activation promotes GLI3 transcription activator activity via DYRK2 (Human)"
+        },
+        {
+          "type": "literature",
+          "reference": "PMID:19032739"
+        },
+        {
+          "type": "literature",
+          "reference": "PMID:28596197"
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "ptch1_inhibition",
+      "label": "PTCH1\nHedgehog receptor acti…",
+      "short_label": "PTCH1",
+      "type": "activity",
+      "node_kind": "molecular_activities",
+      "gene": "PTCH1",
+      "function": "Hedgehog receptor activity",
+      "function_short": "Hedgehog receptor …",
+      "location": "non-motile cilium membrane",
+      "process": "",
+      "module_id": "hedgehog_signaling",
+      "hypothesis_ids": [],
+      "quality": null,
+      "description": ""
+    },
+    {
+      "id": "smo_activity",
+      "label": "SMO\nG protein-coupled rece…",
+      "short_label": "SMO",
+      "type": "activity",
+      "node_kind": "molecular_activities",
+      "gene": "SMO",
+      "function": "G protein-coupled receptor activity",
+      "function_short": "G protein-coupled …",
+      "location": "non-motile cilium membrane",
+      "process": "smoothened signaling pathway",
+      "module_id": "hedgehog_signaling",
+      "hypothesis_ids": [],
+      "quality": null,
+      "description": ""
+    },
+    {
+      "id": "sufu_sequestering_gli1",
+      "label": "SUFU\nprotein sequestering a…",
+      "short_label": "SUFU",
+      "type": "activity",
+      "node_kind": "molecular_activities",
+      "gene": "SUFU",
+      "function": "protein sequestering activity",
+      "function_short": "protein sequesteri…",
+      "location": "cytoplasm",
+      "process": "negative regulation of smoothened signaling pathway",
+      "module_id": "hedgehog_signaling",
+      "hypothesis_ids": [],
+      "quality": null,
+      "description": ""
+    },
+    {
+      "id": "gli1_activation",
+      "label": "GLI1\nDNA-binding transcript…",
+      "short_label": "GLI1",
+      "type": "activity",
+      "node_kind": "molecular_activities",
+      "gene": "GLI1",
+      "function": "DNA-binding transcription activator activity, RNA polymerase II-specific",
+      "function_short": "DNA-binding transc…",
+      "location": "nucleus",
+      "process": "smoothened signaling pathway",
+      "module_id": "hedgehog_signaling",
+      "hypothesis_ids": [],
+      "quality": null,
+      "description": ""
+    },
+    {
+      "id": "gli1_upregulation",
+      "label": "GLI1\nDNA-binding transcript…",
+      "short_label": "GLI1",
+      "type": "activity",
+      "node_kind": "molecular_activities",
+      "gene": "GLI1",
+      "function": "DNA-binding transcription activator activity, RNA polymerase II-specific",
+      "function_short": "DNA-binding transc…",
+      "location": "",
+      "process": "smoothened signaling pathway",
+      "module_id": null,
+      "hypothesis_ids": [],
+      "quality": "GAIN_OF_FUNCTION",
+      "description": "Constitutive GLI1 transcriptional activation drives target gene expression. Disease-local perturbation of the module's gli1_activation node."
+    },
+    {
+      "id": "ccnd1_upregulation",
+      "label": "CCND1",
+      "short_label": "CCND1",
+      "type": "activity",
+      "node_kind": "molecular_activities",
+      "gene": "CCND1",
+      "function": "",
+      "function_short": "",
+      "location": "",
+      "process": "cell cycle G1/S phase transition",
+      "module_id": null,
+      "hypothesis_ids": [],
+      "quality": "INCREASED",
+      "description": "GLI1 target gene; drives G1/S transition in basal cells."
+    },
+    {
+      "id": "ptch1_lof",
+      "label": "PTCH1\nLOF",
+      "short_label": "PTCH1",
+      "type": "local_activity",
+      "node_kind": "variants",
+      "gene": "PTCH1",
+      "function": "",
+      "function_short": "",
+      "location": "",
+      "process": "",
+      "module_id": null,
+      "hypothesis_ids": [
+        "ptch1_driven"
+      ],
+      "quality": "LOSS_OF_FUNCTION",
+      "description": ""
+    },
+    {
+      "id": "sufu_lof",
+      "label": "SUFU\nLOF",
+      "short_label": "SUFU",
+      "type": "local_activity",
+      "node_kind": "variants",
+      "gene": "SUFU",
+      "function": "",
+      "function_short": "",
+      "location": "",
+      "process": "",
+      "module_id": null,
+      "hypothesis_ids": [
+        "sufu_driven"
+      ],
+      "quality": "LOSS_OF_FUNCTION",
+      "description": ""
+    },
+    {
+      "id": "sonic_hedgehog",
+      "label": "sonic hedgehog protein",
+      "short_label": "sonic hedgehog protein",
+      "type": "entity",
+      "node_kind": "molecular_entities",
+      "gene": "",
+      "function": "",
+      "function_short": "",
+      "location": "",
+      "process": "",
+      "module_id": null,
+      "hypothesis_ids": [],
+      "quality": null,
+      "description": "The SHH ligand that normally binds PTCH1 to relieve SMO inhibition. In Gorlin syndrome, constitutive Hedgehog activation occurs independently of SHH ligand, as PTCH1 loss-of-function permanently derepresses SMO."
+    },
+    {
+      "id": "basal_keratinocyte_proliferation",
+      "label": "keratinocyte\ncell population prol…",
+      "short_label": "keratinocyte",
+      "type": "process",
+      "node_kind": "cellular_processes",
+      "gene": "",
+      "function": "",
+      "function_short": "",
+      "location": "",
+      "process": "cell population proliferation",
+      "module_id": null,
+      "hypothesis_ids": [],
+      "quality": "INCREASED",
+      "description": "Constitutive GLI1 activation drives basal keratinocyte proliferation; cellular-level upstream of the tissue-level epidermis phenotype."
+    },
+    {
+      "id": "cerebellar_granule_precursor_proliferation",
+      "label": "cerebellar granule cell precursor\ncerebellar granule c…",
+      "short_label": "cerebellar granule cell precursor",
+      "type": "process",
+      "node_kind": "cellular_processes",
+      "gene": "",
+      "function": "",
+      "function_short": "",
+      "location": "",
+      "process": "cerebellar granule cell precursor proliferation",
+      "module_id": null,
+      "hypothesis_ids": [
+        "sufu_driven"
+      ],
+      "quality": "INCREASED",
+      "description": "Constitutive Hh/GLI activation in cerebellar granule neuron precursors drives aberrant proliferation; the initiating event for desmoplastic medulloblastoma in SUFU-driven Gorlin syndrome."
+    },
+    {
+      "id": "basal_cell_proliferation",
+      "label": "skin epidermis\ncell population prol…",
+      "short_label": "skin epidermis",
+      "type": "tissue",
+      "node_kind": "tissue_processes",
+      "gene": "",
+      "function": "",
+      "function_short": "",
+      "location": "",
+      "process": "cell population proliferation",
+      "module_id": null,
+      "hypothesis_ids": [],
+      "quality": "INCREASED",
+      "description": "Constitutive Hedgehog/GLI activation drives uncontrolled basal cell proliferation in the epidermis, the initiating event for basal cell carcinoma."
+    },
+    {
+      "id": "vismodegib",
+      "label": "vismodegib",
+      "short_label": "vismodegib",
+      "type": "modulator",
+      "node_kind": "modulators",
+      "gene": "",
+      "function": "",
+      "function_short": "",
+      "location": "",
+      "process": "",
+      "module_id": null,
+      "hypothesis_ids": [],
+      "quality": null,
+      "description": "SMO inhibitor; approved for locally advanced or metastatic BCC."
+    }
+  ],
+  "edges": [
+    {
+      "source": "ptch1_lof",
+      "target": "ptch1_inhibition",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002411",
+      "eco_id": "ECO:0000304",
+      "eco_label": "author statement supported by traceable reference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:19032739",
+          "snippet": "NBCCS is caused by mutations in the PTCH1 gene and is transmitted as an autosomal dominant trait with complete penetrance and variable expressivity."
+        }
+      ],
+      "hypothesis_ids": [
+        "ptch1_driven"
+      ],
+      "edge_context": "cross_module",
+      "module_id": "hedgehog_signaling"
+    },
+    {
+      "source": "sufu_lof",
+      "target": "sufu_sequestering_gli1",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002411",
+      "eco_id": "ECO:0000304",
+      "eco_label": "author statement supported by traceable reference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:28596197",
+          "snippet": "Heterozygous germline variants in PTCH1 and SUFU encoding components of the Sonic hedgehog pathway explain the majority of cases."
+        }
+      ],
+      "hypothesis_ids": [
+        "sufu_driven"
+      ],
+      "edge_context": "cross_module",
+      "module_id": "hedgehog_signaling"
+    },
+    {
+      "source": "gli1_activation",
+      "target": "gli1_upregulation",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002411",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [],
+      "edge_context": "cross_module",
+      "module_id": "hedgehog_signaling"
+    },
+    {
+      "source": "gli1_upregulation",
+      "target": "ccnd1_upregulation",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002411",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [],
+      "edge_context": "disease_local",
+      "module_id": null
+    },
+    {
+      "source": "ccnd1_upregulation",
+      "target": "basal_keratinocyte_proliferation",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002411",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [],
+      "edge_context": "disease_local",
+      "module_id": null
+    },
+    {
+      "source": "basal_keratinocyte_proliferation",
+      "target": "basal_cell_proliferation",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002411",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [],
+      "edge_context": "disease_local",
+      "module_id": null
+    },
+    {
+      "source": "basal_cell_proliferation",
+      "target": "bcc",
+      "relation": "causally related to",
+      "relation_id": "RO:0002410",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [],
+      "edge_context": "disease_local",
+      "module_id": null
+    },
+    {
+      "source": "gli1_activation",
+      "target": "cerebellar_granule_precursor_proliferation",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002411",
+      "eco_id": "ECO:0000304",
+      "eco_label": "author statement supported by traceable reference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:28596197",
+          "snippet": "Patients with SUFU pathogenic variants were significantly more likely than those with PTCH1 pathogenic variants to develop a medulloblastoma (p=0.009)."
+        }
+      ],
+      "hypothesis_ids": [
+        "sufu_driven"
+      ],
+      "edge_context": "cross_module",
+      "module_id": "hedgehog_signaling"
+    },
+    {
+      "source": "cerebellar_granule_precursor_proliferation",
+      "target": "medulloblastoma",
+      "relation": "causally related to",
+      "relation_id": "RO:0002410",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [
+        "sufu_driven"
+      ],
+      "edge_context": "disease_local",
+      "module_id": null
+    },
+    {
+      "source": "sonic_hedgehog",
+      "target": "ptch1_inhibition",
+      "relation": "directly negatively regulates",
+      "relation_id": "RO:0002630",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [],
+      "edge_context": "cross_module",
+      "module_id": "hedgehog_signaling"
+    },
+    {
+      "source": "vismodegib",
+      "target": "smo_activity",
+      "relation": "directly negatively regulates",
+      "relation_id": "RO:0002630",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [],
+      "edge_context": "cross_module",
+      "module_id": "hedgehog_signaling"
+    },
+    {
+      "source": "ptch1_inhibition",
+      "target": "smo_activity",
+      "relation": "directly negatively regulates",
+      "relation_id": "RO:0002630",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:28596197",
+          "snippet": "Heterozygous germline variants in PTCH1 and SUFU encoding components of the Sonic hedgehog pathway explain the majority of cases."
+        }
+      ],
+      "hypothesis_ids": [],
+      "edge_context": "module_internal",
+      "module_id": "hedgehog_signaling"
+    },
+    {
+      "source": "smo_activity",
+      "target": "sufu_sequestering_gli1",
+      "relation": "directly negatively regulates",
+      "relation_id": "RO:0002630",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [],
+      "edge_context": "module_internal",
+      "module_id": "hedgehog_signaling"
+    },
+    {
+      "source": "sufu_sequestering_gli1",
+      "target": "gli1_activation",
+      "relation": "directly negatively regulates",
+      "relation_id": "RO:0002630",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": [],
+      "edge_context": "module_internal",
+      "module_id": "hedgehog_signaling"
+    }
+  ],
+  "hypothesis_groups": [
+    {
+      "id": "ptch1_driven",
+      "name": "PTCH1-driven",
+      "frequency": "~85%",
+      "description": "Germline PTCH1 loss-of-function. Following somatic loss of the second allele, SMO becomes constitutively active, driving unopposed GLI transcriptional activation.",
+      "color": "#0d6efd",
+      "states": {
+        "ptch1_lof": {
+          "state": "decreased",
+          "is_primary": true,
+          "eco_id": "",
+          "eco_label": "",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        }
+      }
+    },
+    {
+      "id": "sufu_driven",
+      "name": "SUFU-driven",
+      "frequency": "~5%",
+      "description": "Germline SUFU loss-of-function. SUFU normally sequesters GLI proteins; its loss leads to constitutive GLI1/GLI2 nuclear activity and elevated medulloblastoma risk.",
+      "color": "#198754",
+      "states": {
+        "sufu_lof": {
+          "state": "decreased",
+          "is_primary": true,
+          "eco_id": "",
+          "eco_label": "",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        },
+        "cerebellar_granule_precursor_proliferation": {
+          "state": "increased",
+          "is_primary": false,
+          "eco_id": "",
+          "eco_label": "",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        }
+      }
+    }
+  ],
+  "hypothesis_colors": {
+    "ptch1_driven": "#0d6efd",
+    "sufu_driven": "#198754"
+  },
+  "phenotype_nodes": [
+    {
+      "id": "pheno:bcc",
+      "label": "Basal cell carcinoma",
+      "hpo_id": "HP:0002671",
+      "hpo_label": "Basal cell carcinoma",
+      "description": "Multiple BCCs, often appearing in the second decade. Frequency ~90% lifetime risk.",
+      "hypothesis_ids": []
+    },
+    {
+      "id": "pheno:odontogenic_keratocysts",
+      "label": "Odontogenic keratocysts of the jaw",
+      "hpo_id": "HP:0010603",
+      "hpo_label": "Odontogenic keratocysts of the jaw",
+      "description": "Jaw cysts driven by constitutive Hh signalling in odontogenic epithelium.",
+      "hypothesis_ids": []
+    },
+    {
+      "id": "pheno:macrocephaly",
+      "label": "Macrocephaly",
+      "hpo_id": "HP:0000256",
+      "hpo_label": "Macrocephaly",
+      "description": "Increased head circumference; present in ~50% of affected individuals.",
+      "hypothesis_ids": []
+    },
+    {
+      "id": "pheno:palmar_pits",
+      "label": "Palmar pits",
+      "hpo_id": "HP:0010610",
+      "hpo_label": "Palmar pits",
+      "description": "Punctate epidermal pits on palms (and soles); present in ~87% of adults. Result from focal Hh-driven basal cell proliferation with incomplete keratin maturation.",
+      "hypothesis_ids": []
+    },
+    {
+      "id": "pheno:falx_calcification",
+      "label": "Calcification of falx cerebri",
+      "hpo_id": "HP:0005462",
+      "hpo_label": "Calcification of falx cerebri",
+      "description": "Lamellar (sheet-like) calcification of the falx cerebri; a radiological hallmark present in >90% of adults with Gorlin syndrome. Pathomechanism not fully established.",
+      "hypothesis_ids": []
+    },
+    {
+      "id": "pheno:medulloblastoma",
+      "label": "Medulloblastoma",
+      "hpo_id": "HP:0002885",
+      "hpo_label": "Medulloblastoma",
+      "description": "Desmoplastic medulloblastoma arising from cerebellar granule neuron precursors. Risk is substantially higher in SUFU-driven (~7–9%) than PTCH1-driven (~0.4–1%) disease.",
+      "hypothesis_ids": [
+        "sufu_driven"
+      ]
+    }
+  ],
+  "phenotype_disease_edges": [
+    {
+      "source": "pheno:bcc",
+      "target": "disease:gorlin_syndrome",
+      "phenotype_label": "",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": []
+    },
+    {
+      "source": "pheno:odontogenic_keratocysts",
+      "target": "disease:gorlin_syndrome",
+      "phenotype_label": "",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": []
+    },
+    {
+      "source": "pheno:macrocephaly",
+      "target": "disease:gorlin_syndrome",
+      "phenotype_label": "",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": []
+    },
+    {
+      "source": "pheno:palmar_pits",
+      "target": "disease:gorlin_syndrome",
+      "phenotype_label": "",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000304",
+      "eco_label": "author statement supported by traceable reference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:19032739",
+          "snippet": "NBCCS is caused by mutations in the PTCH1 gene and is transmitted as an autosomal dominant trait with complete penetrance and variable expressivity."
+        }
+      ],
+      "hypothesis_ids": []
+    },
+    {
+      "source": "pheno:falx_calcification",
+      "target": "disease:gorlin_syndrome",
+      "phenotype_label": "",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "hypothesis_ids": []
+    },
+    {
+      "source": "pheno:medulloblastoma",
+      "target": "disease:gorlin_syndrome",
+      "phenotype_label": "",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000304",
+      "eco_label": "author statement supported by traceable reference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:28596197",
+          "snippet": "Patients with SUFU pathogenic variants were significantly more likely than those with PTCH1 pathogenic variants to develop a medulloblastoma (p=0.009)."
+        }
+      ],
+      "hypothesis_ids": []
+    }
+  ],
+  "disease_node": {
+    "id": "disease:gorlin_syndrome",
+    "name": "Gorlin Syndrome",
+    "term_id": "MONDO:0007187",
+    "term_label": "nevoid basal cell carcinoma syndrome"
+  }
+};
+
+// --- Tooltip pin/unpin ---
+let _tooltipPinned = false;
+let _escHandler = null;
+let _backdropHandler = null;
+
+function pinTooltip(event) {
+  event.stopPropagation();
+  const tt = document.getElementById("tooltip");
+  if (_tooltipPinned) {
+    unpinTooltip();
+    return;          // toggle OFF — don't re-pin
+  }
+  tt.classList.add("pinned");
+  _tooltipPinned = true;
+
+  // Close button
+  tt.querySelector(".tt-close").onclick = (e) => { e.stopPropagation(); unpinTooltip(); };
+
+  // Escape to close
+  _escHandler = (e) => { if (e.key === "Escape") unpinTooltip(); };
+  document.addEventListener("keydown", _escHandler);
+
+  // Click elsewhere to close (delayed to avoid immediate trigger)
+  setTimeout(() => {
+    _backdropHandler = (e) => {
+      if (!tt.contains(e.target)) unpinTooltip();
+    };
+    document.addEventListener("click", _backdropHandler);
+  }, 50);
+}
+
+function unpinTooltip() {
+  const tt = document.getElementById("tooltip");
+  tt.classList.remove("pinned");
+  tt.style.display = "none";
+  _tooltipPinned = false;
+  if (_escHandler) { document.removeEventListener("keydown", _escHandler); _escHandler = null; }
+  if (_backdropHandler) { document.removeEventListener("click", _backdropHandler); _backdropHandler = null; }
+}
+
+function guardMouseout() {
+  if (_tooltipPinned) return;
+  document.getElementById("tooltip").style.display = "none";
+}
+
+// --- Single-pass dagre layout ---
+function layoutGraph(data) {
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 40, marginy: 40 });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  // ALL activity nodes (module + disease-local)
+  data.nodes.forEach(n => {
+    const w = Math.max(140, n.short_label.length * 8 + 30);
+    g.setNode(n.id, { label: n.short_label, width: w, height: 60 });
+  });
+
+  // ALL edges
+  data.edges.forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+
+  // Intermediate nodes
+  (data.intermediate_nodes || []).forEach(n => {
+    const w = Math.max(130, n.short_label.length * 7 + 24);
+    g.setNode(n.id, { label: n.short_label, width: w, height: 50 });
+  });
+
+  // Intermediate edges
+  (data.intermediate_edges || []).forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+
+  // Phenotype nodes
+  data.phenotype_routes.forEach(pr => {
+    const pid = "pheno:" + pr.id;
+    g.setNode(pid, { label: pr.phenotype_label, width: 140, height: 54 });
+  });
+
+  // Disease node
+  if (data.disease_node) {
+    g.setNode(data.disease_node.id, { label: data.disease_node.name, width: 180, height: 54 });
+  }
+
+  // Phenotype-disease edges
+  (data.phenotype_disease_edges || []).forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+
+  dagre.layout(g);
+  return g;
+}
+
+// --- Tooltip helpers ---
+function attachActivityTooltip(ng, n, nodeLabels) {
+  ng.on("mouseover", (event) => {
+    if (_tooltipPinned) return;
+    const tt = d3.select("#tooltip");
+    tt.style("display", "block")
+      .style("left", (event.pageX + 12) + "px")
+      .style("top", (event.pageY - 10) + "px");
+    const name = n.display_name || n.gene || n.complex || n.id.split(":")[1];
+    const geneInfo = n.gene ? `${n.gene} (${n.hgnc_id})` : (n.complex || "");
+    let html = `<div class="tt-title">${name}</div>`;
+    if (geneInfo) html += `<div class="tt-subtitle">${geneInfo}</div>`;
+    if (n.module_name) html += `<div class="tt-detail"><b>Module:</b> ${n.module_name}</div>`;
+    html += `<div class="tt-detail"><b>Function:</b> ${n.function || "—"}</div>`;
+    if (n.function_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.function_id}</div>`;
+    if (n.substrate) html += `<div class="tt-detail"><b>Substrate:</b> ${n.substrate} (${n.substrate_hgnc})</div>`;
+    html += `<div class="tt-detail"><b>Location:</b> ${n.location || "—"}</div>`;
+    if (n.location_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.location_id}</div>`;
+    if (n.process) html += `<div class="tt-detail"><b>Process:</b> ${n.process}</div>`;
+    if (n.process_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.process_id}</div>`;
+    // Show perturbation state across all hypotheses
+    const hgColors = DATA.hypothesis_colors || {};
+    DATA.hypothesis_groups.forEach(hg => {
+      if (hg.states[n.id]) {
+        const st = hg.states[n.id];
+        const stClass = "tt-state tt-state-" + st.state;
+        const color = hgColors[hg.id] || "#999";
+        html += `<div class="tt-section">`;
+        html += `<div class="tt-detail"><span style="display:inline-block;width:10px;height:10px;background:${color};border-radius:2px;margin-right:4px"></span><b>${hg.name}:</b> <span class="${stClass}">${st.state.replace(/_/g, " ")}</span></div>`;
+        if (st.is_primary) {
+          html += `<div class="tt-detail"><b>Role:</b> Primary mutation site</div>`;
+          if (st.variant_class) html += `<div class="tt-detail"><b>Variant:</b> ${st.variant_class}</div>`;
+        } else {
+          const causes = Array.isArray(st.cause) ? st.cause : (st.cause ? [st.cause] : []);
+          const causeLabels = causes.map(c => nodeLabels[c] || c).join(", ");
+          html += `<div class="tt-detail"><b>Role:</b> Propagated from ${causeLabels || "upstream"}</div>`;
+        }
+        if (st.eco_label) {
+          html += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${st.eco_label}</span></div>`;
+          if (st.eco_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${st.eco_id}</div>`;
+        }
+        if (st.evidence_refs && st.evidence_refs.length) {
+          html += `<div class="tt-detail"><b>Evidence:</b></div>`;
+          st.evidence_refs.forEach(r => { html += `<div class="tt-ref">📄 ${r}</div>`; });
+        }
+        if (st.evidence_snippet) html += `<div class="tt-evidence">"${st.evidence_snippet}"</div>`;
+        html += `</div>`;
+      }
+    });
+    html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${n.id}</div>`;
+    if (n.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${n.raw_yaml}</pre></details>`;
+    tt.html(html);
+  }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+}
+
+function attachEdgeTooltip(eg, e, nodeLabels) {
+  const edgeTypeLabels = {
+    "activity_to_intermediate": "drives",
+    "intermediate_chain": "contributes to",
+    "intermediate_to_phenotype": "leads to",
+  };
+  eg.on("mouseover", (event) => {
+    if (_tooltipPinned) return;
+    const tt = d3.select("#tooltip");
+    tt.style("display", "block")
+      .style("left", (event.pageX + 12) + "px")
+      .style("top", (event.pageY - 10) + "px");
+    const srcLabel = e.source_label || nodeLabels[e.source] || e.source;
+    const tgtLabel = e.target_label || nodeLabels[e.target] || e.target;
+    let html = `<div class="tt-title">${srcLabel} → ${tgtLabel}</div>`;
+    if (e.relation) {
+      html += `<div class="tt-detail"><b>Relation:</b> ${e.relation}</div>`;
+      if (e.relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${e.relation_id}</div>`;
+    } else if (e.edge_type) {
+      const relLabel = edgeTypeLabels[e.edge_type] || e.edge_type;
+      html += `<div class="tt-detail"><b>Relationship:</b> ${srcLabel} ${relLabel} ${tgtLabel}</div>`;
+    }
+    if (e.eco_label) {
+      html += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${e.eco_label}</span></div>`;
+      if (e.eco_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${e.eco_id}</div>`;
+    }
+    if (e.evidence && e.evidence.length) {
+      html += `<div class="tt-section"><b>Evidence:</b>`;
+      e.evidence.forEach(ev => {
+        if (ev.type === "GO-CAM") {
+          html += `<div class="tt-ref">📦 ${ev.id}</div>`;
+        } else {
+          const ref = ev.id || ev.reference || "";
+          html += `<div class="tt-ref">📄 ${ref}</div>`;
+          const snip = ev.snippet;
+          if (snip) html += `<div class="tt-evidence">"${snip}"</div>`;
+        }
+      });
+      html += `</div>`;
+    }
+    if (e.edge_type) html += `<div class="tt-detail" style="font-size:10px;color:#adb5bd;margin-top:4px">Type: ${e.edge_type.replace(/_/g, " ")}</div>`;
+    if (e.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${e.raw_yaml}</pre></details>`;
+    tt.html(html);
+  }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+}
+
+// --- Arrow marker definitions ---
+function defineArrowMarkers(defs) {
+  const hgColors = DATA.hypothesis_colors || {};
+  _defineArrow(defs, "arrow-gray", "#ccc");
+  _defineTBar(defs, "tbar-gray", "#ccc");
+  Object.entries(hgColors).forEach(([hgId, color]) => {
+    _defineArrow(defs, "arrow-" + hgId, color);
+    _defineTBar(defs, "tbar-" + hgId, color);
+  });
+  _defineArrow(defs, "arrow-disease", "#0d6efd");
+}
+
+function _defineArrow(defs, id, color) {
+  defs.append("marker")
+    .attr("id", id).attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", color);
+}
+
+function _defineTBar(defs, id, color) {
+  defs.append("marker")
+    .attr("id", id).attr("viewBox", "0 0 10 10")
+    .attr("refX", 5).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 10)
+    .attr("orient", "auto")
+    .append("line")
+    .attr("x1", 5).attr("y1", 0).attr("x2", 5).attr("y2", 10)
+    .attr("stroke", color).attr("stroke-width", 2);
+}
+
+// --- Edge drawing with hypothesis colors ---
+function offsetPath(points, offset) {
+  if (offset === 0 || points.length < 2) return points;
+  return points.map((p, i) => {
+    let dx, dy;
+    if (i === 0) {
+      dx = points[1].x - p.x;
+      dy = points[1].y - p.y;
+    } else if (i === points.length - 1) {
+      dx = p.x - points[i - 1].x;
+      dy = p.y - points[i - 1].y;
+    } else {
+      dx = points[i + 1].x - points[i - 1].x;
+      dy = points[i + 1].y - points[i - 1].y;
+    }
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const px = -dy / len;
+    const py = dx / len;
+    return { x: p.x + px * offset, y: p.y + py * offset };
+  });
+}
+
+function clipToRect(cx, cy, hw, hh, px, py) {
+  // Find intersection of ray from (cx,cy) toward (px,py) with rect centered at (cx,cy)
+  const dx = px - cx, dy = py - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  // Scale factor to reach rect edge
+  const sx = hw / (Math.abs(dx) || 1);
+  const sy = hh / (Math.abs(dy) || 1);
+  const s = Math.min(sx, sy);
+  return { x: cx + dx * s, y: cy + dy * s };
+}
+
+function clipEndpoints(points, g, sourceId, targetId) {
+  if (!points || points.length < 2) return points;
+  const pts = points.slice();
+  const srcPos = g.node(sourceId);
+  const tgtPos = g.node(targetId);
+  if (srcPos) {
+    const hw = (srcPos.width || 140) / 2;
+    const hh = (srcPos.height || 60) / 2;
+    // Direction: from center toward next point
+    const next = pts[1];
+    pts[0] = clipToRect(srcPos.x, srcPos.y, hw, hh, next.x, next.y);
+  }
+  if (tgtPos) {
+    const hw = (tgtPos.width || 140) / 2;
+    const hh = (tgtPos.height || 60) / 2;
+    // Direction: from center toward previous point
+    const prev = pts[pts.length - 2];
+    const clipped = clipToRect(tgtPos.x, tgtPos.y, hw, hh, prev.x, prev.y);
+    // Push outward by marker size so arrowhead is visible outside the node
+    const edx = clipped.x - tgtPos.x, edy = clipped.y - tgtPos.y;
+    const elen = Math.sqrt(edx * edx + edy * edy) || 1;
+    pts[pts.length - 1] = { x: clipped.x + (edx / elen) * 4, y: clipped.y + (edy / elen) * 4 };
+  }
+  return pts;
+}
+
+function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle, g, sourceId, targetId) {
+  if (g && sourceId && targetId) {
+    points = clipEndpoints(points, g, sourceId, targetId);
+  }
+  const hypothesisIds = edgeData.hypothesis_ids || [];
+  const hgColors = DATA.hypothesis_colors || {};
+  // All edges use regular arrowheads (no T-bar distinction for negative regulation)
+
+  let strokeDash = "";
+  if (dashStyle === "dashed") strokeDash = "6,3";
+  else if (dashStyle === "dotted") strokeDash = "2,3";
+
+  if (hypothesisIds.length === 0) {
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const eg = edgeGroup.append("g").attr("class", "edge");
+    const pathD = line(points);
+    eg.append("path")
+      .attr("d", pathD)
+      .attr("stroke", "#ccc")
+      .attr("stroke-width", 1)
+      .attr("fill", "none")
+      .attr("stroke-dasharray", strokeDash)
+      .attr("marker-end", "url(#arrow-gray)");
+    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+    attachEdgeTooltip(eg, edgeData, nodeLabels);
+    // Label at midpoint
+    if (edgeData.relation) {
+      const mid = points[Math.floor(points.length / 2)];
+      const shortRel = edgeData.relation.replace("directly ", "").replace("regulates", "reg.");
+      eg.append("text").attr("class", "edge-label")
+        .attr("x", mid.x).attr("y", mid.y - 6)
+        .attr("text-anchor", "middle").text(shortRel);
+    }
+    return;
+  }
+
+  const numLines = hypothesisIds.length;
+  const OFFSET = 8;
+  const totalSpread = (numLines - 1) * OFFSET;
+
+  hypothesisIds.forEach((hgId, idx) => {
+    const offset = -totalSpread / 2 + idx * OFFSET;
+    const color = hgColors[hgId] || "#999";
+    const offsetPts = offsetPath(points, offset);
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const eg = edgeGroup.append("g").attr("class", "edge");
+    const pathD = line(offsetPts);
+    eg.append("path")
+      .attr("d", pathD)
+      .attr("stroke", color)
+      .attr("stroke-width", 1.5)
+      .attr("fill", "none")
+      .attr("stroke-dasharray", strokeDash)
+      .attr("marker-end", "url(#arrow-" + hgId + ")");
+    if (idx === 0) {
+      eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+      attachEdgeTooltip(eg, edgeData, nodeLabels);
+      // Label at midpoint
+      if (edgeData.relation) {
+        const mid = points[Math.floor(points.length / 2)];
+        const shortRel = edgeData.relation.replace("directly ", "").replace("regulates", "reg.");
+        eg.append("text").attr("class", "edge-label")
+          .attr("x", mid.x).attr("y", mid.y - 6)
+          .attr("text-anchor", "middle").text(shortRel);
+      }
+    }
+  });
+}
+
+// --- Module background shading ---
+function drawModuleBackgrounds(g, bgGroup) {
+  const moduleNodes = DATA.module_nodes || {};
+  const moduleNameMap = {};
+  (DATA.modules || []).forEach(m => { moduleNameMap[m.id] = m.name; });
+
+  Object.entries(moduleNodes).forEach(([modId, nodeIds]) => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodeIds.forEach(nid => {
+      const pos = g.node(nid);
+      if (!pos) return;
+      const w = pos.width || 140;
+      const h = pos.height || 60;
+      minX = Math.min(minX, pos.x - w/2);
+      minY = Math.min(minY, pos.y - h/2);
+      maxX = Math.max(maxX, pos.x + w/2);
+      maxY = Math.max(maxY, pos.y + h/2);
+    });
+    if (minX === Infinity) return;
+    const pad = 24;
+    const labelHeight = 18;
+    bgGroup.append("rect")
+      .attr("x", minX - pad).attr("y", minY - pad - labelHeight)
+      .attr("width", maxX - minX + pad * 2)
+      .attr("height", maxY - minY + pad * 2 + labelHeight)
+      .attr("rx", 12)
+      .attr("fill", "#eef1f8")
+      .attr("stroke", "#c8cfe0")
+      .attr("stroke-width", 1);
+    const modName = moduleNameMap[modId] || modId;
+    bgGroup.append("text")
+      .attr("x", minX - pad + 12).attr("y", minY - pad - labelHeight + 14)
+      .attr("font-size", "10px").attr("font-weight", "600")
+      .attr("fill", "#7080a0")
+      .text(modName);
+  });
+}
+
+// --- Draw ALL activity nodes ---
+function drawAllNodes(g, nodeGroup, nodeLabels, nodeMap) {
+  const hgColors = DATA.hypothesis_colors || {};
+
+  DATA.nodes.forEach(n => {
+    const pos = g.node(n.id);
+    if (!pos) return;
+    const w = Math.max(140, n.short_label.length * 8 + 30);
+    const hw = w / 2;
+
+    // Check if perturbation target
+    let isPerturbation = false;
+    let pertHgId = null;
+    let pertFreq = "";
+    DATA.hypothesis_groups.forEach(hg => {
+      if (hg.states[n.id] && hg.states[n.id].is_primary) {
+        isPerturbation = true;
+        pertHgId = hg.id;
+        pertFreq = hg.frequency;
+      }
+    });
+
+    const kindCls = n.node_kind ? " kind-" + n.node_kind : "";
+    const baseClass = n.type === "local_activity" ? "node local-activity" + kindCls + " state-normal" : "node" + kindCls + " state-normal";
+    const ng = nodeGroup.append("g")
+      .attr("class", baseClass)
+      .attr("transform", `translate(${pos.x - hw},${pos.y - 30})`)
+      .attr("data-id", n.id);
+
+    ng.append("rect").attr("width", w).attr("height", 60);
+
+    if (isPerturbation && pertHgId) {
+      ng.select("rect")
+        .attr("stroke", hgColors[pertHgId] || "#999")
+        .attr("stroke-width", 2.5);
+      if (pertFreq) {
+        ng.append("text")
+          .attr("x", hw).attr("y", 74)
+          .attr("text-anchor", "middle").attr("font-size", "9px")
+          .attr("fill", "#495057").attr("font-weight", "600")
+          .text(pertFreq);
+      }
+    }
+
+    ng.append("text").attr("class", "gene-label")
+      .attr("x", hw).attr("y", 22).attr("text-anchor", "middle").text(n.short_label);
+    ng.append("text").attr("class", "func-label")
+      .attr("x", hw).attr("y", 36).attr("text-anchor", "middle")
+      .text(truncate(n.function_short || n.function, Math.floor(w / 6)));
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", hw).attr("y", 52).attr("text-anchor", "middle").text("");
+    nodeMap[n.id] = ng;
+
+    attachActivityTooltip(ng, n, nodeLabels);
+  });
+}
+
+// --- Draw ALL edges ---
+function drawAllEdges(g, edgeGroup, nodeLabels) {
+  // Module + cross-boundary edges
+  DATA.edges.forEach(e => {
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid", g, e.source, e.target);
+  });
+
+  // Intermediate edges
+  (DATA.intermediate_edges || []).forEach(e => {
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    const dashStyle = e.edge_type === "intermediate_to_phenotype" ? "dashed" : "solid";
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle, g, e.source, e.target);
+  });
+}
+
+// --- Draw intermediate nodes ---
+function drawIntermediateNodes(og, nodeGroup, nodeLabels, nodeMap) {
+  (DATA.intermediate_nodes || []).forEach(n => {
+    const pos = og.node(n.id);
+    if (!pos) return;
+    const w = Math.max(130, n.short_label.length * 7 + 24);
+    const hw = w / 2;
+    const ng = nodeGroup.append("g")
+      .attr("class", "process-node" + (n.state ? " state-" + n.state : ""))
+      .attr("transform", `translate(${pos.x - hw},${pos.y - 25})`);
+    ng.append("rect").attr("width", w).attr("height", 50);
+    ng.append("text").attr("class", "gene-label")
+      .attr("x", hw).attr("y", 18).attr("text-anchor", "middle")
+      .text(n.short_label);
+    ng.append("text").attr("class", "func-label")
+      .attr("x", hw).attr("y", 30).attr("text-anchor", "middle")
+      .text(truncate(n.process, Math.floor(w / 6)));
+    const stateLabel = n.state ? n.state.replace(/_/g, " ") : "";
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", hw).attr("y", 43).attr("text-anchor", "middle")
+      .text(stateLabel);
+    // Tooltip
+    ng.on("mouseover", (event) => {
+      if (_tooltipPinned) return;
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      let html = `<div class="tt-title">${n.name}</div>`;
+      if (n.gene) html += `<div class="tt-subtitle">${n.gene} (${n.hgnc_id})</div>`;
+      if (n.process) html += `<div class="tt-detail"><b>Process:</b> ${n.process}</div>`;
+      if (n.process_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.process_id}</div>`;
+      if (n.state) {
+        const stClass = "tt-state tt-state-" + n.state;
+        html += `<div class="tt-detail"><b>State:</b> <span class="${stClass}">${n.state.replace(/_/g, " ")}</span></div>`;
+      }
+      if (n.hypothesis_ids && n.hypothesis_ids.length) {
+        const hgColors = DATA.hypothesis_colors || {};
+        html += '<div class="tt-section"><b>Reached by:</b>';
+        n.hypothesis_ids.forEach(hgId => {
+          const color = hgColors[hgId] || "#999";
+          const hg = DATA.hypothesis_groups.find(h => h.id === hgId);
+          const name = hg ? hg.name : hgId;
+          const freq = hg ? hg.frequency : "";
+          html += '<div class="tt-detail">';
+          html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:4px"></span>';
+          html += name;
+          if (freq) html += ' (' + freq + ')';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      if (n.driven_by_details && n.driven_by_details.length) {
+        html += `<div class="tt-section"><b>Driven by:</b>`;
+        n.driven_by_details.forEach((db, idx) => {
+          const srcLabel = nodeLabels[db.source] || db.source;
+          html += `<div class="tt-detail" style="margin-left:8px">• ${srcLabel}`;
+          if (db.relation) html += ` <span style="font-size:10px;color:#6c757d">(${db.relation})</span>`;
+          html += `</div>`;
+          if (db.eco_label) html += `<div class="tt-detail" style="margin-left:16px"><span class="tt-eco">${db.eco_label}</span></div>`;
+          if (db.evidence && db.evidence.length) {
+            db.evidence.forEach(ev => {
+              html += `<div class="tt-ref" style="margin-left:16px">📄 ${ev.reference}</div>`;
+              if (ev.snippet) html += `<div class="tt-evidence" style="margin-left:16px">"${ev.snippet}"</div>`;
+            });
+          }
+        });
+        html += `</div>`;
+      } else if (n.driven_by && n.driven_by.length === 0) {
+        html += `<div class="tt-detail"><b>Driven by:</b> convergence of upstream intermediates</div>`;
+      }
+      html += `<div class="tt-detail"><b>Route:</b> ${n.route_name || n.route_id.replace(/_/g, " ")}</div>`;
+      if (n.tissue) {
+        html += `<div class="tt-detail"><b>Tissue:</b> ${n.tissue}</div>`;
+        const td = n.tissue_detail || {};
+        let tissueIds = [];
+        if (td.cell_type_id) tissueIds.push(td.cell_type_id);
+        if (td.anatomy_id) tissueIds.push(td.anatomy_id);
+        if (tissueIds.length) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${tissueIds.join(" / ")}</div>`;
+      }
+      html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${n.id}</div>`;
+      if (n.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${n.raw_yaml}</pre></details>`;
+      tt.html(html);
+    }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+  });
+}
+
+// --- Draw phenotype nodes ---
+function drawPhenotypeNodes(og, nodeGroup, nodeLabels) {
+  DATA.phenotype_routes.forEach(pr => {
+    const pid = "pheno:" + pr.id;
+    const pos = og.node(pid);
+    if (!pos) return;
+    let phenoCls = "phenotype-node";
+    if (pr.phenotype_state) phenoCls += " state-" + pr.phenotype_state;
+    if (pr.unrouted) phenoCls += " unrouted";
+    const ng = nodeGroup.append("g")
+      .attr("class", phenoCls)
+      .attr("transform", `translate(${pos.x - 70},${pos.y - 27})`);
+    ng.append("rect").attr("width", 140).attr("height", 54);
+    ng.append("text")
+      .attr("x", 70).attr("y", 16).attr("text-anchor", "middle")
+      .text(truncate(pr.phenotype_label, 20));
+    ng.append("text")
+      .attr("x", 70).attr("y", 30).attr("text-anchor", "middle")
+      .style("font-size", "9px").style("fill", "#a17c10")
+      .text(pr.phenotype_id);
+    const phenoStateLabel = pr.phenotype_state ? pr.phenotype_state.replace(/_/g, " ") : "";
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", 70).attr("y", 44).attr("text-anchor", "middle")
+      .text(phenoStateLabel);
+
+    ng.on("mouseover", (event) => {
+      if (_tooltipPinned) return;
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      let html = `<div class="tt-title">${pr.phenotype_label}</div>`;
+      html += `<div class="tt-subtitle">${pr.phenotype_id}</div>`;
+      if (pr.phenotype_state) {
+        const stClass = "tt-state tt-state-" + pr.phenotype_state;
+        html += `<div class="tt-detail"><b>State:</b> <span class="${stClass}">${pr.phenotype_state.replace(/_/g, " ")}</span></div>`;
+      }
+      const phenoEdge = (DATA.phenotype_disease_edges || []).find(e => e.source === pid);
+      if (phenoEdge && phenoEdge.hypothesis_ids && phenoEdge.hypothesis_ids.length) {
+        const hgColors = DATA.hypothesis_colors || {};
+        html += '<div class="tt-section"><b>Reached by:</b>';
+        phenoEdge.hypothesis_ids.forEach(hgId => {
+          const color = hgColors[hgId] || "#999";
+          const hg = DATA.hypothesis_groups.find(h => h.id === hgId);
+          const name = hg ? hg.name : hgId;
+          const freq = hg ? hg.frequency : "";
+          html += '<div class="tt-detail">';
+          html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:4px"></span>';
+          html += name;
+          if (freq) html += ' (' + freq + ')';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      if (pr.phenotype_relation) {
+        html += `<div class="tt-detail"><b>Relation:</b> ${pr.phenotype_relation}</div>`;
+        if (pr.phenotype_relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${pr.phenotype_relation_id}</div>`;
+      }
+      html += `<div class="tt-detail"><b>Route:</b> ${pr.name}</div>`;
+      if (pr.tissue) {
+        html += `<div class="tt-detail"><b>Tissue:</b> ${pr.tissue}</div>`;
+        const td = pr.tissue_detail || {};
+        let tissueIds = [];
+        if (td.cell_type_id) tissueIds.push(td.cell_type_id);
+        if (td.anatomy_id) tissueIds.push(td.anatomy_id);
+        if (tissueIds.length) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${tissueIds.join(" / ")}</div>`;
+      }
+      html += `<div class="tt-detail" style="margin-top:6px">${pr.description}</div>`;
+      if (pr.intermediates && pr.intermediates.length) {
+        html += `<div class="tt-section"><b>Intermediates:</b>`;
+        pr.intermediates.forEach(inter => {
+          html += `<div class="tt-detail">• ${inter.name}`;
+          if (inter.gene) html += ` (${inter.gene})`;
+          if (inter.process) html += ` — ${inter.process}`;
+          html += `</div>`;
+        });
+        html += `</div>`;
+      }
+      if (pr.evidence && pr.evidence.length) {
+        html += `<div class="tt-section"><b>Evidence:</b>`;
+        pr.evidence.forEach(ev => {
+          html += `<div class="tt-ref">📄 ${ev.reference}</div>`;
+          if (ev.snippet) html += `<div class="tt-evidence">"${ev.snippet}"</div>`;
+        });
+        html += `</div>`;
+      }
+      if (pr.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${pr.raw_yaml}</pre></details>`;
+      tt.html(html);
+    }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+  });
+}
+
+// --- Draw phenotype → disease edges ---
+function drawPhenotypeDiseaseEdges(og, edgeGroup, nodeLabels) {
+  (DATA.phenotype_disease_edges || []).forEach(e => {
+    const pts = og.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "dotted", og, e.source, e.target);
+  });
+}
+
+// --- Draw disease node ---
+function drawDiseaseNode(og, nodeGroup) {
+  if (DATA.disease_node) {
+    const dpos = og.node(DATA.disease_node.id);
+    if (dpos) {
+      const dw = 180, dh = 54;
+      const dng = nodeGroup.append("g")
+        .attr("class", "disease-node")
+        .attr("transform", `translate(${dpos.x - dw/2},${dpos.y - dh/2})`);
+      dng.append("rect").attr("width", dw).attr("height", dh);
+      dng.append("text")
+        .attr("x", dw/2).attr("y", 22).attr("text-anchor", "middle")
+        .text(DATA.disease_node.name);
+      dng.append("text").attr("class", "disease-term")
+        .attr("x", dw/2).attr("y", 38).attr("text-anchor", "middle")
+        .text(DATA.disease_node.term_id);
+      dng.on("mouseover", (event) => {
+        if (_tooltipPinned) return;
+        const tt = d3.select("#tooltip");
+        tt.style("display", "block")
+          .style("left", (event.pageX + 12) + "px")
+          .style("top", (event.pageY - 10) + "px");
+        const phenoCount = DATA.phenotype_routes.length;
+        let html = `<div class="tt-title">${DATA.disease_node.name}</div>`;
+        html += `<div class="tt-subtitle">${DATA.disease_node.term_id} — ${DATA.disease_node.term_label}</div>`;
+        html += `<div class="tt-detail"><b>Associated phenotypes:</b> ${phenoCount}</div>`;
+        tt.html(html);
+      }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+    }
+  }
+}
+
+function truncate(s, max) {
+  return s && s.length > max ? s.slice(0, max - 1) + "…" : (s || "");
+}
+
+// --- Render ---
+function render() {
+  const svg = d3.select("svg");
+  svg.selectAll("*").remove();
+
+  const g = layoutGraph(DATA);
+  const graphInfo = g.graph();
+
+  // Zoom/pan
+  const zoom = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (e) => {
+    container.attr("transform", e.transform);
+  });
+  svg.call(zoom);
+  const container = svg.append("g");
+
+  // Fit to view
+  const svgEl = svg.node();
+  const W = svgEl.clientWidth || 900;
+  const H = svgEl.clientHeight || 600;
+  const gW = graphInfo.width || 800;
+  const gH = graphInfo.height || 400;
+  const scale = Math.min(W / (gW + 80), H / (gH + 80), 1.2);
+  const tx = (W - gW * scale) / 2;
+  const ty = (H - gH * scale) / 2;
+  svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+
+  // Arrow markers
+  const defs = svg.append("defs");
+  defineArrowMarkers(defs);
+
+  // Build label lookups
+  const nodeLabels = {};
+  DATA.nodes.forEach(n => { nodeLabels[n.id] = n.short_label; });
+  (DATA.intermediate_nodes || []).forEach(n => { nodeLabels[n.id] = n.short_label; });
+
+  // Draw layers in order: backgrounds, edges, nodes
+  const bgGroup = container.append("g").attr("class", "backgrounds");
+  const edgeGroup = container.append("g").attr("class", "edges");
+  const nodeGroup = container.append("g").attr("class", "nodes");
+  const nodeMap = {};
+
+  // Module background shading
+  drawModuleBackgrounds(g, bgGroup);
+
+  // Draw ALL activity nodes
+  drawAllNodes(g, nodeGroup, nodeLabels, nodeMap);
+
+  // Draw all edges (module + cross-boundary)
+  drawAllEdges(g, edgeGroup, nodeLabels);
+
+  // Draw intermediate nodes
+  drawIntermediateNodes(g, nodeGroup, nodeLabels, nodeMap);
+
+  // Draw phenotype nodes
+  drawPhenotypeNodes(g, nodeGroup, nodeLabels);
+
+  // Draw disease node
+  drawDiseaseNode(g, nodeGroup);
+
+  // Draw phenotype->disease edges
+  drawPhenotypeDiseaseEdges(g, edgeGroup, nodeLabels);
+
+  window._nodeMap = nodeMap;
+  applyAllHypotheses();
+}
+
+// --- Apply all hypotheses simultaneously ---
+function applyAllHypotheses() {
+  const nodeMap = window._nodeMap;
+  if (!nodeMap) return;
+  const hgColors = DATA.hypothesis_colors || {};
+
+  // Reset all module nodes to normal
+  DATA.nodes.forEach(n => {
+    const ng = nodeMap[n.id];
+    if (!ng) return;
+    const kindCls = n.node_kind ? " kind-" + n.node_kind : "";
+    const base = n.type === "local_activity" ? "node local-activity" : "node";
+    ng.attr("class", base + kindCls + " state-normal");
+    ng.select(".state-badge").text("");
+  });
+
+  // Collect all states across all hypotheses
+  const nodeStates = {};
+  DATA.hypothesis_groups.forEach(hg => {
+    Object.entries(hg.states).forEach(([nodeId, info]) => {
+      if (!nodeStates[nodeId]) nodeStates[nodeId] = {};
+      nodeStates[nodeId][hg.id] = info;
+    });
+  });
+
+  Object.entries(nodeStates).forEach(([nodeId, hgStates]) => {
+    const ng = nodeMap[nodeId];
+    if (!ng) return;
+    const nodeType = DATA.nodes.find(n => n.id === nodeId);
+    const kindCls = nodeType && nodeType.node_kind ? " kind-" + nodeType.node_kind : "";
+    const base = nodeType && nodeType.type === "local_activity" ? "node local-activity" : "node";
+
+    const states = Object.values(hgStates);
+    const uniqueStates = [...new Set(states.map(s => s.state))];
+
+    if (uniqueStates.length === 1) {
+      const state = uniqueStates[0];
+      const isPrimary = states.some(s => s.is_primary);
+      let cls = base + kindCls + " state-" + state;
+      if (isPrimary) cls += " state-primary";
+      ng.attr("class", cls);
+      const label = state.replace(/_/g, " ");
+      ng.select(".state-badge").text(isPrimary ? "● " + label : label);
+    } else {
+      ng.attr("class", base + kindCls + " state-split");
+      const labels = Object.entries(hgStates).map(([hgId, info]) => {
+        return info.state.replace(/_/g, " ");
+      }).join(" / ");
+      ng.select(".state-badge").text(labels);
+    }
+  });
+}
+
+// --- Init ---
+document.addEventListener("DOMContentLoaded", () => {
+  const hgColors = DATA.hypothesis_colors || {};
+  const legendEl = document.getElementById("hypothesis-legend");
+  DATA.hypothesis_groups.forEach(hg => {
+    const color = hgColors[hg.id] || "#999";
+    const item = document.createElement("div");
+    item.className = "hg-legend-item";
+    item.innerHTML = '<div class="hg-legend-swatch" style="background:' + color + '"></div>'
+      + '<span>' + hg.name + '</span>'
+      + (hg.frequency ? '<span class="hg-legend-freq">(' + hg.frequency + ')</span>' : '');
+    legendEl.appendChild(item);
+  });
+
+  render();
+});
+</script>
+</body>
+</html>
