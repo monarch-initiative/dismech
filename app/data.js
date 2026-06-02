@@ -308,13 +308,17 @@ window.searchData = [
     ],
     "creation_date": "2026-04-15T23:46:24Z",
     "updated_date": "2026-04-16T21:20:00Z",
-    "subtypes": [],
+    "subtypes": [
+      "2q37 Deletion",
+      "BDMR"
+    ],
     "description": "2q37 microdeletion syndrome is a subtelomeric chromosomal disorder caused by terminal or interstitial deletions on 2q37, most often involving HDAC4 and contiguous genes. The syndrome is characterized by developmental delay or intellectual disability, brachydactyly, short stature, obesity, hypotonia, autistic features, and variable congenital anomalies.",
     "pathophysiology": [
       "2q37 haploinsufficiency",
       "Skeletal development dysregulation",
       "Neurodevelopmental dysregulation",
-      "Metabolic and growth regulation abnormalities"
+      "Metabolic and growth regulation abnormalities",
+      "Deletion-size-dependent multigene haploinsufficiency"
     ],
     "cell_types": [
       "chondrocyte",
@@ -399,17 +403,23 @@ window.searchData = [
       "Supportive care",
       "Genetic counseling",
       "Speech therapy",
-      "Physical therapy"
+      "Physical therapy",
+      "Occupational therapy",
+      "Early intervention and educational support",
+      "Behavioral and autism-spectrum support",
+      "Dietary and metabolic management for obesity",
+      "Antiepileptic drug therapy",
+      "Tumor and renal surveillance"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "2q37_Microdeletion_Syndrome.yaml",
     "page_url": "../pages/disorders/2q37_Microdeletion_Syndrome.html",
     "num_phenotypes": 20,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "11",
+    "num_treatments": 10,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "2"
   },
   {
@@ -40911,7 +40921,8 @@ window.searchData = [
       "Accelerated Dendritic Spine Maturation",
       "AMPA Receptor Trafficking Disruption",
       "Postsynaptic Density Destabilization",
-      "Cortical Circuit Hard-Wiring"
+      "Cortical Circuit Hard-Wiring",
+      "GABAergic Interneuron Dysfunction"
     ],
     "cell_types": [
       "Pyramidal Neuron",
@@ -40925,7 +40936,8 @@ window.searchData = [
       "CL:0000617",
       "CL:0000115",
       "CL:0000127",
-      "CL:0000129"
+      "CL:0000129",
+      "CL:0011005"
     ],
     "biological_processes": [
       "Synaptic Transmission",
@@ -40938,7 +40950,8 @@ window.searchData = [
       "Dendritic spine maturation",
       "AMPA receptor trafficking",
       "Postsynaptic density assembly",
-      "Regulation of synaptic plasticity"
+      "Regulation of synaptic plasticity",
+      "GABAergic synaptic transmission"
     ],
     "phenotypes": [
       "Seizures",
@@ -41047,10 +41060,10 @@ window.searchData = [
     "source_file": "Epilepsy.yaml",
     "page_url": "../pages/disorders/Epilepsy.html",
     "num_phenotypes": 26,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 14,
     "num_treatments": 9,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -53370,7 +53383,8 @@ window.searchData = [
       "Icatibant acute attack therapy",
       "Ecallantide acute attack therapy",
       "Sebetralstat oral acute attack therapy",
-      "Long-term kallikrein-pathway prophylaxis"
+      "Long-term kallikrein-pathway prophylaxis",
+      "Donidalorsen"
     ],
     "environmental": [],
     "biochemical": [
@@ -53382,8 +53396,8 @@ window.searchData = [
     "num_phenotypes": 19,
     "num_pathophysiology": 4,
     "num_genes": 4,
-    "num_treatments": 5,
-    "causal_graph_edges": "11",
+    "num_treatments": 6,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -113278,10 +113292,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 1131,
-  "total_unique_evidence_sources": 21157,
+  "total_unique_evidence_sources": 21159,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 196,
   "total_pathographs": 1124,
-  "total_unique_pathological_events": 5517
+  "total_unique_pathological_events": 5519
 };
 window.dispatchEvent(new Event('searchDataReady'));
