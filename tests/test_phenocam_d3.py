@@ -9,7 +9,7 @@ def test_build_data_returns_required_keys():
     from scripts.phenocam_d3 import build_data
     data = build_data(GORLIN)
     for key in ["disease_name", "disease_id", "disease_term", "nodes", "edges",
-                "hypothesis_groups", "phenotype_nodes", "phenotype_disease_edges", "disease_node"]:
+                "hypothesis_groups", "phenotype_routes", "phenotype_disease_edges", "disease_node"]:
         assert key in data, f"Missing key: {key}"
 
 
@@ -158,11 +158,11 @@ def test_phenotype_nodes():
     disease = yaml.safe_load(GORLIN.read_text())
     phenos = _build_phenotype_nodes(disease)
     ids = {p["id"] for p in phenos}
-    assert "pheno:bcc" in ids
-    assert "pheno:medulloblastoma" in ids
-    bcc = next(p for p in phenos if p["id"] == "pheno:bcc")
-    assert bcc["hpo_id"] == "HP:0002671"
-    assert "Basal cell carcinoma" in bcc["label"]
+    assert "bcc" in ids
+    assert "medulloblastoma" in ids
+    bcc = next(p for p in phenos if p["id"] == "bcc")
+    assert bcc["phenotype_id"] == "HP:0002671"
+    assert "Basal cell carcinoma" in bcc["phenotype_label"]
 
 
 def test_phenotype_edges():
@@ -204,4 +204,4 @@ def test_render_html_node_count():
     data = build_data(GORLIN)
     assert len(data["nodes"]) >= 5
     assert len(data["edges"]) >= 3
-    assert len(data["phenotype_nodes"]) >= 4
+    assert len(data["phenotype_routes"]) >= 4

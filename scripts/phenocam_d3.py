@@ -74,7 +74,7 @@ def build_data(disease_path: Path) -> dict:
         "edges": data_edges,
         "hypothesis_groups": hg_groups,
         "hypothesis_colors": hg_colors,
-        "phenotype_nodes": pheno_nodes,
+        "phenotype_routes": pheno_nodes,
         "phenotype_disease_edges": pheno_edges,
         "disease_node": disease_node,
     }
@@ -386,10 +386,11 @@ def _build_phenotype_nodes(disease: dict) -> list:
         pid = pheno.get("id", "")
         hpo = pheno.get("hpo_term") or {}
         result.append({
-            "id": f"pheno:{pid}",
-            "label": hpo.get("label", pid),
-            "hpo_id": hpo.get("id", ""),
-            "hpo_label": hpo.get("label", ""),
+            "id": pid,                           # bare id — renderer prepends "pheno:"
+            "phenotype_label": hpo.get("label", pid),
+            "phenotype_id": hpo.get("id", ""),
+            "phenotype_state": None,
+            "unrouted": False,
             "description": pheno.get("description", ""),
             "hypothesis_ids": pheno.get("hypotheses") or [],
         })
