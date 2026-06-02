@@ -323,8 +323,56 @@ def _build_edges(disease: dict, catalog: dict) -> list:
             })
 
     return result
-def _assign_hg_colors(disease: dict) -> dict: return {}
-def _build_hypothesis_groups(disease: dict, catalog: dict, colors: dict) -> list: return []
+def _assign_hg_colors(disease: dict) -> dict:
+    colors = {}
+    palette = list(HG_PALETTE)
+    for i, hg in enumerate(disease.get("hypothesis_groups") or []):
+        hid = hg.get("id", "")
+        colors[hid] = palette[i % len(palette)]
+    return colors
+
+
+def _build_hypothesis_groups(disease: dict, catalog: dict, hg_colors: dict) -> list:
+    result = []
+    for hg in disease.get("hypothesis_groups") or []:
+        hid = hg.get("id", "")
+        states = {}
+
+        for nid, entry in catalog.items():
+            node = entry["node"]
+            col = entry["collection"]
+            if col == PHENOTYPE_COLLECTION:
+                continue
+            node_hyps = node.get("hypotheses") or []
+            if hid not in node_hyps:
+                continue
+
+            quality = node.get("quality")
+            # Derive quality from variant_type if missing (variants collection)
+            if quality is None and col == "variants":
+                vtype_label = (node.get("variant_type") or {}).get("label", "")
+                quality = VARIANT_TYPE_QUALITY.get(vtype_label)
+
+            state = QUALITY_STATE.get(quality, "decreased" if quality else "normal")
+            is_primary = col == "variants"
+            states[nid] = {
+                "state": state,
+                "is_primary": is_primary,
+                "eco_id": "",
+                "eco_label": "",
+                "evidence_refs": [],
+                "evidence_snippet": "",
+            }
+
+        result.append({
+            "id": hid,
+            "name": hg.get("name", hid),
+            "frequency": hg.get("frequency", ""),
+            "description": hg.get("description", ""),
+            "color": hg_colors.get(hid, "#999"),
+            "states": states,
+        })
+    return result
 def _build_phenotype_nodes(disease: dict) -> list: return []
 def _build_phenotype_edges(disease: dict) -> list: return []
 def _build_disease_node(disease: dict) -> dict: return {}

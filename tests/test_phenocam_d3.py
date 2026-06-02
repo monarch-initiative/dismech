@@ -118,3 +118,35 @@ def test_build_edges_skips_unresolved():
     for e in edges:
         assert e["source"] in ids, f"Unresolved source: {e['source']}"
         assert e["target"] in ids, f"Unresolved target: {e['target']}"
+
+
+def test_hypothesis_groups_have_states():
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _assign_hg_colors, _build_hypothesis_groups
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    modules = _load_modules(disease)
+    catalog = _collect_nodes(disease, modules)
+    colors = _assign_hg_colors(disease)
+    groups = _build_hypothesis_groups(disease, catalog, colors)
+    group_map = {g["id"]: g for g in groups}
+
+    # ptch1_driven hypothesis
+    ptch1 = group_map["ptch1_driven"]
+    assert ptch1["name"] == "PTCH1-driven"
+    assert "~85%" in ptch1["frequency"]
+
+    # ptch1_lof variant should be primary in ptch1_driven
+    states = ptch1["states"]
+    assert "ptch1_lof" in states
+    assert states["ptch1_lof"]["is_primary"] is True
+    assert states["ptch1_lof"]["state"] == "decreased"  # LOF → decreased
+
+
+def test_hypothesis_colors_assigned():
+    from scripts.phenocam_d3 import _assign_hg_colors
+    import yaml
+    disease = yaml.safe_load(GORLIN.read_text())
+    colors = _assign_hg_colors(disease)
+    assert "ptch1_driven" in colors
+    assert "sufu_driven" in colors
+    assert colors["ptch1_driven"].startswith("#")
