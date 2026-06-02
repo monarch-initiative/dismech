@@ -252,3 +252,31 @@ def test_hedgehog_module_edge_count():
     edges = _build_edges(disease, catalog, modules)
     module_edges = [e for e in edges if e["edge_context"] == "module_internal"]
     assert len(module_edges) >= 13, f"Expected >=13 module-internal edges, got {len(module_edges)}"
+
+
+def test_gorlin_has_bcl2_mycn_gli3_nodes():
+    """Disease file must contain BCL2, MYCN, and GLI3 A/R imbalance nodes."""
+    from scripts.phenocam_d3 import build_data
+    from pathlib import Path
+    data = build_data(Path("causal_models/diseases/Gorlin_Syndrome.yaml"))
+    node_ids = {n["id"] for n in data["nodes"]}
+    assert "bcl2_upregulation" in node_ids, "Missing bcl2_upregulation"
+    assert "mycn_upregulation" in node_ids, "Missing mycn_upregulation"
+    assert "gli3_ar_imbalance" in node_ids, "Missing gli3_ar_imbalance"
+
+
+def test_gorlin_gli1_targets_edges():
+    """GLI1 activation must have causal edges to BCL2, MYCN in disease file."""
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _build_edges
+    import yaml
+    from pathlib import Path
+    disease = yaml.safe_load(
+        (Path("causal_models/diseases/Gorlin_Syndrome.yaml")).read_text()
+    )
+    modules = _load_modules(disease)
+    catalog = _collect_nodes(disease, modules)
+    edges = _build_edges(disease, catalog, modules)
+    edge_pairs = {(e["source"], e["target"]) for e in edges}
+    assert ("gli1_activation", "bcl2_upregulation") in edge_pairs
+    assert ("gli1_activation", "mycn_upregulation") in edge_pairs
+    assert ("gli3a_activation", "gli3_ar_imbalance") in edge_pairs
