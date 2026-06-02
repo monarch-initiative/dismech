@@ -47,13 +47,18 @@ NODE_TYPE_MAP = {
 NODE_COLLECTIONS = list(NODE_TYPE_MAP.keys())
 PHENOTYPE_COLLECTION = "phenotypes"
 
+VARIANT_TYPE_QUALITY = {
+    "loss_of_function_variant": "LOSS_OF_FUNCTION",
+    "gain_of_function_variant": "GAIN_OF_FUNCTION",
+}
+
 
 def build_data(disease_path: Path) -> dict:
     disease = yaml.safe_load(disease_path.read_text())
     modules = _load_modules(disease)
     all_node_catalog = _collect_nodes(disease, modules)
     data_nodes = _build_nodes(all_node_catalog)
-    data_edges = _build_edges(disease, all_node_catalog)
+    data_edges = _build_edges(disease, all_node_catalog, modules)
     hg_colors = _assign_hg_colors(disease)
     hg_groups = _build_hypothesis_groups(disease, all_node_catalog, hg_colors)
     pheno_nodes = _build_phenotype_nodes(disease)
@@ -152,10 +157,6 @@ def _collect_nodes(disease: dict, modules: dict) -> dict:
                 }
 
     return catalog
-VARIANT_TYPE_QUALITY = {
-    "loss_of_function_variant": "LOSS_OF_FUNCTION",
-    "gain_of_function_variant": "GAIN_OF_FUNCTION",
-}
 
 
 def _node_label(node: dict, collection: str) -> str:
@@ -244,6 +245,8 @@ def _build_nodes(catalog: dict) -> list:
             "description": node.get("description", ""),
         })
     return result
+
+
 def _edge_context(source_id: str, target_id: str, catalog: dict) -> tuple:
     """Return (edge_context, module_id)."""
     src = catalog.get(source_id, {})
@@ -269,7 +272,7 @@ def _evidence_list(evidence: list) -> list:
     return result
 
 
-def _build_edges(disease: dict, catalog: dict) -> list:
+def _build_edges(disease: dict, catalog: dict, modules: dict | None = None) -> list:
     result = []
 
     # Disease causal_relations
@@ -298,7 +301,7 @@ def _build_edges(disease: dict, catalog: dict) -> list:
         })
 
     # Module internal causal_relations
-    for mid, mod in _load_modules(disease).items():
+    for mid, mod in (modules or _load_modules(disease)).items():
         for rel in mod.get("causal_relations") or []:
             src = rel.get("subject", "")
             tgt = rel.get("object", "")
@@ -323,6 +326,8 @@ def _build_edges(disease: dict, catalog: dict) -> list:
             })
 
     return result
+
+
 def _assign_hg_colors(disease: dict) -> dict:
     colors = {}
     palette = list(HG_PALETTE)
@@ -373,6 +378,8 @@ def _build_hypothesis_groups(disease: dict, catalog: dict, hg_colors: dict) -> l
             "states": states,
         })
     return result
+
+
 def _build_phenotype_nodes(disease: dict) -> list:
     result = []
     for pheno in disease.get("phenotypes") or []:
