@@ -280,3 +280,40 @@ def test_gorlin_gli1_targets_edges():
     assert ("gli1_activation", "bcl2_upregulation") in edge_pairs
     assert ("gli1_activation", "mycn_upregulation") in edge_pairs
     assert ("gli3a_activation", "gli3_ar_imbalance") in edge_pairs
+
+
+def test_gorlin_has_all_v1_phenotypes():
+    """Gorlin must expose all 11 phenotype routes present in V1."""
+    from scripts.phenocam_d3 import build_data
+    from pathlib import Path
+    data = build_data(Path("causal_models/diseases/Gorlin_Syndrome.yaml"))
+    pheno_ids = {p["id"] for p in data["phenotype_routes"]}
+    expected = {
+        "bcc", "odontogenic_keratocysts", "medulloblastoma",
+        "macrocephaly", "palmar_pits", "falx_calcification",
+        "plantar_pits", "abnormal_rib_morphology",
+        "abnormal_vertebral_morphology", "cardiac_fibroma", "ovarian_fibroma",
+    }
+    missing = expected - pheno_ids
+    assert not missing, f"Missing phenotype routes: {missing}"
+
+
+def test_skeletal_phenotypes_are_routed():
+    """Rib and vertebral morphology phenotypes must be routed (have incoming causal edges)."""
+    from scripts.phenocam_d3 import build_data
+    from pathlib import Path
+    data = build_data(Path("causal_models/diseases/Gorlin_Syndrome.yaml"))
+    pheno_map = {p["id"]: p for p in data["phenotype_routes"]}
+    assert pheno_map["abnormal_rib_morphology"]["unrouted"] is False
+    assert pheno_map["abnormal_vertebral_morphology"]["unrouted"] is False
+
+
+def test_unrouted_phenotypes():
+    """Plantar pits, cardiac/ovarian fibromas must be unrouted (no curated causal chain)."""
+    from scripts.phenocam_d3 import build_data
+    from pathlib import Path
+    data = build_data(Path("causal_models/diseases/Gorlin_Syndrome.yaml"))
+    pheno_map = {p["id"]: p for p in data["phenotype_routes"]}
+    assert pheno_map["plantar_pits"]["unrouted"] is True
+    assert pheno_map["cardiac_fibroma"]["unrouted"] is True
+    assert pheno_map["ovarian_fibroma"]["unrouted"] is True
