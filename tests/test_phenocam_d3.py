@@ -213,3 +213,42 @@ def test_render_html_node_count():
     assert len(data["nodes"]) >= 5
     assert len(data["edges"]) >= 3
     assert len(data["phenotype_routes"]) >= 4
+
+
+def test_hedgehog_module_has_full_node_set():
+    """Module must contain all 15 nodes present in V1 hand-crafted DATA."""
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes
+    import yaml
+    disease = yaml.safe_load(
+        (Path(__file__).parent.parent / "causal_models/diseases/Gorlin_Syndrome.yaml").read_text()
+    )
+    modules = _load_modules(disease)
+    catalog = _collect_nodes(disease, modules)
+
+    expected_module_nodes = {
+        "ptch1_inhibition", "smo_activity", "sufu_sequestering_gli1", "gli1_activation",
+        # Arm A
+        "bbsome_transport", "iftb_transport", "gpr161_activity",
+        "pka_activity", "gsk3b_kinase", "btrc_ubiquitination",
+        # Arm B
+        "sufu_sequestering_gli3", "gli3a_activation", "gli3r_production",
+        # Arm C
+        "mapk1_kinase", "dyrk2_kinase",
+    }
+    module_nodes = {nid for nid, e in catalog.items() if e["is_module"]}
+    missing = expected_module_nodes - module_nodes
+    assert not missing, f"Missing module nodes: {missing}"
+
+
+def test_hedgehog_module_edge_count():
+    """Module must have at least 13 intra-module causal edges."""
+    from scripts.phenocam_d3 import _load_modules, _collect_nodes, _build_edges
+    import yaml
+    disease = yaml.safe_load(
+        (Path(__file__).parent.parent / "causal_models/diseases/Gorlin_Syndrome.yaml").read_text()
+    )
+    modules = _load_modules(disease)
+    catalog = _collect_nodes(disease, modules)
+    edges = _build_edges(disease, catalog, modules)
+    module_edges = [e for e in edges if e["edge_context"] == "module_internal"]
+    assert len(module_edges) >= 13, f"Expected >=13 module-internal edges, got {len(module_edges)}"
