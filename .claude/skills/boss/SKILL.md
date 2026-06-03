@@ -28,6 +28,10 @@ Example user invocations:
 * `/boss curate foo syndrome`
    * user intent: create a new tp session to curate a new disease
    * SOP:
+      * run the duplicate preflight from `initiate-new-disorder-creation`
+        before filing or delegating: check latest `origin/main`
+        knowledgebase, all PRs, and all issues by MONDO ID, preferred label,
+        and major synonyms.
       * create an issue (may be skipped): use `gh`.
       * start a tmux/tp session: `tp new issue-NNNN-<handle> --profile codex --repo <path-to-dismech> --branch feat/dismech-issue-NNNN-<handle> --description <desc> --prompt "/curate <DISEASE> <INFO>"`
 * `/boss status`
@@ -117,7 +121,7 @@ tp new curate-prpf31 --profile codex \
   --repo ~/repos/dismech \
   --issue 1081 \
   --branch feat/dismech-prpf31_retinitis_pigmentosa \
-  --prompt "curate PRPF31-related retinitis pigmentosa"
+  --prompt "run duplicate preflight against latest KB, all PRs, and all issues, then curate PRPF31-related retinitis pigmentosa if no duplicate exists"
 ```
 
 ```bash

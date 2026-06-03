@@ -1,0 +1,12 @@
+| Fact statement (non-cited) | Evidence to collect (paper types) | Where to find (OMIM/Orphanet/PubMed/ClinVar/GeneReviews) | Priority |
+|---|---|---|---|
+| SOX10 neurocristopathy spectrum can be treated as an umbrella concept spanning SOX10-related Waardenburg phenotypes, PCWH, and some Hirschsprung-associated presentations. | Disease-definition resources, nomenclature reviews, genotype-phenotype reviews, foundational case series | OMIM, Orphanet, PubMed, GeneReviews | High |
+| The core causal gene is **SOX10**, a neural crest developmental transcription factor, with pathogenic germline variants underlying the spectrum. | Gene-disease validity summaries, primary variant reports, functional studies, curated variant databases | OMIM, ClinVar, PubMed, GeneReviews | High |
+| Main phenotype domains are auditory, pigmentary, enteric, and neurologic/myelination-related features. | Clinical case series, cohort studies, phenotype reviews, natural history papers | Orphanet, PubMed, GeneReviews | High |
+| Inheritance is often autosomal dominant with variable expressivity, and a substantial fraction of cases may be de novo. | Pedigree-based reports, cohort studies, variant interpretation papers, counseling reviews | OMIM, PubMed, ClinVar, GeneReviews | High |
+| Diagnostics commonly rely on next-generation sequencing approaches such as targeted syndromic hearing loss/HSCR panels, WES, or WGS, with phenotype-guided interpretation. | Diagnostic guidelines, testing-strategy reviews, laboratory validation studies, clinical sequencing cohorts | GeneReviews, PubMed, ClinVar, OMIM | High |
+| Management is typically multidisciplinary and may include Hirschsprung disease surgery, audiologic/hearing rehabilitation, developmental therapies, and neurologic follow-up when indicated. | Clinical management reviews, GeneReviews chapters, surgical outcome papers, hearing rehabilitation studies | GeneReviews, PubMed, Orphanet | High |
+| Key research gaps likely include stronger genotype-phenotype correlations, better delineation of neurologic risk, and longitudinal natural history data. | Recent reviews, consensus statements, registry reports, follow-up cohort studies | PubMed, Orphanet, GeneReviews | Medium |
+
+
+*Table: This table lists high-priority, non-cited working facts about SOX10 neurocristopathy spectrum and the exact evidence types and sources needed to verify them. It is useful as a focused retrieval checklist for building a fully cited disease report once literature access is available.*

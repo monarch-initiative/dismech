@@ -29,6 +29,12 @@ Curate cancer and neoplastic disease entries in the dismech knowledge base with 
 - Adding CHEBI terms for chemotherapy drugs
 - Adding NCIT terms for biomarkers and fusion proteins
 
+When creating a new cancer or neoplasm entry, first run the duplicate preflight
+from `initiate-new-disorder-creation`: check the latest `origin/main`
+knowledgebase, all PRs, and all issues by MONDO ID, preferred label, and major
+synonyms. Do not create a separate cancer entry if an existing KB file, PR, or
+issue already covers the same disease concept.
+
 ## Cancer-Specific Schema Features
 
 ### Disease Stages (not Subtypes)
@@ -310,13 +316,17 @@ just qc
 
 ## Example: Creating a New Cancer Entry
 
-1. **Start with deep research** (if available):
+1. **Run duplicate preflight** using `initiate-new-disorder-creation` Step 1.
+   Confirm the target is absent from the latest knowledgebase and not already
+   covered by any PR or issue.
+
+2. **Start with deep research** (if available):
    ```bash
    # Check for existing research
    ls research/*MyCancer*.md
    ```
 
-2. **Create YAML structure**:
+3. **Create YAML structure**:
    - name, description, categories, parents
    - disease_term (MONDO)
    - has_subtypes or stages (as appropriate)
@@ -327,9 +337,9 @@ just qc
    - genetic
    - treatments (with treatment_term + therapeutic_agent)
 
-3. **Add evidence** for key claims (PMID references)
+4. **Add evidence** for key claims (PMID references)
 
-4. **Validate** all term bindings
+5. **Validate** all term bindings
 
 ## Integration with Other Skills
 

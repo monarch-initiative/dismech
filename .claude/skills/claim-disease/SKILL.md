@@ -28,12 +28,32 @@ Skip when:
 2. **Verify priority data is fresh.** If `dashboard/priority.json` is older than 30 days or missing, ask the user whether to regenerate (`just gen-dashboard`) before continuing. Do not silently use stale data.
 3. **Resolve the current GitHub user**: `gh api user -q .login`. Use that as the issue assignee.
 4. **Run the candidate finder** (Python snippet below) with `LIMIT = N + 50` so there is headroom for candidates that get skipped. The finder reads `dashboard/priority.json`, builds the set of already-covered MONDO IDs from every YAML in `kb/disorders/`, and prints the top `LIMIT` uncovered candidates that have an actionable recommendation (`CURATE_ROOT` or `CURATE_ROOT_WITH_SUBTYPES`). Skips `LUMP_INTO_PARENT`, `REVIEW_AGAINST_PARENT`, `DROP_GROUPING_TERM`. Treat the output as an ordered **candidate pool**.
-5. **Bulk-check open issues** for the candidate pool in one batch (one `gh issue list` call per MONDO ID, parallelisable). Discard any candidate whose MONDO ID already appears in the title or body of an open issue.
+5. **Run duplicate preflight for the candidate pool.** The
+   candidate finder covers the local knowledgebase, but each candidate must also
+   be checked against the most recent upstream knowledgebase plus all PRs and
+   issues before filing a new issue.
+   ```bash
+   git fetch origin main
+
+   # Confirm the candidate is still absent from the latest upstream KB.
+   git grep -n -i -e "<MONDO_ID>" -e "<label>" origin/main -- kb/disorders || true
+
+   # Check PRs and issues across all states; repeat for important synonyms.
+   gh pr list --repo monarch-initiative/dismech --state all \
+     --search "\"<MONDO_ID>\" OR \"<label>\"" \
+     --json number,title,state,url,headRefName --limit 100
+   gh issue list --repo monarch-initiative/dismech --state all \
+     --search "\"<MONDO_ID>\" OR \"<label>\"" \
+     --json number,title,state,url,labels --limit 100
+   ```
+   Discard any candidate whose MONDO ID, label, or important synonym appears in
+   the latest KB, an existing PR, or an existing issue unless the user confirms
+   it is genuinely distinct.
 6. **Iterate the pool top-down and claim until you have N successful claims** (or the pool is exhausted):
    - Skip any candidate flagged `possibly_covered_by` unless the user has already confirmed it is genuinely uncurated.
    - For each remaining candidate, open one issue with the template below. Labels: `curation,enhancement`. Assignee: the GitHub user from step 3.
    - Stop as soon as you have filed N issues. If the pool runs out before you reach N, report the shortfall and offer to re-run the finder with a larger `LIMIT`.
-7. **Report** the URLs of every issue filed, plus a short list of candidates that were skipped and why (already has open issue / `possibly_covered_by` / not actionable).
+7. **Report** the URLs of every issue filed, plus a short list of candidates that were skipped and why (already in KB / already has PR or issue / `possibly_covered_by` / not actionable).
 
 ## Candidate finder
 
@@ -163,7 +183,11 @@ EOF
 
 - **Hardcoding a username.** Always resolve via `gh api user -q .login` so the skill works for any contributor.
 - **Fetching priority.html from the deployed site.** Use the local `dashboard/priority.json` — it's authoritative and structured.
-- **Claiming a disease that already has an open issue.** Always run the `gh issue list --search "MONDO:..."` check before posting.
+- **Claiming a disease that already has a KB entry, PR, or issue.** Always run
+  the duplicate preflight against `origin/main`, all PRs, and all issues before
+  posting. Open and closed GitHub records both matter because a closed PR may
+  already be merged into a newer main, and a closed issue may explain why a
+  superficially similar target should not be curated separately.
 - **Including non-actionable rows.** `LUMP_INTO_PARENT` and `DROP_GROUPING_TERM` should not become curation issues; the candidate finder above already filters them.
 - **Stale dashboard.** If `dashboard/priority.json` is more than ~30 days old, the ranking may not reflect recent kb additions. Offer to regenerate before claiming.
 - **Trusting the finder blindly.** Coverage detection is lexical (MONDO ID, label, synonym, substring). Diseases covered conceptually under a different parent term will pass through (e.g. "Zellweger spectrum disorders" → covered by `Peroxisome_Biogenesis_Disorder.yaml` but no shared MONDO ID or substring). When the candidate label ends in "syndrome", "disorder", "spectrum", "disease" or is a well-known synonym, search the kb manually before posting:

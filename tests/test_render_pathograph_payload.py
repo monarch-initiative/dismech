@@ -619,11 +619,15 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             {
                 (
                     "FLNB Pathogenic Variants",
-                    "Impaired Skeletogenesis",
+                    "FLNB Gain-of-Function Cytoskeletal Dysregulation",
                 )
             },
             {"FLNB Pathogenic Variants": "genetic"},
-            {"Impaired Skeletogenesis": ["actin filament binding"]},
+            {
+                "FLNB Gain-of-Function Cytoskeletal Dysregulation": [
+                    "actin filament binding"
+                ]
+            },
         ),
         (
             "Atelosteogenesis_Type_III.yaml",
