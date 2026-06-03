@@ -659,6 +659,11 @@ export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
 
+# Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
+[group('Export')]
+export-hpoa:
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
+
 # ============== CX2 Export ==============
 
 cx2_output_dir := "output/cx2"
@@ -1630,6 +1635,16 @@ list-research:
 [group('Research')]
 literature-scan days='7' max_records='100':
     uv run python scripts/literature_scan.py --days {{days}} --max-records {{max_records}}
+
+# Generate a deterministic Europe PMC mechanistic knowledge-gap scan packet
+[group('Research')]
+knowledge-gap-scan days='7' max_records='200':
+    uv run python scripts/knowledge_gap_scan.py --days {{days}} --max-records {{max_records}}
+
+# Generate a mechanistic knowledge-gap scan packet for an explicit publication-date range
+[group('Research')]
+knowledge-gap-scan-range date_from date_to max_records='200':
+    uv run python scripts/knowledge_gap_scan.py --date-from {{date_from}} --date-to {{date_to}} --max-records {{max_records}}
 
 # Generate a disorder review report (markdown + PDF) for expert review
 # Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml
