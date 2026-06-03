@@ -308,13 +308,17 @@ window.searchData = [
     ],
     "creation_date": "2026-04-15T23:46:24Z",
     "updated_date": "2026-04-16T21:20:00Z",
-    "subtypes": [],
+    "subtypes": [
+      "2q37 Deletion",
+      "BDMR"
+    ],
     "description": "2q37 microdeletion syndrome is a subtelomeric chromosomal disorder caused by terminal or interstitial deletions on 2q37, most often involving HDAC4 and contiguous genes. The syndrome is characterized by developmental delay or intellectual disability, brachydactyly, short stature, obesity, hypotonia, autistic features, and variable congenital anomalies.",
     "pathophysiology": [
       "2q37 haploinsufficiency",
       "Skeletal development dysregulation",
       "Neurodevelopmental dysregulation",
-      "Metabolic and growth regulation abnormalities"
+      "Metabolic and growth regulation abnormalities",
+      "Deletion-size-dependent multigene haploinsufficiency"
     ],
     "cell_types": [
       "chondrocyte",
@@ -399,17 +403,23 @@ window.searchData = [
       "Supportive care",
       "Genetic counseling",
       "Speech therapy",
-      "Physical therapy"
+      "Physical therapy",
+      "Occupational therapy",
+      "Early intervention and educational support",
+      "Behavioral and autism-spectrum support",
+      "Dietary and metabolic management for obesity",
+      "Antiepileptic drug therapy",
+      "Tumor and renal surveillance"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "2q37_Microdeletion_Syndrome.yaml",
     "page_url": "../pages/disorders/2q37_Microdeletion_Syndrome.html",
     "num_phenotypes": 20,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "11",
+    "num_treatments": 10,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "2"
   },
   {
@@ -1252,23 +1262,29 @@ window.searchData = [
       "Delayed puberty",
       "Primary amenorrhea",
       "Hypergonadotropic hypogonadism",
-      "Female phenotype with 46,XY karyotype"
+      "Female phenotype with 46,XY karyotype",
+      "Streak gonad",
+      "Gonadoblastoma"
     ],
     "phenotype_categories": [
       "Reproductive",
-      "Endocrine"
+      "Endocrine",
+      "Neoplasm"
     ],
     "phenotype_hpo_categories": [
       "Endocrine",
       "Genitourinary",
-      "Growth"
+      "Growth",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0000133",
       "HP:0000823",
       "HP:0000786",
       "HP:0000815",
-      "HP:0008730"
+      "HP:0008730",
+      "HP:0025733",
+      "HP:0000150"
     ],
     "frequencies": [],
     "genes": [
@@ -1277,17 +1293,19 @@ window.searchData = [
       "NR5A1"
     ],
     "treatments": [
-      "Prophylactic gonadectomy"
+      "Prophylactic gonadectomy",
+      "Hormone replacement therapy",
+      "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "46_XY_complete_gonadal_dysgenesis.yaml",
     "page_url": "../pages/disorders/46,XY_complete_gonadal_dysgenesis.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 7,
     "num_pathophysiology": 3,
     "num_genes": 3,
-    "num_treatments": 1,
-    "causal_graph_edges": "10",
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "4"
   },
   {
@@ -2069,7 +2087,7 @@ window.searchData = [
       "non-small cell lung carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-05-11T02:45:15Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [
       "EML4-ALK NSCLC",
       "Non-EML4 ALK Fusion NSCLC"
@@ -2141,7 +2159,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
   },
   {
@@ -2242,7 +2260,7 @@ window.searchData = [
       "acute myeloid leukemia"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-05-15T12:30:00Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [],
     "description": "Acute promyelocytic leukemia (APL) with PML-RARA is a distinct subtype of acute myeloid leukemia characterized by the t(15;17)(q24;q21) translocation creating the PML-RARA fusion oncogene. This fusion blocks myeloid differentiation at the promyelocyte stage and confers sensitivity to differentiation therapy with all-trans retinoic acid (ATRA) and arsenic trioxide (ATO). APL was historically the most fatal AML subtype due to severe coagulopathy, but is now the most curable, with ATRA plus ATO achieving greater than 90% cure rates without conventional chemotherapy. APL represents the paradigm of differentiation therapy in cancer.",
     "pathophysiology": [
@@ -2325,7 +2343,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "6",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -4400,7 +4418,7 @@ window.searchData = [
       "leukemia"
     ],
     "creation_date": "2026-05-08T12:00:00Z",
-    "updated_date": "2026-05-08T13:00:00Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [
       "B-ALL with ETV6-RUNX1",
       "B-ALL with TCF3-PBX1",
@@ -4525,7 +4543,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 7,
     "num_treatments": 9,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
   },
   {
@@ -9235,7 +9253,7 @@ window.searchData = [
       "Lymphoma"
     ],
     "creation_date": "2026-04-13T05:41:42Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [
       "Systemic ALK-Positive",
       "Systemic ALK-Negative",
@@ -9310,7 +9328,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 5,
     "num_treatments": 6,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
   },
   {
@@ -40911,7 +40929,8 @@ window.searchData = [
       "Accelerated Dendritic Spine Maturation",
       "AMPA Receptor Trafficking Disruption",
       "Postsynaptic Density Destabilization",
-      "Cortical Circuit Hard-Wiring"
+      "Cortical Circuit Hard-Wiring",
+      "GABAergic Interneuron Dysfunction"
     ],
     "cell_types": [
       "Pyramidal Neuron",
@@ -40925,7 +40944,8 @@ window.searchData = [
       "CL:0000617",
       "CL:0000115",
       "CL:0000127",
-      "CL:0000129"
+      "CL:0000129",
+      "CL:0011005"
     ],
     "biological_processes": [
       "Synaptic Transmission",
@@ -40938,7 +40958,8 @@ window.searchData = [
       "Dendritic spine maturation",
       "AMPA receptor trafficking",
       "Postsynaptic density assembly",
-      "Regulation of synaptic plasticity"
+      "Regulation of synaptic plasticity",
+      "GABAergic synaptic transmission"
     ],
     "phenotypes": [
       "Seizures",
@@ -41047,10 +41068,10 @@ window.searchData = [
     "source_file": "Epilepsy.yaml",
     "page_url": "../pages/disorders/Epilepsy.html",
     "num_phenotypes": 26,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 14,
     "num_treatments": 9,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -44085,7 +44106,7 @@ window.searchData = [
       "Congenital Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-04-28T01:31:26Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [
       "Core Complex Subtypes",
       "ID Complex Subtypes",
@@ -44438,7 +44459,7 @@ window.searchData = [
     "num_pathophysiology": 22,
     "num_genes": 25,
     "num_treatments": 8,
-    "causal_graph_edges": "62",
+    "causal_graph_edges": "69",
     "causal_graph_longest_path": "6"
   },
   {
@@ -53370,7 +53391,8 @@ window.searchData = [
       "Icatibant acute attack therapy",
       "Ecallantide acute attack therapy",
       "Sebetralstat oral acute attack therapy",
-      "Long-term kallikrein-pathway prophylaxis"
+      "Long-term kallikrein-pathway prophylaxis",
+      "Donidalorsen"
     ],
     "environmental": [],
     "biochemical": [
@@ -53382,8 +53404,8 @@ window.searchData = [
     "num_phenotypes": 19,
     "num_pathophysiology": 4,
     "num_genes": 4,
-    "num_treatments": 5,
-    "causal_graph_edges": "11",
+    "num_treatments": 6,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -61684,7 +61706,7 @@ window.searchData = [
       "Polyposis Syndrome"
     ],
     "creation_date": "2026-03-16T16:05:09Z",
-    "updated_date": "2026-03-23T18:28:00Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [
       "Juvenile polyposis of infancy",
       "SMAD4-associated juvenile polyposis with hereditary hemorrhagic telangiectasia overlap"
@@ -61777,7 +61799,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "5"
   },
   {
@@ -70357,7 +70379,7 @@ window.searchData = [
       "B-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [
       "Classical Mantle Cell Lymphoma",
       "Leukemic Non-Nodal Mantle Cell Lymphoma",
@@ -70460,7 +70482,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "5"
   },
   {
@@ -87425,7 +87447,7 @@ window.searchData = [
       "T-cell lymphoma"
     ],
     "creation_date": "2026-04-13T05:36:37Z",
-    "updated_date": "2026-04-13T05:36:37Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [
       "PTCL-NOS",
       "TFH Angioimmunoblastic-Type",
@@ -87525,7 +87547,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "1"
   },
   {
@@ -110499,7 +110521,7 @@ window.searchData = [
       "kidney neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-13T05:05:42Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [
       "Favorable Histology",
       "Anaplastic",
@@ -110614,7 +110636,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 9,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "6"
   },
   {
@@ -111790,7 +111812,7 @@ window.searchData = [
       "Cancer Predisposition Syndrome"
     ],
     "creation_date": "2026-05-13T00:00:00Z",
-    "updated_date": "2026-05-13T16:40:00Z",
+    "updated_date": "2026-06-02T00:00:00Z",
     "subtypes": [
       "XP-A",
       "XP-B",
@@ -111892,7 +111914,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "6"
   },
   {
@@ -113278,10 +113300,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 1131,
-  "total_unique_evidence_sources": 21157,
+  "total_unique_evidence_sources": 21160,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 196,
   "total_pathographs": 1124,
-  "total_unique_pathological_events": 5517
+  "total_unique_pathological_events": 5519
 };
 window.dispatchEvent(new Event('searchDataReady'));
