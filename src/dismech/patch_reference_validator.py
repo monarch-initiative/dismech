@@ -91,31 +91,44 @@ def _wrap_fulltext_method(original):
 
 
 def apply_patch():
-    """Apply the monkey-patch to PMIDSource."""
+    """Apply monkey-patches for network resilience and cache compatibility."""
     try:
         from linkml_reference_validator.etl.sources.pmid import PMIDSource
+        from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
     except ImportError:
         logger.debug("linkml-reference-validator not installed, skipping patch")
         return
 
-    if getattr(PMIDSource, "_network_patch_applied", False):
-        return  # Already patched
+    if not getattr(PMIDSource, "_network_patch_applied", False):
+        PMIDSource._fetch_pmc_xml = _wrap_network_method(
+            PMIDSource._fetch_pmc_xml, "PMIDSource._fetch_pmc_xml"
+        )
+        PMIDSource._fetch_pmc_html = _wrap_network_method(
+            PMIDSource._fetch_pmc_html, "PMIDSource._fetch_pmc_html"
+        )
+        PMIDSource._fetch_abstract = _wrap_network_method(
+            PMIDSource._fetch_abstract, "PMIDSource._fetch_abstract"
+        )
+        PMIDSource._fetch_pmc_fulltext = _wrap_fulltext_method(
+            PMIDSource._fetch_pmc_fulltext
+        )
 
-    PMIDSource._fetch_pmc_xml = _wrap_network_method(
-        PMIDSource._fetch_pmc_xml, "PMIDSource._fetch_pmc_xml"
-    )
-    PMIDSource._fetch_pmc_html = _wrap_network_method(
-        PMIDSource._fetch_pmc_html, "PMIDSource._fetch_pmc_html"
-    )
-    PMIDSource._fetch_abstract = _wrap_network_method(
-        PMIDSource._fetch_abstract, "PMIDSource._fetch_abstract"
-    )
-    PMIDSource._fetch_pmc_fulltext = _wrap_fulltext_method(
-        PMIDSource._fetch_pmc_fulltext
-    )
+        PMIDSource._network_patch_applied = True  # type: ignore[attr-defined]
+        logger.debug("Applied network resilience patch to PMIDSource")
 
-    PMIDSource._network_patch_applied = True  # type: ignore[attr-defined]
-    logger.debug("Applied network resilience patch to PMIDSource")
+    if not getattr(ReferenceFetcher, "_clinicaltrials_cache_patch_applied", False):
+        original_get_cache_path = ReferenceFetcher.get_cache_path
+
+        @wraps(original_get_cache_path)
+        def get_cache_path_with_clinicaltrials_compat(self, reference_id: str):
+            if reference_id.upper().startswith("CLINICALTRIALS:"):
+                _, identifier = reference_id.split(":", 1)
+                reference_id = f"clinicaltrials:{identifier}"
+            return original_get_cache_path(self, reference_id)
+
+        ReferenceFetcher.get_cache_path = get_cache_path_with_clinicaltrials_compat
+        ReferenceFetcher._clinicaltrials_cache_patch_applied = True  # type: ignore[attr-defined]
+        logger.debug("Applied ClinicalTrials.gov cache path compatibility patch")
 
 
 # Auto-apply on import
