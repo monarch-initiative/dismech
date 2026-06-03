@@ -414,12 +414,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
+        }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
         }
 
         .classification-category {
@@ -1140,13 +1172,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2499,6 +2531,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2514,10 +2577,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2972,15 +3039,23 @@
     {% endif %}
     {% endmacro %}
 
-    {% macro render_descriptor_tag(descriptor, tag_class="tag-bio") %}
+    {% macro render_curie_link(curie) %}
+    {% if curie %}
+    {% set curie_prefix = curie.split(':')[0] | lower | replace('_', '-') %}
+    <a href="{{ curie | curie_to_url }}" target="_blank" class="curie-chip curie-chip-{{ curie_prefix }}" title="Open {{ curie }}">{{ curie }}</a>
+    {% endif %}
+    {% endmacro %}
+
+    {% macro render_descriptor_tag(descriptor, tag_class="tag-bio", show_term_id=false) %}
     {% if descriptor %}
     {% set term_label = descriptor.term.label if descriptor.term else '' %}
     {% set display = descriptor.preferred_term or term_label or descriptor.name or '' %}
     {% if display %}
     <span class="tag {{ tag_class }}">
-        {{ display }}
         {% if descriptor.term and descriptor.term.id %}
-        <a href="{{ descriptor.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+        {{ display }} {{ render_curie_link(descriptor.term.id) }}
+        {% else %}
+        {{ display }}
         {% endif %}
     </span>
     {{ render_descriptor_qualifiers(descriptor) }}
@@ -2988,13 +3063,59 @@
     {% endif %}
     {% endmacro %}
 
-    {% macro render_descriptor_tags(descriptors, tag_class="tag-bio") %}
+    {% macro render_descriptor_tags(descriptors, tag_class="tag-bio", show_term_id=false) %}
     {% if descriptors %}
     <div class="item-meta">
         {% for descriptor in descriptors %}
-        {{ render_descriptor_tag(descriptor, tag_class) }}
+        {{ render_descriptor_tag(descriptor, tag_class, show_term_id) }}
         {% endfor %}
     </div>
+    {% endif %}
+    {% endmacro %}
+
+    {% macro render_genetic_context(gc) %}
+    {% if gc %}
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+        {% if gc.complementation_group %}
+        <span class="tag tag-gene">{{ gc.complementation_group }}</span>
+        {% endif %}
+        {{ render_descriptor_tag(gc.gene, "tag-gene", true) }}
+        {% if gc.genes %}
+        {% for g in gc.genes %}
+        {{ render_descriptor_tag(g, "tag-gene", true) }}
+        {% endfor %}
+        {% endif %}
+        {% if gc.allele_type %}
+        <span class="tag tag-classification">allele_type: {{ gc.allele_type }}</span>
+        {% endif %}
+        {% if gc.variant_origin %}
+        <span class="tag tag-classification">variant_origin: {{ gc.variant_origin }}</span>
+        {% endif %}
+        {% if gc.allelic_hit_role %}
+        <span class="tag tag-classification">allelic_hit_role: {{ gc.allelic_hit_role }}</span>
+        {% endif %}
+        {% if gc.allelic_events %}
+        {% for event in gc.allelic_events %}
+        <span class="tag tag-classification">allelic_event: {{ event }}</span>
+        {% endfor %}
+        {% endif %}
+        {% if gc.zygosity %}
+        <span class="tag tag-classification">zygosity: {{ gc.zygosity }}</span>
+        {% endif %}
+        {% if gc.functional_impact %}
+        <span class="tag tag-classification">functional_impact: {{ gc.functional_impact }}</span>
+        {% endif %}
+        {% if gc.functional_impact_category %}
+        <span class="tag tag-classification">functional_impact_category: {{ gc.functional_impact_category }}</span>
+        {% endif %}
+    </div>
+    {% if gc.description %}
+    <div class="context-detail">{{ gc.description }}</div>
+    {% endif %}
+    {% if gc.notes %}
+    <div class="context-notes">{{ gc.notes }}</div>
+    {% endif %}
     {% endif %}
     {% endmacro %}
 
@@ -4054,7 +4175,7 @@
                             <span class="subtype-gene-tag">
                                 {{ gene.preferred_term or gene.term.label }}
                                 {% if gene.term and gene.term.id %}
-                                <a href="{{ gene.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                                {{ render_curie_link(gene.term.id) }}
                                 {% endif %}
                             </span>
                             {% endfor %}
@@ -4327,32 +4448,33 @@
                     <span class="tag tag-cell">
                         {{ ct.preferred_term or ct.term.label }}
                         {% if ct.term and ct.term.id %}
-                        <a href="{{ ct.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(ct.term.id) }}
                         {% endif %}
                     </span>
                     {{ render_descriptor_qualifiers(ct) }}
                     {% endfor %}
                 </div>
                 {% endif %}
+                {% if patho.gene %}
+                <div class="item-meta">
+                    {{ render_descriptor_tag(patho.gene, "tag-gene", true) }}
+                </div>
+                {% endif %}
                 {% if patho.genes %}
                 <div class="item-meta">
                     {% for g in patho.genes %}
-                    <span class="tag tag-gene">
-                        {{ g.preferred_term or g.term.label }}
-                        {% if g.term and g.term.id %}
-                        <a href="{{ g.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
-                        {% endif %}
-                    </span>
+                    {{ render_descriptor_tag(g, "tag-gene", true) }}
                     {% endfor %}
                 </div>
                 {% endif %}
+                {{ render_genetic_context(patho.genetic_context) }}
                 {% if patho.protein_complexes %}
                 <div class="item-meta">
                     {% for pc in patho.protein_complexes %}
                     <span class="tag tag-complex">
                         {{ pc.preferred_term or pc.term.label }}
                         {% if pc.term and pc.term.id %}
-                        <a href="{{ pc.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(pc.term.id) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -4364,7 +4486,7 @@
                     <span class="tag tag-bio">
                         {{ bp.preferred_term or bp.term.label }}
                         {% if bp.term and bp.term.id %}
-                        <a href="{{ bp.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(bp.term.id) }}
                         {% endif %}
                     </span>
                     {{ render_descriptor_qualifiers(bp) }}
@@ -4377,7 +4499,7 @@
                     <span class="tag tag-bio">
                         {{ mf.preferred_term or mf.term.label }}
                         {% if mf.term and mf.term.id %}
-                        <a href="{{ mf.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(mf.term.id) }}
                         {% endif %}
                     </span>
                     {{ render_descriptor_qualifiers(mf) }}
@@ -4390,7 +4512,7 @@
                     <span class="tag tag-component">
                         {{ cc.preferred_term or cc.term.label }}
                         {% if cc.term and cc.term.id %}
-                        <a href="{{ cc.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(cc.term.id) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -4402,7 +4524,7 @@
                     <span class="tag tag-location">
                         {{ loc.preferred_term or loc.term.label }}
                         {% if loc.term and loc.term.id %}
-                        <a href="{{ loc.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(loc.term.id) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -4577,12 +4699,10 @@
                         {% endif %}
                     {% if pheno.phenotype_term and pheno.phenotype_term.term %}
                     <span class="phenotype-id">
-                        <a href="{{ pheno.phenotype_term.term.id | curie_to_url }}" target="_blank">
-                            {{ pheno.phenotype_term.term.label or pheno.phenotype_term.term.id }}
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">({{ pheno.phenotype_term.term.id }})</span>
-                        </span>
-                        {% endif %}
+                        {{ pheno.phenotype_term.term.label or pheno.phenotype_term.term.id }}
+                        {{ render_curie_link(pheno.phenotype_term.term.id) }}
+                    </span>
+                    {% endif %}
                     </div>
                     {% if pheno.phenotype_term and (pheno.phenotype_term.modifier or pheno.phenotype_term.laterality or pheno.phenotype_term.spatial_extent or pheno.phenotype_term.temporality or pheno.phenotype_term.clinical_course or pheno.phenotype_term.severity or pheno.phenotype_term.onset) %}
                     <div class="item-meta">
@@ -4644,9 +4764,7 @@
                     {% endif %}
                     {% if pheno.phenotype_term and pheno.phenotype_term.term %}
                     <span class="phenotype-id">
-                        <a href="{{ pheno.phenotype_term.term.id | curie_to_url }}" target="_blank">
-                            {{ pheno.phenotype_term.term.id }}
-                        </a>
+                        {{ render_curie_link(pheno.phenotype_term.term.id) }}
                     </span>
                     {% endif %}
                 </div>
@@ -4690,6 +4808,23 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">({{ gene.association }})</span>
                     {% endif %}
                 </div>
+                {% if gene.gene_term or gene.relationship_type or gene.variant_origin %}
+                <div class="item-meta">
+                    {% if gene.gene_term %}
+                    {% set gene_label = gene.gene_term.preferred_term or (gene.gene_term.term.label if gene.gene_term.term else gene.name) %}
+                    {% set gene_id = gene.gene_term.term.id if gene.gene_term.term else none %}
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: {{ gene_label }}{% if gene_id %} {{ render_curie_link(gene_id) }}{% endif %}
+                    </span>
+                    {% endif %}
+                    {% if gene.relationship_type %}
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: {{ gene.relationship_type }}</span>
+                    {% endif %}
+                    {% if gene.variant_origin %}
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: {{ gene.variant_origin }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
                 {% if gene.inheritance %}
                 <div class="item-meta">
                     {% for inheritance_item in gene.inheritance %}
@@ -4728,7 +4863,7 @@
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ tx_term_label }}</span>
                     {% endif %}
                     {% if tx_term_id %}
-                    <a href="{{ tx_term_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ tx_term_id }}</a>
+                    {{ render_curie_link(tx_term_id) }}
                     {% endif %}
                     {{ render_descriptor_qualifiers(tx.treatment_term) }}
                     {% endif %}
@@ -4742,7 +4877,7 @@
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ regimen_label }}</span>
                     {% endif %}
                     {% if regimen_id %}
-                    <a href="{{ regimen_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ regimen_id }}</a>
+                    {{ render_curie_link(regimen_id) }}
                     {% endif %}
                     {{ render_descriptor_qualifiers(tx.regimen_term) }}
                     {% endif %}
@@ -4761,7 +4896,7 @@
                     <span class="tag" style="background: #f5f3ff; color: #6b21a8;">Ontology label: {{ tx_loc_label }}</span>
                     {% endif %}
                     {% if tx_loc_id %}
-                    <a href="{{ tx_loc_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ tx_loc_id }}</a>
+                    {{ render_curie_link(tx_loc_id) }}
                     {% endif %}
                     {% endif %}
                     {% if tx.regimen_term and tx.regimen_term.located_in %}
@@ -4775,7 +4910,7 @@
                     <span class="tag" style="background: #f5f3ff; color: #6b21a8;">Ontology label: {{ regimen_loc_label }}</span>
                     {% endif %}
                     {% if regimen_loc_id %}
-                    <a href="{{ regimen_loc_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ regimen_loc_id }}</a>
+                    {{ render_curie_link(regimen_loc_id) }}
                     {% endif %}
                     {% endif %}
                 </div>
@@ -4787,7 +4922,7 @@
                     <span class="tag tag-treatment">
                         {{ agent.preferred_term or agent.term.label }}
                         {% if agent.term and agent.term.id %}
-                        <a href="{{ agent.term.id | curie_to_url }}" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        {{ render_curie_link(agent.term.id) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -4801,7 +4936,7 @@
                     <span class="tag tag-bio">
                         {{ mod.action | lower }} {{ mod.food.preferred_term or (mod.food.term.label if mod.food.term else 'food') }}
                         {% if mod.food.term and mod.food.term.id %}
-                        <a href="{{ mod.food.term.id | curie_to_url }}" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        {{ render_curie_link(mod.food.term.id) }}
                         {% endif %}
                     </span>
                     {% endif %}
@@ -4835,7 +4970,7 @@
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         {{ pheno.preferred_term or pheno.term.label }}
                         {% if pheno.term and pheno.term.id %}
-                        <a href="{{ pheno.term.id | curie_to_url }}" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        {{ render_curie_link(pheno.term.id) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -4914,7 +5049,7 @@
                     <span class="tag tag-env">
                         {{ env.exposure_term.preferred_term or (env.exposure_term.term.label if env.exposure_term.term else 'Exposure term') }}
                         {% if env.exposure_term.term and env.exposure_term.term.id %}
-                        <a href="{{ env.exposure_term.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(env.exposure_term.term.id) }}
                         {% endif %}
                     </span>
                     {% endif %}
@@ -4922,7 +5057,7 @@
                     <span class="tag tag-location">
                         {{ env.environment_context.preferred_term or (env.environment_context.term.label if env.environment_context.term else 'Environment context') }}
                         {% if env.environment_context.term and env.environment_context.term.id %}
-                        <a href="{{ env.environment_context.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(env.environment_context.term.id) }}
                         {% endif %}
                     </span>
                     {% endif %}
@@ -4930,7 +5065,7 @@
                     <span class="tag tag-bio">
                         {{ env.food_source.preferred_term or (env.food_source.term.label if env.food_source.term else 'Food source') }}
                         {% if env.food_source.term and env.food_source.term.id %}
-                        <a href="{{ env.food_source.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(env.food_source.term.id) }}
                         {% endif %}
                     </span>
                     {% endif %}
@@ -5139,7 +5274,7 @@
                     <span class="tag tag-cell">
                         {{ st.preferred_term }}
                         {% if st.cell_type_term and st.cell_type_term.term and st.cell_type_term.term.id %}
-                        <a href="{{ st.cell_type_term.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(st.cell_type_term.term.id) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -5160,7 +5295,7 @@
                     <span class="tag tag-env">
                         {{ exp.preferred_term }}
                         {% if exp.term and exp.term.id %}
-                        <a href="{{ exp.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                        {{ render_curie_link(exp.term.id) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -5210,7 +5345,7 @@
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         {{ pheno.preferred_term or pheno.term.label }}
                         {% if pheno.term and pheno.term.id %}
-                        <a href="{{ pheno.term.id | curie_to_url }}" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        {{ render_curie_link(pheno.term.id) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -5240,7 +5375,7 @@
                     {% endif %}
                     {% if model.namo_type %}
                     <span class="tag tag-namo-type">
-                        <a href="{{ model.namo_type | curie_to_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ model.namo_type }} ↗</a>
+                        {{ render_curie_link(model.namo_type) }}
                     </span>
                     {% endif %}
                 </div>
@@ -5259,7 +5394,7 @@
                     {% for cell in model.cell_types %}
                     <span class="tag tag-cell">
                         {% if cell.term and cell.term.id %}
-                        <a href="{{ cell.term.id | curie_to_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ cell.preferred_term or cell.term.label }} ↗</a>
+                        {{ cell.preferred_term or cell.term.label }} {{ render_curie_link(cell.term.id) }}
                         {% else %}
                         {{ cell.preferred_term or (cell.term.label if cell.term else '') }}
                         {% endif %}
@@ -5274,7 +5409,7 @@
                         <div class="model-detail-label">Organism</div>
                         <div class="model-detail-value">
                             {% if model.organism.term and model.organism.term.id %}
-                            <a href="{{ model.organism.term.id | curie_to_url }}" target="_blank">{{ model.organism.preferred_term or model.organism.term.label }} ↗</a>
+                            {{ model.organism.preferred_term or model.organism.term.label }} {{ render_curie_link(model.organism.term.id) }}
                             {% else %}
                             {{ model.organism.preferred_term or (model.organism.term.label if model.organism.term else '') }}
                             {% endif %}
@@ -5286,7 +5421,7 @@
                         <div class="model-detail-label">Tissue</div>
                         <div class="model-detail-value">
                             {% if model.tissue_term.term and model.tissue_term.term.id %}
-                            <a href="{{ model.tissue_term.term.id | curie_to_url }}" target="_blank">{{ model.tissue_term.preferred_term or model.tissue_term.term.label }} ↗</a>
+                            {{ model.tissue_term.preferred_term or model.tissue_term.term.label }} {{ render_curie_link(model.tissue_term.term.id) }}
                             {% else %}
                             {{ model.tissue_term.preferred_term or (model.tissue_term.term.label if model.tissue_term.term else '') }}
                             {% endif %}
@@ -5309,7 +5444,7 @@
                     <div class="model-detail-row">
                         <div class="model-detail-label">Publication</div>
                         <div class="model-detail-value">
-                            <a href="{{ model.publication | curie_to_url }}" target="_blank">{{ model.publication }} ↗</a>
+                            {{ render_curie_link(model.publication) }}
                         </div>
                     </div>
                     {% endif %}
@@ -5371,7 +5506,7 @@
                     <a href="{{ model.repository_url }}" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">Repository ↗</a>
                     {% endif %}
                     {% if model.publication %}
-                    <a href="{{ model.publication | curie_to_url }}" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">{{ model.publication }} ↗</a>
+                    {{ render_curie_link(model.publication) }}
                     {% endif %}
                     {% if model.base_model %}
                     <span style="font-size: 0.85rem; color: var(--text-muted);">Base model: {{ model.base_model }}</span>

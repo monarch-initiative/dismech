@@ -233,207 +233,95 @@ class ICDOMorphologyEnum(str, Enum):
 
 class HarrisonsChapterEnum(str, Enum):
     """
-    Traditional internal medicine chapter groupings for disease classification. Based on Harrison's Principles of Internal Medicine organization. Sub-chapters use is_a to indicate parent category.
+    Harrison's Principles of Internal Medicine classification by Part. Values correspond to the high-level Parts (organ-system or topical groupings) of Harrison's 21st edition (2022). The slot is named `harrisons_chapter` for historical reasons, but the controlled vocabulary lives at the Part level since this is the granularity that matches how curators classify disorders. A single disease may be assigned to multiple Parts (e.g., a hereditary skin disorder could be tagged DERMATOLOGY and GENETICS_ENVIRONMENT_DISEASE). Free-text values used in earlier curation are preserved as `aliases` on the closest-fit Part so that legacy entries continue to validate.
     """
-    Diseases_of_the_heart_and_blood_vessels = "cardiovascular disorder"
+    General_Considerations_in_Clinical_Medicine = "GENERAL_CONSIDERATIONS"
     """
-    Heart and vascular diseases, including ischemic, structural, rhythm, and vascular conditions.
+    Approach to the patient, clinical decision-making, ethics, evidence-based medicine, screening, and global aspects of medicine. Use sparingly for diseases - most diseases fit a more specific organ-system Part.
     """
-    Ischemic_heart_disease_myocardial_infarction_angina = "coronary artery disorder"
+    Cardinal_Manifestations_and_Presentation_of_Diseases = "CARDINAL_MANIFESTATIONS"
     """
-    Ischemic heart disease due to coronary artery pathology; includes myocardial infarction and angina.
+    Cardinal symptom and sign presentations (pain, fever, fatigue, weight change, cough, dyspnea, etc.) and chapters on alterations of the skin, ear, nose, and throat. Use for symptom-defined entries that cut across organ systems.
     """
-    Diseases_of_heart_muscle_LEFT_PARENTHESISdilated_hypertrophic_restrictiveRIGHT_PARENTHESIS = "cardiomyopathy"
+    Pharmacology = "PHARMACOLOGY"
     """
-    Primary diseases of the myocardium affecting systolic or diastolic function.
+    Principles of clinical pharmacology, drug therapeutics, and adverse drug reactions. Rarely used for disorder entries.
     """
-    Arrhythmias_conduction_disorders = "cardiac rhythm disease"
+    Oncology_and_Hematology = "ONCOLOGY_HEMATOLOGY"
     """
-    Electrical conduction or rhythm disorders causing arrhythmias or heart block.
+    Cancers (solid tumors and hematologic malignancies) and non-malignant hematologic disorders including anemias, coagulation disorders, transfusion medicine, and bone marrow failure syndromes.
     """
-    Diseases_of_heart_valves_LEFT_PARENTHESISstenosis_regurgitationRIGHT_PARENTHESIS = "valvular heart disease"
+    Infectious_Diseases = "INFECTIOUS_DISEASES"
     """
-    Structural or functional valve disease (stenosis or regurgitation) affecting cardiac hemodynamics.
+    Bacterial, viral, fungal, parasitic, and other microbial infections; antimicrobial therapy; infections in immunocompromised hosts; and infections by organ system when presented from an infectious-disease perspective.
     """
-    Diseases_of_arteries_and_veins_LEFT_PARENTHESISaneurysm_PAD_DVTRIGHT_PARENTHESIS = "vascular disease"
+    Disorders_of_the_Cardiovascular_System = "CARDIOVASCULAR"
     """
-    Arterial or venous disorders such as aneurysm, peripheral artery disease, or thrombosis.
+    Cardiac and vascular diseases including ischemic heart disease, heart failure, arrhythmias, cardiomyopathies, valvular and pericardial disease, congenital heart disease, and disorders of the aorta and peripheral vasculature.
     """
-    Diseases_of_the_lungs_and_airways = "respiratory system disorder"
+    Disorders_of_the_Respiratory_System = "RESPIRATORY"
     """
-    Diseases of airways, lung parenchyma, and pleura that impair ventilation or gas exchange.
+    Pulmonary diseases including obstructive lung disease (asthma, COPD), interstitial and restrictive lung disease, pulmonary vascular disease, and respiratory failure.
     """
-    COPD_asthma_bronchiectasis = "obstructive lung disease"
+    Critical_Care_Medicine = "CRITICAL_CARE"
     """
-    Airflow limitation from airway narrowing or collapse, including COPD and asthma.
+    Approach to the critically ill patient, including sepsis and septic shock, ARDS, multi-organ failure, and neurologic critical illness.
     """
-    Pulmonary_fibrosis_sarcoidosis = "interstitial lung disease"
+    Disorders_of_the_Kidney_and_Urinary_Tract = "KIDNEY_URINARY_TRACT"
     """
-    Diffuse parenchymal lung disorders with inflammation or fibrosis that reduce gas exchange.
+    Renal and urinary tract diseases including glomerular and tubulointerstitial disorders, acute kidney injury, chronic kidney disease, electrolyte and acid-base disturbances, and urolithiasis.
     """
-    Pulmonary_hypertension_pulmonary_embolism = "pulmonary vascular disease"
+    Disorders_of_the_Gastrointestinal_System = "GASTROINTESTINAL"
     """
-    Pulmonary arterial or venous vascular disorders, including hypertension and embolism.
+    Digestive-system disorders including esophageal, gastric, small-bowel, colonic, hepatic, biliary, and pancreatic disease.
     """
-    Diseases_of_the_digestive_tract_and_accessory_organs = "digestive system disorder"
+    Immune_Mediated_Inflammatory_and_Rheumatologic_Disorders = "IMMUNE_RHEUMATOLOGIC"
     """
-    Diseases of the gastrointestinal tract and accessory organs affecting digestion or absorption.
+    Autoimmune and immune-mediated conditions, connective-tissue diseases, vasculitides, and rheumatologic disorders. Musculoskeletal disorders are also covered here in Harrison's.
     """
-    CrohnAPOSTROPHEs_disease_ulcerative_colitis = "inflammatory bowel disease"
+    Endocrinology_and_Metabolism = "ENDOCRINOLOGY_METABOLISM"
     """
-    Chronic immune-mediated intestinal inflammation, typically Crohn disease or ulcerative colitis.
+    Endocrine and metabolic diseases including diabetes mellitus, thyroid, adrenal, pituitary, gonadal, calcium and bone metabolism, lipid disorders, and inborn errors of metabolism.
     """
-    Peptic_ulcer_GERD_gastritis = "peptic disorder"
+    Neurologic_Disorders = "NEUROLOGIC"
     """
-    Acid-related disorders of the esophagus, stomach, or duodenum such as GERD and peptic ulcer disease.
+    Diseases of the central and peripheral nervous system, including stroke, epilepsy, neurodegenerative disease, movement disorders, demyelinating disease, neuromuscular disease, headache, and psychiatric disorders.
     """
-    Diseases_of_the_liver_gallbladder_and_biliary_system = "liver disorder"
+    Disorders_of_the_Skin = "DERMATOLOGY"
     """
-    Hepatobiliary diseases involving liver parenchyma, bile ducts, or gallbladder.
+    Skin and cutaneous disorders. In Harrison's 21st edition, dermatology is organized as a section within the cardinal manifestations Part; this enum value is provided separately so that disorders that are primarily dermatologic can be classified directly.
     """
-    Diseases_of_the_kidneys_and_urinary_system = "kidney disorder"
+    Poisoning_Drug_Overdose_and_Envenomation = "POISONING_ENVENOMATION"
     """
-    Renal and urinary tract diseases affecting filtration, electrolyte balance, or urine flow.
+    Toxicology, poisoning syndromes, drug overdose, and bites or other venom exposures.
     """
-    Glomerulonephritis_nephrotic_syndrome = "glomerular disease"
+    Disorders_Associated_with_Environmental_Exposures = "ENVIRONMENTAL_EXPOSURES"
     """
-    Diseases of the glomerulus causing hematuria, proteinuria, or nephrotic/nephritic syndromes.
+    Disorders attributable to environmental exposures such as altitude, hypothermia/hyperthermia, drowning, and radiation injury.
     """
-    Diseases_of_blood_and_blood_forming_organs = "hematologic disorder"
+    Genes_the_Environment_and_Disease = "GENETICS_ENVIRONMENT_DISEASE"
     """
-    Disorders of blood cells, bone marrow, and hemostasis.
+    Genetic and genomic medicine, chromosomal and Mendelian disorders not better classified by organ system, and the interplay of genes and environment in disease. Use for mechanism-defined entries (RASopathies, ciliopathies, mitochondrial disease, etc.) that span multiple organ systems.
     """
-    Red_blood_cell_disorders = "anemia"
+    Disorders_of_the_Ear = "DISORDER_OF_EAR"
     """
-    Reduced red cell mass or hemoglobin due to production defects, blood loss, or hemolysis.
+    Disorders of hearing and the vestibular system. Covered in Harrison's under cardinal-manifestation chapters on the ear.
     """
-    Bleeding_and_thrombotic_disorders = "coagulation disorder"
+    Global_Medicine = "GLOBAL_MEDICINE"
     """
-    Bleeding or thrombotic disorders from clotting factor, platelet, or regulatory defects.
+    Diseases and health issues that are predominantly addressed in a global health context.
     """
-    Neoplastic_diseases_and_cancer = "cancer"
+    Aging = "AGING"
     """
-    Neoplastic diseases characterized by uncontrolled cell proliferation and invasion.
+    Disorders, syndromes, and physiologic considerations specific to older adults.
     """
-    Leukemia_lymphoma_myeloma = "hematologic malignancy"
+    Consultative_Medicine = "CONSULTATIVE_MEDICINE"
     """
-    Cancers of blood, bone marrow, and lymphoid tissues such as leukemia or lymphoma.
+    Approach to the patient when consulting across specialties (medical consultation in surgical patients, perioperative evaluation, etc.).
     """
-    Carcinomas_sarcomas_other_solid_neoplasms = "solid tumor"
+    Other = "OTHER"
     """
-    Non-hematologic neoplasms arising in organs or soft tissues.
-    """
-    Diseases_caused_by_pathogenic_microorganisms = "infectious disease"
-    """
-    Illness caused by pathogenic organisms with host invasion and immune response.
-    """
-    Infections_caused_by_bacteria = "bacterial infectious disease"
-    """
-    Infections caused by bacteria, including community and healthcare-associated pathogens.
-    """
-    Infections_caused_by_viruses = "viral infectious disease"
-    """
-    Infections caused by viruses affecting any organ system.
-    """
-    Infections_caused_by_fungi = "fungal infectious disease"
-    """
-    Mycoses ranging from superficial to invasive systemic infections.
-    """
-    Infections_caused_by_parasites_LEFT_PARENTHESISprotozoa_helminthsRIGHT_PARENTHESIS = "parasitic infectious disease"
-    """
-    Protozoal or helminth infections, often vector-borne or food/water transmitted.
-    """
-    Tuberculosis_NTM_leprosy = "mycobacterial infection"
-    """
-    Infections due to Mycobacterium species, including tuberculosis and non-tuberculous mycobacteria.
-    """
-    Diseases_of_the_immune_system_including_autoimmunity = "immune system disorder"
-    """
-    Immune dysregulation disorders including autoimmunity, immunodeficiency, or hypersensitivity.
-    """
-    Diseases_caused_by_immune_attack_on_self = "autoimmune disease"
-    """
-    Immune-mediated tissue damage due to loss of self-tolerance.
-    """
-    Hypersensitivity_disorders_anaphylaxis = "allergic disease"
-    """
-    Hypersensitivity disorders including atopy, allergic asthma, and anaphylaxis.
-    """
-    Diseases_of_hormonal_and_metabolic_systems = "endocrine system disorder"
-    """
-    Hormonal and metabolic gland disorders affecting systemic homeostasis.
-    """
-    Type_1_type_2_and_other_forms_of_diabetes = "diabetes mellitus"
-    """
-    Disorders of glucose regulation due to insulin deficiency and/or insulin resistance.
-    """
-    HyperSOLIDUShypothyroidism_thyroid_nodules_thyroid_cancer = "thyroid disorder"
-    """
-    Thyroid gland dysfunction or structural disease altering metabolic control.
-    """
-    CushingAPOSTROPHEs_AddisonAPOSTROPHEs_pheochromocytoma = "adrenal disorder"
-    """
-    Adrenal cortex or medulla disorders causing hormone excess or deficiency.
-    """
-    Diseases_of_the_central_and_peripheral_nervous_system = "nervous system disorder"
-    """
-    Central or peripheral nervous system diseases affecting cognition, sensation, or movement.
-    """
-    Stroke_TIA_vascular_dementia = "cerebrovascular disorder"
-    """
-    Brain ischemia or hemorrhage due to vascular disease, including stroke and TIA.
-    """
-    AlzheimerAPOSTROPHEs_ParkinsonAPOSTROPHEs_ALS_HuntingtonAPOSTROPHEs = "neurodegenerative disease"
-    """
-    Progressive neuronal loss leading to cognitive or motor decline.
-    """
-    Multiple_sclerosis_NMO_ADEM = "demyelinating disease"
-    """
-    Disorders with loss of myelin in the nervous system, often immune-mediated.
-    """
-    Myopathies_neuropathies_NMJ_disorders = "neuromuscular disease"
-    """
-    Diseases of peripheral nerve, neuromuscular junction, or muscle leading to weakness.
-    """
-    Seizure_disorders = "epilepsy"
-    """
-    Recurrent unprovoked seizures from abnormal neuronal activity.
-    """
-    Parkinsonism_dystonia_chorea_ataxia = "movement disorder"
-    """
-    Motor control disorders causing tremor, rigidity, dystonia, chorea, or ataxia.
-    """
-    Diseases_of_joints_connective_tissue_and_musculoskeletal_system = "musculoskeletal system disorder"
-    """
-    Diseases of joints, bones, muscles, or connective tissue.
-    """
-    Rheumatoid_arthritis_spondyloarthritis_gout = "inflammatory arthritis"
-    """
-    Inflammatory joint disorders with synovitis, such as RA or spondyloarthropathies.
-    """
-    SLE_scleroderma_SjogrenAPOSTROPHEs_vasculitis = "connective tissue disease"
-    """
-    Systemic autoimmune connective tissue disorders affecting skin, joints, vessels, and organs.
-    """
-    Diseases_of_the_skin_and_appendages = "skin disorder"
-    """
-    Diseases of the skin, hair, nails, and related appendages.
-    """
-    Mental_and_behavioral_disorders = "psychiatric disorder"
-    """
-    Mental and behavioral disorders affecting mood, thought, or behavior.
-    """
-    Diseases_of_the_ear_nose_and_throat = "otorhinolaryngologic disease"
-    """
-    Pathological processes of the ear, the nose, and the throat, also known as ENT diseases.
-    """
-    Diseases_of_the_ear_LEFT_PARENTHESISotitis_hearing_loss_cholesteatomaRIGHT_PARENTHESIS = "disorder of ear"
-    """
-    Diseases involving the external, middle, or inner ear, including infections, structural lesions, and hearing disorders.
-    """
-    Inherited_diseases_and_birth_defects = "hereditary disease"
-    """
-    Genetic or congenital disorders due to inherited variants or developmental anomalies.
+    The disorder does not fit cleanly into any of the above Parts. Use sparingly and prefer the most relevant Part where possible.
     """
 
 
@@ -956,6 +844,120 @@ class VariantOriginEnum(str, Enum):
     Unknown = "UNKNOWN"
     """
     unknown allele origin
+    """
+
+
+class AllelicHitRoleEnum(str, Enum):
+    """
+    Role of a genetic alteration in a multi-hit disease mechanism. This is intentionally separate from variant origin, event type, and functional impact so two-hit models can be represented compositionally.
+    """
+    First_hit = "FIRST_HIT"
+    """
+    Initial alteration that creates a predisposed or partially disabled state, typically a germline alteration in tumor-suppressor syndromes.
+    """
+    Second_hit = "SECOND_HIT"
+    """
+    Additional alteration that completes functional inactivation or activation in the relevant disease tissue or clone.
+    """
+    Biallelic_inactivation = "BIALLELIC_INACTIVATION"
+    """
+    Combined state in which both alleles of a gene are functionally inactivated.
+    """
+    Cooperating_hit = "COOPERATING_HIT"
+    """
+    Alteration that cooperates with another primary alteration without necessarily being ordered as the first or second hit.
+    """
+    Unknown = "UNKNOWN"
+    """
+    The hit role has not been determined.
+    """
+
+
+class AllelicEventEnum(str, Enum):
+    """
+    Type of genetic or epigenetic event affecting an allele. Use together with variant_origin, allelic_hit_role, zygosity, and functional impact rather than creating cross-product terms.
+    """
+    Pathogenic_variant = "PATHOGENIC_VARIANT"
+    """
+    Pathogenic sequence variant or small variant not otherwise specified.
+    """
+    Missense_variant = "MISSENSE_VARIANT"
+    """
+    Sequence variant that changes an amino acid.
+    """
+    Nonsense_variant = "NONSENSE_VARIANT"
+    """
+    Sequence variant that introduces a premature termination codon.
+    """
+    Frameshift_variant = "FRAMESHIFT_VARIANT"
+    """
+    Insertion or deletion that changes the coding reading frame.
+    """
+    Splice_site_variant = "SPLICE_SITE_VARIANT"
+    """
+    Variant that disrupts or alters RNA splicing.
+    """
+    Deletion = "DELETION"
+    """
+    Sequence or chromosomal deletion event.
+    """
+    Copy_number_loss = "COPY_NUMBER_LOSS"
+    """
+    Loss of DNA copy number affecting the gene or locus.
+    """
+    Copy_number_gain = "COPY_NUMBER_GAIN"
+    """
+    Gain of DNA copy number affecting the gene or locus.
+    """
+    Loss_of_heterozygosity = "LOSS_OF_HETEROZYGOSITY"
+    """
+    Loss of the wild-type or alternate allele in a tissue or clone.
+    """
+    Promoter_methylation = "PROMOTER_METHYLATION"
+    """
+    Epigenetic promoter methylation affecting gene expression.
+    """
+    Biallelic_inactivation = "BIALLELIC_INACTIVATION"
+    """
+    Composite event state in which both alleles are functionally inactivated.
+    """
+    Unknown = "UNKNOWN"
+    """
+    The allelic event type has not been determined.
+    """
+
+
+class FunctionalImpactEnum(str, Enum):
+    """
+    Directional or qualitative functional consequence of a variant or genetic context.
+    """
+    Loss_of_function = "LOSS_OF_FUNCTION"
+    """
+    Complete or partial reduction of normal gene product function.
+    """
+    Gain_of_function = "GAIN_OF_FUNCTION"
+    """
+    Increased, novel, or constitutive gene product function.
+    """
+    Partial_loss_of_function = "PARTIAL_LOSS_OF_FUNCTION"
+    """
+    Hypomorphic reduction of normal gene product function.
+    """
+    Dominant_negative = "DOMINANT_NEGATIVE"
+    """
+    Mutant product interferes with the remaining wild-type product.
+    """
+    Hypermorphic = "HYPERMORPHIC"
+    """
+    Increased normal gene product activity.
+    """
+    Neomorphic = "NEOMORPHIC"
+    """
+    Novel gene product activity not present in the wild type.
+    """
+    Unknown = "UNKNOWN"
+    """
+    Functional impact is not known.
     """
 
 
@@ -4715,9 +4717,13 @@ class GeneticContext(ConfiguredBaseModel):
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
-    allele_type: Optional[str] = Field(default=None, description="""Type of allele or mutation (e.g., null, missense, splice_site, deletion, frameshift, nonsense, hypomorphic, structural_variant). Free text to accommodate the diversity of mutation nomenclature.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
+    allele_type: Optional[str] = Field(default=None, description="""Type of allele or mutation (e.g., null, missense, splice_site, deletion, frameshift, nonsense, hypomorphic, structural_variant). Free text retained for legacy or unusually complex contexts. Prefer the structured `allelic_events`, `allelic_hit_role`, `variant_origin`, and `functional_impact_category` slots when possible.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
+    variant_origin: Optional[VariantOriginEnum] = Field(default=None, description="""The origin of disease-associated variation in this gene (germline, somatic, de novo, or both). Bound to GENO allele origin terms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Genetic'], 'examples': [{'value': 'SOMATIC'}]} })
+    allelic_hit_role: Optional[AllelicHitRoleEnum] = Field(default=None, description="""Role of the alteration in a multi-hit mechanism, such as first hit, second hit, or biallelic inactivation.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
+    allelic_events: Optional[list[AllelicEventEnum]] = Field(default=None, description="""Event types affecting the allele or locus. Multivalued so events such as deletion plus loss of heterozygosity can be composed without cross-product enum values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
     zygosity: Optional[ZygosityEnum] = Field(default=None, description="""Zygosity context""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
-    functional_impact: Optional[str] = Field(default=None, description="""Functional consequence of the genetic variant (e.g., loss_of_function, gain_of_function, dominant_negative).""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
+    functional_impact: Optional[str] = Field(default=None, description="""Functional consequence of the genetic variant (e.g., loss_of_function, gain_of_function, dominant_negative). Free text retained for legacy values; prefer `functional_impact_category` when a controlled value applies.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
+    functional_impact_category: Optional[FunctionalImpactEnum] = Field(default=None, description="""Controlled functional impact category for a genetic context.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
     complementation_group: Optional[str] = Field(default=None, description="""Complementation group designation (e.g., FA-A, FA-D1, BBS1). Used for genetically heterogeneous diseases where subtypes are historically named by complementation analysis.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -10181,7 +10187,7 @@ class Genetic(ConfiguredBaseModel):
          'recommended': True} })
     association: Optional[str] = Field(default=None, description="""Free-text descriptor of how the gene is associated with the disease. For a controlled vocabulary, also set `relationship_type`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic'], 'examples': [{'value': 'Susceptibility'}]} })
     relationship_type: Optional[GeneDiseaseRelationshipEnum] = Field(default=None, description="""Controlled-vocabulary classification of the gene-disease relationship (e.g., causative, risk factor, modifier, somatic driver). Use this in addition to the free-text `association` slot when possible.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic'], 'examples': [{'value': 'RISK_FACTOR'}]} })
-    variant_origin: Optional[VariantOriginEnum] = Field(default=None, description="""The origin of disease-associated variation in this gene (germline, somatic, de novo, or both). Bound to GENO allele origin terms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic'], 'examples': [{'value': 'SOMATIC'}]} })
+    variant_origin: Optional[VariantOriginEnum] = Field(default=None, description="""The origin of disease-associated variation in this gene (germline, somatic, de novo, or both). Bound to GENO allele origin terms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Genetic'], 'examples': [{'value': 'SOMATIC'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
@@ -10544,7 +10550,9 @@ class Disease(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis', 'Disease']} })
     creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this disease entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'ComorbidityAssociation'], 'recommended': True} })
-    updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this disease entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'ComorbidityAssociation'], 'recommended': True} })
+    updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this disease entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'deprecated': 'True',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': False} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
                        'GeneticContext',
@@ -14686,7 +14694,9 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this comorbidity entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'ComorbidityAssociation'], 'recommended': True} })
-    updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this comorbidity entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'ComorbidityAssociation'], 'recommended': True} })
+    updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this comorbidity entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'deprecated': 'True',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': False} })
     disease_a: Optional[ConditionDescriptor] = Field(default=None, description="""First disease in a comorbidity pair""", json_schema_extra = { "linkml_meta": {'domain_of': ['ComorbidityAssociation']} })
     disease_b: Optional[ConditionDescriptor] = Field(default=None, description="""Second disease in a comorbidity pair""", json_schema_extra = { "linkml_meta": {'domain_of': ['ComorbidityAssociation']} })
     directionality: Optional[ComorbidityDirectionEnum] = Field(default=None, description="""Direction of a comorbidity/trajectory association""", json_schema_extra = { "linkml_meta": {'domain_of': ['ComorbidityAssociation', 'AssociationSignal']} })

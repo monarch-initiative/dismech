@@ -142,6 +142,11 @@ def curie_to_url(curie: str) -> str:
     return f"https://bioregistry.io/{curie}"
 
 
+def _strip_line_end_whitespace(text: str) -> str:
+    """Remove renderer-introduced spaces at line ends without changing content."""
+    return re.sub(r"[ \t]+(?=\r?\n|$)", "", text)
+
+
 def slugify(name: str) -> str:
     """Convert a disorder name to a filename-safe slug."""
     return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
@@ -1517,26 +1522,28 @@ def render_disorder(
         research_root.resolve(), output_path.parent.resolve()
     )
 
-    html = template.render(
-        disorder=disorder,
-        yaml_content=yaml_content,
-        source_file=source_file,
-        mermaid_code=mermaid_code,
-        pathograph_data=pathograph_data,
-        pathograph_node_count=pathograph_node_count,
-        graph_issues=graph.integrity_issues,
-        comorbidity_links=comorbidity_links,
-        phenotype_groups=phenotype_groups,
-        report_sections=report_sections,
-        literature_sections=literature_sections,
-        hypothesis_research_links=hypothesis_research_links,
-        hypothesis_research_count=hypothesis_research_count,
-        research_root_rel=research_root_rel,
-        # OpenScientist integration
-        disorder_slug=disorder_slug,
-        yaml_revision=yaml_revision,
-        mondo_id=disease_term_term.get("id", ""),
-        openscientist_proxy_url=openscientist_proxy_url,
+    html = _strip_line_end_whitespace(
+        template.render(
+            disorder=disorder,
+            yaml_content=yaml_content,
+            source_file=source_file,
+            mermaid_code=mermaid_code,
+            pathograph_data=pathograph_data,
+            pathograph_node_count=pathograph_node_count,
+            graph_issues=graph.integrity_issues,
+            comorbidity_links=comorbidity_links,
+            phenotype_groups=phenotype_groups,
+            report_sections=report_sections,
+            literature_sections=literature_sections,
+            hypothesis_research_links=hypothesis_research_links,
+            hypothesis_research_count=hypothesis_research_count,
+            research_root_rel=research_root_rel,
+            # OpenScientist integration
+            disorder_slug=disorder_slug,
+            yaml_revision=yaml_revision,
+            mondo_id=disease_term_term.get("id", ""),
+            openscientist_proxy_url=openscientist_proxy_url,
+        )
     )
 
     # Write output
@@ -1818,7 +1825,9 @@ def render_all_comorbidities(
         )
         print(f"Rendered comorbidity: {yaml_path.stem} -> {output_path}")
 
-    index_path = render_comorbidity_index(comorbidity_summaries, output_dir / "index.html")
+    index_path = render_comorbidity_index(
+        comorbidity_summaries, output_dir / "index.html"
+    )
     output_files.append(index_path)
     print(f"Rendered comorbidity index -> {index_path}")
     return output_files

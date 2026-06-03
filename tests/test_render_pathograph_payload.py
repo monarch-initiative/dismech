@@ -135,6 +135,93 @@ def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
     assert f">Pathograph {len(graph_data['nodes'])}</a>" in html
 
 
+def test_rendered_aip_page_shows_structured_genetic_fields(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = (
+        repo_root
+        / "kb"
+        / "disorders"
+        / "AIP-related_pituitary_adenoma_predisposition.yaml"
+    )
+    output_path = (
+        tmp_path
+        / "pages"
+        / "disorders"
+        / "AIP-related_pituitary_adenoma_predisposition.html"
+    )
+
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+    graph_data = _extract_graph_data(html)
+    node_meta = {node["id"]: node.get("meta", {}) for node in graph_data["nodes"]}
+
+    assert "Gene: AIP" in html
+    assert "curie-chip-hgnc" in html
+    assert ">hgnc:358</a>" in html
+    assert "(hgnc:358)" not in html
+    assert ">link</a>" not in html
+    assert "relationship_type: SUSCEPTIBILITY" in html
+    assert "variant_origin: GERMLINE_AND_SOMATIC" in html
+    assert "variant_origin: SOMATIC" in html
+    assert "allelic_hit_role: SECOND_HIT" in html
+    assert "allelic_event: DELETION" in html
+    assert "allelic_event: LOSS_OF_HETEROZYGOSITY" in html
+    assert "functional_impact_category: LOSS_OF_FUNCTION" in html
+    assert "Reduced AIP AHR/HSP90 co-chaperone binding function" in html
+    assert ">hgnc:348</a>" in html
+    assert "AHR-dependent transcriptional response" in html
+    assert "Dysregulated AHR target-gene transcriptional response" in html
+    assert "Impaired AHR transcriptional response in AIP-mutant cells" not in html
+    assert "ligand-dependent growth hormone secretion" in html
+    assert "Disrupted AIP-dependent PDE4A cAMP-phosphodiesterase module" in html
+    assert "AIP binding to phosphodiesterase enzyme" in html
+    assert "PDE4A cAMP-specific phosphodiesterase activity" in html
+    assert ">GO:0004115</a>" in html
+    assert "gap_aip_ahr_branch_tumor_growth_causality" in html
+    assert node_meta["AIP"]["gene_terms"] == [{"label": "AIP", "id": "hgnc:358"}]
+    assert node_meta["AIP"]["relationship_type"] == "SUSCEPTIBILITY"
+    assert node_meta["AIP"]["variant_origin"] == "GERMLINE_AND_SOMATIC"
+    assert node_meta["Somatic second-hit AIP inactivation"]["gene_terms"] == [
+        {"label": "AIP", "id": "hgnc:358", "modifier": "ABSENT"}
+    ]
+    assert node_meta["Somatic second-hit AIP inactivation"]["genetic_context"] == {
+        "variant_origin": "SOMATIC",
+        "allelic_hit_role": "SECOND_HIT",
+        "functional_impact_category": "LOSS_OF_FUNCTION",
+        "description": (
+            "Acquired loss of the remaining wild-type AIP allele in tumor tissue "
+            "completes the second hit."
+        ),
+        "allelic_events": ["DELETION", "LOSS_OF_HETEROZYGOSITY"],
+        "gene_terms": [{"label": "AIP", "id": "hgnc:358"}],
+    }
+    assert node_meta["Reduced AIP AHR/HSP90 co-chaperone binding function"][
+        "gene_terms"
+    ] == [
+        {"label": "AIP", "id": "hgnc:358"},
+        {"label": "AHR", "id": "hgnc:348"},
+    ]
+    assert node_meta["Dysregulated AHR target-gene transcriptional response"][
+        "gene_terms"
+    ] == [{"label": "AHR", "id": "hgnc:348"}]
+    assert node_meta["Disrupted AIP-dependent PDE4A cAMP-phosphodiesterase module"][
+        "gene_terms"
+    ] == [
+        {"label": "AIP", "id": "hgnc:358"},
+        {"label": "PDE4A", "id": "hgnc:8780"},
+    ]
+    assert (
+        "AIP binding to phosphodiesterase enzyme"
+        in node_meta["Disrupted AIP-dependent PDE4A cAMP-phosphodiesterase module"][
+            "molecular_functions"
+        ]
+    )
+    assert (
+        "PDE4A cAMP-specific phosphodiesterase activity"
+        in node_meta["Reduced PDE4A-mediated cAMP catabolism"]["molecular_functions"]
+    )
+
+
 def test_rendered_pdac_pathograph_payload_includes_histopathology_metadata(
     tmp_path: Path,
 ) -> None:

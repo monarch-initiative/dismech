@@ -2,8 +2,8 @@
 
 These tests pin down the data-model improvements that constrain the
 previously free-text `association` slot in the `Genetic` class to a
-controlled vocabulary, and add a `variant_origin` slot bound to GENO
-allele origin terms.
+controlled vocabulary, add a `variant_origin` slot bound to GENO allele
+origin terms, and add composable genetic-context slots for two-hit mechanisms.
 """
 
 from pathlib import Path
@@ -78,6 +78,34 @@ def test_genetic_class_has_new_slots(schema_view):
     assert "association" in slot_names
 
 
+def test_genetic_context_class_has_composable_two_hit_slots(schema_view):
+    """GeneticContext exposes reusable origin, hit-role, event, and impact slots."""
+    cls = schema_view.get_class("GeneticContext")
+    assert cls is not None
+    induced = schema_view.class_induced_slots("GeneticContext")
+    slot_names = {s.name for s in induced}
+    assert "variant_origin" in slot_names
+    assert "allelic_hit_role" in slot_names
+    assert "allelic_events" in slot_names
+    assert "functional_impact_category" in slot_names
+    assert "allele_type" in slot_names
+    assert "functional_impact" in slot_names
+
+    assert schema_view.induced_slot("variant_origin", "GeneticContext").range == (
+        "VariantOriginEnum"
+    )
+    assert schema_view.induced_slot("allelic_hit_role", "GeneticContext").range == (
+        "AllelicHitRoleEnum"
+    )
+    assert schema_view.induced_slot("allelic_events", "GeneticContext").range == (
+        "AllelicEventEnum"
+    )
+    assert (
+        schema_view.induced_slot("functional_impact_category", "GeneticContext").range
+        == "FunctionalImpactEnum"
+    )
+
+
 def test_genetic_record_validates_with_structured_fields(validator):
     """A minimal Disease using the new structured fields validates."""
     disease = {
@@ -105,6 +133,33 @@ def test_genetic_record_validates_with_structured_fields(validator):
     assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
 
 
+def test_pathophysiology_genetic_context_validates_with_composable_two_hit_fields(
+    validator,
+):
+    """A two-hit Pathophysiology context composes independent enum dimensions."""
+    disease = {
+        "name": "Test Two Hit Disease",
+        "pathophysiology": [
+            {
+                "name": "Somatic second-hit gene inactivation",
+                "genetic_context": {
+                    "gene": {
+                        "preferred_term": "AIP",
+                        "term": {"id": "hgnc:358", "label": "AIP"},
+                    },
+                    "variant_origin": "SOMATIC",
+                    "allelic_hit_role": "SECOND_HIT",
+                    "allelic_events": ["DELETION", "LOSS_OF_HETEROZYGOSITY"],
+                    "functional_impact_category": "LOSS_OF_FUNCTION",
+                },
+            }
+        ],
+    }
+    report = validator.validate(disease, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
+
+
 def test_invalid_relationship_type_rejected(validator):
     """An out-of-vocabulary relationship_type fails validation."""
     disease = {
@@ -119,3 +174,24 @@ def test_invalid_relationship_type_rejected(validator):
     report = validator.validate(disease, target_class="Disease")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert errors, "Expected validation error for invalid relationship_type"
+
+
+def test_invalid_allelic_event_rejected(validator):
+    """Ad hoc cross-product second-hit event labels fail validation."""
+    disease = {
+        "name": "Test Disease Invalid Genetic Context",
+        "pathophysiology": [
+            {
+                "name": "Somatic second-hit gene inactivation",
+                "genetic_context": {
+                    "variant_origin": "SOMATIC",
+                    "allelic_hit_role": "SECOND_HIT",
+                    "allelic_events": ["SECOND_HIT_DELETION_LOH"],
+                    "functional_impact_category": "LOSS_OF_FUNCTION",
+                },
+            }
+        ],
+    }
+    report = validator.validate(disease, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert errors, "Expected validation error for ad hoc allelic event"
