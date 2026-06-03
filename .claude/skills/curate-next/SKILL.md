@@ -53,10 +53,29 @@ Skip when:
    **Do NOT use `gh pr list --search "closes #${ISSUE_NUM}"` as a forward check.** GitHub's free-text search matches the literal string `#${ISSUE_NUM}` anywhere in PR body or commits, including unrelated occurrences like `ORPHA:${ISSUE_NUM}`. This produced a false positive in production on issue #2704 (Orphanet ID `ORPHA:2704` in PR #1992's body matched `#2704`). `closedByPullRequestsReferences` is structured GitHub linkage and avoids the trap.
 
    If `closedByPullRequestsReferences` is rejected as an unknown field by the local `gh` version, upgrade `gh` rather than falling back to the lossy text search.
-6. **Sort and pick.** Sort the survivors by `number` ascending (oldest issue first — that's the conventional FIFO for a curation queue) and take the first N. If fewer than N survive, do not pad — report the shortfall in step 8.
+6. **Sort and pick.** Sort the survivors by `number` ascending (oldest issue first — that's the conventional FIFO for a curation queue) and take the first N. If fewer than N survive, do not pad — report the shortfall in the final report.
 7. **Extract the disease label and MONDO ID from each title.** Issue titles follow `Curate <label> (<MONDO_ID>)`. Parse with a regex; if a title does not match (e.g. an old hand-filed issue), skip it and note it in the final report rather than passing a garbled label to `/curate`.
-8. **Dispatch /curate in parallel.** In a **single message**, launch N Agent tool calls — one per disease — using `subagent_type: general-purpose` so each agent has full tool access (`Tools: *`). `claude` works too on harnesses that register it as a catch-all type, but `general-purpose` is the canonical name across harnesses; prefer it for portability. Each agent's prompt MUST:
+8. **Run duplicate preflight for each picked issue.** Before dispatch, verify the
+   disease is still absent from the latest upstream KB and is not already
+   covered by another PR or issue:
+   ```bash
+   git fetch origin main
+   git grep -n -i -e "<MONDO_ID>" -e "<label>" origin/main -- kb/disorders || true
+   gh pr list --repo monarch-initiative/dismech --state all \
+     --search "\"<MONDO_ID>\" OR \"<label>\"" \
+     --json number,title,state,url,headRefName --limit 100
+   gh issue list --repo monarch-initiative/dismech --state all \
+     --search "\"<MONDO_ID>\" OR \"<label>\"" \
+     --json number,title,state,url,labels --limit 100
+   ```
+   The current issue itself is expected in the issue search results. Skip the
+   candidate if the KB, another PR, or another issue already covers the same
+   disorder, and report the skip.
+9. **Dispatch /curate in parallel.** In a **single message**, launch N Agent tool calls — one per disease — using `subagent_type: general-purpose` so each agent has full tool access (`Tools: *`). `claude` works too on harnesses that register it as a catch-all type, but `general-purpose` is the canonical name across harnesses; prefer it for portability. Each agent's prompt MUST:
    - State the disease label and MONDO ID verbatim.
+   - State that the duplicate preflight against latest KB, all PRs, and all
+     issues has already been performed, and tell the agent to repeat it before
+     writing files if its worktree is created later from stale refs.
    - Quote any deep-research provider hints from the issue body (e.g. "using falcon", "using deep-research"). Default to **falcon** when none are mentioned.
    - Reference the GitHub issue number so the agent links the resulting PR back to it.
    - Instruct the agent to consult the `initiate-new-disorder-creation` skill for the full curation workflow (this is what `/curate` does — sub-agents cannot invoke slash commands directly, so this skill must be named in the prompt).
@@ -70,9 +89,9 @@ Skip when:
    Dispatching all N in one message is the whole point — sequential dispatch defeats the skill. See `superpowers:dispatching-parallel-agents` if you need a refresher on parallel sub-agent semantics. Run the agents in the background (`run_in_background: true`) so the orchestrator regains control immediately and can report; you will be notified as each finishes.
 
    **After every agent finishes (or stalls), verify each branch has at least one commit:** `git log origin/main..<branch> --oneline`. If empty, the agent's work is likely uncommitted in its worktree's working tree — or worse, leaked into the parent checkout. Check `git status` in the parent before dispatching another batch.
-9. **Report.** After all agents finish, list:
+10. **Report.** After all agents finish, list:
    - Issues processed (number + label + agent result summary)
-   - Issues skipped and why (already has PR / co-assigned / unparseable title)
+   - Issues skipped and why (duplicate KB/PR/issue / already has PR / co-assigned / unparseable title)
    - The shortfall, if you delivered fewer than N curations
 
 ## Quick reference
@@ -89,6 +108,10 @@ Skip when:
 
 - **Treating co-assigned issues as solo work.** `gh issue list --assignee @me` returns issues where the user is *an* assignee, not the *only* assignee. The jq length-1 filter in step 4 is mandatory.
 - **Skipping the PR-existence check.** If a contributor opened a PR three days ago and is still under review, re-running `/curate` will overwrite their work and waste the reviewer's time. Always check `closedByPullRequestsReferences` on the issue before dispatching.
+- **Skipping the duplicate preflight.** The current issue may have been filed
+  before another agent opened a PR or before a newer disorder entry reached
+  `origin/main`. Re-check latest KB, all PRs, and all issues immediately before
+  dispatch.
 - **Using `gh pr list --search "closes #N"` as a PR-link check.** GitHub's free-text search matches the literal `#N` anywhere — including `ORPHA:N`, `MONDO:0000N`, line numbers in code blocks, etc. This caused a real false positive on issue #2704 (matched on `ORPHA:2704`). The structured `closedByPullRequestsReferences` field on the issue is the authoritative signal.
 - **Running `/curate` sequentially.** Sequential dispatch defeats the skill. All N Agent calls go in one message.
 - **Silently picking fewer than N.** If only 2 issues survive when the user asked for 5, say so explicitly in the report. Do not pad the count with co-assigned or PR-linked issues just to hit N.

@@ -23,15 +23,43 @@ This skill can also be consulted for ongoing curation of existing disorders.
 
 ## Workflow
 
-### Step 1: Select Disorder Name and Verify Disorder Doesn't Exist
+### Step 1: Select Disorder Name and Run Duplicate Preflight
 
 Choose the clinically preferred name for the disorder, use title case (e.g. `Foo Bar Syndrome`).
 For file names, spaces will. be replaced by underscores, and characters such as apostrophes removed.
 
+Before creating a new disorder file, check all three duplicate surfaces:
+
+1. **Most recent knowledgebase**: fetch `origin/main` and search the current
+   upstream disorder YAMLs by MONDO ID, preferred label, and important synonyms.
+2. **All pull requests**: search open, closed, and merged PRs for the same ID
+   and names.
+3. **All issues**: search open and closed issues for the same ID and names.
+
+Use specific identifiers first, then human-readable labels and synonyms:
+
 ```bash
-ls kb/disorders/*yaml
+git fetch origin main
+
+# Knowledgebase on the latest origin/main, not just the local working tree.
+git grep -n -i -e "<MONDO_ID>" -e "<preferred disorder name>" origin/main -- kb/disorders || true
+git grep -n -i -e "<important synonym>" origin/main -- kb/disorders || true
+
+# PRs and issues across all states.
+gh pr list --repo monarch-initiative/dismech --state all \
+  --search "\"<MONDO_ID>\" OR \"<preferred disorder name>\"" \
+  --json number,title,state,url,headRefName --limit 100
+gh issue list --repo monarch-initiative/dismech --state all \
+  --search "\"<MONDO_ID>\" OR \"<preferred disorder name>\"" \
+  --json number,title,state,url,labels --limit 100
 ```
-If it exists, edit the existing file instead of creating a new one.
+
+Repeat the PR and issue searches for important synonyms if the first search is
+empty. If the disorder already exists in the knowledgebase, edit the existing
+file instead of creating a new one. If an open PR or issue already covers the
+same disorder, continue there rather than starting duplicate work. If a closed
+PR or issue appears relevant, inspect it before deciding whether new curation is
+still needed.
 
 ### Step 2a: Setup git worktree
 
