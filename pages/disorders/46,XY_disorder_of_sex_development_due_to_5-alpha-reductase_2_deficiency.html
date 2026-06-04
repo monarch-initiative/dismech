@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0009923" target="_blank">
                         MONDO:0009923
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">46,XY disorder of sex development</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Androgen metabolism disorder</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Inherited lipid metabolism disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,11 +2993,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency is an autosomal recessive androgen metabolism disorder caused by biallelic SRD5A2 loss-of-function variants. Impaired 5-alpha-reductase type 2 activity reduces conversion of testosterone to dihydrotestosterone, causing incomplete intrauterine masculinization of external genitalia in individuals with a 46,XY karyotype. Pubertal virilization may occur when testosterone production rises.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2997,36 +3067,36 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3034,9 +3104,9 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3044,8 +3114,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3053,9 +3123,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3063,10 +3133,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3074,8 +3144,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3083,8 +3153,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3092,14 +3162,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3107,8 +3177,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3116,979 +3186,1057 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0009923" target="_blank">MONDO:0009923</a>
-                        
-                        
+
+
                         <span class="mapping-label">46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">MONDO</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">Primary MONDO identifier for the disease.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
-            
-            
+
+
+
+
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Affected individuals have biallelic SRD5A2 pathogenic variants.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autosomal recessive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet lists autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"5α-R2 deficiency is inherited in an autosomal recessive pattern."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The worldwide review directly supports autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-srd5a2-loss-of-function">
                 <div class="item-name">SRD5A2 Loss of Function</div>
-                
+
                 <div class="item-desc">Biallelic SRD5A2 pathogenic variants reduce or abolish steroid 5-alpha-reductase type 2 function.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        SRD5A2
-                        
-                        <a href="https://bioregistry.io/hgnc:11285" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SRD5A2
+
+
+    <a href="https://bioregistry.io/hgnc:11285" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11285">hgnc:11285</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         androgen biosynthetic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006702">GO:0006702</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Reduced 5-Alpha-Reductase Type 2 Activity</span>
-	                            
+
 	                            <span class="crosslink-desc">SRD5A2 loss of function lowers 5-alpha-reductase type 2 enzymatic activity.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"SRD5A2 | steroid 5 alpha-reductase 2 | hgnc:11285 | Disease-causing germline mutation(s) (loss of function) in"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records loss-of-function SRD5A2 variants as disease-causing.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Defects in the 5α-reductase type 2 enzyme arise from mutations in the SRD5A2 gene."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review identifies SRD5A2 variants as the molecular basis of the enzyme defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-5-alpha-reductase-type-2-activity">
                 <div class="item-name">Reduced 5-Alpha-Reductase Type 2 Activity</div>
-                
+
                 <div class="item-desc">Reduced 5-alpha-reductase type 2 activity impairs the NADPH-dependent conversion of testosterone to dihydrotestosterone.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         androgen biosynthetic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006702">GO:0006702</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Testosterone to Dihydrotestosterone Conversion</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced enzyme activity causes deficient testosterone-to-DHT conversion.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The 5α-RD2 is a membrane-bound enzyme that catalyzes the irreversible conversion of testosterone into dihydrotestosterone using NADPH as cofactor."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review states the enzymatic reaction catalyzed by 5-alpha-reductase type 2.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-testosterone-to-dihydrotestosterone-conversion">
                 <div class="item-name">Impaired Testosterone to Dihydrotestosterone Conversion</div>
-                
+
                 <div class="item-desc">Impaired conversion produces relative dihydrotestosterone deficiency and an elevated testosterone-to-dihydrotestosterone ratio.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         androgen biosynthetic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006702">GO:0006702</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Dihydrotestosterone</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired testosterone-to-DHT conversion reduces DHT production.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Testosterone-to-dihydrotestosterone ratio</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced DHT relative to testosterone increases the diagnostic T/DHT ratio.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Fetal Dihydrotestosterone Deficiency</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired testosterone-to-DHT conversion reduces DHT-dependent fetal masculinization signals.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Pubertal Virilization</span>
-	                            
+
 	                            <span class="crosslink-desc">The persistent DHT-production defect explains undervirilization at birth, while pubertal testosterone exposure can still drive virilization through androgen receptor signaling.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41210722" target="_blank">PMID:41210722</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"testosterone/dihydrotestosterone in Probands 1 and 2 as 45.4 and 43.2,"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The sibling case report documents markedly elevated testosterone-to-DHT ratios.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-dihydrotestosterone-deficiency">
                 <div class="item-name">Fetal Dihydrotestosterone Deficiency</div>
-                
+
                 <div class="item-desc">DHT deficiency during fetal development impairs masculinization of the external genitalia while internal Wolffian structures can be relatively preserved by testosterone action.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         androgen receptor signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030521" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030521" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030521">GO:0030521</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">46XY Undervirilization Phenotype</span>
-	                            
+
 	                            <span class="crosslink-desc">Fetal DHT deficiency causes variable 46,XY undervirilization, including ambiguous genitalia, perineal hypospadias, small or bifid scrotum, and micropenis.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Endocrine abnormality</span>
-	                            
+
 	                            <span class="crosslink-desc">Fetal DHT deficiency is the core endocrine-metabolic abnormality in this androgen metabolism disorder.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In utero, DHT is crucial for growth of the prostate gland and for differentiation of the external genitalia into male genitalia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review supports DHT as the critical fetal signal for external genital development.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-46xy-undervirilization-phenotype">
                 <div class="item-name">46XY Undervirilization Phenotype</div>
-                
+
                 <div class="item-desc">The clinical phenotype ranges from female-appearing external genitalia to ambiguous genitalia, perineoscrotal hypospadias, bifid or small scrotum, micropenis, cryptorchidism, urogenital sinus anatomy, and reduced fertility.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cryptorchidism</span>
-	                            
+
 	                            <span class="crosslink-desc">Undervirilization includes undescended testes.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ambiguous genitalia, male</span>
-	                            
+
 	                            <span class="crosslink-desc">Variable undervirilization can produce ambiguous genitalia in a 46,XY individual.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Small scrotum</span>
-	                            
+
 	                            <span class="crosslink-desc">DHT-dependent scrotal development is reduced in the undervirilization phenotype.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Bifid scrotum</span>
-	                            
+
 	                            <span class="crosslink-desc">Incomplete labioscrotal fusion is part of the undervirilization spectrum.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Perineal hypospadias</span>
-	                            
+
 	                            <span class="crosslink-desc">Urethral masculinization can be incomplete, producing perineal hypospadias.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ambiguous genitalia</span>
-	                            
+
 	                            <span class="crosslink-desc">External genital appearance may be ambiguous or female appearing.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Decreased fertility</span>
-	                            
+
 	                            <span class="crosslink-desc">Genital tract anatomy and maldescent can reduce fertility in affected 46,XY individuals.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypoplasia of penis</span>
-	                            
+
 	                            <span class="crosslink-desc">DHT-dependent phallic growth is reduced, producing micropenis or penile hypoplasia.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Urogenital sinus anomaly</span>
-	                            
+
 	                            <span class="crosslink-desc">Severe undervirilization can preserve urogenital sinus anatomy.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"incomplete intrauterine masculinization"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet summarizes incomplete intrauterine masculinization as the defining phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ranging from typical female external genitalia to hypospadias or isolated micropenis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The worldwide review supports the variable external-genital phenotype range.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pubertal-testosterone-exposure">
                 <div class="item-name">Pubertal Testosterone Exposure</div>
-                
+
                 <div class="item-desc">At puberty, endogenous testosterone can drive androgen effects despite the persistent DHT-production defect, contributing to masculinization and gender development patterns in some affected individuals raised female.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         androgen receptor signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030521" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030521" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030521">GO:0030521</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Pubertal Virilization</span>
-	                            
+
 	                            <span class="crosslink-desc">Testosterone exposure at puberty contributes to virilization despite reduced DHT synthesis.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"testosterone is enough for the brain virilization."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review explains that testosterone can support androgen-dependent virilization effects even when DHT-dependent external virilization is impaired.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pubertal-virilization">
                 <div class="item-name">Pubertal Virilization</div>
-                
+
                 <div class="item-desc">Pubertal androgen exposure may produce deepening of the voice, phallic enlargement, increased muscle mass, and other virilizing changes.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Pubertal virilization</span>
-	                            
+
 	                            <span class="crosslink-desc">Pubertal androgen exposure produces the reported virilization phenotype.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Typically, affected individuals presented virilization (clinical and psychological) at puberty"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The worldwide review describes pubertal virilization as a typical presentation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4099,724 +4247,754 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"46XY Undervirilization Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical phenotype ranges from female-appearing external genitalia to ambiguous genitalia, perineoscrotal hypospadias, bifid or small scrotum, micropenis, cryptorchidism, urogenital sinus anatomy, and reduced fertility.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ambiguous genitalia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"External genital appearance may be ambiguous or female appearing.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000062\"}}, {\"id\": \"Ambiguous genitalia, male\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incompletely masculinized genitalia may be ambiguous in a 46,XY individual.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000033\"}}, {\"id\": \"Bifid scrotum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bifid scrotum is a very frequent external-genital finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000048\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are very frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Decreased fertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fertility is commonly reduced in affected 46,XY individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000144\"}}, {\"id\": \"Dihydrotestosterone\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16330\", \"term_label\": \"17beta-hydroxy-5alpha-androstan-3-one\", \"readouts\": [{\"target\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower DHT reports the deficient SRD5A2-dependent product.\"}]}}, {\"id\": \"Endocrine abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The endocrine abnormality reflects impaired androgen metabolism.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000818\"}}, {\"id\": \"Fetal Dihydrotestosterone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DHT deficiency during fetal development impairs masculinization of the external genitalia while internal Wolffian structures can be relatively preserved by testosterone action.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"androgen receptor signaling pathway\"]}}, {\"id\": \"Hypoplasia of penis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micropenis or penile hypoplasia may occur.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008736\"}}, {\"id\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired conversion produces relative dihydrotestosterone deficiency and an elevated testosterone-to-dihydrotestosterone ratio.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"androgen biosynthetic process\"]}}, {\"id\": \"Orchiopexy or testis descent\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For patients managed with retained testes, orchiopexy or testis descent may be considered to reposition testes and reduce risks from persistent maldescent.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Perineal hypospadias\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Perineal or perineoscrotal hypospadias is characteristic.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000051\"}}, {\"id\": \"Pubertal Testosterone Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At puberty, endogenous testosterone can drive androgen effects despite the persistent DHT-production defect, contributing to masculinization and gender development patterns in some affected individuals raised female.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"androgen receptor signaling pathway\"]}}, {\"id\": \"Pubertal Virilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pubertal androgen exposure may produce deepening of the voice, phallic enlargement, increased muscle mass, and other virilizing changes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pubertal virilization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Individuals raised female may develop virilization at puberty, including phallic enlargement, voice deepening, scrotal hyperpigmentation, and increased muscle mass.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Reduced 5-Alpha-Reductase Type 2 Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced 5-alpha-reductase type 2 activity impairs the NADPH-dependent conversion of testosterone to dihydrotestosterone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"androgen biosynthetic process\"]}}, {\"id\": \"SRD5A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SRD5A2\"], \"association\": \"Causal biallelic loss-of-function variant\"}}, {\"id\": \"SRD5A2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SRD5A2 pathogenic variants reduce or abolish steroid 5-alpha-reductase type 2 function.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"androgen biosynthetic process\"], \"genes\": [\"SRD5A2\"]}}, {\"id\": \"Small scrotum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scrotal underdevelopment can accompany incomplete masculinization.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000046\"}}, {\"id\": \"Testosterone-to-dihydrotestosterone ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Higher T/DHT ratio reports impaired conversion of testosterone to DHT.\"}]}}, {\"id\": \"Urogenital sinus anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urogenital sinus anatomy may be present with severe undervirilization.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100779\"}}], \"edges\": [{\"source\": \"SRD5A2 Loss of Function\", \"target\": \"Reduced 5-Alpha-Reductase Type 2 Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SRD5A2 loss of function lowers 5-alpha-reductase type 2 enzymatic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced 5-Alpha-Reductase Type 2 Activity\", \"target\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity causes deficient testosterone-to-DHT conversion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Dihydrotestosterone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired testosterone-to-DHT conversion reduces DHT production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Testosterone-to-dihydrotestosterone ratio\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced DHT relative to testosterone increases the diagnostic T/DHT ratio.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Fetal Dihydrotestosterone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired testosterone-to-DHT conversion reduces DHT-dependent fetal masculinization signals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Pubertal Virilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The persistent DHT-production defect explains undervirilization at birth, while pubertal testosterone exposure can still drive virilization through androgen receptor signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"normal pubertal testosterone production with preserved androgen receptor signaling\"]}, {\"source\": \"Fetal Dihydrotestosterone Deficiency\", \"target\": \"46XY Undervirilization Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal DHT deficiency causes variable 46,XY undervirilization, including ambiguous genitalia, perineal hypospadias, small or bifid scrotum, and micropenis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Dihydrotestosterone Deficiency\", \"target\": \"Endocrine abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal DHT deficiency is the core endocrine-metabolic abnormality in this androgen metabolism disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undervirilization includes undescended testes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Ambiguous genitalia, male\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variable undervirilization can produce ambiguous genitalia in a 46,XY individual.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Small scrotum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DHT-dependent scrotal development is reduced in the undervirilization phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Bifid scrotum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete labioscrotal fusion is part of the undervirilization spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Perineal hypospadias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urethral masculinization can be incomplete, producing perineal hypospadias.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Ambiguous genitalia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"External genital appearance may be ambiguous or female appearing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Decreased fertility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital tract anatomy and maldescent can reduce fertility in affected 46,XY individuals.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal testicular position and genital tract development\"]}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Hypoplasia of penis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DHT-dependent phallic growth is reduced, producing micropenis or penile hypoplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Urogenital sinus anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe undervirilization can preserve urogenital sinus anatomy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pubertal Testosterone Exposure\", \"target\": \"Pubertal Virilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Testosterone exposure at puberty contributes to virilization despite reduced DHT synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pubertal Virilization\", \"target\": \"Pubertal virilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pubertal androgen exposure produces the reported virilization phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Orchiopexy or testis descent\", \"target\": \"Cryptorchidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Dihydrotestosterone\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower DHT reports the deficient SRD5A2-dependent product.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Testosterone-to-dihydrotestosterone ratio\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher T/DHT ratio reports impaired conversion of testosterone to DHT.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SRD5A2\", \"target\": \"SRD5A2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"46XY Undervirilization Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical phenotype ranges from female-appearing external genitalia to ambiguous genitalia, perineoscrotal hypospadias, bifid or small scrotum, micropenis, cryptorchidism, urogenital sinus anatomy, and reduced fertility.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ambiguous genitalia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"External genital appearance may be ambiguous or female appearing.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000062\"}}, {\"id\": \"Ambiguous genitalia, male\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incompletely masculinized genitalia may be ambiguous in a 46,XY individual.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000033\"}}, {\"id\": \"Bifid scrotum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bifid scrotum is a very frequent external-genital finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000048\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are very frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Decreased fertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fertility is commonly reduced in affected 46,XY individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000144\"}}, {\"id\": \"Dihydrotestosterone\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16330\", \"term_label\": \"17beta-hydroxy-5alpha-androstan-3-one\", \"readouts\": [{\"target\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower DHT reports the deficient SRD5A2-dependent product.\"}]}}, {\"id\": \"Endocrine abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The endocrine abnormality reflects impaired androgen metabolism.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000818\"}}, {\"id\": \"Fetal Dihydrotestosterone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DHT deficiency during fetal development impairs masculinization of the external genitalia while internal Wolffian structures can be relatively preserved by testosterone action.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"androgen receptor signaling pathway\"]}}, {\"id\": \"Hypoplasia of penis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micropenis or penile hypoplasia may occur.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008736\"}}, {\"id\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired conversion produces relative dihydrotestosterone deficiency and an elevated testosterone-to-dihydrotestosterone ratio.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"androgen biosynthetic process\"]}}, {\"id\": \"Orchiopexy or testis descent\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For patients managed with retained testes, orchiopexy or testis descent may be considered to reposition testes and reduce risks from persistent maldescent.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Perineal hypospadias\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Perineal or perineoscrotal hypospadias is characteristic.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000051\"}}, {\"id\": \"Pubertal Testosterone Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At puberty, endogenous testosterone can drive androgen effects despite the persistent DHT-production defect, contributing to masculinization and gender development patterns in some affected individuals raised female.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"androgen receptor signaling pathway\"]}}, {\"id\": \"Pubertal Virilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pubertal androgen exposure may produce deepening of the voice, phallic enlargement, increased muscle mass, and other virilizing changes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pubertal virilization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Individuals raised female may develop virilization at puberty, including phallic enlargement, voice deepening, scrotal hyperpigmentation, and increased muscle mass.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Reduced 5-Alpha-Reductase Type 2 Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced 5-alpha-reductase type 2 activity impairs the NADPH-dependent conversion of testosterone to dihydrotestosterone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"androgen biosynthetic process\"]}}, {\"id\": \"SRD5A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SRD5A2\"], \"gene_terms\": [{\"label\": \"SRD5A2\", \"id\": \"hgnc:11285\"}], \"association\": \"Causal biallelic loss-of-function variant\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SRD5A2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SRD5A2 pathogenic variants reduce or abolish steroid 5-alpha-reductase type 2 function.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"androgen biosynthetic process\"], \"genes\": [\"SRD5A2\"], \"gene_terms\": [{\"label\": \"SRD5A2\", \"id\": \"hgnc:11285\"}]}}, {\"id\": \"Small scrotum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scrotal underdevelopment can accompany incomplete masculinization.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000046\"}}, {\"id\": \"Testosterone-to-dihydrotestosterone ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Higher T/DHT ratio reports impaired conversion of testosterone to DHT.\"}]}}, {\"id\": \"Urogenital sinus anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urogenital sinus anatomy may be present with severe undervirilization.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100779\"}}], \"edges\": [{\"source\": \"SRD5A2 Loss of Function\", \"target\": \"Reduced 5-Alpha-Reductase Type 2 Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SRD5A2 loss of function lowers 5-alpha-reductase type 2 enzymatic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced 5-Alpha-Reductase Type 2 Activity\", \"target\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity causes deficient testosterone-to-DHT conversion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Dihydrotestosterone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired testosterone-to-DHT conversion reduces DHT production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Testosterone-to-dihydrotestosterone ratio\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced DHT relative to testosterone increases the diagnostic T/DHT ratio.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Fetal Dihydrotestosterone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired testosterone-to-DHT conversion reduces DHT-dependent fetal masculinization signals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Pubertal Virilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The persistent DHT-production defect explains undervirilization at birth, while pubertal testosterone exposure can still drive virilization through androgen receptor signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"normal pubertal testosterone production with preserved androgen receptor signaling\"]}, {\"source\": \"Fetal Dihydrotestosterone Deficiency\", \"target\": \"46XY Undervirilization Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal DHT deficiency causes variable 46,XY undervirilization, including ambiguous genitalia, perineal hypospadias, small or bifid scrotum, and micropenis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Dihydrotestosterone Deficiency\", \"target\": \"Endocrine abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal DHT deficiency is the core endocrine-metabolic abnormality in this androgen metabolism disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undervirilization includes undescended testes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Ambiguous genitalia, male\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variable undervirilization can produce ambiguous genitalia in a 46,XY individual.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Small scrotum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DHT-dependent scrotal development is reduced in the undervirilization phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Bifid scrotum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete labioscrotal fusion is part of the undervirilization spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Perineal hypospadias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urethral masculinization can be incomplete, producing perineal hypospadias.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Ambiguous genitalia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"External genital appearance may be ambiguous or female appearing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Decreased fertility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital tract anatomy and maldescent can reduce fertility in affected 46,XY individuals.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal testicular position and genital tract development\"]}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Hypoplasia of penis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DHT-dependent phallic growth is reduced, producing micropenis or penile hypoplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"46XY Undervirilization Phenotype\", \"target\": \"Urogenital sinus anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe undervirilization can preserve urogenital sinus anatomy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pubertal Testosterone Exposure\", \"target\": \"Pubertal Virilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Testosterone exposure at puberty contributes to virilization despite reduced DHT synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pubertal Virilization\", \"target\": \"Pubertal virilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pubertal androgen exposure produces the reported virilization phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Orchiopexy or testis descent\", \"target\": \"Cryptorchidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Dihydrotestosterone\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower DHT reports the deficient SRD5A2-dependent product.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired Testosterone to Dihydrotestosterone Conversion\", \"target\": \"Testosterone-to-dihydrotestosterone ratio\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher T/DHT ratio reports impaired conversion of testosterone to DHT.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SRD5A2\", \"target\": \"SRD5A2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">11</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(10)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cryptorchidism
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank">
-                            Cryptorchidism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000028)</span>
-                        </span>
-                        
+                        Cryptorchidism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000028">HP:0000028</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000028 | Cryptorchidism | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records cryptorchidism as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">10</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Ambiguous genitalia, male
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000033" target="_blank">
-                            Ambiguous genitalia, male
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000033)</span>
-                        </span>
-                        
+                        Ambiguous genitalia, male
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000033" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000033">HP:0000033</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000033 | Ambiguous genitalia, male | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records male ambiguous genitalia as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Small scrotum
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000046" target="_blank">
-                            Small scrotum
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000046)</span>
-                        </span>
-                        
+                        Small scrotum
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000046" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000046">HP:0000046</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000046 | Small scrotum | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records small scrotum as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Bifid scrotum
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000048" target="_blank">
-                            Bifid scrotum
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000048)</span>
-                        </span>
-                        
+                        Bifid scrotum
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000048" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000048">HP:0000048</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000048 | Bifid scrotum | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records bifid scrotum as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Perineal hypospadias
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000051" target="_blank">
-                            Perineal hypospadias
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000051)</span>
-                        </span>
-                        
+                        Perineal hypospadias
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000051" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000051">HP:0000051</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000051 | Perineal hypospadias | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records perineal hypospadias as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Ambiguous genitalia
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank">
-                            Ambiguous genitalia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000062)</span>
-                        </span>
-                        
+                        Ambiguous genitalia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000062">HP:0000062</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000062 | Ambiguous genitalia | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records ambiguous genitalia as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37180321" target="_blank">PMID:37180321</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ambiguous genitalia or undervirilization at birth. Here we report three cases of"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This family report supports ambiguous genitalia or undervirilization at birth.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Decreased fertility
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000144" target="_blank">
-                            Decreased fertility
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000144)</span>
-                        </span>
-                        
+                        Decreased fertility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000144" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000144">HP:0000144</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000144 | Decreased fertility | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records decreased fertility as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Endocrine abnormality
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000818" target="_blank">
-                            Abnormality of the endocrine system
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000818)</span>
-                        </span>
-                        
+                        Abnormality of the endocrine system
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000818" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000818">HP:0000818</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000818 | Abnormality of the endocrine system | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records endocrine abnormality as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypoplasia of penis
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008736" target="_blank">
-                            Hypoplasia of penis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008736)</span>
-                        </span>
-                        
+                        Hypoplasia of penis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008736" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008736">HP:0008736</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0008736 | Hypoplasia of penis | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records hypoplasia of penis as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Urogenital sinus anomaly
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0100779" target="_blank">
-                            Urogenital sinus anomaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100779)</span>
-                        </span>
-                        
+                        Urogenital sinus anomaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100779" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100779">HP:0100779</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0100779 | Urogenital sinus anomaly | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records urogenital sinus anomaly as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pubertal virilization
-                        
-                    
+
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28690896" target="_blank">PMID:28690896</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"virilisation at puberty, including deepening of the vocal tone, phallus"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This adolescent case report supports pubertal virilization features.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"pronounced virilization at puberty."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The worldwide review supports pubertal virilization as a characteristic feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4841,459 +5019,496 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     SRD5A2
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal biallelic loss-of-function variant)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SRD5A2
+
+
+    <a href="https://bioregistry.io/hgnc:11285" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11285">hgnc:11285</a>
+
+
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"SRD5A2 | steroid 5 alpha-reductase 2 | hgnc:11285 | Disease-causing germline mutation(s) (loss of function) in"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records SRD5A2 loss-of-function variants as causal.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We found 129 different allelic variants in the SRD5A2 gene in the literature"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The worldwide review summarizes the spectrum of reported SRD5A2 alleles.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gonadectomy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">gonadectomy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001055" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001055</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001055" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001055">MAXO:0001055</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Gonadectomy may be considered in selected management contexts, especially when testes are retained in a location or sex-of-rearing context where malignancy risk, virilization, and patient goals support removal.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29643321" target="_blank">PMID:29643321</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Immunohistochemical results suggested gonadectomy or testis descent should be"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The case report supports gonadectomy as one management option for selected patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Orchiopexy or testis descent
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">orchiopexy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001477" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001477</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001477" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001477">MAXO:0001477</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">For patients managed with retained testes, orchiopexy or testis descent may be considered to reposition testes and reduce risks from persistent maldescent.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cryptorchidism
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000028">HP:0000028</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29643321" target="_blank">PMID:29643321</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Immunohistochemical results suggested gonadectomy or testis descent should be"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The continuation of the gonadectomy-or-testis-descent recommendation supports early testis descent/orchiopexy as an alternative to gonadectomy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Dihydrotestosterone
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Dihydrotestosterone production is reduced because SRD5A2 deficiency impairs conversion of testosterone to DHT.</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Impaired Testosterone to Dihydrotestosterone Conversion</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Negative
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Lower DHT reports the deficient SRD5A2-dependent product.</div>
-                        
-                        
-                        
-                        
-    
-    
+
+
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"resulting from defective conversion from T to DHT."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review supports DHT as the product of the deficient conversion step.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Testosterone-to-dihydrotestosterone ratio
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Testosterone-to-dihydrotestosterone ratio is elevated and used as a diagnostic biochemical marker.</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Impaired Testosterone to Dihydrotestosterone Conversion</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Positive
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Higher T/DHT ratio reports impaired conversion of testosterone to DHT.</div>
-                        
-                        
-                        
-                        
-    
-    
+
+
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41210722" target="_blank">PMID:41210722</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"testosterone/dihydrotestosterone in Probands 1 and 2 as 45.4 and 43.2,"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The sibling report documents elevated testosterone/DHT ratios.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6134,260 +6349,260 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">6</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                             </div>
-                            
+
                             <div class="reference-title">Integrative and Analytical Review of the 5-Alpha-Reductase Type 2 Deficiency Worldwide.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Worldwide review supporting SRD5A2 allelic variants, autosomal recessive inheritance, enzymatic mechanism, genotype-phenotype variability, and sex-assignment/gender-change observations.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/31885560" target="_blank">PMID:31885560</a>
                             </div>
-                            
+
                             <div class="reference-title">Characterising SRD5A2 Gene Variants in 37 Indonesian Patients with 5-Alpha-Reductase Type 2 Deficiency.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Indonesian cohort supporting impaired testosterone-to-DHT conversion, diagnostic T/DHT and urinary Et/An ratios, variant spectrum, and pubertal virilization.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/37180321" target="_blank">PMID:37180321</a>
                             </div>
-                            
+
                             <div class="reference-title">5-Alpha reductase deficiency; an important cause of 46, XY DSD: Report of three cases within a family.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Family case report supporting ambiguous genitalia or undervirilization at birth and multidisciplinary management context.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/28690896" target="_blank">PMID:28690896</a>
                             </div>
-                            
+
                             <div class="reference-title">Late Diagnosis of 5-α-Reductase Type 2 Deficiency in an Adolescent Girl with Primary Amenorrhoea.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Adolescent case report supporting pubertal virilization features and classic pseudovaginal perineoscrotal hypospadias presentation.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/29643321" target="_blank">PMID:29643321</a>
                             </div>
-                            
+
                             <div class="reference-title">Clinical and molecular characterization of 5α-reductase type 2 deficiency due to mutations (p.Q6X, p.R246Q) in SRD5A2 gene.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Case report supporting SRD5A2 mutation analysis and selected gonadal management by gonadectomy or testis descent.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/41210722" target="_blank">PMID:41210722</a>
                             </div>
-                            
+
                             <div class="reference-title">Identification of a Rare Variant in the SRD5A2 Gene in Siblings With 46,XY Disorders of Sexual Development.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Sibling report supporting elevated testosterone/DHT ratio, molecular testing, and SRD5A2 variant confirmation.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of 46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency. C...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">18 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-10T21:01:18.348746</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of 46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency. C...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -6684,11 +6899,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

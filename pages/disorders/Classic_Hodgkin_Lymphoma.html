@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Classic Hodgkin Lymphoma</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Cancer</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0009348" target="_blank">
                         MONDO:0009348
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Lymphoma</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,11 +2989,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Classic Hodgkin lymphoma is a B-cell lymphoma characterized histologically by the presence of Hodgkin cells and multinucleated Reed-Sternberg cells.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2993,33 +3063,33 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
+
+
             <a class="stat-link" href="#definitions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📘</div>
@@ -3027,9 +3097,9 @@
                 <div class="stat-label">Definitions</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3037,8 +3107,8 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#histopathology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">✶</div>
@@ -3046,8 +3116,8 @@
                 <div class="stat-label">Histopath.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3055,10 +3125,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3066,8 +3136,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3075,8 +3145,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3084,9 +3154,9 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
@@ -3094,8 +3164,8 @@
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#datasets">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📊</div>
@@ -3103,8 +3173,8 @@
                 <div class="stat-label">Datasets</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#trials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
@@ -3112,11 +3182,11 @@
                 <div class="stat-label">Trials</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3124,792 +3194,896 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
         <div class="card" id="definitions">
             <div class="card-header">
                 <div class="card-icon" style="background: #cffafe; color: #0e7490;">📘</div>
                 <h2 class="card-title">Definitions</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">Pathologic definition of classic Hodgkin lymphoma</div>
-                
+
                 <div class="item-desc">Classic Hodgkin lymphoma is defined by neoplastic Hodgkin/Reed-Sternberg cells in a dense inflammatory background and is now understood to arise from germinal center B cells despite loss of many canonical B-cell markers.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">CASE_DEFINITION</span>
-                    
-                    
+
+
                     <span class="tag tag-parent">General pathologic and molecular definition of classic Hodgkin lymphoma</span>
-                    
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34075767" target="_blank">PMID:34075767</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The hallmark of this disease is the neoplastic Hodgkin/Reed-Sternberg (HRS) cell, which is favored to be derived from germinal center B-cells but has lost many of the B-cell markers."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review provides a concise disease definition centered on the hallmark HRS cell and its germinal center B-cell derivation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germinal-center-b-cell-origin-of-hrs-cells">
                 <div class="item-name">Germinal Center B-Cell Origin of HRS Cells</div>
-                
+
                 <div class="item-desc">The malignant Hodgkin/Reed-Sternberg cell is derived from germinal center B cells but loses many typical B-cell features during transformation.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         germinal center B cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000844">CL:0000844</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cytokine and Chemokine-Mediated Microenvironment Remodeling</span>
-	                            
+
 	                            <span class="crosslink-desc">Transformed HRS cells remodel a supportive inflammatory niche.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34075767" target="_blank">PMID:34075767</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The hallmark of this disease is the neoplastic Hodgkin/Reed-Sternberg (HRS) cell, which is favored to be derived from germinal center B-cells but has lost many of the B-cell markers."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports the germinal center B-cell origin of the malignant HRS cell.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mutation-driven-jak-stat-activation">
                 <div class="item-name">Mutation-Driven JAK/STAT Activation</div>
-                
+
                 <div class="item-desc">Recurrent mutations in classic Hodgkin lymphoma activate JAK/STAT signaling programs that support tumor-cell survival and cytokine-responsive growth.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        JAK2
-                        
-                        <a href="https://bioregistry.io/hgnc:6192" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                    <span class="tag tag-gene">
-                        STAT6
-                        
-                        <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        JAK2
+
+
+    <a href="https://bioregistry.io/hgnc:6192" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6192">hgnc:6192</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        STAT6
+
+
+    <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11368">hgnc:11368</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cell surface receptor signaling pathway via JAK-STAT
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007259">GO:0007259</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cytokine and Chemokine-Mediated Microenvironment Remodeling</span>
-	                            
+
 	                            <span class="crosslink-desc">JAK/STAT signaling supports inflammatory niche formation.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29340061" target="_blank">PMID:29340061</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"However, several variants were consistently detected in genes related to relevant signaling pathways, such as GM-CSF/IL-3, CBP/EP300, JAK/STAT, NF-kappaB, and numerous variants of genes affecting the B-cell receptor (BCR) pathway, such as BTK, CARD11, BCL10, among others."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This genomic study directly supports recurrent genetic lesions affecting JAK/STAT signaling in classic Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mutation-driven-nf-kappab-activation">
                 <div class="item-name">Mutation-Driven NF-kappaB Activation</div>
-                
+
                 <div class="item-desc">Recurrent lesions affecting negative regulators and upstream activators of NF-kappaB signaling drive constitutive survival signaling in Hodgkin/Reed-Sternberg cells.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         canonical NF-kappaB signal transduction
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007249">GO:0007249</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cytokine and Chemokine-Mediated Microenvironment Remodeling</span>
-	                            
+
 	                            <span class="crosslink-desc">NF-kappaB signaling sustains the inflammatory tumor niche.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">PD-1 Ligand-Mediated Immune Evasion</span>
-	                            
+
 	                            <span class="crosslink-desc">Constitutive NF-kappaB signaling cooperates with checkpoint-ligand upregulation to promote immune escape.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27221964" target="_blank">PMID:27221964</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This includes interaction with other cells in the lymphoma microenvironment through CD30, CD40, BCMA and other receptors, but also recurrent somatic genetic lesions in various factors of the NF-κB pathway, including destructive mutations in negative regulators of NF-κB signaling (e.g. TNFAIP3,..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review directly supports recurrent somatic lesions in NF-kappaB pathway regulators, including TNFAIP3 and NFKBIA, as core mechanisms in Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ebv-lmp1-mediated-nf-kappab-activation">
                 <div class="item-name">EBV LMP1-Mediated NF-kappaB Activation</div>
-                
+
                 <div class="item-desc">In Epstein-Barr virus-positive classic Hodgkin lymphoma, viral latent membrane protein 1 mimics active CD40 signaling and drives NF-kappaB activation in Hodgkin/Reed-Sternberg cells.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         canonical NF-kappaB signal transduction
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007249">GO:0007249</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cytokine and Chemokine-Mediated Microenvironment Remodeling</span>
-	                            
+
 	                            <span class="crosslink-desc">EBV-driven NF-kappaB activation reinforces the inflammatory tumor niche.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27221964" target="_blank">PMID:27221964</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In Epstein-Barr virus-positive cases of classical HL, the virus-encoded latent membrane protein 1 causes NF-κB activation by mimicking an active CD40 receptor."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports EBV LMP1 as a mechanism of NF-kappaB activation in EBV-positive classical Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-and-chemokine-mediated-microenvironment-remodeling">
                 <div class="item-name">Cytokine and Chemokine-Mediated Microenvironment Remodeling</div>
-                
+
                 <div class="item-desc">HRS cells persist within a dense inflammatory infiltrate that they actively recruit and shape through cytokine and chemokine signaling.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         chemokine production
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032602">GO:0032602</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">PD-1 Ligand-Mediated Immune Evasion</span>
-	                            
+
 	                            <span class="crosslink-desc">The inflammatory niche is coupled to ineffective anti-tumor immunity.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Lymphadenopathy</span>
-	                            
+
 	                            <span class="crosslink-desc">The HRS-supported inflammatory niche contributes to bulky nodal enlargement.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Fever</span>
-	                            
+
 	                            <span class="crosslink-desc">Cytokine-rich tumor inflammation contributes to B symptoms including fever.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34075767" target="_blank">PMID:34075767</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HRS cells are scattered within a dense inflammatory infiltrate, and through a network of cytokines and chemokines they shape their microenvironment, evade immune response, survive, and grow."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review directly supports the dependence of classic Hodgkin lymphoma on cytokine and chemokine-mediated microenvironmental remodeling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pd-1-ligand-mediated-immune-evasion">
                 <div class="item-name">PD-1 Ligand-Mediated Immune Evasion</div>
-                
+
                 <div class="item-desc">Near-universal 9p24.1 copy gain increases PD-1 ligand expression on HRS cells and contributes to immune escape in classic Hodgkin lymphoma.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Negative Regulation of T Cell Mediated Immunity
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002710">GO:0002710</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31816062" target="_blank">PMID:31816062</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HRS cells exhibit near-universal somatic copy gains of chromosome 9p/9p24.1, which increase expression of the programmed cell death protein 1 (PD-1) ligands."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This study directly links recurrent 9p24.1 gains in HRS cells to elevated PD-1 ligand expression and immune evasion.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
         <div class="card" id="histopathology">
             <div class="card-header">
                 <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
                 <h2 class="card-title">Histopathology</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Hodgkin/Reed-Sternberg Cells in a Dense Inflammatory Background
-                    
+
                     <span class="histopathology-freq">VERY_FREQUENT</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Classic Hodgkin lymphoma shows scattered Hodgkin/Reed-Sternberg cells within a dense reactive inflammatory infiltrate rather than sheets of tumor cells.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34075767" target="_blank">PMID:34075767</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HRS cells are scattered within a dense inflammatory infiltrate, and through a network of cytokines and chemokines they shape their microenvironment, evade immune response, survive, and grow."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review directly supports the hallmark microscopic pattern of sparse HRS cells embedded in an inflammatory background.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3920,297 +4094,309 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HRS cells persist within a dense inflammatory infiltrate that they actively recruit and shape through cytokine and chemokine signaling.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemokine production\"]}}, {\"id\": \"EBV LMP1-Mediated NF-kappaB Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Epstein-Barr virus-positive classic Hodgkin lymphoma, viral latent membrane protein 1 mimics active CD40 signaling and drives NF-kappaB activation in Hodgkin/Reed-Sternberg cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is a classical B symptom that may accompany nodal disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Germinal Center B-Cell Origin of HRS Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The malignant Hodgkin/Reed-Sternberg cell is derived from germinal center B cells but loses many typical B-cell features during transformation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germinal center B cell\"]}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Classic Hodgkin lymphoma usually presents with nodal enlargement and contiguous nodal spread.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Mutation-Driven JAK/STAT Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent mutations in classic Hodgkin lymphoma activate JAK/STAT signaling programs that support tumor-cell survival and cytokine-responsive growth.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"JAK2\", \"STAT6\"]}}, {\"id\": \"Mutation-Driven NF-kappaB Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent lesions affecting negative regulators and upstream activators of NF-kappaB signaling drive constitutive survival signaling in Hodgkin/Reed-Sternberg cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Nivolumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 blockade with nivolumab is an established treatment option in previously treated classic Hodgkin lymphoma and is tightly aligned to the disease\u0027s 9p24.1-driven checkpoint biology.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nivolumab\"]}}, {\"id\": \"PD-1 Ligand-Mediated Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-universal 9p24.1 copy gain increases PD-1 ligand expression on HRS cells and contributes to immune escape in classic Hodgkin lymphoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Pembrolizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 blockade with pembrolizumab is active in relapsed or refractory classic Hodgkin lymphoma.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pembrolizumab\"]}}], \"edges\": [{\"source\": \"Germinal Center B-Cell Origin of HRS Cells\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transformed HRS cells remodel a supportive inflammatory niche.\"}, {\"source\": \"Mutation-Driven JAK/STAT Activation\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"JAK/STAT signaling supports inflammatory niche formation.\"}, {\"source\": \"Mutation-Driven NF-kappaB Activation\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NF-kappaB signaling sustains the inflammatory tumor niche.\"}, {\"source\": \"Mutation-Driven NF-kappaB Activation\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive NF-kappaB signaling cooperates with checkpoint-ligand upregulation to promote immune escape.\"}, {\"source\": \"EBV LMP1-Mediated NF-kappaB Activation\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EBV-driven NF-kappaB activation reinforces the inflammatory tumor niche.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory niche is coupled to ineffective anti-tumor immunity.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The HRS-supported inflammatory niche contributes to bulky nodal enlargement.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich tumor inflammation contributes to B symptoms including fever.\"}, {\"source\": \"Pembrolizumab\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nivolumab\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HRS cells persist within a dense inflammatory infiltrate that they actively recruit and shape through cytokine and chemokine signaling.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemokine production\"]}}, {\"id\": \"EBV LMP1-Mediated NF-kappaB Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Epstein-Barr virus-positive classic Hodgkin lymphoma, viral latent membrane protein 1 mimics active CD40 signaling and drives NF-kappaB activation in Hodgkin/Reed-Sternberg cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is a classical B symptom that may accompany nodal disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Germinal Center B-Cell Origin of HRS Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The malignant Hodgkin/Reed-Sternberg cell is derived from germinal center B cells but loses many typical B-cell features during transformation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germinal center B cell\"]}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Classic Hodgkin lymphoma usually presents with nodal enlargement and contiguous nodal spread.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Mutation-Driven JAK/STAT Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent mutations in classic Hodgkin lymphoma activate JAK/STAT signaling programs that support tumor-cell survival and cytokine-responsive growth.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"JAK2\", \"STAT6\"], \"gene_terms\": [{\"label\": \"JAK2\", \"id\": \"hgnc:6192\"}, {\"label\": \"STAT6\", \"id\": \"hgnc:11368\"}]}}, {\"id\": \"Mutation-Driven NF-kappaB Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent lesions affecting negative regulators and upstream activators of NF-kappaB signaling drive constitutive survival signaling in Hodgkin/Reed-Sternberg cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Nivolumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 blockade with nivolumab is an established treatment option in previously treated classic Hodgkin lymphoma and is tightly aligned to the disease\u0027s 9p24.1-driven checkpoint biology.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nivolumab\"]}}, {\"id\": \"PD-1 Ligand-Mediated Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-universal 9p24.1 copy gain increases PD-1 ligand expression on HRS cells and contributes to immune escape in classic Hodgkin lymphoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Pembrolizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 blockade with pembrolizumab is active in relapsed or refractory classic Hodgkin lymphoma.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pembrolizumab\"]}}], \"edges\": [{\"source\": \"Germinal Center B-Cell Origin of HRS Cells\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transformed HRS cells remodel a supportive inflammatory niche.\"}, {\"source\": \"Mutation-Driven JAK/STAT Activation\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"JAK/STAT signaling supports inflammatory niche formation.\"}, {\"source\": \"Mutation-Driven NF-kappaB Activation\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NF-kappaB signaling sustains the inflammatory tumor niche.\"}, {\"source\": \"Mutation-Driven NF-kappaB Activation\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive NF-kappaB signaling cooperates with checkpoint-ligand upregulation to promote immune escape.\"}, {\"source\": \"EBV LMP1-Mediated NF-kappaB Activation\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EBV-driven NF-kappaB activation reinforces the inflammatory tumor niche.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory niche is coupled to ineffective anti-tumor immunity.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The HRS-supported inflammatory niche contributes to bulky nodal enlargement.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich tumor inflammation contributes to B symptoms including fever.\"}, {\"source\": \"Pembrolizumab\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nivolumab\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">4</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Lymphadenopathy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank">
-                            Lymphadenopathy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002716)</span>
-                        </span>
-                        
+                        Lymphadenopathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32433447" target="_blank">PMID:32433447</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hodgkin lymphoma classically presents as lymphadenopathy with contiguous spread with or without associated B symptoms including night sweats, weight loss, and fever."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports lymphadenopathy as the classic presenting feature of Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Fever
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank">
-                            Fever
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001945)</span>
-                        </span>
-                        
+                        Fever
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32433447" target="_blank">PMID:32433447</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hodgkin lymphoma classically presents as lymphadenopathy with contiguous spread with or without associated B symptoms including night sweats, weight loss, and fever."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This abstract explicitly names fever as part of the B-symptom complex.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Night Sweats
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank">
-                            Night sweats
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0030166)</span>
-                        </span>
-                        
+                        Night sweats
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030166">HP:0030166</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32433447" target="_blank">PMID:32433447</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hodgkin lymphoma classically presents as lymphadenopathy with contiguous spread with or without associated B symptoms including night sweats, weight loss, and fever."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This presentation-focused abstract explicitly lists night sweats among the classic B symptoms of Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Weight Loss
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank">
-                            Weight loss
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001824)</span>
-                        </span>
-                        
+                        Weight loss
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32433447" target="_blank">PMID:32433447</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hodgkin lymphoma classically presents as lymphadenopathy with contiguous spread with or without associated B symptoms including night sweats, weight loss, and fever."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This abstract explicitly names weight loss as one of the classic B symptoms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4235,837 +4421,970 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TNFAIP3
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Loss-of-Function Mutation)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TNFAIP3
+
+
+    <a href="https://bioregistry.io/hgnc:11896" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11896">hgnc:11896</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27221964" target="_blank">PMID:27221964</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This includes interaction with other cells in the lymphoma microenvironment through CD30, CD40, BCMA and other receptors, but also recurrent somatic genetic lesions in various factors of the NF-κB pathway, including destructive mutations in negative regulators of NF-κB signaling (e.g. TNFAIP3,..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review directly identifies TNFAIP3 as a recurrently mutated negative regulator of NF-kappaB signaling in Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     NFKBIA
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Loss-of-Function Mutation)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NFKBIA
+
+
+    <a href="https://bioregistry.io/hgnc:7797" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7797">hgnc:7797</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27221964" target="_blank">PMID:27221964</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This includes interaction with other cells in the lymphoma microenvironment through CD30, CD40, BCMA and other receptors, but also recurrent somatic genetic lesions in various factors of the NF-κB pathway, including destructive mutations in negative regulators of NF-κB signaling (e.g. TNFAIP3,..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review directly identifies NFKBIA as a recurrently mutated negative regulator of NF-kappaB signaling in Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     B2M
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Mutation)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: B2M
+
+
+    <a href="https://bioregistry.io/hgnc:914" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:914">hgnc:914</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31816062" target="_blank">PMID:31816062</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Of note, recurrent cHL alterations, including B2M, TNFAIP3, STAT6, GNA13, and XPO1 mutations and 2p/2p15, 6p21.32, 6q23.3, and 9p/9p24.1 copy number alterations, were also identified in &gt;20% of primary mediastinal B-cell lymphomas, highlighting shared pathogenetic mechanisms in these diseases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This genomic study identifies recurrent B2M mutations as one of the characteristic immune-evasion-associated lesions in classic Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CIITA
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Rearrangement/Fusion)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CIITA
+
+
+    <a href="https://bioregistry.io/hgnc:7067" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7067">hgnc:7067</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21368758" target="_blank">PMID:21368758</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In a subsequent evaluation of 263 B-cell lymphomas, we also demonstrate that genomic CIITA breaks are highly recurrent in primary mediastinal B-cell lymphoma (38%) and classical Hodgkin lymphoma (cHL) (15%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This study directly supports recurrent CIITA genomic breaks in a subset of classic Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     9p24.1 Copy Gain
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Copy-Number Gain)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31816062" target="_blank">PMID:31816062</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HRS cells exhibit near-universal somatic copy gains of chromosome 9p/9p24.1, which increase expression of the programmed cell death protein 1 (PD-1) ligands."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports recurrent 9p24.1 copy gain as a defining genetic immune-evasion lesion in classic Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     ABVD-Based Chemotherapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">chemotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000647">MAXO:0000647</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         doxorubicin
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28748">CHEBI:28748</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         bleomycin
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_22907" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_22907" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:22907">CHEBI:22907</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         vinblastine
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_27375" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27375" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27375">CHEBI:27375</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         dacarbazine
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_4305" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4305" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4305">CHEBI:4305</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Combination chemotherapy with ABVD remains a standard systemic treatment backbone for Hodgkin lymphoma.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31894937" target="_blank">PMID:31894937</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hodgkin lymphoma is treated with combined chemotherapy with ABVD (doxorubicin, bleomycin, vinblastine, and dacarbazine), Stanford V (a chemotherapy regimen consisting of mechlorethamine, doxorubicin, vinblastine, vincristine, bleomycin, etoposide, and prednisone), or BEACOPP (bleomycin,..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This treatment review identifies ABVD-containing combination chemotherapy as a standard treatment approach for Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Radiation Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">radiation therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000014" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000014</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000014" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000014">MAXO:0000014</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Radiotherapy is used with chemotherapy in selected Hodgkin lymphoma treatment strategies.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31894937" target="_blank">PMID:31894937</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hodgkin lymphoma is treated with combined chemotherapy with ABVD (doxorubicin, bleomycin, vinblastine, and dacarbazine), Stanford V (a chemotherapy regimen consisting of mechlorethamine, doxorubicin, vinblastine, vincristine, bleomycin, etoposide, and prednisone), or BEACOPP (bleomycin,..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review explicitly states that radiotherapy is used in combination treatment regimens for Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Brentuximab Vedotin
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         brentuximab vedotin
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C66944">NCIT:C66944</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">CD30-directed antibody-drug conjugate therapy has activity in relapsed or refractory classic Hodgkin lymphoma and is commonly combined with chemotherapy.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39039881" target="_blank">PMID:39039881</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Brentuximab vedotin has demonstrated efficacy and a tolerable safety profile in the treatment of refractory and relapsed CD30-positive Hodgkin&#39;s lymphoma in children."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This study supports brentuximab vedotin as an active CD30-targeted therapy in relapsed or refractory classic Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pembrolizumab
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         pembrolizumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106432">NCIT:C106432</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">PD-1 blockade with pembrolizumab is active in relapsed or refractory classic Hodgkin lymphoma.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">PD-1 Ligand-Mediated Immune Evasion</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Pembrolizumab blocks PD-1 signaling and counteracts PD-1 ligand-mediated suppression of anti-tumor T-cell activity in classic Hodgkin lymphoma.</span>
-                        
-                        
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28441111" target="_blank">PMID:28441111</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pembrolizumab was associated with high response rates and an acceptable safety profile in patients with rrHL, offering a new treatment paradigm for this disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The clinical activity of pembrolizumab supports inhibition of PD-1 ligand-mediated immune evasion as a therapeutically relevant mechanism in relapsed or refractory classic Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28441111" target="_blank">PMID:28441111</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pembrolizumab was associated with high response rates and an acceptable safety profile in patients with rrHL, offering a new treatment paradigm for this disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This phase II trial supports pembrolizumab as an effective PD-1-blocking therapy in relapsed or refractory classic Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Nivolumab
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         nivolumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C68814">NCIT:C68814</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">PD-1 blockade with nivolumab is an established treatment option in previously treated classic Hodgkin lymphoma and is tightly aligned to the disease&#39;s 9p24.1-driven checkpoint biology.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">PD-1 Ligand-Mediated Immune Evasion</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Nivolumab blocks PD-1 signaling and counteracts checkpoint-mediated immune escape in classic Hodgkin lymphoma.</span>
-                        
-                        
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02181738" target="_blank">clinicaltrials:NCT02181738</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The purpose of this study is to evaluate the efficacy and safety of Nivolumab in previously treated (cohorts, A, B &amp; C) or newly diagnosed (cohort D) classical Hodgkin Lymphoma participants."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The trial objective directly supports nivolumab targeting the PD-1 axis in classical Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02181738" target="_blank">clinicaltrials:NCT02181738</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The purpose of this study is to evaluate the efficacy and safety of Nivolumab in previously treated (cohorts, A, B &amp; C) or newly diagnosed (cohort D) classical Hodgkin Lymphoma participants."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This phase II study directly supports nivolumab as an active therapeutic strategy in classical Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
         <div class="card" id="differentials">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
@@ -5075,368 +5394,368 @@
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from Classic Hodgkin Lymphoma:
             </p>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">Nodular lymphocyte predominant Hodgkin lymphoma</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0044778" target="_blank" class="missing-ontology-link">
                             MONDO:0044778
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     NLPHL is a major pathologic differential because it can overlap morphologically with classic Hodgkin lymphoma while differing in immunophenotype and clinical behavior.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>NLPHL retains a B-cell program with LP cells rather than classic Hodgkin/Reed-Sternberg cells.</li>
-                        
+
                         <li>NLPHL requires careful separation from classic Hodgkin lymphoma because management and biologic behavior differ.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34208705" target="_blank">PMID:34208705</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"NLPHL also shows overlap with other lymphomas, particularly, classic Hodgkin lymphoma and T-cell lymphomas."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review explicitly identifies classic Hodgkin lymphoma as a diagnostic overlap and differential consideration for NLPHL.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">Primary mediastinal large B-cell lymphoma</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0020323" target="_blank" class="missing-ontology-link">
                             MONDO:0020323
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     PMBCL is a relevant mediastinal differential because it shares B-cell lineage features and overlapping immune-evasion biology with classic Hodgkin lymphoma, especially in mediastinal presentations.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>PMBCL typically presents as a rapidly enlarging anterior mediastinal mass with preserved B-cell surface marker expression.</li>
-                        
+
                         <li>Classic Hodgkin lymphoma is defined by Hodgkin/Reed-Sternberg cells in an inflammatory background rather than a diffuse large B-cell phenotype.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34590432" target="_blank">PMID:34590432</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Primary mediastinal large B cell lymphoma (PMBCL) is an aggressive large B cell lymphoma originating in the mediastinum, that mainly expresses B cell surface molecules, such as CD19, CD20, CD22, andCD79a."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports PMBCL as a clinically and pathologically distinct mediastinal B-cell lymphoma that must be separated from classic Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Datasets -->
-        
+
         <div class="card" id="datasets">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
                 <h2 class="card-title">Related Datasets</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box dataset-box">
                 <div class="item-name">
                     Transcriptome sequencing of Hodgkin lymphoma Hodgkin and Reed-Sternberg cells reveals escape from NK cell recognition and an unfolded protein response
-                    
+
                     <span class="dataset-accession">
                         <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE301492" target="_blank">geo:GSE301492</a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Bulk RNA-seq resource profiling flow-sorted primary Hodgkin/Reed-Sternberg cells, matched intratumoral non-neoplastic B cells, and cell lines to define malignant-cell transcriptional programs and immune-evasion biology in classic Hodgkin lymphoma.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-organism">human</span>
-                    
-                    
+
+
                     <span class="tag tag-datatype">BULK RNA SEQ</span>
-                    
-                    
+
+
                     <span class="tag tag-dataset">n=18</span>
-                    
-                    
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 6px;">
                     <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
-                    
+
                     <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">classic Hodgkin lymphoma Hodgkin/Reed-Sternberg cells</span>
-                    
+
                     <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">matched intratumoral non-neoplastic B cells</span>
-                    
+
                 </div>
-                
-                
-                
-    
-    
-                
-                
-                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/GEO:GSE301492" target="_blank">GEO:GSE301492</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To discover the molecular features that distinguish cHL, we deployed flow cytometric cell sorting and low-input RNA sequencing to generate full transcriptome data from viable, isolated Hodgkin and Red-Sternberg (HRS) cells from eighteen primary tumors, alongside matched intra-tumoral..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This GEO series directly provides a patient-derived transcriptomic resource focused on malignant HRS cells and matched intratumoral B cells in classic Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Clinical Trials -->
-        
+
         <div class="card" id="trials">
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
                 <h2 class="card-title">Clinical Trials</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT02181738
-                    
+
                     <span class="tag tag-phase">PHASE_II</span>
-                    
-                    
+
+
                     <span class="tag tag-status">COMPLETED</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Multi-cohort phase II nivolumab study in previously treated or newly diagnosed classical Hodgkin lymphoma.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02181738" target="_blank">clinicaltrials:NCT02181738</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The purpose of this study is to evaluate the efficacy and safety of Nivolumab in previously treated (cohorts, A, B &amp; C) or newly diagnosed (cohort D) classical Hodgkin Lymphoma participants."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports active clinical development of nivolumab in classical Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT00265889
-                    
+
                     <span class="tag tag-phase">PHASE_II</span>
-                    
-                    
+
+
                     <span class="tag tag-status">COMPLETED</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Phase II tandem autologous stem-cell transplantation study for primary progressive or poor-risk recurrent Hodgkin lymphoma.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00265889" target="_blank">clinicaltrials:NCT00265889</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Giving two autologous stem cell transplants (one after the other) may be an effective treatment for Hodgkin&#39;s lymphoma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports autologous transplantation as an actively studied salvage strategy in poor-risk recurrent Hodgkin lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6083,42 +6402,42 @@ datasets:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Classic Hodgkin Lymphoma. Core disease mechanisms, molecular and cellular...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">18 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-21T08:23:40.898797</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Classic Hodgkin Lymphoma. Core disease mechanisms, molecular and cellular...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -6423,11 +6742,11 @@ datasets:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

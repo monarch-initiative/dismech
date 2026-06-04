@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Campomelic Dysplasia</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0007251" target="_blank">
                         MONDO:0007251
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Skeletal Dysplasia</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,12 +2989,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Campomelic dysplasia is a severe SOX9-related skeletal dysplasia with abnormal chondrogenesis, bowed long bones, axial skeletal dysplasia, frequent respiratory insufficiency, and sex reversal in many affected 46,XY individuals.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2994,34 +3064,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3029,8 +3099,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3038,9 +3108,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3048,10 +3118,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3059,8 +3129,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3068,8 +3138,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3077,14 +3147,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3092,8 +3162,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3101,588 +3171,694 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal Dominant
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Campomelic dysplasia is associated with heterozygous pathogenic variation in SOX9, follows an autosomal dominant pattern, and is commonly caused by de novo variants.
 </div>
-                
-                
-    
-    
-    
-    
-                
-    
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36741086" target="_blank">PMID:36741086</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Campomelic dysplasia (CD) is an autosomal dominant skeletal dysplasia syndrome characterized by shortness and bowing of lower extremities, and often accompanied by XY sex reversal."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This abstract directly supports dominant inheritance and core clinical manifestations of campomelic dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185244" target="_blank">PMID:17185244</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Most CD cases have heterozygous de novo mutations in the coding region of the transcription factor gene SOX9"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This report supports de novo SOX9 variants as a frequent genetic origin of CD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sox9-mediated-chondrogenesis-disruption">
                 <div class="item-name">SOX9-Mediated Chondrogenesis Disruption</div>
-                
+
                 <div class="item-desc">Pathogenic SOX9 variation impairs transcriptional programs required for cartilage differentiation and skeletal patterning, resulting in dysplastic axial and appendicular skeletal development.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        SOX9
-                        
-                        <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SOX9
+
+
+    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11204">hgnc:11204</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Cartilage Development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051216">GO:0051216</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Endochondral Ossification
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         DNA-binding transcription factor activity, RNA polymerase II-specific
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000981">GO:0000981</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39854231" target="_blank">PMID:39854231</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"SOX9 is a crucial transcriptional regulator of cartilage development and homeostasis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports a central pathogenic role for altered SOX9 function in cartilage biology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-sox9-stability-and-matrix-defects">
                 <div class="item-name">Reduced SOX9 Stability and Matrix Defects</div>
-                
+
                 <div class="item-desc">SOX9 pathogenic variants reduce SOX9 protein stability and downstream matrix component expression, promoting axial skeletal dysplasia.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Extracellular Matrix Organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39854231" target="_blank">PMID:39854231</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We isolated a Sox9 mutant mouse with an in-frame microdeletion in the TAM domain (Sox9Asp272del), which exhibits skeletal dysplasia including kinked tails, rib cage anomalies, and scoliosis in homozygous mutants."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This mouse model provides organism-level mechanistic evidence linking SOX9 dysfunction to skeletal dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39854231" target="_blank">PMID:39854231</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"both the human missense and the mouse microdeletion mutations resulted in reduced SOX9 protein stability in cell culture, while Sox9Asp272del mutant mice show decreased SOX9 expression in the growth plate and annulus fibrosus tissues of the spine."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports reduced SOX9 dosage/stability as a direct mechanism in SOX9-related skeletal pathology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-46-xy-sex-determination">
                 <div class="item-name">Disrupted 46,XY Sex Determination</div>
-                
+
                 <div class="item-desc">Reduced SOX9 activity impairs normal male sex determination and can lead to sex reversal in affected 46,XY individuals.
 </div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        SOX9
-                        
-                        <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SOX9
+
+
+    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11204">hgnc:11204</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Male Sex Determination
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030238" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030238" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030238">GO:0030238</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         DNA-binding transcription factor activity, RNA polymerase II-specific
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000981">GO:0000981</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185244" target="_blank">PMID:17185244</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Campomelic dysplasia (CD; OMIM  # 114290) is an autosomal dominant, frequently lethal dysplasia syndrome whose primary features include angular bowing and shortening of the limbs, and sex reversal in the majority of affected XY individuals."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports a direct mechanistic connection between SOX9-related CD and abnormal male sex determination.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-and-thoracic-insufficiency-in-early-life">
                 <div class="item-name">Airway and Thoracic Insufficiency in Early Life</div>
-                
+
                 <div class="item-desc">Defective cartilage development of the thorax/airway contributes to neonatal respiratory compromise, a major cause of early mortality in classic CD.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Cartilage Development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051216">GO:0051216</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24800790" target="_blank">PMID:24800790</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Campomelic dysplasia is a rare hereditary congenital osteochondral dysplasia characterized by abnormal bowing of the lower limbs, sex reversal in males, and other skeletal and extraskeletal abnormalities. It is usually fatal in the neonatal period because of respiratory insufficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This links the developmental skeletal/cartilage disorder to life-threatening respiratory insufficiency in the neonatal period.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3693,1198 +3869,1252 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted 46,XY Sex Determination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced SOX9 activity impairs normal male sex determination and can lead to sex reversal in affected 46,XY individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Male Sex Determination\"], \"molecular_functions\": [\"DNA-binding transcription factor activity, RNA polymerase II-specific\"], \"genes\": [\"SOX9\"]}}, {\"id\": \"Neonatal Respiratory Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early supportive respiratory management (including mechanical ventilation when needed) is critical in severe neonatal presentations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency is a major life-threatening manifestation in campomelic dysplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"SOX9 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SOX9\"], \"association\": \"Causative\"}}, {\"id\": \"SOX9-Mediated Chondrogenesis Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic SOX9 variation impairs transcriptional programs required for cartilage differentiation and skeletal patterning, resulting in dysplastic axial and appendicular skeletal development.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Cartilage Development\", \"Endochondral Ossification\"], \"molecular_functions\": [\"DNA-binding transcription factor activity, RNA polymerase II-specific\"], \"genes\": [\"SOX9\"]}}], \"edges\": [{\"source\": \"Neonatal Respiratory Support\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SOX9 Pathogenic Variants\", \"target\": \"Disrupted 46,XY Sex Determination\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SOX9 Pathogenic Variants\", \"target\": \"SOX9-Mediated Chondrogenesis Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted 46,XY Sex Determination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced SOX9 activity impairs normal male sex determination and can lead to sex reversal in affected 46,XY individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Male Sex Determination\"], \"molecular_functions\": [\"DNA-binding transcription factor activity, RNA polymerase II-specific\"], \"genes\": [\"SOX9\"], \"gene_terms\": [{\"label\": \"SOX9\", \"id\": \"hgnc:11204\"}]}}, {\"id\": \"Neonatal Respiratory Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early supportive respiratory management (including mechanical ventilation when needed) is critical in severe neonatal presentations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency is a major life-threatening manifestation in campomelic dysplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"SOX9 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SOX9\"], \"gene_terms\": [{\"label\": \"SOX9\", \"id\": \"hgnc:11204\"}], \"association\": \"Causative\"}}, {\"id\": \"SOX9-Mediated Chondrogenesis Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic SOX9 variation impairs transcriptional programs required for cartilage differentiation and skeletal patterning, resulting in dysplastic axial and appendicular skeletal development.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Cartilage Development\", \"Endochondral Ossification\"], \"molecular_functions\": [\"DNA-binding transcription factor activity, RNA polymerase II-specific\"], \"genes\": [\"SOX9\"], \"gene_terms\": [{\"label\": \"SOX9\", \"id\": \"hgnc:11204\"}]}}], \"edges\": [{\"source\": \"Neonatal Respiratory Support\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SOX9 Pathogenic Variants\", \"target\": \"Disrupted 46,XY Sex Determination\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SOX9 Pathogenic Variants\", \"target\": \"SOX9-Mediated Chondrogenesis Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">18</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(7)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hearing Impairment
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank">
-                            Hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000365)</span>
-                        </span>
-                        
+                        Hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Many affected infants die in the neonatal period; additional findings identified in long-term survivors include short stature, cervical spine instability with cord compression, progressive scoliosis, and hearing impairment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies hearing impairment among the longer-term manifestations in survivors.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sex Reversal
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012245" target="_blank">
-                            Sex reversal
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012245)</span>
-                        </span>
-                        
+                        Sex reversal
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012245" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012245">HP:0012245</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Sex reversal occurs in most patients with an XY karyotype."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review abstract directly supports sex reversal as a major phenotype in affected individuals with a 46,XY karyotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Female External Genitalia in 46,XY Individual
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008730" target="_blank">
-                            Female external genitalia in individual with 46,XY karyotype
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008730)</span>
-                        </span>
-                        
+                        Female external genitalia in individual with 46,XY karyotype
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008730" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008730">HP:0008730</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other findings include laryngotracheomalacia with respiratory compromise and ambiguous genitalia or normal female external genitalia in most individuals with a 46,XY karyotype."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews directly supports normal female external genitalia as a recognized presentation in affected 46,XY individuals.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cleft Palate
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank">
-                            Cleft palate
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000175)</span>
-                        </span>
-                        
+                        Cleft palate
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Campomelic dysplasia (CD) is a skeletal dysplasia characterized by distinctive facies, Pierre Robin sequence with cleft palate, shortening and bowing of long bones, and clubfeet."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews explicitly includes cleft palate among the defining clinical characteristics of campomelic dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Micrognathia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank">
-                            Micrognathia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000347)</span>
-                        </span>
-                        
+                        Micrognathia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185244" target="_blank">PMID:17185244</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The presenting phenotypes included dysmorphic face with macrocephaly, prominent forehead, low nasal bridge, cleft palate and micrognathia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports micrognathia as part of the craniofacial phenotype of campomelic dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Bowing of the Long Bones
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank">
-                            Bowing of the long bones
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006487)</span>
-                        </span>
-                        
+                        Bowing of the long bones
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006487">HP:0006487</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Campomelia (bowed limbs) is seen in most but not all patients, defining a so-called acampomelic campomelic dysostosis (ACD)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports bowed long bones as a characteristic phenotype. Author wording &#34;most but not all patients&#34; supports the FREQUENT band.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Clubfoot
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank">
-                            Talipes equinovarus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001762)</span>
-                        </span>
-                        
+                        Talipes equinovarus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001762">HP:0001762</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Campomelic dysplasia (CD) is a skeletal dysplasia characterized by distinctive facies, Pierre Robin sequence with cleft palate, shortening and bowing of long bones, and clubfeet."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies clubfeet among the defining clinical characteristics of campomelic dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cervical Spine Instability
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0010646" target="_blank">
-                            Cervical spine instability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0010646)</span>
-                        </span>
-                        
+                        Cervical spine instability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010646" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010646">HP:0010646</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Many affected infants die in the neonatal period; additional findings identified in long-term survivors include short stature, cervical spine instability with cord compression, progressive scoliosis, and hearing impairment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies cervical spine instability with cord compression as an important long-term complication in survivors.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Scoliosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank">
-                            Scoliosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002650)</span>
-                        </span>
-                        
+                        Scoliosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Many affected infants die in the neonatal period; additional findings identified in long-term survivors include short stature, cervical spine instability with cord compression, progressive scoliosis, and hearing impairment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies progressive scoliosis as an important long-term manifestation in survivors.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Respiratory Insufficiency
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank">
-                            Respiratory insufficiency
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002093)</span>
-                        </span>
-                        
+                        Respiratory insufficiency
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24800790" target="_blank">PMID:24800790</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is usually fatal in the neonatal period because of respiratory insufficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This sentence directly supports respiratory insufficiency as a core severe phenotype in campomelic dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
+
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
         </summary>
-        
+
         <div class="context-card">
             <div class="context-header">
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <span class="context-onset">Onset: NEONATAL</span>
-                
-                
-                
+
+
+
             </div>
-            
-            
-            
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24800790" target="_blank">PMID:24800790</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is usually fatal in the neonatal period because of respiratory insufficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This abstract places respiratory insufficiency in the neonatal period, supporting a NEONATAL onset context for this manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </details>
-    
-    
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short Stature
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank">
-                            Short stature
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004322)</span>
-                        </span>
-                        
+                        Short stature
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Many affected infants die in the neonatal period; additional findings identified in long-term survivors include short stature, cervical spine instability with cord compression, progressive scoliosis, and hearing impairment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies short stature as a later feature in long-term survivors.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">7</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Bell-Shaped Thorax
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001591" target="_blank">
-                            Bell-shaped thorax
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001591)</span>
-                        </span>
-                        
+                        Bell-shaped thorax
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001591" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001591">HP:0001591</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Additional radiological and clinical findings are 11 pairs of ribs and a bell-shaped thorax, hypoplastic scapulae, narrow iliac wings, non-mineralized thoracic pedicles, clubbed feet, Robin sequence, typical facial anomalies and tracheomalacia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review abstract identifies bell-shaped thorax as part of the typical campomelic dysplasia skeletal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         11 Pairs of Ribs
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000878" target="_blank">
-                            11 pairs of ribs
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000878)</span>
-                        </span>
-                        
+                        11 pairs of ribs
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000878">HP:0000878</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Additional radiological and clinical findings are 11 pairs of ribs and a bell-shaped thorax, hypoplastic scapulae, narrow iliac wings, non-mineralized thoracic pedicles, clubbed feet, Robin sequence, typical facial anomalies and tracheomalacia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review abstract directly supports reduced rib number as a recurrent campomelic dysplasia finding.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypoplastic Scapulae
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000882" target="_blank">
-                            Hypoplastic scapulae
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000882)</span>
-                        </span>
-                        
+                        Hypoplastic scapulae
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000882" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000882">HP:0000882</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Additional radiological and clinical findings are 11 pairs of ribs and a bell-shaped thorax, hypoplastic scapulae, narrow iliac wings, non-mineralized thoracic pedicles, clubbed feet, Robin sequence, typical facial anomalies and tracheomalacia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review abstract directly identifies hypoplastic scapulae within the classic radiographic phenotype of campomelic dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hip Dislocation
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank">
-                            Hip dislocation
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002827)</span>
-                        </span>
-                        
+                        Hip dislocation
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002827">HP:0002827</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6344634" target="_blank">PMID:6344634</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Usually the hips are dislocated and talipes equinovarus deformities are present."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This clinicoradiographic review directly supports hip dislocation as a recurrent orthopedic phenotype in campomelic dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pierre-Robin Sequence
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000201" target="_blank">
-                            Pierre-Robin sequence
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000201)</span>
-                        </span>
-                        
+                        Pierre-Robin sequence
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000201" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000201">HP:0000201</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Campomelic dysplasia (CD) is a skeletal dysplasia characterized by distinctive facies, Pierre Robin sequence with cleft palate, shortening and bowing of long bones, and clubfeet."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies Pierre-Robin sequence with cleft palate as part of the characteristic craniofacial presentation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Laryngotracheomalacia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008755" target="_blank">
-                            Laryngotracheomalacia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008755)</span>
-                        </span>
-                        
+                        Laryngotracheomalacia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008755" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008755">HP:0008755</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other findings include laryngotracheomalacia with respiratory compromise and ambiguous genitalia or normal female external genitalia in most individuals with a 46,XY karyotype."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies laryngotracheomalacia as an important airway manifestation contributing to respiratory compromise.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Ambiguous Genitalia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank">
-                            Ambiguous genitalia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000062)</span>
-                        </span>
-                        
+                        Ambiguous genitalia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000062">HP:0000062</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other findings include laryngotracheomalacia with respiratory compromise and ambiguous genitalia or normal female external genitalia in most individuals with a 46,XY karyotype."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews directly supports ambiguous genitalia as part of the campomelic dysplasia phenotype spectrum in affected 46,XY individuals.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4909,238 +5139,266 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     SOX9 Pathogenic Variants
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SOX9
+
+
+    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11204">hgnc:11204</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7485151" target="_blank">PMID:7485151</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Campomelic dysplasia (CD) is a skeletal malformation syndrome frequently accompanied by 46,XY sex reversal."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This landmark SOX9 study describes the core CD disease context in which SOX9 variation causes skeletal and sex-development abnormalities.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7485151" target="_blank">PMID:7485151</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All mutations found affect a single allele, which is consistent with a dominant mode of inheritance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports causative heterozygous SOX9 variants and dominant inheritance in campomelic dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_ca6e2118-28d5-4a6f-8333-ee30994d41cd-2020-06-01T170000.000Z" target="_blank">CGGV:assertion_ca6e2118-28d5-4a6f-8333-ee30994d41cd-2020-06-01T170000.000Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"SOX9 | HGNC:11204 | campomelic dysplasia | MONDO:0007251 | AD | Definitive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen classifies the SOX9-campomelic dysplasia gene-disease relationship as definitive with autosomal dominant inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Neonatal Respiratory Support
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Early supportive respiratory management (including mechanical ventilation when needed) is critical in severe neonatal presentations.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory insufficiency
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185244" target="_blank">PMID:17185244</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Respiratory distress and cyanosis were noted at birth, and endotracheal intubation with mechanical ventilation was performed due to respiratory failure."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports respiratory supportive care as a key acute management intervention in severe CD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5806,67 +6064,67 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                             </div>
-                            
+
                             <div class="reference-title">Campomelic Dysplasia.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>OpenAI</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Campomelic Dysplasia: Mechanistic Pathophysiology and Key Features</div>
-                            
-                            
+
+
                             <span class="report-badge">o3-deep-research-2025-06-26</span>
-                            
-                            
+
+
                             <span class="report-badge">49 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-03-03T23:34:59.034466</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Campomelic Dysplasia: Mechanistic Pathophysiology and Key Features</h1>
 <h2>Overview</h2>
@@ -5906,11 +6164,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

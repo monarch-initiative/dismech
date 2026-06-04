@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Kindler Epidermolysis Bullosa</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0008260" target="_blank">
                         MONDO:0008260
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Dermatological Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Genetic Disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Kindler epidermolysis bullosa (Kindler syndrome) is the rarest form of EB, caused by autosomal recessive loss-of-function mutations in FERMT1 encoding kindlin-1, a focal adhesion protein critical for integrin activation. Characterized by mixed-level cleavage planes, childhood skin blistering that improves with age, progressive poikiloderma, photosensitivity, and mucosal involvement. Approximately 400 cases have been identified worldwide.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,40 +3065,40 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3036,9 +3106,9 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3046,8 +3116,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3055,9 +3125,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3065,8 +3135,8 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#mechanistic-hypotheses">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◈</div>
@@ -3074,9 +3144,9 @@
                 <div class="stat-label">Hypotheses</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3084,8 +3154,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3093,8 +3163,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3102,8 +3172,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3111,9 +3181,9 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#datasets">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📊</div>
@@ -3121,8 +3191,8 @@
                 <div class="stat-label">Datasets</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#trials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
@@ -3130,10 +3200,10 @@
                 <div class="stat-label">Trials</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3141,8 +3211,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3150,8 +3220,8 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#mechanistic-hypotheses">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◈</div>
@@ -3159,1403 +3229,1518 @@
                 <div class="stat-label">Hyp. Reports</div>
             </div>
             </a>
-            
+
         </div>
 
         <!-- Classifications -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            
+
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Harrison's Chapter</div>
                 <div class="tag-list">
-                    
+
                     <span class="tag tag-classification">DERMATOLOGY</span>
-                    
+
                     <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
-                    
+
                 </div>
             </div>
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
         </div>
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0008260" target="_blank">MONDO:0008260</a>
-                        
-                        
+
+
                         <span class="mapping-label">Kindler syndrome</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">MONDO</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">Primary MONDO disease identifier for this Kindler EB entry.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
+
+
+
             <div class="mapping-section">
                 <div class="classification-category">ICD-10-CM</div>
-                
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/ICD10CM_Q81.8" target="_blank">ICD10CM:Q81.8</a>
-                        
-                        
+
+
                         <span class="mapping-label">Other epidermolysis bullosa</span>
-                        
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:closeMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">ICD-10-CM</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">ICD-10-CM does not provide a Kindler-specific EB code; Q81.8 is the closest available code for this rare EB subtype.
 </div>
-                    
-                    
+
+
                     <ul class="mapping-tree">
-                        
+
                         <li style="padding-left: 0px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/ICD10CM_Q00-Q99" target="_blank">Congenital malformations, deformations and chromosomal abnormalities (Q00-Q99)</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 14px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/ICD10CM_Q80-Q89" target="_blank">Other congenital malformations (Q80-Q89)</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 28px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/ICD10CM_Q81" target="_blank">Epidermolysis bullosa</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 42px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/ICD10CM_Q81.8" target="_blank">Other epidermolysis bullosa</a>
-                            
-                            
+
+
                         </li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
+
+
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive
-                    
+
                 </div>
-                
-                
-    
-    
-    
-    
-                
-    
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21936020" target="_blank">PMID:21936020</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in the FERMT1 gene (also known as KIND1), encoding the focal adhesion protein kindlin-1, underlie the Kindler syndrome (KS), an autosomal recessive skin disorder"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms autosomal recessive inheritance of Kindler syndrome caused by FERMT1 mutations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">2</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Early Blistering-Predominant Phase
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Neonatal and early childhood presentation dominated by acral skin blistering and skin fragility. Blistering typically improves with age but may persist in some patients. Photosensitivity is most prominent during childhood.
 </div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Late Poikiloderma-Predominant Phase
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Progressive poikiloderma (atrophy, telangiectasia, pigmentary changes) becomes the dominant feature in adolescence and adulthood. Diffuse cutaneous atrophy, mucosal complications (colitis, esophageal and urethral stenosis), and risk of squamous cell carcinoma characterize this phase.
 </div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
         <div class="card" id="mechanistic-hypotheses">
             <div class="card-header">
                 <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
                 <h2 class="card-title">Mechanistic Hypotheses</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-wnt-beta-catenin-scc-model">
                 <div class="item-name">Wnt/Beta-Catenin Dysregulation Model for SCC Susceptibility</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">wnt_beta_catenin_scc_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">CANONICAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">Loss of kindlin-1 induces nuclear translocation of beta-catenin-Lef1 in keratinocytes, leading to elevated Wnt-beta-catenin signaling. This dysregulation produces enlarged and hyperactive cutaneous epithelial stem cell compartments, resulting in hyperthickened epidermis, ectopic hair follicle development, and increased skin tumor susceptibility. Kindlin-1 normally inhibits Wnt-beta-catenin signaling through integrin-independent regulation of Wnt ligand expression, and simultaneously promotes TGF-beta-mediated growth-inhibitory signals via alphav-beta6 integrin. Loss of this dual control shifts the balance toward unchecked proliferation.
 </div>
-                
-                
+
+
                 <div class="mapping-notes">Retained as CANONICAL but with important asymmetric-arm and multi-hit qualifications from the 2026 openscientist hypothesis-search report (kb/hypotheses/Kindler_Epidermolysis_Bullosa/wnt_beta_catenin_scc_model). The **TGF-β arm** is robustly validated by independent skin-carcinogenesis literature (TGF-β1 knockout → rapid SCC; Smad2 ablation → accelerated SCC). The **Wnt arm** rests primarily on the foundational Rognoni 2014 mouse-model study and lacks independent replication of the specific kindlin-1→Wnt link in 12 years. At least four parallel/complementary mechanisms by which kindlin-1 loss promotes SCC have been independently demonstrated: oxidative-stress/ERK vulnerability, UV-induced NF-κB/JNK inflammation, hypoxia/MMP13-driven invasion, and EMT/fibrosis with Gstp1 suppression. Clinical SCC epidemiology (cumulative risk 66.7% by age &gt;60, concentration at chronic-inflammation sites, 53.8% metastatic) is more consistent with a multi-hit model than a singular Wnt-driven-initiation model.</div>
-                
-                
-                
+
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Deep research</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Kindler_Epidermolysis_Bullosa/wnt_beta_catenin_scc_model/openscientist.md" target="_blank">OpenScientist</a>
-                            
+
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Kindler_Epidermolysis_Bullosa/wnt_beta_catenin_scc_model/openscientist.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
-                            
-                            
+
+
                             <span class="reference-summary">17 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-23T03:04:49.624426</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (8 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24681597" target="_blank">PMID:24681597</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"loss of Kindlin-1 in mouse keratinocytes recapitulates Kindler syndrome and also produces enlarged and hyperactive stem cell compartments, which lead to hyperthickened epidermis, ectopic hair follicle development and increased skin tumor susceptibility"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model demonstrates that kindlin-1 loss leads to stem cell hyperactivation and tumor susceptibility through Wnt pathway dysregulation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24681597" target="_blank">PMID:24681597</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"loss of Kindlin-1 induces nuclear translocation of β-catenin-Lef1 in KS and mouse skin leading to elevated Wnt-β-catenin signaling"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates the specific mechanism of nuclear beta-catenin-Lef1 translocation in both mouse model and human KS skin.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24681597" target="_blank">PMID:24681597</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindlin-1 controls keratinocyte adhesion through β1-class integrins and proliferation and differentiation of cutaneous epithelial stem cells by promoting α(v)β(6) integrin-mediated transforming growth factor-β (TGF-β) activation and inhibiting Wnt-β-catenin signaling through integrin-independent..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines the dual mechanism by which kindlin-1 normally suppresses tumorigenesis through TGF-beta activation and Wnt inhibition.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 5 more references</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-oxidative-stress-photosensitivity-model">
                 <div class="item-name">Oxidative Stress and Impaired ERK Signaling Model for Photosensitivity</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">oxidative_stress_photosensitivity_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">CANONICAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">Kindlin-1-deficient keratinocytes have higher baseline levels of reactive oxygen species (ROS) and show decreased viability and increased DNA damage after oxidative stress (H2O2 or UVA irradiation). Kindlin-1 is required for full activation of ERK signaling after oxidative damage, and ERK activation protects cells from DNA damage. This integrin-dependent mechanism explains the photosensitivity characteristic of Kindler syndrome and may contribute to the predisposition to aggressive squamous cell carcinoma through accumulation of UV-induced DNA damage.
 </div>
-                
-                
+
+
                 <div class="mapping-notes">Retained as CANONICAL but partially supported per the 2026 openscientist hypothesis-search report (kb/hypotheses/Kindler_Epidermolysis_Bullosa/oxidative_stress_photosensitivity_model). The oxidative-stress phenotype (elevated ROS, decreased viability, increased DNA damage after H2O2/UVA) is independently confirmed by at least three labs. The ERK-specific signaling claim, however, rests on the single Emmert 2017 study and is challenged by equally strong evidence implicating **p38 MAPK** (PMID:27798104), **NF-κB and JNK** (PMID:27725201) as the dominant UV-response pathways in kindlin-1-deficient keratinocytes. The &#34;integrin-dependent&#34; framing requires qualification given kindlin-1&#39;s integrin-independent functions (EGFR stabilization, microtubule/mitotic regulation). Additionally, UV-B induces kindlin-2 loss, creating a &#34;double hit&#34; that worsens the photosensitivity phenotype. The model is best understood as multi-pathway signaling deficiency rather than ERK-specific.</div>
-                
-                
-                
+
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Deep research</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Kindler_Epidermolysis_Bullosa/oxidative_stress_photosensitivity_model/openscientist.md" target="_blank">OpenScientist</a>
-                            
+
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Kindler_Epidermolysis_Bullosa/oxidative_stress_photosensitivity_model/openscientist.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
-                            
-                            
+
+
                             <span class="reference-summary">14 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-23T03:01:13.621387</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (7 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28501563" target="_blank">PMID:28501563</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"loss of Kindlin-1 sensitizes both SCC cells and keratinocytes to oxidative stress: Kindlin-1 deficient cells have higher levels of reactive oxygen species, decreased viability and increased DNA damage after treatment with either hydrogen peroxide (H2O2) or irradiation with UVA"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that kindlin-1-deficient cells have elevated ROS and increased susceptibility to oxidative DNA damage.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28501563" target="_blank">PMID:28501563</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindlin-1 is required to fully activate ERK signalling after oxidative damage, and that activation of ERK protects cells from DNA damage following oxidative stress"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies impaired ERK signaling as the molecular mechanism linking kindlin-1 loss to oxidative stress vulnerability.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28501563" target="_blank">PMID:28501563</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindlin-1 dependent activation of ERK signalling is a key molecular mechanism that renders KS keratinocytes more sensitive to oxidative damage and contributes to the increased photosensitivity in KS patients"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly proposes this mechanism as the basis for photosensitivity in Kindler syndrome patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 4 more references</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fermt1-mutations-and-loss-of-kindlin-1">
                 <div class="item-name">FERMT1 Mutations and Loss of Kindlin-1</div>
-                
+
                 <div class="item-desc">Loss-of-function mutations in FERMT1 (also known as KIND1) lead to absence or dysfunction of the focal adhesion protein kindlin-1 (fermitin family homolog-1). Most mutations are predicted to lead to premature termination of translation and complete loss of kindlin-1 function, though missense mutations can cause milder phenotypes.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         keratinocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        FERMT1
-                        
-                        <a href="https://bioregistry.io/hgnc:15889" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FERMT1
+
+
+    <a href="https://bioregistry.io/hgnc:15889" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15889">hgnc:15889</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Defective Focal Adhesion and Integrin Activation</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of kindlin-1 disrupts focal adhesion formation and integrin activation at the basal keratinocyte-basement membrane zone interface.
 </span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21936020" target="_blank">PMID:21936020</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in the FERMT1 gene (also known as KIND1), encoding the focal adhesion protein kindlin-1, underlie the Kindler syndrome (KS), an autosomal recessive skin disorder with an intriguing progressive phenotype comprising skin blistering, photosensitivity, progressive poikiloderma with..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms FERMT1 mutations cause Kindler syndrome through loss of the focal adhesion protein kindlin-1.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19945623" target="_blank">PMID:19945623</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindler syndrome is caused by genetic defects in the focal contact-associated protein, fermitin family homologue 1 (FFH1), encoded by the gene FERMT1 (known as KIND1)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms FERMT1 encodes the focal contact-associated protein FFH1 (kindlin-1) and its defects cause Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-focal-adhesion-and-integrin-activation">
                 <div class="item-name">Defective Focal Adhesion and Integrin Activation</div>
-                
+
                 <div class="item-desc">Kindlin-1 is a FERM domain protein that activates integrin beta1 signaling at the basal keratinocyte-basement membrane zone interface. Loss of kindlin-1 results in reduced active beta1 integrin, altered distribution of basement membrane proteins (types IV, VII, and XVII collagens, laminin-332), and disruption of hemidesmosomal components. This causes impaired cell-ECM adhesion at multiple levels, explaining the mixed-level cleavage characteristic of Kindler EB.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         keratinocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         focal adhesion assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048041">GO:0048041</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         integrin-mediated signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007229">GO:0007229</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell-matrix adhesion
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007160">GO:0007160</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Keratinocyte Migration and Wound Healing</span>
-	                            
+
 	                            <span class="crosslink-desc">Defective integrin activation impairs keratinocyte migration and proliferation, leading to delayed wound healing.
 </span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Progressive Poikiloderma and Skin Atrophy</span>
-	                            
+
 	                            <span class="crosslink-desc">Chronic adhesion defects lead to progressive skin atrophy, telangiectasia, and pigmentary changes (poikiloderma).
 </span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19762710" target="_blank">PMID:19762710</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"active beta1 integrin was reduced but overexpression of fermitin family homolog-1 restored integrin activation and partially rescued the Kindler syndrome cellular phenotype"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that kindlin-1 deficiency reduces active beta1 integrin and that restoring kindlin-1 rescues integrin activation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19762710" target="_blank">PMID:19762710</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We identified altered distribution of several basement membrane proteins, including types IV, VII, and XVII collagens and laminin-332 in Kindler syndrome skin"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Shows disruption of multiple basement membrane components beyond focal adhesions in Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19945623" target="_blank">PMID:19945623</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Defects in FFH1 lead to abnormal integrin activation and loss of keratinocyte epidermal adhesion to the underlying basal lamina, disruption in normal cell cytoskeleton within keratinocytes, and altered signaling pathways"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms that kindlin-1 deficiency causes abnormal integrin activation and loss of keratinocyte adhesion.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-keratinocyte-migration-and-wound-healing">
                 <div class="item-name">Impaired Keratinocyte Migration and Wound Healing</div>
-                
+
                 <div class="item-desc">Defective integrin activation and cell-matrix adhesion impair keratinocyte migration and proliferation, leading to poor wound healing. Loss of kindlin-1 also disrupts cytoskeletal organization within keratinocytes and reduces keratinocyte stem cell markers such as cytokeratin 15.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         keratinocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         wound healing
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042060">GO:0042060</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19762710" target="_blank">PMID:19762710</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"lack of this protein leads to pathological changes beyond focal adhesions, with disruption of several hemidesmosomal components and reduced expression of keratinocyte stem cell markers"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Shows that kindlin-1 loss impairs keratinocyte biology beyond adhesion, including stem cell marker expression, which contributes to impaired wound healing.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-poikiloderma-and-skin-atrophy">
                 <div class="item-name">Progressive Poikiloderma and Skin Atrophy</div>
-                
+
                 <div class="item-desc">Progressive poikiloderma (atrophy, telangiectasia, pigmentary changes) is the hallmark feature of Kindler EB. The mechanism involves chronic defective keratinocyte adhesion leading to cumulative skin damage. Photosensitivity may contribute through oxidative stress in kindlin-1-deficient keratinocytes. Skin atrophy is diffuse and progressive, affecting both sun-exposed and non-exposed areas.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         keratinocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         response to oxidative stress
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         epidermis development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008544">GO:0008544</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21936020" target="_blank">PMID:21936020</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"an autosomal recessive skin disorder with an intriguing progressive phenotype comprising skin blistering, photosensitivity, progressive poikiloderma with extensive skin atrophy, and propensity to skin cancer"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms the progressive nature of poikiloderma and skin atrophy in Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19057668" target="_blank">PMID:19057668</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"deleting Kindlin-1 in mice gives rise to skin atrophy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model confirms that kindlin-1 loss directly causes skin atrophy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucosal-involvement">
                 <div class="item-name">Mucosal Involvement</div>
-                
+
                 <div class="item-desc">Kindler EB affects mucosal epithelium, causing colitis resembling ulcerative colitis, esophageal strictures, urethral stenosis, and oral mucosal fragility with hemorrhagic gingivitis and periodontitis. Mucosal manifestations result from the same integrin activation defect in epithelial cells lining these structures.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         keratinocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         integrin-mediated signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007229">GO:0007229</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell-matrix adhesion
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007160">GO:0007160</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19057668" target="_blank">PMID:19057668</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"deleting Kindlin-1 in mice gives rise to skin atrophy and an intestinal epithelial dysfunction with similarities to human UC"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model demonstrates that kindlin-1 loss causes intestinal epithelial dysfunction resembling ulcerative colitis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19057668" target="_blank">PMID:19057668</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This intestinal dysfunction results in perinatal lethality and is triggered by defective intestinal epithelial cell integrin activation, leading to detachment of this barrier followed by a destructive inflammatory response"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that intestinal involvement is caused by defective integrin activation in epithelial cells.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mucosal manifestations are also common and include hemorrhagic mucositis and gingivitis, periodontal disease, premature loss of teeth, and labial leukokeratosis. Other mucosal findings can include ectropion, urethral stenosis, and severe phimosis"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews confirms the spectrum of mucosal manifestations in Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4566,887 +4751,920 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Defective Focal Adhesion and Integrin Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Kindlin-1 is a FERM domain protein that activates integrin beta1 signaling at the basal keratinocyte-basement membrane zone interface. Loss of kindlin-1 results in reduced active beta1 integrin, altered distribution of basement membrane proteins (types IV, VII, and XVII collagens, laminin-332), and disruption of hemidesmosomal components. This causes impaired cell-ECM adhesion at multiple levels, explaining the mixed-level cleavage characteristic of Kindler EB.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"focal adhesion assembly\", \"integrin-mediated signaling pathway\", \"cell-matrix adhesion\"]}}, {\"id\": \"FERMT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Causative\"}}, {\"id\": \"FERMT1 Mutations and Loss of Kindlin-1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in FERMT1 (also known as KIND1) lead to absence or dysfunction of the focal adhesion protein kindlin-1 (fermitin family homolog-1). Most mutations are predicted to lead to premature termination of translation and complete loss of kindlin-1 function, though missense mutations can cause milder phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"genes\": [\"FERMT1\"]}}, {\"id\": \"Impaired Keratinocyte Migration and Wound Healing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective integrin activation and cell-matrix adhesion impair keratinocyte migration and proliferation, leading to poor wound healing. Loss of kindlin-1 also disrupts cytoskeletal organization within keratinocytes and reduces keratinocyte stem cell markers such as cytokeratin 15.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"wound healing\", \"cell migration\"]}}, {\"id\": \"Progressive Poikiloderma and Skin Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive poikiloderma (atrophy, telangiectasia, pigmentary changes) is the hallmark feature of Kindler EB. The mechanism involves chronic defective keratinocyte adhesion leading to cumulative skin damage. Photosensitivity may contribute through oxidative stress in kindlin-1-deficient keratinocytes. Skin atrophy is diffuse and progressive, affecting both sun-exposed and non-exposed areas.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"epidermis development\"]}}], \"edges\": [{\"source\": \"FERMT1 Mutations and Loss of Kindlin-1\", \"target\": \"Defective Focal Adhesion and Integrin Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of kindlin-1 disrupts focal adhesion formation and integrin activation at the basal keratinocyte-basement membrane zone interface.\\n\"}, {\"source\": \"Defective Focal Adhesion and Integrin Activation\", \"target\": \"Impaired Keratinocyte Migration and Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective integrin activation impairs keratinocyte migration and proliferation, leading to delayed wound healing.\\n\"}, {\"source\": \"Defective Focal Adhesion and Integrin Activation\", \"target\": \"Progressive Poikiloderma and Skin Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic adhesion defects lead to progressive skin atrophy, telangiectasia, and pigmentary changes (poikiloderma).\\n\"}, {\"source\": \"FERMT1\", \"target\": \"FERMT1 Mutations and Loss of Kindlin-1\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Defective Focal Adhesion and Integrin Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Kindlin-1 is a FERM domain protein that activates integrin beta1 signaling at the basal keratinocyte-basement membrane zone interface. Loss of kindlin-1 results in reduced active beta1 integrin, altered distribution of basement membrane proteins (types IV, VII, and XVII collagens, laminin-332), and disruption of hemidesmosomal components. This causes impaired cell-ECM adhesion at multiple levels, explaining the mixed-level cleavage characteristic of Kindler EB.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"focal adhesion assembly\", \"integrin-mediated signaling pathway\", \"cell-matrix adhesion\"]}}, {\"id\": \"FERMT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Causative\"}}, {\"id\": \"FERMT1 Mutations and Loss of Kindlin-1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in FERMT1 (also known as KIND1) lead to absence or dysfunction of the focal adhesion protein kindlin-1 (fermitin family homolog-1). Most mutations are predicted to lead to premature termination of translation and complete loss of kindlin-1 function, though missense mutations can cause milder phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"genes\": [\"FERMT1\"], \"gene_terms\": [{\"label\": \"FERMT1\", \"id\": \"hgnc:15889\"}]}}, {\"id\": \"Impaired Keratinocyte Migration and Wound Healing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective integrin activation and cell-matrix adhesion impair keratinocyte migration and proliferation, leading to poor wound healing. Loss of kindlin-1 also disrupts cytoskeletal organization within keratinocytes and reduces keratinocyte stem cell markers such as cytokeratin 15.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"wound healing\", \"cell migration\"]}}, {\"id\": \"Progressive Poikiloderma and Skin Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive poikiloderma (atrophy, telangiectasia, pigmentary changes) is the hallmark feature of Kindler EB. The mechanism involves chronic defective keratinocyte adhesion leading to cumulative skin damage. Photosensitivity may contribute through oxidative stress in kindlin-1-deficient keratinocytes. Skin atrophy is diffuse and progressive, affecting both sun-exposed and non-exposed areas.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"epidermis development\"]}}], \"edges\": [{\"source\": \"FERMT1 Mutations and Loss of Kindlin-1\", \"target\": \"Defective Focal Adhesion and Integrin Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of kindlin-1 disrupts focal adhesion formation and integrin activation at the basal keratinocyte-basement membrane zone interface.\\n\"}, {\"source\": \"Defective Focal Adhesion and Integrin Activation\", \"target\": \"Impaired Keratinocyte Migration and Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective integrin activation impairs keratinocyte migration and proliferation, leading to delayed wound healing.\\n\"}, {\"source\": \"Defective Focal Adhesion and Integrin Activation\", \"target\": \"Progressive Poikiloderma and Skin Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic adhesion defects lead to progressive skin atrophy, telangiectasia, and pigmentary changes (poikiloderma).\\n\"}, {\"source\": \"FERMT1\", \"target\": \"FERMT1 Mutations and Loss of Kindlin-1\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">11</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(7)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Colitis
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank">
-                            Colitis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002583)</span>
-                        </span>
-                        
+                        Colitis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002583">HP:0002583</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19057668" target="_blank">PMID:19057668</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"a few KS patients have been reported to also develop ulcerative colitis (UC), a causal link to the FERMT1 gene mutation is unknown"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Notes that some Kindler syndrome patients develop ulcerative colitis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19057668" target="_blank">PMID:19057668</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"deleting Kindlin-1 in mice gives rise to skin atrophy and an intestinal epithelial dysfunction with similarities to human UC"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model provides causal evidence linking kindlin-1 loss to colitis-like intestinal dysfunction.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Esophageal Stenosis
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002043" target="_blank">
-                            Esophageal stricture
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002043)</span>
-                        </span>
-                        
+                        Esophageal stricture
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002043" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002043">HP:0002043</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Severe long-term complications of KS include periodontitis, mucosal strictures, and aggressive squamous cell carcinomas"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies mucosal strictures as a severe long-term complication.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Urethral Stenosis
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008661" target="_blank">
-                            Urethral stenosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008661)</span>
-                        </span>
-                        
+                        Urethral stenosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008661" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008661">HP:0008661</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other mucosal findings can include ectropion, urethral stenosis, and severe phimosis"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews lists urethral stenosis as a mucosal manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Periodontal Disease
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000704" target="_blank">
-                            Periodontitis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000704)</span>
-                        </span>
-                        
+                        Periodontitis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000704" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000704">HP:0000704</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mucosal manifestations are also common and include hemorrhagic mucositis and gingivitis, periodontal disease, premature loss of teeth"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews confirms periodontal disease as a common mucosal manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Severe long-term complications of KS include periodontitis, mucosal strictures, and aggressive squamous cell carcinomas"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms periodontitis as a severe long-term complication.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">7</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Skin Blistering
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank">
-                            Abnormal blistering of the skin
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008066)</span>
-                        </span>
-                        
+                        Abnormal blistering of the skin
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008066">HP:0008066</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"characterized by skin fragility and acral blister formation beginning at birth"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews confirms acral blistering from birth as a cardinal feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21936020" target="_blank">PMID:21936020</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"an autosomal recessive skin disorder with an intriguing progressive phenotype comprising skin blistering, photosensitivity, progressive poikiloderma with extensive skin atrophy, and propensity to skin cancer"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms skin blistering as a key component of the Kindler syndrome phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Poikiloderma
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001029" target="_blank">
-                            Poikiloderma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001029)</span>
-                        </span>
-                        
+                        Poikiloderma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001029" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001029">HP:0001029</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21936020" target="_blank">PMID:21936020</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"progressive poikiloderma with extensive skin atrophy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms progressive poikiloderma as a defining feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19945623" target="_blank">PMID:19945623</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Null mutations in FERMT1 result in skin blistering from birth and early childhood progressive poikiloderma, mucosal fragility, and increased risk of cancer"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms progressive poikiloderma beginning in early childhood.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cutaneous Photosensitivity
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank">
-                            Cutaneous photosensitivity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000992)</span>
-                        </span>
-                        
+                        Cutaneous photosensitivity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000992">HP:0000992</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"photosensitivity (most prominent during childhood and usually decreasing after adolescence)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews confirms photosensitivity pattern in Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21936020" target="_blank">PMID:21936020</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"skin blistering, photosensitivity, progressive poikiloderma with extensive skin atrophy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms photosensitivity as part of the progressive phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28501563" target="_blank">PMID:28501563</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindlin-1 deficient cells have higher levels of reactive oxygen species, decreased viability and increased DNA damage after treatment with either hydrogen peroxide (H2O2) or irradiation with UVA"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates the molecular basis of photosensitivity through elevated ROS and increased DNA damage in kindlin-1-deficient cells after UVA exposure.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Progressive Skin Atrophy
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004334" target="_blank">
-                            Dermal atrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004334)</span>
-                        </span>
-                        
+                        Dermal atrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004334" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004334">HP:0004334</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"diffuse cutaneous atrophy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews lists diffuse cutaneous atrophy as a key clinical characteristic.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19057668" target="_blank">PMID:19057668</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"deleting Kindlin-1 in mice gives rise to skin atrophy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model confirms kindlin-1 loss directly causes skin atrophy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Palmoplantar Keratoderma
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank">
-                            Palmoplantar keratoderma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000982)</span>
-                        </span>
-                        
+                        Palmoplantar keratoderma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000982">HP:0000982</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"diffuse palmoplantar hyperkeratosis"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews confirms palmoplantar hyperkeratosis as a feature of Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Nail Dystrophy
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank">
-                            Nail dystrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008404)</span>
-                        </span>
-                        
+                        Nail dystrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008404">HP:0008404</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Nail dystrophy is reported in Kindler syndrome case series but specific abstract-level evidence is limited.
 </div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Squamous Cell Carcinoma Risk
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002860" target="_blank">
-                            Squamous cell carcinoma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002860)</span>
-                        </span>
-                        
+                        Squamous cell carcinoma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002860" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002860">HP:0002860</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">14.3% of adult KS patients develop SCC, with cumulative risk reaching 66.7% in patients over 60 years. SCCs are highly aggressive with 53.8% developing metastatic disease.
 </div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21936020" target="_blank">PMID:21936020</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"propensity to skin cancer"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms increased skin cancer risk in Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Severe long-term complications of KS include periodontitis, mucosal strictures, and aggressive squamous cell carcinomas"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies aggressive SCCs as a severe long-term complication.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31340837" target="_blank">PMID:31340837</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"SCC developed in 13 of the 91 patients"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Largest systematic study of SCC in KS quantifies the frequency at 14.3% of adult patients in this cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 2 more references</div>
-            
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -5471,817 +5689,853 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     FERMT1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The diagnosis of KS is established in a proband with suggestive clinical findings and biallelic pathogenic variants in FERMT1 identified by molecular genetic testing"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews confirms biallelic FERMT1 variants as the molecular basis of Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21936020" target="_blank">PMID:21936020</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Although most mutations are predicted to lead to premature termination of translation, and to loss of kindlin-1 function, significant clinical variability is observed among patients"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms that most FERMT1 mutations are loss-of-function with variable clinical expression.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19762710" target="_blank">PMID:19762710</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It results from loss-of-function mutations in the FERMT1 gene encoding the focal adhesion protein, fermitin family homolog-1"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms FERMT1 loss-of-function mutations cause Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Wound Care and Skin Protection
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Standard blister care with use of moisturizers and protection from mechanical trauma. Multidisciplinary management by a team experienced in skin fragility disorders is recommended.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Skin care includes standard blister care, use of moisturizers, and protection from trauma and the sun"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews describes wound care and skin protection as key management strategies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Photoprotection
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Sun avoidance and sunscreen use to reduce photosensitivity-related skin damage. Sun exposure is listed as an agent to avoid.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Agents/circumstances to avoid: Sun exposure"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews explicitly recommends avoiding sun exposure.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gastrointestinal Management
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Management of gastrointestinal complications including colitis and esophageal strictures. Gastroenterology input is part of the multidisciplinary team.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"management of gastrointestinal and urethral complications"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews includes GI management as part of treatment.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Dental Care
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Regular dental care to ensure optimal oral hygiene and reduce periodontal disease. Screening for oral ulcerations, gingivitis, and periodontitis starting in adolescence with regular dental checkups.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"regular dental care to ensure optimal oral hygiene to reduce periodontal disease"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews recommends regular dental care for periodontal disease prevention.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Squamous Cell Carcinoma Surveillance
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">cancer screening</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000126" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000126</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000126" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000126">MAXO:0000126</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Screening for premalignant keratoses and early squamous cell carcinomas starting in adolescence and repeated annually.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Screening for premalignant keratoses and early squamous cell carcinomas starting in adolescence and repeated annually"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews recommends annual SCC screening starting in adolescence.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Kindler syndrome is inherited in an autosomal recessive manner. Carrier testing for at-risk relatives, prenatal testing, and preimplantation genetic testing are possible once FERMT1 pathogenic variants have been identified.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"KS is inherited in an autosomal recessive manner. If both parents are known to be heterozygous for an FERMT1 pathogenic variant, each sib of an affected individual has at conception a 25% chance of being affected"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews confirms autosomal recessive inheritance and recommends genetic counseling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
         <div class="card" id="datasets">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
                 <h2 class="card-title">Related Datasets</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box dataset-box">
                 <div class="item-name">
                     Kindler syndrome microarray study
-                    
+
                     <span class="dataset-accession">
                         <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE47642" target="_blank">geo:GSE47642</a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Human skin-biopsy microarray dataset comparing Kindler syndrome and control samples to define transcriptional changes associated with FERMT1 deficiency.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-organism">human</span>
-                    
-                    
+
+
                     <span class="tag tag-datatype">MICROARRAY</span>
-                    
-                    
+
+
                     <span class="tag tag-dataset">n=6</span>
-                    
-                    
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 6px;">
                     <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
-                    
+
                     <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">Kindler syndrome skin biopsies</span>
-                    
+
                     <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">normal human skin biopsies</span>
-                    
+
                 </div>
-                
-                
-                
-    
-    
-                
+
+
+
+
+
+
                 <div style="margin-top: 8px; font-size: 0.85rem;">
                     <a href="http://www.ncbi.nlm.nih.gov/pubmed/24681597" target="_blank" style="color: var(--secondary);">PMID:24681597</a>
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/GEO:GSE47642" target="_blank">GEO:GSE47642</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Characterization of gene expression profile of normal human and Kindler Syndrome (KS) patients skin biopsies samples"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms the dataset contains direct human tissue expression profiles from Kindler syndrome and control skin.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/GEO:GSE47642" target="_blank">GEO:GSE47642</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"to extend the knowledge of transcriptional changes in the Kindler syndrome disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports this dataset as a disease-relevant transcriptomic resource for Kindler EB.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Clinical Trials -->
-        
+
         <div class="card" id="trials">
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
                 <h2 class="card-title">Clinical Trials</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT04908215
-                    
+
                     <span class="tag tag-phase">PHASE_II</span>
-                    
-                    
+
+
                     <span class="tag tag-status">COMPLETED</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Completed phase II randomized trial of topical INM-755 (cannabinol) cream across multiple epidermolysis bullosa subtypes, including Kindler syndrome, to evaluate wound healing and symptom control.</div>
-                
-                
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Wound healing impairment
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001058">HP:0001058</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04908215" target="_blank">clinicaltrials:NCT04908215</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The purpose of this study is to evaluate the safety of INM-755 (cannabinol) cream and obtain preliminary evidence of efficacy in treating symptoms and healing wounds over a 28-day period in patients with epidermolysis bullosa (EB)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This ClinicalTrials.gov record supports a completed EB-enrollment trial of topical cannabinol cream relevant to Kindler syndrome because the current study condition list includes Kindler syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -7419,812 +7673,812 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">18</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                             </div>
-                            
+
                             <div class="reference-title">Kindler Syndrome.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Youssefian L(1), Vahidnezhad H(1), Uitto J(1).</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Youssefian L(1), Vahidnezhad H(1), Uitto J(1)."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26937547" target="_blank">PMID:26937547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Youssefian L(1), Vahidnezhad H(1), Uitto J(1)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kindler Epidermolysis Bullosa.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.det.2009.10.016" target="_blank">DOI:10.1016/j.det.2009.10.016</a>
                             </div>
-                            
+
                             <div class="reference-title">Animal Models of Epidermolysis Bullosa</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Animal Models of Epidermolysis Bullosa</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Animal Models of Epidermolysis Bullosa"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41389-024-00526-1" target="_blank">DOI:10.1038/s41389-024-00526-1</a>
                             </div>
-                            
+
                             <div class="reference-title">Involvement of Kindlin-1 in cutaneous squamous cell carcinoma</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Kindler syndrome (KS) is a rare genodermatosis resulting from loss-of-function mutations in FERMT1, the gene that encodes Kindlin-1.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Kindler syndrome (KS) is a rare genodermatosis resulting from loss-of-function mutations in FERMT1, the gene that encodes Kindlin-1."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41389-024-00526-1" target="_blank">DOI:10.1038/s41389-024-00526-1</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindler syndrome (KS) is a rare genodermatosis resulting from loss-of-function mutations in FERMT1, the gene that encodes Kindlin-1."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kindler Epidermolysis Bullosa.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1111/bjd.18921" target="_blank">DOI:10.1111/bjd.18921</a>
                             </div>
-                            
+
                             <div class="reference-title">Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1159/000320235" target="_blank">DOI:10.1159/000320235</a>
                             </div>
-                            
+
                             <div class="reference-title">Mild Clinical Phenotype of Kindler Syndrome Associated with Late Diagnosis and Skin Cancer</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Kindler syndrome (KS) is a heritable skin disorder with a complex phenotype consisting of congenital skin blistering, photosensitivity, progressive generalized poikiloderma and extensive skin atrophy.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Kindler syndrome (KS) is a heritable skin disorder with a complex phenotype consisting of congenital skin blistering, photosensitivity, progressive generalized poikiloderma and extensive skin atrophy."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1159/000320235" target="_blank">DOI:10.1159/000320235</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindler syndrome (KS) is a heritable skin disorder with a complex phenotype consisting of congenital skin blistering, photosensitivity, progressive generalized poikiloderma and extensive skin atrophy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kindler Epidermolysis Bullosa.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.15690/vsp.v23i5.2808" target="_blank">DOI:10.15690/vsp.v23i5.2808</a>
                             </div>
-                            
+
                             <div class="reference-title">Congenital Epidermolysis Bullosa Epidemiology among Children of Russian Federation</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.15690/vsp.v23i5.2808" target="_blank">DOI:10.15690/vsp.v23i5.2808</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The prevalence of all types of congenital epidermolysis bullosa (СEB) worldwide is approximately 11 cases per 1 million according to the latest data from the American Epidermolysis Bullosa Registry."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kindler Epidermolysis Bullosa.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fped.2024.1425030" target="_blank">DOI:10.3389/fped.2024.1425030</a>
                             </div>
-                            
+
                             <div class="reference-title">Identification of a novel FERMT1 variant causing kindler syndrome and a review of the clinical and molecular genetic features in Chinese patients</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Kindler Syndrome (KS, OMIM #173650), a rare autosomal recessive genetic disorder, is characterized by a spectrum of symptoms such as cutaneous fragility, blistering, photosensitivity, and mucosal involvement.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Kindler Syndrome (KS, OMIM #173650), a rare autosomal recessive genetic disorder, is characterized by a spectrum of symptoms such as cutaneous fragility, blistering, photosensitivity, and mucosal involvement."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fped.2024.1425030" target="_blank">DOI:10.3389/fped.2024.1425030</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindler Syndrome (KS, OMIM #173650), a rare autosomal recessive genetic disorder, is characterized by a spectrum of symptoms such as cutaneous fragility, blistering, photosensitivity, and mucosal involvement."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kindler Epidermolysis Bullosa.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/froh.2024.1430698" target="_blank">DOI:10.3389/froh.2024.1430698</a>
                             </div>
-                            
+
                             <div class="reference-title">Unusual oral manifestation of Kindler syndrome: a case report and review of literature</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Unusual oral manifestation of Kindler syndrome: a case report and review of literature</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Kindler syndrome (KS) is a rare autosomal recessive genodermatosis characterized by congenital acral blistering, that typically presents in infancy and is followed by the development of characteristic poikilodermatous pigmentation and photosensitivity in later life."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/froh.2024.1430698" target="_blank">DOI:10.3389/froh.2024.1430698</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindler syndrome (KS) is a rare autosomal recessive genodermatosis characterized by congenital acral blistering, that typically presents in infancy and is followed by the development of characteristic poikilodermatous pigmentation and photosensitivity in later life."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kindler Epidermolysis Bullosa.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/ijms26094237" target="_blank">DOI:10.3390/ijms26094237</a>
                             </div>
-                            
+
                             <div class="reference-title">A Novel Homozygous 9385 bp Deletion in the FERMT1 (KIND1) Gene in a Malaysian Family with Kindler Epidermolysis bullosa and a Review of Large Deletions</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Kindler Epidermolysis bullosa (KEB; OMIM 173650) is a rare autosomal recessive genodermatosis characterized by bullous poikiloderma and photosensitivity.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Kindler Epidermolysis bullosa (KEB; OMIM 173650) is a rare autosomal recessive genodermatosis characterized by bullous poikiloderma and photosensitivity."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms26094237" target="_blank">DOI:10.3390/ijms26094237</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kindler Epidermolysis bullosa (KEB; OMIM 173650) is a rare autosomal recessive genodermatosis characterized by bullous poikiloderma and photosensitivity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kindler Epidermolysis Bullosa.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/jcm13133742" target="_blank">DOI:10.3390/jcm13133742</a>
                             </div>
-                            
+
                             <div class="reference-title">Epidemiological Characteristics of Inherited Epidermolysis Bullosa in an Eastern European Population</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm13133742" target="_blank">DOI:10.3390/jcm13133742</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Epidermolysis bullosa (EB) is a hereditary condition characterized by skin and mucosal fragility, with various degrees of severity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Kindler Epidermolysis Bullosa.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1002/humu.21576" target="_blank">DOI:10.1002/humu.21576</a>
                             </div>
-                            
+
                             <div class="reference-title">Kindler syndrome: Extension of FERMT1 mutational spectrum and natural history</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/978-3-662-45698-9_43" target="_blank">DOI:10.1007/978-3-662-45698-9_43</a>
                             </div>
-                            
+
                             <div class="reference-title">Kindler Syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s13312-018-1239-y" target="_blank">DOI:10.1007/s13312-018-1239-y</a>
                             </div>
-                            
+
                             <div class="reference-title">Kindler Syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.det.2009.10.012" target="_blank">DOI:10.1016/j.det.2009.10.012</a>
                             </div>
-                            
+
                             <div class="reference-title">Kindler Syndrome Pathogenesis and Fermitin Family Homologue 1 (Kindlin-1) Function</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.det.2009.10.013" target="_blank">DOI:10.1016/j.det.2009.10.013</a>
                             </div>
-                            
+
                             <div class="reference-title">Kindler Syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1177/2050313x241231518" target="_blank">DOI:10.1177/2050313x241231518</a>
                             </div>
-                            
+
                             <div class="reference-title">Battling a rarity: A case of kindler syndrome from a developing country</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s13023-019-1158-6" target="_blank">DOI:10.1186/s13023-019-1158-6</a>
                             </div>
-                            
+
                             <div class="reference-title">Assessment of the risk and characterization of non-melanoma skin cancer in Kindler syndrome: study of a series of 91 patients</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1371/journal.pgen.1000289" target="_blank">DOI:10.1371/journal.pgen.1000289</a>
                             </div>
-                            
+
                             <div class="reference-title">Loss of Kindlin-1 Causes Skin Atrophy and Lethal Neonatal Intestinal Epithelial Dysfunction</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">1. Disease Information</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">54 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-09T23:16:53.313773</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>1. Disease Information</h2>
 <h3>1.1 What is the disease? (concise overview)</h3>
@@ -8520,11 +8774,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
