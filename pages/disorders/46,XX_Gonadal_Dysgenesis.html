@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>46,XX Gonadal Dysgenesis</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0009299" target="_blank">
                         MONDO:0009299
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Disorder of sex development</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Primary ovarian insufficiency</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Gonadal development disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,11 +2993,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 46,XX gonadal dysgenesis is a rare, genetically heterogeneous ovarian developmental disorder in phenotypically female individuals with a normal 46,XX karyotype. The shared disease mechanism is failure of ovarian development and folliculogenesis, producing streak or severely underdeveloped ovaries, estrogen deficiency, hypergonadotropic hypogonadism, absent spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and infertility. The entry includes isolated gene-defined forms and a Perrault-spectrum syndromic branch with sensorineural hearing impairment, but anchors ovarian developmental failure rather than broader 46,XX disorder-of-sex-development phenotype mentions caused by other mechanisms such as prenatal androgen excess.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2997,36 +3067,36 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3034,8 +3104,8 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#definitions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📘</div>
@@ -3043,8 +3113,8 @@
                 <div class="stat-label">Definitions</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3052,8 +3122,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3061,9 +3131,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3071,10 +3141,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3082,8 +3152,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3091,8 +3161,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3100,8 +3170,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3109,14 +3179,14 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3124,1898 +3194,2155 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0009299" target="_blank">MONDO:0009299</a>
-                        
-                        
+
+
                         <span class="mapping-label">46 XX gonadal dysgenesis</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">MONDO</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">Primary MONDO disease identifier for 46,XX gonadal dysgenesis.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
-            
-            
+
+
+
+
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
         <div class="card" id="definitions">
             <div class="card-header">
                 <div class="card-icon" style="background: #cffafe; color: #0e7490;">📘</div>
                 <h2 class="card-title">Definitions</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">Clinical disease framing for 46,XX gonadal dysgenesis</div>
-                
+
                 <div class="item-desc">46,XX gonadal dysgenesis is a disease-level ovarian developmental failure state defined by a normal 46,XX karyotype, phenotypically female external genitalia, underdeveloped or streak ovaries, absent spontaneous puberty, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">CASE_DEFINITION</span>
-                    
-                    
+
+
                     <span class="tag tag-parent">Disease anchor for isolated 46,XX gonadal dysgenesis rather than a generic 46,XX DSD phenotype bucket.</span>
-                    
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder that is characterized by underdeveloped, dysfunctional ovaries, with subsequent lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This abstract provides a compact disease-level definition for isolated 46,XX gonadal dysgenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Isolated FSHR-, NUP107-, and PSMC3IP-related forms are recessive, and Perrault-spectrum 46,XX ovarian dysfunction with hearing impairment is also recessive.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using homozygosity mapping and whole-exome sequencing, we identified a recessive missense mutation in nucleoporin-107 (NUP107, c.1339G&gt;A, p.D447N)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes a recessive isolated subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32423379" target="_blank">PMID:32423379</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Perrault syndrome (MIM: 233400) is a rare recessive genetically heterogeneous disorder characterized by sensorineural hearing loss in males and females and ovarian dysfunction in females [1]."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes recessive inheritance for the Perrault-spectrum branch.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal dominant with variable penetrance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">NR5A1-related ovarian developmental failure can segregate dominantly with incomplete penetrance and variable expressivity, while rare recessive NR5A1 families have also been described.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19246354" target="_blank">PMID:19246354</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Families 1, 3, and 4 show a dominant mode of inheritance, whereas Family 2 shows a recessive mode."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports autosomal dominant inheritance for most NR5A1 families in this series and flags the documented recessive exception.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">5</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                    
-                
-                
-            
-            
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="classification-header">gene</div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Ovarian dysgenesis 1 (FSHR-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0024463" target="_blank">MONDO:0024463</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 FSHR
-                                
-                                <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3969">hgnc:3969</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                            
+
+
+
+
                             <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
-                            
-                        
-                        
-                        
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal recessive FSHR-related ovarian dysgenesis caused by impaired follicle-stimulating hormone receptor binding and signal transduction in granulosa-cell pathways.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7553856" target="_blank">PMID:7553856</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hypergonadotropic ovarian dysgenesis (ODG) with normal karyotype is a heterogeneous condition that in some cases displays Mendelian recessive inheritance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes FSHR-related ovarian dysgenesis as a recessive subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Ovarian dysgenesis 2 (NUP107-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010349" target="_blank">MONDO:0010349</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 NUP107
-                                
-                                <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29914">hgnc:29914</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                            
+
+
+
+
                             <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
-                            
-                        
-                        
-                        
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal recessive NUP107-related subtype linking nuclear pore dysfunction and defective oogenesis to isolated 46,XX gonadal dysgenesis.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using homozygosity mapping and whole-exome sequencing, we identified a recessive missense mutation in nucleoporin-107 (NUP107, c.1339G&gt;A, p.D447N)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines the recessive NUP107-related subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Ovarian dysgenesis 3 (PSMC3IP/HOP2-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013689" target="_blank">MONDO:0013689</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 PSMC3IP
-                                
-                                <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17928">hgnc:17928</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                            
+
+
+
+
                             <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
-                            
-                        
-                        
-                        
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal recessive PSMC3IP-related subtype in which a homozygous HOP2 coactivator defect disrupts estrogen-driven transcription and follicular-pool maintenance.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Affected females were homozygous for a 3 bp deletion (NM_016556.2, c.600_602del) in the PSMC3IP gene, leading to deletion of a glutamic acid residue (p.Glu201del) in the highly conserved C-terminal acidic domain."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines the homozygous PSMC3IP-related subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         NR5A1-related 46,XX gonadal dysgenesis/ovarian insufficiency
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 NR5A1
-                                
-                                <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7983">hgnc:7983</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                            
+
+
+
+
                             <span class="subtype-inheritance-tag">Autosomal dominant inheritance</span>
-                            
-                        
-                        
-                        
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">NR5A1-related ovarian developmental failure overlaps 46,XX gonadal dysgenesis and primary ovarian insufficiency, most often through dominant familial variants with variable penetrance and expressivity.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19246354" target="_blank">PMID:19246354</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Families 1, 3, and 4 show a dominant mode of inheritance, whereas Family 2 shows a recessive mode."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports dominant NR5A1 inheritance while preserving the reported variability in penetrance and inheritance mode.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
-                
+
+
+
                 <div class="classification-header">syndromic</div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Perrault-spectrum 46,XX gonadal dysgenesis
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0017312" target="_blank">MONDO:0017312</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 HARS2
-                                
-                                <a href="https://bioregistry.io/hgnc:4817" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4817" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4817">hgnc:4817</a>
+
+
+
                             </span>
-                            
+
                             <span class="subtype-gene-tag">
                                 HSD17B4
-                                
-                                <a href="https://bioregistry.io/hgnc:5213" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:5213" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5213">hgnc:5213</a>
+
+
+
                             </span>
-                            
+
                             <span class="subtype-gene-tag">
                                 CLPP
-                                
-                                <a href="https://bioregistry.io/hgnc:2084" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2084" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2084">hgnc:2084</a>
+
+
+
                             </span>
-                            
+
                             <span class="subtype-gene-tag">
                                 TWNK
-                                
-                                <a href="https://bioregistry.io/hgnc:1160" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1160" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1160">hgnc:1160</a>
+
+
+
                             </span>
-                            
+
                             <span class="subtype-gene-tag">
                                 LARS2
-                                
-                                <a href="https://bioregistry.io/hgnc:17095" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:17095" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17095">hgnc:17095</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                            
+
+
+
+
                             <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
-                            
-                        
-                        
-                        
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal recessive syndromic branch with ovarian dysgenesis or primary ovarian insufficiency in 46,XX individuals plus sensorineural hearing impairment.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32423379" target="_blank">PMID:32423379</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Perrault syndrome (MIM: 233400) is a rare recessive genetically heterogeneous disorder characterized by sensorineural hearing loss in males and females and ovarian dysfunction in females [1]."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the syndromic 46,XX gonadal-dysgenesis branch with hearing impairment.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">8</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genetic-disruption-of-female-gonad-development">
                 <div class="item-name">Genetic disruption of female gonad development</div>
-                
+
                 <div class="item-desc">46,XX gonadal dysgenesis is genetically heterogeneous, but the shared proximal lesion is failure of gene programs required for ovarian development and maintenance.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         female gonad development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008585" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008585" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008585">GO:0008585</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         gonad development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008406" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008406" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008406">GO:0008406</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired hormonal signaling and folliculogenesis</span>
-	                            
+
 	                            <span class="crosslink-desc">Diverse causal lesions converge on disrupted ovarian signaling and follicle maturation.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These results indicate a pivotal role for NUP107 in ovarian development and suggest that nucleoporin defects may play a role in milder and more common conditions such as premature ovarian failure."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports ovarian developmental failure as a proximal mechanism in 46,XX gonadal dysgenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19246354" target="_blank">PMID:19246354</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations were associated with a range of ovarian anomalies, including 46,XX gonadal dysgenesis and 46,XX primary ovarian insufficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This shows that multiple ovarian-development genes can anchor the same disease entity and its close overlap with ovarian insufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nup107-nuclear-pore-oogenesis-defect">
                 <div class="item-name">NUP107 nuclear-pore oogenesis defect</div>
-                
+
                 <div class="item-desc">NUP107-related ovarian dysgenesis links a nuclear pore component to sex-specific defective oogenesis and ovarian development in 46,XX individuals.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         oocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000023">CL:0000023</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        NUP107
-                        
-                        <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NUP107
+
+
+    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29914">hgnc:29914</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         nuclear pore
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005643" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005643" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005643">GO:0005643</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Streak gonads and ovarian failure</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"NUP107 is a component of the nuclear pore complex, and the NUP107-associated protein SEH1 is required for oogenesis in Drosophila."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the nuclear-pore and oogenesis mechanism for NUP107-related disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In Drosophila, Nup107 knockdown in somatic gonadal cells resulted in female sterility, whereas males were fully fertile."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports a sex-specific ovarian requirement for NUP107 activity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-psmc3ip-estrogen-receptor-coactivation-failure">
                 <div class="item-name">PSMC3IP estrogen-receptor coactivation failure</div>
-                
+
                 <div class="item-desc">PSMC3IP/HOP2-related disease disrupts estrogen-driven nuclear-receptor coactivation, reducing fetal follicular-pool establishment and increasing vulnerability to follicular atresia during puberty.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         oocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000023">CL:0000023</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        PSMC3IP
-                        
-                        <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PSMC3IP
+
+
+    <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17928">hgnc:17928</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         ovarian follicle development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001541" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001541" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001541">GO:0001541</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired hormonal signaling and folliculogenesis</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In cell lines, the p.Glu201del mutation abolished PSMC3IP activation of estrogen-driven transcription."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports loss of estrogen-driven transcriptional coactivation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Impaired estrogenic signaling can lead to ovarian dysgenesis both by affecting the size of the follicular pool created during fetal development and by failing to counteract follicular atresia during puberty."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Links PSMC3IP-driven estrogenic-signaling failure to the developmental and pubertal ovarian phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fshr-receptor-signaling-resistance">
                 <div class="item-name">FSHR receptor signaling resistance</div>
-                
+
                 <div class="item-desc">FSHR-related ovarian dysgenesis impairs follicle-stimulating hormone receptor signaling, producing follicular arrest with hypergonadotropic ovarian failure.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         granulosa cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000501">CL:0000501</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        FSHR
-                        
-                        <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FSHR
+
+
+    <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3969">hgnc:3969</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         response to follicle-stimulating hormone
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0032354" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0032354" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032354">GO:0032354</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired hormonal signaling and folliculogenesis</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7553856" target="_blank">PMID:7553856</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Expression of the gene in transfected cells demonstrated a dramatic reduction of binding capacity and signal transduction, but apparently normal ligand-binding affinity of the mutated receptor."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports receptor signaling resistance as the FSHR mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nr5a1-steroidogenic-transcription-dosage-defect">
                 <div class="item-name">NR5A1 steroidogenic transcription dosage defect</div>
-                
+
                 <div class="item-desc">NR5A1-related ovarian insufficiency reflects impaired transcriptional activation of steroidogenic and follicle-growth genes in ovarian cells, with variable penetrance and expressivity across families.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         granulosa cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000501">CL:0000501</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        NR5A1
-                        
-                        <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NR5A1
+
+
+    <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7983">hgnc:7983</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         estrogen biosynthetic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006703">GO:0006703</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Streak gonads and ovarian failure</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19246354" target="_blank">PMID:19246354</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our data show that mutated forms of NR5A1, detected in subjects with anomalies of ovarian development and function, show quantitative impairment in the transactivation of two of these factors (CYP11A1 and CYP19A1)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports impaired NR5A1 transcriptional output as the molecular mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hormonal-signaling-and-folliculogenesis">
                 <div class="item-name">Impaired hormonal signaling and folliculogenesis</div>
-                
+
                 <div class="item-desc">A major shared mechanistic branch is reduced ovarian hormone-response and follicular maintenance, including impaired FSH signaling and defective estrogen-responsive transcription.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         granulosa cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000501">CL:0000501</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         oocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000023">CL:0000023</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         response to follicle-stimulating hormone
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0032354" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0032354" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032354">GO:0032354</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         ovarian follicle development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001541" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001541" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001541">GO:0001541</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Streak gonads and ovarian failure</span>
-	                            
+
 	                            <span class="crosslink-desc">Chronic failure of follicle development and ovarian signaling produces streak or severely underdeveloped ovaries with loss of reproductive function.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7553856" target="_blank">PMID:7553856</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Expression of the gene in transfected cells demonstrated a dramatic reduction of binding capacity and signal transduction, but apparently normal ligand-binding affinity of the mutated receptor."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports impaired FSH signaling as one disease-causing mechanistic branch in 46,XX gonadal dysgenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Impaired estrogenic signaling can lead to ovarian dysgenesis both by affecting the size of the follicular pool created during fetal development and by failing to counteract follicular atresia during puberty."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports defective estrogen-responsive transcription and accelerated follicular loss as another shared mechanistic branch.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-streak-gonads-and-ovarian-failure">
                 <div class="item-name">Streak gonads and ovarian failure</div>
-                
+
                 <div class="item-desc">The convergent anatomical outcome is a streak or severely underdeveloped ovary with little or no effective steroidogenic or follicular function.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         estrogen biosynthetic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006703">GO:0006703</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypoestrogenic hypergonadotropic state</span>
-	                            
+
 	                            <span class="crosslink-desc">Ovarian failure lowers estrogen output and disinhibits pituitary gonadotropin secretion.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder that is characterized by underdeveloped, dysfunctional ovaries, with subsequent lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports underdeveloped dysfunctional ovaries as the shared anatomic lesion of the disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder characterized by lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism as a result of streak gonads."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This explicitly identifies streak gonads as the proximate cause of the endocrine and reproductive phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoestrogenic-hypergonadotropic-state">
                 <div class="item-name">Hypoestrogenic hypergonadotropic state</div>
-                
+
                 <div class="item-desc">Loss of ovarian steroidogenic function results in estrogen deficiency and compensatory elevation of pituitary gonadotropins, driving pubertal failure and amenorrhea.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         gonadotropin secretion
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032274">GO:0032274</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder that is characterized by underdeveloped, dysfunctional ovaries, with subsequent lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the downstream hypoestrogenic hypergonadotropic endocrine state as a core mechanistic consequence.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinically, both groups of patients were characterized by primary or early secondary amenorrhea, variable development of secondary sex characteristics, and high serum levels of FSH and LH."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This links the endocrine state to amenorrhea and impaired pubertal development in a mechanistically defined XX-GD subset.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -5026,476 +5353,497 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Audiology and hearing-support management for Perrault-spectrum cases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Perrault-spectrum patients need multidisciplinary hearing assessment and intervention planning in parallel with endocrine surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cyclic estrogen-progestogen maintenance when uterus is present\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once estrogenized uterine tissue is present, cyclic progestogen is used with estrogen to oppose endometrial effects during long-term replacement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Delayed Puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous pubertal development fails because ovarian estrogen production is inadequate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000823\"}}, {\"id\": \"FSHR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FSHR\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"FSHR receptor signaling resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FSHR-related ovarian dysgenesis impairs follicle-stimulating hormone receptor signaling, producing follicular arrest with hypergonadotropic ovarian failure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"granulosa cell\"], \"biological_processes\": [\"response to follicle-stimulating hormone\"], \"genes\": [\"FSHR\"]}}, {\"id\": \"Female Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Streak gonads and ovarian failure prevent normal ovulation and reproductive capacity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008222\"}}, {\"id\": \"Fertility and reproductive counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Counseling should cover infertility expectations, reproductive endocrinology referral, donor-oocyte or gestational-surrogacy pathways when relevant, and recurrence-risk implications for inherited subtypes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Genetic disruption of female gonad development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"46,XX gonadal dysgenesis is genetically heterogeneous, but the shared proximal lesion is failure of gene programs required for ovarian development and maintenance.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"female gonad development\", \"gonad development\"]}}, {\"id\": \"Hypergonadotropic Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ovarian failure lowers sex-steroid output and drives compensatory gonadotropin elevation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000815\"}}, {\"id\": \"Hypoestrogenic hypergonadotropic state\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ovarian steroidogenic function results in estrogen deficiency and compensatory elevation of pituitary gonadotropins, driving pubertal failure and amenorrhea.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"gonadotropin secretion\"]}}, {\"id\": \"Impaired hormonal signaling and folliculogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A major shared mechanistic branch is reduced ovarian hormone-response and follicular maintenance, including impaired FSH signaling and defective estrogen-responsive transcription.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"granulosa cell\", \"oocyte\"], \"biological_processes\": [\"response to follicle-stimulating hormone\", \"ovarian follicle development\"]}}, {\"id\": \"NR5A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NR5A1\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"NR5A1 steroidogenic transcription dosage defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NR5A1-related ovarian insufficiency reflects impaired transcriptional activation of steroidogenic and follicle-growth genes in ovarian cells, with variable penetrance and expressivity across families.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"granulosa cell\"], \"biological_processes\": [\"estrogen biosynthetic process\"], \"genes\": [\"NR5A1\"]}}, {\"id\": \"NUP107\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP107\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"NUP107 nuclear-pore oogenesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NUP107-related ovarian dysgenesis links a nuclear pore component to sex-specific defective oogenesis and ovarian development in 46,XX individuals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oocyte\"], \"genes\": [\"NUP107\"]}}, {\"id\": \"PSMC3IP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PSMC3IP\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"PSMC3IP estrogen-receptor coactivation failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PSMC3IP/HOP2-related disease disrupts estrogen-driven nuclear-receptor coactivation, reducing fetal follicular-pool establishment and increasing vulnerability to follicular atresia during puberty.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oocyte\"], \"biological_processes\": [\"ovarian follicle development\"], \"genes\": [\"PSMC3IP\"]}}, {\"id\": \"Pubertal induction and long-term hormone replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Estrogen-based pubertal induction followed by estrogen-progestogen maintenance is used to initiate and sustain puberty, support secondary sexual characteristics, and reduce long-term consequences of hypoestrogenism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing impairment distinguishes Perrault-spectrum disease from isolated 46,XX gonadal dysgenesis and should prompt audiology and syndromic genetic evaluation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Perrault-spectrum\"], \"term_id\": \"HP:0000407\"}}, {\"id\": \"Streak gonads and ovarian failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent anatomical outcome is a streak or severely underdeveloped ovary with little or no effective steroidogenic or follicular function.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"estrogen biosynthetic process\"]}}], \"edges\": [{\"source\": \"Genetic disruption of female gonad development\", \"target\": \"Impaired hormonal signaling and folliculogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diverse causal lesions converge on disrupted ovarian signaling and follicle maturation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"defective ovarian transcriptional regulation\", \"impaired gonadotropin responsiveness\"]}, {\"source\": \"NUP107 nuclear-pore oogenesis defect\", \"target\": \"Streak gonads and ovarian failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PSMC3IP estrogen-receptor coactivation failure\", \"target\": \"Impaired hormonal signaling and folliculogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FSHR receptor signaling resistance\", \"target\": \"Impaired hormonal signaling and folliculogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NR5A1 steroidogenic transcription dosage defect\", \"target\": \"Streak gonads and ovarian failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hormonal signaling and folliculogenesis\", \"target\": \"Streak gonads and ovarian failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic failure of follicle development and ovarian signaling produces streak or severely underdeveloped ovaries with loss of reproductive function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Streak gonads and ovarian failure\", \"target\": \"Hypoestrogenic hypergonadotropic state\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ovarian failure lowers estrogen output and disinhibits pituitary gonadotropin secretion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pubertal induction and long-term hormone replacement\", \"target\": \"Delayed Puberty\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pubertal induction and long-term hormone replacement\", \"target\": \"Hypergonadotropic Hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclic estrogen-progestogen maintenance when uterus is present\", \"target\": \"Hypergonadotropic Hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fertility and reproductive counseling\", \"target\": \"Female Infertility\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Audiology and hearing-support management for Perrault-spectrum cases\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NUP107\", \"target\": \"NUP107 nuclear-pore oogenesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PSMC3IP\", \"target\": \"PSMC3IP estrogen-receptor coactivation failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FSHR\", \"target\": \"FSHR receptor signaling resistance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NR5A1\", \"target\": \"NR5A1 steroidogenic transcription dosage defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Audiology and hearing-support management for Perrault-spectrum cases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Perrault-spectrum patients need multidisciplinary hearing assessment and intervention planning in parallel with endocrine surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cyclic estrogen-progestogen maintenance when uterus is present\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once estrogenized uterine tissue is present, cyclic progestogen is used with estrogen to oppose endometrial effects during long-term replacement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Delayed Puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous pubertal development fails because ovarian estrogen production is inadequate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000823\"}}, {\"id\": \"FSHR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FSHR\"], \"gene_terms\": [{\"label\": \"FSHR\", \"id\": \"hgnc:3969\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"FSHR receptor signaling resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FSHR-related ovarian dysgenesis impairs follicle-stimulating hormone receptor signaling, producing follicular arrest with hypergonadotropic ovarian failure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"granulosa cell\"], \"biological_processes\": [\"response to follicle-stimulating hormone\"], \"genes\": [\"FSHR\"], \"gene_terms\": [{\"label\": \"FSHR\", \"id\": \"hgnc:3969\"}]}}, {\"id\": \"Female Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Streak gonads and ovarian failure prevent normal ovulation and reproductive capacity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008222\"}}, {\"id\": \"Fertility and reproductive counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Counseling should cover infertility expectations, reproductive endocrinology referral, donor-oocyte or gestational-surrogacy pathways when relevant, and recurrence-risk implications for inherited subtypes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Genetic disruption of female gonad development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"46,XX gonadal dysgenesis is genetically heterogeneous, but the shared proximal lesion is failure of gene programs required for ovarian development and maintenance.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"female gonad development\", \"gonad development\"]}}, {\"id\": \"Hypergonadotropic Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ovarian failure lowers sex-steroid output and drives compensatory gonadotropin elevation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000815\"}}, {\"id\": \"Hypoestrogenic hypergonadotropic state\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ovarian steroidogenic function results in estrogen deficiency and compensatory elevation of pituitary gonadotropins, driving pubertal failure and amenorrhea.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"gonadotropin secretion\"]}}, {\"id\": \"Impaired hormonal signaling and folliculogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A major shared mechanistic branch is reduced ovarian hormone-response and follicular maintenance, including impaired FSH signaling and defective estrogen-responsive transcription.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"granulosa cell\", \"oocyte\"], \"biological_processes\": [\"response to follicle-stimulating hormone\", \"ovarian follicle development\"]}}, {\"id\": \"NR5A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NR5A1\"], \"gene_terms\": [{\"label\": \"NR5A1\", \"id\": \"hgnc:7983\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"NR5A1 steroidogenic transcription dosage defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NR5A1-related ovarian insufficiency reflects impaired transcriptional activation of steroidogenic and follicle-growth genes in ovarian cells, with variable penetrance and expressivity across families.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"granulosa cell\"], \"biological_processes\": [\"estrogen biosynthetic process\"], \"genes\": [\"NR5A1\"], \"gene_terms\": [{\"label\": \"NR5A1\", \"id\": \"hgnc:7983\"}]}}, {\"id\": \"NUP107\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP107\"], \"gene_terms\": [{\"label\": \"NUP107\", \"id\": \"hgnc:29914\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"NUP107 nuclear-pore oogenesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NUP107-related ovarian dysgenesis links a nuclear pore component to sex-specific defective oogenesis and ovarian development in 46,XX individuals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oocyte\"], \"genes\": [\"NUP107\"], \"gene_terms\": [{\"label\": \"NUP107\", \"id\": \"hgnc:29914\"}]}}, {\"id\": \"PSMC3IP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PSMC3IP\"], \"gene_terms\": [{\"label\": \"PSMC3IP\", \"id\": \"hgnc:17928\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"PSMC3IP estrogen-receptor coactivation failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PSMC3IP/HOP2-related disease disrupts estrogen-driven nuclear-receptor coactivation, reducing fetal follicular-pool establishment and increasing vulnerability to follicular atresia during puberty.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oocyte\"], \"biological_processes\": [\"ovarian follicle development\"], \"genes\": [\"PSMC3IP\"], \"gene_terms\": [{\"label\": \"PSMC3IP\", \"id\": \"hgnc:17928\"}]}}, {\"id\": \"Pubertal induction and long-term hormone replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Estrogen-based pubertal induction followed by estrogen-progestogen maintenance is used to initiate and sustain puberty, support secondary sexual characteristics, and reduce long-term consequences of hypoestrogenism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing impairment distinguishes Perrault-spectrum disease from isolated 46,XX gonadal dysgenesis and should prompt audiology and syndromic genetic evaluation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Perrault-spectrum\"], \"term_id\": \"HP:0000407\"}}, {\"id\": \"Streak gonads and ovarian failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent anatomical outcome is a streak or severely underdeveloped ovary with little or no effective steroidogenic or follicular function.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"estrogen biosynthetic process\"]}}], \"edges\": [{\"source\": \"Genetic disruption of female gonad development\", \"target\": \"Impaired hormonal signaling and folliculogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diverse causal lesions converge on disrupted ovarian signaling and follicle maturation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"defective ovarian transcriptional regulation\", \"impaired gonadotropin responsiveness\"]}, {\"source\": \"NUP107 nuclear-pore oogenesis defect\", \"target\": \"Streak gonads and ovarian failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PSMC3IP estrogen-receptor coactivation failure\", \"target\": \"Impaired hormonal signaling and folliculogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FSHR receptor signaling resistance\", \"target\": \"Impaired hormonal signaling and folliculogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NR5A1 steroidogenic transcription dosage defect\", \"target\": \"Streak gonads and ovarian failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hormonal signaling and folliculogenesis\", \"target\": \"Streak gonads and ovarian failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic failure of follicle development and ovarian signaling produces streak or severely underdeveloped ovaries with loss of reproductive function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Streak gonads and ovarian failure\", \"target\": \"Hypoestrogenic hypergonadotropic state\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ovarian failure lowers estrogen output and disinhibits pituitary gonadotropin secretion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pubertal induction and long-term hormone replacement\", \"target\": \"Delayed Puberty\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pubertal induction and long-term hormone replacement\", \"target\": \"Hypergonadotropic Hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclic estrogen-progestogen maintenance when uterus is present\", \"target\": \"Hypergonadotropic Hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fertility and reproductive counseling\", \"target\": \"Female Infertility\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Audiology and hearing-support management for Perrault-spectrum cases\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NUP107\", \"target\": \"NUP107 nuclear-pore oogenesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PSMC3IP\", \"target\": \"PSMC3IP estrogen-receptor coactivation failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FSHR\", \"target\": \"FSHR receptor signaling resistance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NR5A1\", \"target\": \"NR5A1 steroidogenic transcription dosage defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">7</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(4)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sensorineural hearing impairment
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank">
-                            Sensorineural hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000407)</span>
-                        </span>
-                        
+                        Sensorineural hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32423379" target="_blank">PMID:32423379</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Perrault syndrome (MIM: 233400) is a rare recessive genetically heterogeneous disorder characterized by sensorineural hearing loss in males and females and ovarian dysfunction in females [1]."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports hearing impairment as the key syndromic feature of the Perrault-spectrum subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Delayed Puberty
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank">
-                            Delayed puberty
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000823)</span>
-                        </span>
-                        
+                        Delayed puberty
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000823">HP:0000823</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder that is characterized by underdeveloped, dysfunctional ovaries, with subsequent lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract explicitly supports absent spontaneous pubertal development, which maps to delayed puberty at the phenotype level.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypergonadotropic Hypogonadism
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank">
-                            Hypergonadotropic hypogonadism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000815)</span>
-                        </span>
-                        
+                        Hypergonadotropic hypogonadism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000815">HP:0000815</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder that is characterized by underdeveloped, dysfunctional ovaries, with subsequent lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This explicitly identifies hypergonadotropic hypogonadism as part of the core XX-GD phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinically, both groups of patients were characterized by primary or early secondary amenorrhea, variable development of secondary sex characteristics, and high serum levels of FSH and LH."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports elevated gonadotropins as the endocrine signature of a mechanistically defined XX-GD subset.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">4</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Gonadal Dysgenesis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000133" target="_blank">
-                            Gonadal dysgenesis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000133)</span>
-                        </span>
-                        
+                        Gonadal dysgenesis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000133" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000133">HP:0000133</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder that is characterized by underdeveloped, dysfunctional ovaries, with subsequent lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports gonadal dysgenesis as the structural hallmark phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Primary Amenorrhea
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank">
-                            Primary amenorrhea
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000786)</span>
-                        </span>
-                        
+                        Primary amenorrhea
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000786">HP:0000786</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder characterized by lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism as a result of streak gonads."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports primary amenorrhea as a core diagnostic phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Uterine Hypoplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008684" target="_blank">
-                            Aplasia/hypoplasia of the uterus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008684)</span>
-                        </span>
-                        
+                        Aplasia/hypoplasia of the uterus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008684" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008684">HP:0008684</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder that is characterized by underdeveloped, dysfunctional ovaries, with subsequent lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports uterine hypoplasia as part of the core disease phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Female Infertility
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank">
-                            Female infertility
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008222)</span>
-                        </span>
-                        
+                        Female infertility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008222">HP:0008222</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"XX female gonadal dysgenesis (XX-GD) is a rare, genetically heterogeneous disorder characterized by lack of spontaneous pubertal development, primary amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism as a result of streak gonads."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Streak gonads imply loss of functional ovarian tissue and support female infertility as a downstream reproductive consequence.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -5520,878 +5868,1005 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     NUP107
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSATIVE)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NUP107
+
+
+    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29914">hgnc:29914</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using homozygosity mapping and whole-exome sequencing, we identified a recessive missense mutation in nucleoporin-107 (NUP107, c.1339G&gt;A, p.D447N)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This identifies NUP107 as a causal recessive gene for familial 46,XX gonadal dysgenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     PSMC3IP
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSATIVE)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PSMC3IP
+
+
+    <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17928">hgnc:17928</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Affected females were homozygous for a 3 bp deletion (NM_016556.2, c.600_602del) in the PSMC3IP gene, leading to deletion of a glutamic acid residue (p.Glu201del) in the highly conserved C-terminal acidic domain."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This establishes PSMC3IP as a causal gene in a familial 46,XX gonadal dysgenesis pedigree.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     FSHR
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSATIVE)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FSHR
+
+
+    <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3969">hgnc:3969</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7553856" target="_blank">PMID:7553856</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We conclude that the mutation causes ODG in these families."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This provides direct causal evidence for FSHR-mediated ovarian dysgenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     NR5A1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSATIVE)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant with variable penetrance</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NR5A1
+
+
+    <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7983">hgnc:7983</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant with variable penetrance</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19246354" target="_blank">PMID:19246354</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations were associated with a range of ovarian anomalies, including 46,XX gonadal dysgenesis and 46,XX primary ovarian insufficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This shows that NR5A1 can anchor both 46,XX gonadal dysgenesis and the adjacent ovarian-insufficiency phenotype space.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pubertal induction and long-term hormone replacement
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">sex hormone modifying agent therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000282" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000282</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000282" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000282">MAXO:0000282</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Estrogen-based pubertal induction followed by estrogen-progestogen maintenance is used to initiate and sustain puberty, support secondary sexual characteristics, and reduce long-term consequences of hypoestrogenism.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delayed puberty
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000823">HP:0000823</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypergonadotropic hypogonadism
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000815">HP:0000815</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36300209" target="_blank">PMID:36300209</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Girls with hypogonadism require hormone replacement therapy to initiate and sustain puberty."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports pubertal induction and maintenance hormone replacement for hypogonadal adolescents.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35142292" target="_blank">PMID:35142292</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hormone replacement therapy remains the only therapeutic option for the development of secondary sexual characteristics and the prevention of osteoporosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports hormone replacement therapy as core conservative management for 46,XX gonadal dysgenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cyclic estrogen-progestogen maintenance when uterus is present
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">sex hormone modifying agent therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000282" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000282</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000282" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000282">MAXO:0000282</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Once estrogenized uterine tissue is present, cyclic progestogen is used with estrogen to oppose endometrial effects during long-term replacement.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypergonadotropic hypogonadism
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000815">HP:0000815</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment with estrogen and progesterone are required for reducing the risk of endometrial hyperplasia and carcinoma, which will increase due to long-term application of estrogen without opposition."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports cyclic progestogen addition to estrogen replacement when uterine tissue is present.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Bone-health monitoring and calcium-vitamin D support
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Dual-energy X-ray absorptiometry procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0020004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0020004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0020004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0020004">MAXO:0020004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Delayed diagnosis and prolonged hypoestrogenism can cause osteopenia or osteoporosis, so bone-density monitoring plus calcium and vitamin D support should accompany hormone replacement.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Early initiation of estrogen therapy is essential to minimize bone loss. Moreover, lifelong oral calcium and vitamin D supplement should be given to maintain bone health."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports bone-focused management in hypoestrogenic 46,XX gonadal dysgenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24945456" target="_blank">PMID:24945456</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The goals of hormonal therapy extend beyond simply symptom relief to levels that support bone, cardiovascular, and sexual health."</div>
-                
-                
+
+
                 <div class="evidence-explanation">General adolescent POI guidance supports bone-health goals for hormone therapy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Fertility and reproductive counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">behavioral counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000077" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000077</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000077" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000077">MAXO:0000077</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Counseling should cover infertility expectations, reproductive endocrinology referral, donor-oocyte or gestational-surrogacy pathways when relevant, and recurrence-risk implications for inherited subtypes.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Female infertility
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008222">HP:0008222</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24945456" target="_blank">PMID:24945456</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients and their families should be counseled on the effect of the patient&#39;s condition on future fertility, on the risk of comorbidities associated with primary ovarian insufficiency, and on the condition&#39;s potential for genetic inheritance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports fertility and inheritance counseling in adolescent ovarian insufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"She has been informed about future options for having children by adoption or gestational surrogacy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case-level evidence supports reproductive-option counseling, though it is not a comparative intervention study.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Psychologic support and longitudinal follow-up
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">behavioral counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000077" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000077</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000077" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000077">MAXO:0000077</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Diagnosis can affect self-esteem, emotional health, fertility expectations, and identity; longitudinal care should include psychologic counseling and at least annual follow-up for ovarian-insufficiency consequences.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24945456" target="_blank">PMID:24945456</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Psychologic counseling also should be offered because impaired self-esteem and emotional distress have been reported after diagnosis of primary ovarian insufficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports psychologic counseling after diagnosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24945456" target="_blank">PMID:24945456</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Once primary ovarian insufficiency is diagnosed, patients should be evaluated at least annually."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports longitudinal follow-up.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Audiology and hearing-support management for Perrault-spectrum cases
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">audiologist evaluation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000734" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000734</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000734" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000734">MAXO:0000734</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Perrault-spectrum patients need multidisciplinary hearing assessment and intervention planning in parallel with endocrine surveillance.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32423379" target="_blank">PMID:32423379</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hearing loss should be assessed and treated by a multidisciplinary team including an audiologist and otolaryngologist."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports audiology-led hearing management for the Perrault-spectrum subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -7917,42 +8392,42 @@ treatments:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>OpenAI</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Summary</div>
-                            
-                            
+
+
                             <span class="report-badge">gpt-5</span>
-                            
-                            
+
+
                             <span class="report-badge">8 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-14T05:40:11Z</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>Summary</h2>
 <p><code>MONDO:0009299</code> provides a dedicated disease-level anchor for <code>46 XX gonadal
@@ -8053,11 +8528,11 @@ amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism.</p>
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
