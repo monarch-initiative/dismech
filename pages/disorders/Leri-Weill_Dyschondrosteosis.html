@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Leri-Weill Dyschondrosteosis</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0007481" target="_blank">
                         MONDO:0007481
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">SHOX-related skeletal dysplasia</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Mesomelic dysplasia</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,12 +2991,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Leri-Weill dyschondrosteosis (LWD) is a pseudoautosomal dominant skeletal dysplasia caused by haploinsufficiency of the SHOX gene in the pseudoautosomal region 1 (PAR1) of the sex chromosomes. It is characterized by mesomelic short stature and Madelung deformity of the wrist, resulting from impaired growth plate chondrocyte differentiation and proliferation in the distal radius and ulna. The phenotype is more severe in females than males, likely due to estrogen-mediated acceleration of premature epiphyseal fusion. LWD is allelic with Langer mesomelic dysplasia, which represents the homozygous/compound heterozygous form with more severe limb shortening. This entry is scoped to the heterozygous LWD presentation with mesomelia and Madelung deformity; nonspecific SHOX-deficient short stature without this classic triad is adjacent but not the primary disease scope.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2996,34 +3066,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3031,8 +3101,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3040,9 +3110,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3050,10 +3120,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3061,8 +3131,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3070,8 +3140,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3079,14 +3149,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3094,8 +3164,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3103,523 +3173,586 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Pseudoautosomal dominant
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0034340" target="_blank">
                             HP:0034340
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">LWD follows pseudoautosomal dominant inheritance with variable expressivity and incomplete penetrance. The SHOX gene is located in the pseudoautosomal region 1 (PAR1) of the X and Y chromosomes, so it does not undergo X-inactivation and both sexes can be affected. However, females are more severely affected than males, with higher penetrance of Madelung deformity. Some heterozygous carriers, particularly males, can be clinically unaffected.
 </div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Pseudoautosomal dominant inheritance
         </span>
-        
-        
+
+
         <span class="tag tag-classification">Penetrance: INCOMPLETE</span>
-        
-        
-        
-        
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9590293" target="_blank">PMID:9590293</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Leri-Weill Dyschondrosteosis (LWD; OMIM 127300) is a dominantly inherited skeletal dysplasia characterized by disproportionate short stature with predominantly mesomelic limb shortening. Expression is variable and consistently more severe in females, who frequently display the Madelung deformity..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes dominant inheritance, variable expression, and female preponderance of the skeletal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In pseudoautosomal dominant inheritance, homologous genes located on the short arm of the X chromosome (Xp) and the short arm of the Y chromosome (Yp) follow the rules of autosomal inheritance"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews entry confirms pseudoautosomal dominant inheritance pattern for SHOX deficiency disorders including LWD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shox-haploinsufficiency-in-growth-plate-chondrocytes">
                 <div class="item-name">SHOX haploinsufficiency in growth plate chondrocytes</div>
-                
+
                 <div class="item-desc">The SHOX (Short Stature Homeobox) transcription factor is expressed in growth plate chondrocytes, particularly in the hypertrophic zone of the distal radius and ulna. Haploinsufficiency caused by heterozygous deletions or point mutations of SHOX leads to disrupted columnar arrangement of chondrocytes, expansion of the hypertrophic layer, and reduced proliferative zone. This results in premature fusion of the growth plate and disproportionate shortening of the mesomelic segments of the limbs.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Growth plate chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         Hypertrophic chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000743" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000743" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000743">CL:0000743</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        SHOX
-                        
-                        <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SHOX
+
+
+    <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10853">hgnc:10853</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Growth plate chondrocyte differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0003418" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0003418" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003418">GO:0003418</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Growth plate chondrocyte proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0003419" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0003419" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003419">GO:0003419</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Endochondral bone morphogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0060350" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060350" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060350">GO:0060350</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Mesomelic short stature</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Madelung deformity</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11677662" target="_blank">PMID:11677662</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A widespread disorganisation of physeal anatomy was revealed with disruption of the normal parallel columnar arrangement of chondrocytes. Tandem stacking of maturing chondrocytes within columns was replaced by a side-by-side arrangement."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Histopathological analysis of surgically excised radial growth plates from LWD patients with confirmed SHOX deficiency demonstrates disordered chondrocyte columnar arrangement.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11677662" target="_blank">PMID:11677662</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The presence of hypertrophic osteoid with micro-enchondromata in the radial metaphysis suggests abnormal endochondral ossification."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Same histopathological study demonstrates abnormal endochondral ossification in the radial metaphysis of LWD patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25110390" target="_blank">PMID:25110390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"histopathological analyses showed a disrupted columnar arrangement of chondrocytes and an expanded hypertrophic layer of the growth plate. Recent studies have suggested that perturbed programmed cell death of hypertrophic chondrocytes may underlie the skeletal changes related to SHOX deficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review summarizing histopathological findings in SHOX-deficient growth plates, confirming disrupted chondrocyte organization and implicating abnormal hypertrophic chondrocyte apoptosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-estrogen-mediated-acceleration-of-premature-epiphyseal-fusion">
                 <div class="item-name">Estrogen-mediated acceleration of premature epiphyseal fusion</div>
-                
+
                 <div class="item-desc">Estrogens exert a maturational effect on growth plate cartilage, accelerating the premature epiphyseal fusion caused by SHOX haploinsufficiency. This explains the female-predominant severity of Madelung deformity and the worsening of skeletal features during puberty. Skeletal lesions are rare prepubertally but develop rapidly with rising estrogen levels. Turner syndrome females, who have impaired ovarian function, show relatively milder Madelung deformity despite sharing SHOX haploinsufficiency, further supporting the role of estrogen.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Response to estrogen
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0043627" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0043627" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043627">GO:0043627</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Madelung deformity</span>
-	                            
+
 	                            <span class="crosslink-desc">Pubertal estrogen exposure can accelerate premature distal radial growth plate fusion in SHOX deficiency, worsening Madelung deformity when the radius and ulna grow asymmetrically.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10599728" target="_blank">PMID:10599728</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"estrogens exert a maturational effect on skeletal tissues that are susceptible to premature fusion of growth plates because of haploinsufficiency of SHOX, facilitating the development of skeletal lesions."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that estrogen-driven skeletal maturation accelerates premature growth plate fusion in SHOX-deficient individuals, explaining female predominance.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25110390" target="_blank">PMID:25110390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Skeletal changes of SHOX deficiency tend to be more severe in adult females than in children or adult males"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review confirms sex- and age-dependent severity of skeletal features in SHOX deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3630,1015 +3763,1057 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Estrogens exert a maturational effect on growth plate cartilage, accelerating the premature epiphyseal fusion caused by SHOX haploinsufficiency. This explains the female-predominant severity of Madelung deformity and the worsening of skeletal features during puberty. Skeletal lesions are rare prepubertally but develop rapidly with rising estrogen levels. Turner syndrome females, who have impaired ovarian function, show relatively milder Madelung deformity despite sharing SHOX haploinsufficiency, further supporting the role of estrogen.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to estrogen\"]}}, {\"id\": \"Madelung deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wrist deformity with bowing and shortening of the distal radius, dorsal subluxation of the distal ulna, and abnormal alignment of the radius, ulna, and carpal bones due to premature fusion of the distal radial growth plate.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003067\"}}, {\"id\": \"Mesomelic short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate shortening of the middle limb segments, especially the forearms and lower legs. Mesomelia may first become evident in school-aged children and becomes more pronounced with age.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008845\"}}, {\"id\": \"SHOX deletions and point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"SHOX downstream enhancer deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Deletions of cis-regulatory enhancer elements downstream of SHOX that abolish transcription without disrupting the coding sequence.\\n\"}, {\"id\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The SHOX (Short Stature Homeobox) transcription factor is expressed in growth plate chondrocytes, particularly in the hypertrophic zone of the distal radius and ulna. Haploinsufficiency caused by heterozygous deletions or point mutations of SHOX leads to disrupted columnar arrangement of chondrocytes, expansion of the hypertrophic layer, and reduced proliferative zone. This results in premature fusion of the growth plate and disproportionate shortening of the mesomelic segments of the limbs.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\", \"Hypertrophic chondrocyte\"], \"biological_processes\": [\"Growth plate chondrocyte differentiation\", \"Growth plate chondrocyte proliferation\", \"Endochondral bone morphogenesis\"], \"genes\": [\"SHOX\"]}}, {\"id\": \"SHOX intragenic point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense, nonsense, or frameshift mutations within the SHOX coding region, typically affecting the homeodomain.\\n\"}, {\"id\": \"SHOX whole-gene deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Complete heterozygous deletion of the SHOX gene, the most common molecular cause of LWD.\\n\"}], \"edges\": [{\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Mesomelic short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Madelung deformity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Madelung deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pubertal estrogen exposure can accelerate premature distal radial growth plate fusion in SHOX deficiency, worsening Madelung deformity when the radius and ulna grow asymmetrically.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX whole-gene deletion\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SHOX downstream enhancer deletion\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SHOX intragenic point mutations\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Estrogens exert a maturational effect on growth plate cartilage, accelerating the premature epiphyseal fusion caused by SHOX haploinsufficiency. This explains the female-predominant severity of Madelung deformity and the worsening of skeletal features during puberty. Skeletal lesions are rare prepubertally but develop rapidly with rising estrogen levels. Turner syndrome females, who have impaired ovarian function, show relatively milder Madelung deformity despite sharing SHOX haploinsufficiency, further supporting the role of estrogen.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to estrogen\"]}}, {\"id\": \"Madelung deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wrist deformity with bowing and shortening of the distal radius, dorsal subluxation of the distal ulna, and abnormal alignment of the radius, ulna, and carpal bones due to premature fusion of the distal radial growth plate.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003067\"}}, {\"id\": \"Mesomelic short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate shortening of the middle limb segments, especially the forearms and lower legs. Mesomelia may first become evident in school-aged children and becomes more pronounced with age.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008845\"}}, {\"id\": \"SHOX deletions and point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"SHOX downstream enhancer deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Deletions of cis-regulatory enhancer elements downstream of SHOX that abolish transcription without disrupting the coding sequence.\\n\"}, {\"id\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The SHOX (Short Stature Homeobox) transcription factor is expressed in growth plate chondrocytes, particularly in the hypertrophic zone of the distal radius and ulna. Haploinsufficiency caused by heterozygous deletions or point mutations of SHOX leads to disrupted columnar arrangement of chondrocytes, expansion of the hypertrophic layer, and reduced proliferative zone. This results in premature fusion of the growth plate and disproportionate shortening of the mesomelic segments of the limbs.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\", \"Hypertrophic chondrocyte\"], \"biological_processes\": [\"Growth plate chondrocyte differentiation\", \"Growth plate chondrocyte proliferation\", \"Endochondral bone morphogenesis\"], \"genes\": [\"SHOX\"], \"gene_terms\": [{\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}]}}, {\"id\": \"SHOX intragenic point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense, nonsense, or frameshift mutations within the SHOX coding region, typically affecting the homeodomain.\\n\"}, {\"id\": \"SHOX whole-gene deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Complete heterozygous deletion of the SHOX gene, the most common molecular cause of LWD.\\n\"}], \"edges\": [{\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Mesomelic short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Madelung deformity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Madelung deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pubertal estrogen exposure can accelerate premature distal radial growth plate fusion in SHOX deficiency, worsening Madelung deformity when the radius and ulna grow asymmetrically.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX whole-gene deletion\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SHOX downstream enhancer deletion\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SHOX intragenic point mutations\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">14</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(8)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         High arched palate
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank">
-                            High palate
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000218)</span>
-                        </span>
-                        
+                        High palate
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000218">HP:0000218</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11739418" target="_blank">PMID:11739418</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The prevalence of increased carrying angle, high arched palate, and scoliosis was similar in the two populations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports high-arched palate as a recurrent associated feature in the LWD cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
                     <span class="cat-count">8</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Madelung deformity
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003067" target="_blank">
-                            Madelung deformity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003067)</span>
-                        </span>
-                        
+                        Madelung deformity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003067" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003067">HP:0003067</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">More common and more severe in females than males; typically develops in mid-to-late childhood.</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11739418" target="_blank">PMID:11739418</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Madelung deformity was present in 74% of LWD children and adults and was more frequent and severe in females than males."</div>
-                
-                
+
+
                 <div class="evidence-explanation">74% falls in the FREQUENT band (30-79%) and directly supports female predominance in genetically confirmed LWD.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Madelung deformity (abnormal alignment of the radius, ulna, and carpal bones at the wrist) typically develops in mid-to-late childhood and is more common and severe in females."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews directly supports the usual childhood onset and sex bias.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9590293" target="_blank">PMID:9590293</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Expression is variable and consistently more severe in females, who frequently display the Madelung deformity of the forearm (shortening and bowing of the radius with dorsal subluxation of the distal ulna)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the characteristic radiographic-anatomic components of the deformity and the female-predominant severity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short forearm
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005773" target="_blank">
-                            Short forearm
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005773)</span>
-                        </span>
-                        
+                        Short forearm
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005773" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005773">HP:0005773</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32295321" target="_blank">PMID:32295321</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Madelung’s deformity, cubitus valgus, muscular hypertrophy and short forearm were the most common phenotypic features, as well as short stature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports short forearm as a recurrent phenotype in a mostly LWD-compatible SHOX-deficiency cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17182655" target="_blank">PMID:17182655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"detailed examination revealed that certain bone deformities and dysmorphic signs, such as short forearm and lower leg, cubitus valgus, Madelung deformity, high-arched palate and muscular hypertrophy, differed markedly between participants with or without SHOX gene defects (p&lt;0.001)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large multinational pediatric cohort supports short forearm as a key clinical discriminator of SHOX haploinsufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short tibia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005736" target="_blank">
-                            Short tibia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005736)</span>
-                        </span>
-                        
+                        Short tibia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005736" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005736">HP:0005736</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25110390" target="_blank">PMID:25110390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The mesomelic short stature of LWD can be explained as a result of impaired linear growth of the radius, ulna, tibia and fibula."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports tibial involvement as part of lower-leg mesomelic shortening in LWD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Radial bowing
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002986" target="_blank">
-                            radial bowing
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002986)</span>
-                        </span>
-                        
+                        radial bowing
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002986" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002986">HP:0002986</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9590293" target="_blank">PMID:9590293</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"shortening and bowing of the radius with dorsal subluxation of the distal ulna"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports radial bowing as a characteristic structural component of Madelung deformity in LWD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Dorsal subluxation of the distal ulna
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006459" target="_blank">
-                            Dorsal subluxation of ulna
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006459)</span>
-                        </span>
-                        
+                        Dorsal subluxation of ulna
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006459" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006459">HP:0006459</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25110390" target="_blank">PMID:25110390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"dorsal subluxation of the ulnar head"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports dorsal ulna subluxation as part of the wrist deformity in SHOX deficiency/LWD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Limited wrist movement
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006248" target="_blank">
-                            Limited wrist movement
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006248)</span>
-                        </span>
-                        
+                        Limited wrist movement
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006248" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006248">HP:0006248</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25110390" target="_blank">PMID:25110390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinical manifestations induced by Madelung deformity include wrist pain, deformation and limited joint motion"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports restricted wrist motion as a functional consequence of Madelung deformity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cubitus valgus
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002967" target="_blank">
-                            Cubitus valgus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002967)</span>
-                        </span>
-                        
+                        Cubitus valgus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002967" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002967">HP:0002967</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10599728" target="_blank">PMID:10599728</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Skeletal assessment showed that three patients had no discernible skeletal abnormalities, one patient exhibited short 4th metacarpals and borderline cubitus valgus, and the remaining 10 patients had Madelung deformity and/or mesomelia characteristic of Léri-Weill dyschondrosteosis (LWD),..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports cubitus valgus as an associated skeletal feature in a molecularly defined LWD cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short 4th metacarpal
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0010044" target="_blank">
-                            Short 4th metacarpal
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0010044)</span>
-                        </span>
-                        
+                        Short 4th metacarpal
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010044" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010044">HP:0010044</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10599728" target="_blank">PMID:10599728</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Skeletal assessment showed that three patients had no discernible skeletal abnormalities, one patient exhibited short 4th metacarpals and borderline cubitus valgus, and the remaining 10 patients had Madelung deformity and/or mesomelia characteristic of Léri-Weill dyschondrosteosis (LWD),..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports short fourth metacarpals as a recurrent associated feature in a molecularly defined LWD cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Scoliosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank">
-                            Scoliosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002650)</span>
-                        </span>
-                        
+                        Scoliosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11739418" target="_blank">PMID:11739418</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The prevalence of increased carrying angle, high arched palate, and scoliosis was similar in the two populations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports scoliosis as a recurrent associated feature in the LWD cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Wrist pain
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank">
-                            Limb pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0009763)</span>
-                        </span>
-                        
+                        Limb pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009763">HP:0009763</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25110390" target="_blank">PMID:25110390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinical manifestations induced by Madelung deformity include wrist pain, deformation and limited joint motion"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports wrist pain as a clinically important symptomatic manifestation of Madelung deformity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Disproportionate short stature
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank">
-                            Disproportionate short stature
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003498)</span>
-                        </span>
-                        
+                        Disproportionate short stature
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003498">HP:0003498</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25110390" target="_blank">PMID:25110390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A decreased extremity/trunk ratio with a fairly preserved sitting height and head circumference is a characteristic auxological finding of patients with LWD"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports disproportionate short stature with relatively preserved trunk and head proportions in LWD.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33143726" target="_blank">PMID:33143726</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The most predictive auxological indicators of SHOX-D were an increased sitting height/height ratio and a decreased arm span/height ratio."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This broader SHOX-deficiency cohort supports the same disproportionate growth pattern seen in LWD, the more syndromic end of the SHOX-deficiency spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Mesomelic short stature
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008845" target="_blank">
-                            Mesomelic short stature
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008845)</span>
-                        </span>
-                        
+                        Mesomelic short stature
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008845" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008845">HP:0008845</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In LWD the classic clinical triad is short stature, mesomelia, and Madelung deformity. Mesomelia, in which the middle portion of a limb is shortened in relation to the proximal portion, can be evident first in school-aged children and increases with age in frequency and severity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies mesomelia as a core LWD manifestation and directly supports school-age onset with age-dependent progression.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9590293" target="_blank">PMID:9590293</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Leri-Weill Dyschondrosteosis (LWD; OMIM 127300) is a dominantly inherited skeletal dysplasia characterized by disproportionate short stature with predominantly mesomelic limb shortening."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Landmark SHOX-LWD linkage paper supports mesomelic limb shortening as part of the defining phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Muscle hypertrophy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank">
-                            Skeletal muscle hypertrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003712)</span>
-                        </span>
-                        
+                        Skeletal muscle hypertrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003712">HP:0003712</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32295321" target="_blank">PMID:32295321</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Madelung’s deformity, cubitus valgus, muscular hypertrophy and short forearm were the most common phenotypic features, as well as short stature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports muscular hypertrophy as a recurrent phenotype in a mostly LWD-compatible SHOX-deficiency cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17182655" target="_blank">PMID:17182655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"detailed examination revealed that certain bone deformities and dysmorphic signs, such as short forearm and lower leg, cubitus valgus, Madelung deformity, high-arched palate and muscular hypertrophy, differed markedly between participants with or without SHOX gene defects (p&lt;0.001)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large multinational pediatric cohort supports muscular hypertrophy as a discriminating SHOX-deficiency phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4663,628 +4838,649 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     SHOX deletions and point mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9590293" target="_blank">PMID:9590293</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We identified submicroscopic PAR1 deletions encompassing the recently described short stature homeobox-containing gene SHOX"</div>
-                
-                
+
+
                 <div class="evidence-explanation">One of two landmark papers establishing SHOX deletions as the cause of LWD, identifying PAR1 deletions in five families.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9590292" target="_blank">PMID:9590292</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we report large-scale deletions (in seven families) and a nonsense mutation (in one family) of SHOX in patients with DCS and show that Langer mesomelic dwarfism results from homozygous mutations at the DCS locus."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Companion landmark paper demonstrating SHOX deletions and nonsense mutations in LWD families and establishing Langer dysplasia as the homozygous form.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25110390" target="_blank">PMID:25110390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"SHOX haploinsufficiency due to mutations in the coding exons or microdeletions involving the coding exons and/or the enhancer regions accounts for approximately 80% and 2-16% of genetic causes of Leri-Weill dyschondrosteosis and idiopathic short stature, respectively."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Quantifies SHOX haploinsufficiency as accounting for approximately 80% of LWD genetic causes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 3 more references</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Recombinant Growth Hormone Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Growth hormone therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: human growth hormone replacement therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000780" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000780</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000780" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000780">MAXO:0000780</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Recombinant human growth hormone (rhGH) is used to improve adult height in children with SHOX deficiency, including LWD. Treatment produces a height SD score gain of approximately 1.3 SD, comparable to gains in Turner syndrome. Treatment should be considered in prepubertal children before epiphyseal closure and continued until final height is reached or treatment is otherwise stopped.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23720786" target="_blank">PMID:23720786</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Height SD score gain from start of GH treatment to FH was similar between the combined SHOX-deficient groups"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Multicenter randomized trial demonstrating that GH treatment in SHOX deficiency produces height gains to final height similar to those in Turner syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"For prepubertal children with SHOX-deficient short stature, recombinant human growth hormone (rhGH therapy)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews provides management guidance recommending rhGH therapy for prepubertal children with SHOX-deficient short stature.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The therapeutic effect is a gain in final height of 7 to 10 cm."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews summarizes expected final-height gain from rhGH therapy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 2 more references</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical correction of Madelung deformity
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Surgical correction of Madelung deformity</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Symptomatic Madelung deformity is managed stepwise with wrist splints, supports, ergonomic aids, and activity modification during painful periods. Operative approaches such as Vickers ligament removal with dome osteotomy or distal ulna procedures are reserved for persistent pain, functional limitation, or significant deformity.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"wrist splints and supports during periods of increased discomfort and the use of ergonomic devices such as ergonomic computer keyboards."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports conservative management for painful Madelung deformity before or alongside surgical consideration.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Different operative procedures have been attempted to decrease pain and restore wrist function."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews describes surgical management options for symptomatic Madelung deformity.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25110390" target="_blank">PMID:25110390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"surgical removal of the Vickers ligament in combination with dome osteotomy is beneficial to patients with Madelung deformity"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review evidence identifies Vickers ligament removal with dome osteotomy as a reported corrective approach.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Growth Surveillance and At-Risk Relative Evaluation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Children with SHOX deficiency require serial growth monitoring so rhGH can be considered while growth plates remain open. At-risk relatives should be evaluated early because variable expressivity can leave affected relatives, especially males, mildly affected or apparently unaffected.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Surveillance: For children with a SHOX deficiency disorder: biannual measurement of growth."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews gives the growth-surveillance frequency for children with SHOX deficiency disorders.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Presymptomatic diagnosis and treatment are warranted for sibs at risk for SHOX-deficient short stature in order to identify as early as possible those who would benefit from recombinant human growth hormone (rhGH) treatment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports family testing and early evaluation of at-risk relatives.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling and Reproductive Risk
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling should explain pseudoautosomal dominant inheritance, variable expressivity, the 50% transmission risk from an affected parent, the chance of Langer mesomelic dysplasia when both parents have SHOX deficiency, and the limitation that prenatal molecular testing does not predict phenotype severity.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Each child of an individual with a SHOX deficiency disorder has a 50% chance of inheriting the SHOX pathogenic variant."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews defines the recurrence risk for pseudoautosomal dominant SHOX deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"If both parents have SHOX deficiency, the offspring have a 50% chance of having a SHOX deficiency disorder, a 25% chance of having Langer type of mesomelic dwarfism, and a 25% chance of having neither condition."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports counseling about biallelic Langer mesomelic dysplasia risk when both parents carry SHOX deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"prenatal testing for pregnancies at increased risk is possible; however, the phenotype of the SHOX deficiency disorder cannot be accurately predicted on the basis of prenatal molecular genetic testing results."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports prenatal testing availability while cautioning that molecular results do not predict severity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6432,67 +6628,67 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301394" target="_blank">PMID:20301394</a>
                             </div>
-                            
+
                             <div class="reference-title">SHOX Deficiency Disorders.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Leri-Weill Dyschondrosteosis. Core disease mechanisms, molecular and cellu...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-02T15:53:20.526924</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Leri-Weill Dyschondrosteosis. Core disease mechanisms, molecular and cellu...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -6838,11 +7034,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
