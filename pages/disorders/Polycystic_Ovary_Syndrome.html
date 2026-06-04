@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Polycystic Ovary Syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Complex</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0008487" target="_blank">
                         MONDO:0008487
                     </a>
                 </span>
-                
-                
-                
+
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Endocrine Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Reproductive Disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,7 +2989,7 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2989,35 +3059,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3025,9 +3095,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3035,11 +3105,11 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3047,8 +3117,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3056,14 +3126,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3071,8 +3141,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3080,828 +3150,882 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            
+
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Harrison's Chapter</div>
                 <div class="tag-list">
-                    
+
                     <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
-                    
+
                 </div>
             </div>
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
         </div>
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperandrogenism">
                 <div class="item-name">Hyperandrogenism</div>
-                
+
                 <div class="item-desc">Excess androgen production from ovarian theca cells and adrenal glands leads to hirsutism, acne, and alopecia. Elevated LH stimulates theca cell androgen production.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Androgen Biosynthesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006702">GO:0006702</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38152131" target="_blank">PMID:38152131</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Compelling evidence suggests that hyperandrogenism is not just a primary feature of PCOS. Instead, it may be a causative factor for this condition."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review establishes hyperandrogenism as potentially causative rather than merely symptomatic in PCOS pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24014605" target="_blank">PMID:24014605</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"LHCGR and 17α-hydroxylase/17-20-lyase (CYP17A1) protein levels are increased in polycystic ovaries (PCOs)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Direct evidence of increased androgen biosynthetic machinery (CYP17A1) in PCOS ovaries, supporting intrinsic theca cell abnormality.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24014605" target="_blank">PMID:24014605</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A significant increase in the intensity of immunostaining for CYP17A1 was identified in antral follicles in sections of PCO compared with ovaries from normal women (P = 0.04)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Quantitative demonstration of elevated CYP17A1 protein in polycystic ovaries compared to controls.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-resistance">
                 <div class="item-name">Insulin Resistance</div>
-                
+
                 <div class="item-desc">Peripheral insulin resistance leads to compensatory hyperinsulinemia, which stimulates ovarian androgen production and inhibits hepatic SHBG synthesis, increasing free androgens.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Insulin Signaling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008286">GO:0008286</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40013621" target="_blank">PMID:40013621</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hyperinsulinemia (i.e., elevated insulin without hypoglycemia) is a common metabolic feature of PCOS that worsens its reproductive symptoms by exacerbating pituitary hormone imbalances and increasing levels of bioactive androgens."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates the direct mechanistic link between hyperinsulinemia and worsening of reproductive and androgenic features in PCOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40013621" target="_blank">PMID:40013621</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"However, it is challenging to define the sequential relationship between insulin sensitivity and insulin secretion, as they are tightly interlinked, and evidence suggests that hyperinsulinemia can alternatively precede insulin resistance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Challenges traditional causality and suggests hyperinsulinemia may be primary rather than compensatory in some PCOS cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40013621" target="_blank">PMID:40013621</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Notably, other drivers of hyperinsulinemia (outside of insulin resistance) may be highly relevant in the context of PCOS. For instance, high androgen levels can augment both hyperinsulinemia and insulin resistance, generating a self-perpetuating cycle of reproductive and metabolic dysfunction."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Describes the vicious cycle where androgens exacerbate both hyperinsulinemia and insulin resistance in PCOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ovulatory-dysfunction">
                 <div class="item-name">Ovulatory Dysfunction</div>
-                
+
                 <div class="item-desc">Disrupted folliculogenesis with arrest at small antral stage leads to anovulation. Multiple small follicles accumulate (polycystic morphology) without dominant follicle selection.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Ovulation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030728" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030728" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030728">GO:0030728</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14671196" target="_blank">PMID:14671196</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Because PCOS is associated with a 2- to 3-fold increase in growing FN, we investigated whether an increased AMH serum level correlates to other hormonal and/or U/S features of PCOS."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents the 2-3 fold increase in small growing follicle number characteristic of PCOS polycystic morphology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14671196" target="_blank">PMID:14671196</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mean serum AMH level was markedly increased in the PCOS group (47.1 +/- 22.9 vs. 20.8 +/- 11.6 pmol/liter in controls; P &lt; 0.0001), an increase in the same order of magnitude as the one of the FN in the 2- to 5-mm range at U/S (12.8 +/- 8.3 vs. 4.8 +/- 1.9; P &lt; 0.0001, respectively)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Shows parallel elevation of AMH levels and small antral follicle count in PCOS, implicating AMH in follicular arrest.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14671196" target="_blank">PMID:14671196</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We hypothesize that an increased AMH tone within the cohort could be involved in the follicular arrest of PCOS, by interacting negatively with FSH at the time of selection."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Proposes mechanism by which elevated AMH interferes with FSH action to prevent dominant follicle selection in PCOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-low-grade-inflammation">
                 <div class="item-name">Chronic Low-Grade Inflammation</div>
-                
+
                 <div class="item-desc">Elevated inflammatory markers (CRP, IL-6) contribute to insulin resistance and cardiovascular risk in PCOS.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Inflammatory Response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39036884" target="_blank">PMID:39036884</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Polycystic ovarian syndrome (PCOS) is related to pro-apoptotic and pro-inflammatory conditions generated by Endoplasmic reticulum (ER) stress."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes the link between ER stress, inflammation, and apoptotic pathways in PCOS pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39036884" target="_blank">PMID:39036884</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The levels of TNF-α (p = 0.009), IL-18 (p = 0.003), IL-6 (p = 0.013) and active caspase-3 (p = 0.012) were also statistically significant lower in the therapy group."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical trial evidence demonstrating elevated TNF-α, IL-18, and IL-6 levels in PCOS patients at baseline, confirming chronic inflammatory state.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">6</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Irregular Menstruation
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000858" target="_blank">
-                            Irregular menstruation
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000858)</span>
-                        </span>
-                        
+                        Irregular menstruation
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000858" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000858">HP:0000858</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14671196" target="_blank">PMID:14671196</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We hypothesize that an increased AMH tone within the cohort could be involved in the follicular arrest of PCOS, by interacting negatively with FSH at the time of selection."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Follicular arrest due to elevated AMH directly leads to anovulation and irregular menstruation in PCOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Infertility
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank">
-                            Infertility
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000789)</span>
-                        </span>
-                        
+                        Infertility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000789">HP:0000789</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14671196" target="_blank">PMID:14671196</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Because PCOS is associated with a 2- to 3-fold increase in growing FN, we investigated whether an increased AMH serum level correlates to other hormonal and/or U/S features of PCOS."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Anovulation from follicular arrest is the primary mechanism of infertility in PCOS, linked to elevated AMH and disrupted follicle maturation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Acne
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001061" target="_blank">
-                            Acne
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001061)</span>
-                        </span>
-                        
+                        Acne
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001061" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001061">HP:0001061</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hirsutism
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank">
-                            Hirsutism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001007)</span>
-                        </span>
-                        
+                        Hirsutism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001007">HP:0001007</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38152131" target="_blank">PMID:38152131</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Compelling evidence suggests that hyperandrogenism is not just a primary feature of PCOS. Instead, it may be a causative factor for this condition."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hyperandrogenism drives hirsutism and other androgen-mediated dermatological manifestations in PCOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Alopecia
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank">
-                            Alopecia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001596)</span>
-                        </span>
-                        
+                        Alopecia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001596">HP:0001596</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Androgenic pattern</div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Obesity
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank">
-                            Obesity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001513)</span>
-                        </span>
-                        
+                        Obesity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -3926,507 +4050,511 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     DENND1A
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     THADA
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     LHCGR
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     FSHR
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Combined Oral Contraceptives
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">First-line for menstrual irregularity and hyperandrogenism.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Metformin
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Improves insulin sensitivity and may restore ovulation.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Spironolactone
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Anti-androgen for hirsutism and acne.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Letrozole
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">First-line ovulation induction for fertility.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Clomiphene Citrate
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Alternative ovulation induction agent.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Lifestyle Modification
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Weight loss improves all PCOS features.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Obesity</div>
-                
-                
+
+
                 <div class="item-desc">Exacerbates insulin resistance and hyperandrogenism</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Sedentary Lifestyle</div>
-                
-                
+
+
                 <div class="item-desc">Worsens metabolic features</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Prenatal Androgen Exposure</div>
-                
-                
+
+
                 <div class="item-desc">May program PCOS phenotype</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Testosterone
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Total and free testosterone</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14671196" target="_blank">PMID:14671196</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"AMH was also positively related to the serum testosterone and androstenedione levels, in PCOS exclusively (P &lt; 0.0005 and &lt;0.002, respectively)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents positive correlation between AMH and testosterone levels in PCOS patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     LH
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Often elevated LH:FSH ratio</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24014605" target="_blank">PMID:24014605</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A higher proportion of theca cells from anovulatory PCO expressed LHCGR protein when compared with control ovaries (P = 0.01)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Increased LH receptor expression in PCOS theca cells supports elevated LH action in driving androgen production.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     SHBG
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Decreased)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Increases free androgen index</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40013621" target="_blank">PMID:40013621</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hyperinsulinemia (i.e., elevated insulin without hypoglycemia) is a common metabolic feature of PCOS that worsens its reproductive symptoms by exacerbating pituitary hormone imbalances and increasing levels of bioactive androgens."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hyperinsulinemia suppresses hepatic SHBG production, increasing free bioactive androgens.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Fasting Insulin
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Insulin resistance</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40013621" target="_blank">PMID:40013621</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"However, it is challenging to define the sequential relationship between insulin sensitivity and insulin secretion, as they are tightly interlinked, and evidence suggests that hyperinsulinemia can alternatively precede insulin resistance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hyperinsulinemia is a core feature in PCOS that may precede or result from insulin resistance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Anti-Mullerian Hormone
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Reflects increased antral follicle count</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14671196" target="_blank">PMID:14671196</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mean serum AMH level was markedly increased in the PCOS group (47.1 +/- 22.9 vs. 20.8 +/- 11.6 pmol/liter in controls; P &lt; 0.0001), an increase in the same order of magnitude as the one of the FN in the 2- to 5-mm range at U/S (12.8 +/- 8.3 vs. 4.8 +/- 1.9; P &lt; 0.0001, respectively)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates markedly elevated AMH levels in PCOS patients paralleling increased small antral follicle count.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4790,137 +4918,137 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">6</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s13679-023-00531-2" target="_blank">DOI:10.1007/s13679-023-00531-2</a>
                             </div>
-                            
+
                             <div class="reference-title">Hypothalamic-Ovarian axis and Adiposity Relationship in Polycystic Ovary Syndrome: Physiopathology and Therapeutic Options for the Management of Metabolic and Inflammatory Aspects</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1530/joe-24-0269" target="_blank">DOI:10.1530/joe-24-0269</a>
                             </div>
-                            
+
                             <div class="reference-title">Reappraising the relationship between hyperinsulinemia and insulin resistance in PCOS</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fendo.2023.1149473" target="_blank">DOI:10.3389/fendo.2023.1149473</a>
                             </div>
-                            
+
                             <div class="reference-title">Genes in loci genetically associated with polycystic ovary syndrome are dynamically expressed in human fetal gonadal, metabolic and brain tissues</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fendo.2023.1273542" target="_blank">DOI:10.3389/fendo.2023.1273542</a>
                             </div>
-                            
+
                             <div class="reference-title">Androgen excess: a hallmark of polycystic ovary syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fimmu.2024.1470283" target="_blank">DOI:10.3389/fimmu.2024.1470283</a>
                             </div>
-                            
+
                             <div class="reference-title">Systematic low-grade chronic inflammation and intrinsic mechanisms in polycystic ovary syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/ijms24087454" target="_blank">DOI:10.3390/ijms24087454</a>
                             </div>
-                            
+
                             <div class="reference-title">Dysregulated Liver Metabolism and Polycystic Ovarian Syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -4949,29 +5077,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Pathophysiology description</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">21 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2025-12-17T23:36:00.086009</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Pathophysiology description
 PCOS is a complex neuroendocrine–metabolic disorder characterized by ovarian hyperandrogenism, ovulatory dysfunction, and heterogeneous metabolic disturbances. Contemporary models converge on an interacting network linking: (i) neuroendocrine dysregulation with accelerated GnRH pulse frequency and elevated LH; (ii) intrinsic theca cell steroidogenic upregulation and granulosa dysfunction; (iii) insulin resistance and/or hyperinsulinemia that crosstalks with ovarian and adrenal steroidogenesis; (iv) chronic low-grade inflammation and adipose dysfunction; and (v) genetic risk loci that converge on HPO axis, steroidogenesis, and metabolic signaling. Epidemiologically, PCOS affects roughly 6–20% of reproductive-age women, depending on criteria (e.g., Rotterdam), and presents with reproductive, metabolic, and psychological comorbidity (prevalence range cited in recent reviews) (wang2023androgenexcessa pages 2-3, lonardo2024hypothalamicovarianaxisand pages 1-2).</p>
@@ -5263,11 +5391,11 @@ PCOS is a complex neuroendocrine–metabolic disorder characterized by ovarian h
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

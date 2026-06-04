@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>RPGR-Related Retinopathy</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0100437" target="_blank">
                         MONDO:0100437
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Ophthalmological Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Retinal Dystrophy</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Inherited retinal dystrophy</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,12 +2993,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 RPGR-related retinopathy is an X-linked inherited retinal dystrophy caused by pathogenic variation in RPGR, especially the retina-enriched RPGRORF15 isoform. Across rod-cone, cone-rod, and cone-dominant presentations, the shared proximal mechanism is defective photoreceptor connecting-cilium trafficking, which disrupts outer-segment protein delivery, drives progressive photoreceptor degeneration, and culminates in retinal remodeling. Variant position within RPGRORF15 shifts the phenotype toward rod-predominant retinitis pigmentosa or cone-predominant dystrophy, justifying a shared-mechanism umbrella with subtype branches.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2998,34 +3068,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3033,8 +3103,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3042,9 +3112,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3052,10 +3122,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3063,8 +3133,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3072,9 +3142,9 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3082,14 +3152,14 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3097,1107 +3167,1279 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     X-linked recessive inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001419" target="_blank">
                             HP:0001419
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Severe disease most often affects hemizygous males, but female carriers can show variable retinal involvement because X-chromosome inactivation modifies retinal expression of the mutant allele.
 </div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             X-linked recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26843488" target="_blank">PMID:26843488</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Retinitis pigmentosa GTPase regulator (RPGR) gene sequence variants account for the vast majority of X linked retinitis pigmentosa (RP), which is one of the most severe forms of RP."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review supports the canonical X-linked inheritance pattern of RPGR retinal disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37541846" target="_blank">PMID:37541846</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In summary, our data suggest that skewed X-chromosomal inactivation is an important factor that determines the disease manifestation of RP among female carriers of pathogenic sequence alterations in the RPGR gene."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This family and cell-based study supports X-inactivation as a modifier of female carrier manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">3</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Retinitis pigmentosa 3
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010227" target="_blank">MONDO:0010227</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
+
                         <span class="subtype-freq-badge">~70%</span>
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Rod-predominant branch with childhood nyctalopia, early peripheral field loss, and later central visual decline. This is the most common RPGR family presentation in large male cohorts.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29528978" target="_blank">PMID:29528978</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients had retinitis pigmentosa (RP; n = 52; 70%), cone dystrophy (COD; n = 5; 7%), or cone-rod dystrophy (CORD; n = 17; 23%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This multicenter human cohort shows that rod-predominant RP is the dominant RPGR subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         X-linked cone-rod dystrophy 1
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010566" target="_blank">MONDO:0010566</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
+
                         <span class="subtype-freq-badge">~23%</span>
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Cone-predominant branch with earlier central visual decline and later rod involvement, enriched for variants toward the 3&#39; half of RPGRORF15.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29528978" target="_blank">PMID:29528978</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients had retinitis pigmentosa (RP; n = 52; 70%), cone dystrophy (COD; n = 5; 7%), or cone-rod dystrophy (CORD; n = 17; 23%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cohort confirms a substantial cone-rod branch within RPGR-related retinopathy.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35806195" target="_blank">PMID:35806195</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fifteen subjects were affected by CD, the remaining had CRD."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This natural-history study links the cone-rod branch to 3&#39; RPGRORF15 variation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Cone dystrophy 1, X-linked
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0800320" target="_blank">MONDO:0800320</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
+
                         <span class="subtype-freq-badge">~7%</span>
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Cone-dominant branch with later-onset central visual decline, sharing the RPGR ciliary defect but with stronger early cone bias than the cone-rod branch.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29528978" target="_blank">PMID:29528978</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients had retinitis pigmentosa (RP; n = 52; 70%), cone dystrophy (COD; n = 5; 7%), or cone-rod dystrophy (CORD; n = 17; 23%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cohort identifies a distinct cone-dystrophy branch within the RPGR family.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35806195" target="_blank">PMID:35806195</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fifteen subjects were affected by CD, the remaining had CRD."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This series shows that cone-dominant RPGR disease is concentrated in the 3&#39; half of RPGRORF15.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rpgr-dysfunction-at-the-photoreceptor-connecting-cilium">
                 <div class="item-name">RPGR dysfunction at the photoreceptor connecting cilium</div>
-                
+
                 <div class="item-desc">RPGR localizes to the photoreceptor connecting cilium, where it helps organize ciliary targeting and transport needed for outer-segment renewal in rods and cones. Loss or destabilization of RPGR creates the shared proximal defect across the RPGR family.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         photoreceptor cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000210">CL:0000210</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         retinal rod cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000604">CL:0000604</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        protein localization to cilium
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-    
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RPGR
+
+
+    <a href="https://bioregistry.io/hgnc:10295" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10295">hgnc:10295</a>
+
+
+
+    </span>
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        protein localization to cilium
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061512">GO:0061512</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cilium organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0044782" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0044782" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044782">GO:0044782</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Outer-segment cargo trafficking failure</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of RPGR impairs ciliary delivery of outer-segment cargo, including opsin-rich membrane components needed to maintain photoreceptor architecture.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26843488" target="_blank">PMID:26843488</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"RPGR is involved in ciliary function, with ciliary dysfunction now recognised as the mechanism underlying a large proportion of inherited retinal disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review identifies ciliary dysfunction as the shared proximal RPGR disease mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27493202" target="_blank">PMID:27493202</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Ablation of PDE6D blocked ciliary targeting of RPGR."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This ciliary-targeting study shows that RPGR itself depends on intact ciliary trafficking machinery.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outer-segment-cargo-trafficking-failure">
                 <div class="item-name">Outer-segment cargo trafficking failure</div>
-                
+
                 <div class="item-desc">Impaired ciliary targeting prevents efficient movement of opsins and other cargo into the photoreceptor outer segment, producing structural disorganization and making both rod and cone photoreceptors vulnerable to degeneration.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal rod cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000604">CL:0000604</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         intraciliary transport
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042073">GO:0042073</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         photoreceptor cell maintenance
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045494">GO:0045494</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Variant-position-dependent rod versus cone bias</span>
-	                            
+
 	                            <span class="crosslink-desc">The common trafficking defect branches clinically into rod-predominant or cone-predominant disease depending on RPGR variant context, especially position within ORF15.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936822" target="_blank">PMID:26936822</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We also observed disorganized photoreceptor outer-segment morphology and defective trafficking of opsins in the Rpgrko/Y::Cep290rd16/+ mice."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This model-organism study supports outer-segment failure as a direct consequence of RPGR disruption.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variant-position-dependent-rod-versus-cone-bias">
                 <div class="item-name">Variant-position-dependent rod versus cone bias</div>
-                
+
                 <div class="item-desc">Despite a shared ciliary-trafficking defect, RPGR family disease diverges into rod-cone, cone-rod, and cone-dominant phenotypes. Variants toward the 3&#39; half of RPGRORF15 are especially associated with cone-predominant presentations.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal rod cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000604">CL:0000604</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        photoreceptor cell maintenance
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-    
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RPGR
+
+
+    <a href="https://bioregistry.io/hgnc:10295" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10295">hgnc:10295</a>
+
+
+
+    </span>
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        photoreceptor cell maintenance
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045494">GO:0045494</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Progressive photoreceptor loss and retinal remodeling</span>
-	                            
+
 	                            <span class="crosslink-desc">Both rod- and cone-predominant branches eventually converge on severe retinal degeneration with peripheral-predominant tissue loss and inner-retinal remodeling.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29528978" target="_blank">PMID:29528978</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"RPGR-ORF15 mutations were associated with COD/CORD and with a more severe phenotype in RP."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cohort supports subtype divergence linked to RPGRORF15 variation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35806195" target="_blank">PMID:35806195</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All were located in the 3&#39; half of the RPGRORF15 transcript."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cone/cone-rod series localizes cone-biased disease to the 3&#39; half of RPGRORF15.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-photoreceptor-loss-and-retinal-remodeling">
                 <div class="item-name">Progressive photoreceptor loss and retinal remodeling</div>
-                
+
                 <div class="item-desc">Late disease converges on severe rod and cone loss, peripheral-predominant retinal atrophy, and secondary inner-retinal remodeling with reactive gliosis.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         photoreceptor cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000210">CL:0000210</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         retinal rod cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000604">CL:0000604</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         photoreceptor cell maintenance
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045494">GO:0045494</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32012938" target="_blank">PMID:32012938</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A histological examination of the donor eye showed disruption of retinal topology and stratification, with a more severe loss found in the peripheral regions. Reactive gliosis was seen in the inner layers of all regions."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human donor-eye histopathology supports end-stage photoreceptor loss with secondary retinal remodeling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4208,415 +4450,445 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Outer-segment cargo trafficking failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired ciliary targeting prevents efficient movement of opsins and other cargo into the photoreceptor outer segment, producing structural disorganization and making both rod and cone photoreceptors vulnerable to degeneration.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"intraciliary transport\", \"photoreceptor cell maintenance\"]}}, {\"id\": \"Progressive photoreceptor loss and retinal remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Late disease converges on severe rod and cone loss, peripheral-predominant retinal atrophy, and secondary inner-retinal remodeling with reactive gliosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\", \"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"]}}, {\"id\": \"RPGR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"RPGR\"], \"association\": \"Causative\"}}, {\"id\": \"RPGR dysfunction at the photoreceptor connecting cilium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RPGR localizes to the photoreceptor connecting cilium, where it helps organize ciliary targeting and transport needed for outer-segment renewal in rods and cones. Loss or destabilization of RPGR creates the shared proximal defect across the RPGR family.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\", \"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"protein localization to cilium\", \"cilium organization\"], \"genes\": [\"RPGR\"]}}, {\"id\": \"Variant-position-dependent rod versus cone bias\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite a shared ciliary-trafficking defect, RPGR family disease diverges into rod-cone, cone-rod, and cone-dominant phenotypes. Variants toward the 3\u0027 half of RPGRORF15 are especially associated with cone-predominant presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"genes\": [\"RPGR\"]}}], \"edges\": [{\"source\": \"RPGR dysfunction at the photoreceptor connecting cilium\", \"target\": \"Outer-segment cargo trafficking failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of RPGR impairs ciliary delivery of outer-segment cargo, including opsin-rich membrane components needed to maintain photoreceptor architecture.\"}, {\"source\": \"Outer-segment cargo trafficking failure\", \"target\": \"Variant-position-dependent rod versus cone bias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The common trafficking defect branches clinically into rod-predominant or cone-predominant disease depending on RPGR variant context, especially position within ORF15.\"}, {\"source\": \"Variant-position-dependent rod versus cone bias\", \"target\": \"Progressive photoreceptor loss and retinal remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both rod- and cone-predominant branches eventually converge on severe retinal degeneration with peripheral-predominant tissue loss and inner-retinal remodeling.\"}, {\"source\": \"RPGR\", \"target\": \"RPGR dysfunction at the photoreceptor connecting cilium\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RPGR\", \"target\": \"Variant-position-dependent rod versus cone bias\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Outer-segment cargo trafficking failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired ciliary targeting prevents efficient movement of opsins and other cargo into the photoreceptor outer segment, producing structural disorganization and making both rod and cone photoreceptors vulnerable to degeneration.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"intraciliary transport\", \"photoreceptor cell maintenance\"]}}, {\"id\": \"Progressive photoreceptor loss and retinal remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Late disease converges on severe rod and cone loss, peripheral-predominant retinal atrophy, and secondary inner-retinal remodeling with reactive gliosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\", \"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"]}}, {\"id\": \"RPGR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"RPGR\"], \"gene_terms\": [{\"label\": \"RPGR\", \"id\": \"hgnc:10295\"}], \"association\": \"Causative\"}}, {\"id\": \"RPGR dysfunction at the photoreceptor connecting cilium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RPGR localizes to the photoreceptor connecting cilium, where it helps organize ciliary targeting and transport needed for outer-segment renewal in rods and cones. Loss or destabilization of RPGR creates the shared proximal defect across the RPGR family.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\", \"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"protein localization to cilium\", \"cilium organization\"], \"genes\": [\"RPGR\"], \"gene_terms\": [{\"label\": \"RPGR\", \"id\": \"hgnc:10295\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Variant-position-dependent rod versus cone bias\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite a shared ciliary-trafficking defect, RPGR family disease diverges into rod-cone, cone-rod, and cone-dominant phenotypes. Variants toward the 3\u0027 half of RPGRORF15 are especially associated with cone-predominant presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"genes\": [\"RPGR\"], \"gene_terms\": [{\"label\": \"RPGR\", \"id\": \"hgnc:10295\", \"modifier\": \"DECREASED\"}]}}], \"edges\": [{\"source\": \"RPGR dysfunction at the photoreceptor connecting cilium\", \"target\": \"Outer-segment cargo trafficking failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of RPGR impairs ciliary delivery of outer-segment cargo, including opsin-rich membrane components needed to maintain photoreceptor architecture.\"}, {\"source\": \"Outer-segment cargo trafficking failure\", \"target\": \"Variant-position-dependent rod versus cone bias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The common trafficking defect branches clinically into rod-predominant or cone-predominant disease depending on RPGR variant context, especially position within ORF15.\"}, {\"source\": \"Variant-position-dependent rod versus cone bias\", \"target\": \"Progressive photoreceptor loss and retinal remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both rod- and cone-predominant branches eventually converge on severe retinal degeneration with peripheral-predominant tissue loss and inner-retinal remodeling.\"}, {\"source\": \"RPGR\", \"target\": \"RPGR dysfunction at the photoreceptor connecting cilium\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RPGR\", \"target\": \"Variant-position-dependent rod versus cone bias\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">4</span>
             </div>
-            
-            
-            
+
+
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Night blindness
-                    
+
                     <span class="phenotype-freq">VERY_FREQUENT</span>
-                    
-                    
+
+
                     <span class="phenotype-category">Ophthalmic</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank">
-                            HP:0000662
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000662">HP:0000662</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26843488" target="_blank">PMID:26843488</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Symptoms of nyctalopia typically begin in childhood, with increasing loss of peripheral visual field during teenage years, and progressive central visual loss during the second to fourth decade of life."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review supports childhood night blindness as a hallmark presenting phenotype of rod-predominant RPGR disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Progressive peripheral visual field loss
-                    
+
                     <span class="phenotype-freq">VERY_FREQUENT</span>
-                    
-                    
+
+
                     <span class="phenotype-category">Ophthalmic</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank">
-                            HP:0001133
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001133">HP:0001133</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26843488" target="_blank">PMID:26843488</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Symptoms of nyctalopia typically begin in childhood, with increasing loss of peripheral visual field during teenage years, and progressive central visual loss during the second to fourth decade of life."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review supports progressive peripheral field constriction as a core RPGR-RP phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Reduced visual acuity
-                    
+
                     <span class="phenotype-freq">VERY_FREQUENT</span>
-                    
-                    
+
+
                     <span class="phenotype-category">Ophthalmic</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank">
-                            HP:0007663
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29528978" target="_blank">PMID:29528978</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The probability of being blind (best-corrected visual acuity &lt;0.05) at the age of 40 was 20% and 55% in patients with RP and COD/CORD, respectively."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cohort shows severe acuity loss across RPGR disease and earlier blindness risk in cone-predominant branches.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35806195" target="_blank">PMID:35806195</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"When analyzing the longitudinal data, a progressive decline in visual acuity (VA) was noted, with more than 60% of the patients reaching VA ≥ 1 LogMar in the best eye after the fifth decade of life."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This natural-history study directly supports progressive acuity decline in RPGR cone and cone-rod disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     High myopia
-                    
-                    
+
+
                     <span class="phenotype-category">Ophthalmic</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank">
-                            HP:0000545
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000545">HP:0000545</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29528978" target="_blank">PMID:29528978</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"RPGR-ORF15 mutations were associated with high myopia (P = 0.01), which led to a faster best-corrected visual acuity decline in patients with RP (P &lt; 0.001) and COD/CORD (P = 0.03)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cohort supports high myopia as an important RPGR-associated ophthalmic feature and severity modifier.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
-    
-    
+
+
+
+
+
             </div>
-            
-            
+
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     RPGR
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RPGR
+
+
+    <a href="https://bioregistry.io/hgnc:10295" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10295">hgnc:10295</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26843488" target="_blank">PMID:26843488</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Retinitis pigmentosa GTPase regulator (RPGR) gene sequence variants account for the vast majority of X linked retinitis pigmentosa (RP), which is one of the most severe forms of RP."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review supports RPGR as the principal causal gene in the X-linked RP branch of the family.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35806195" target="_blank">PMID:35806195</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Variants in the X-linked retinitis pigmentosa GTPase regulator gene (RPGR) and, specifically, in its retinal opening reading frame-15 isoform (RPGRORF15) may cause rod-cone (RCD), cone, and cone-rod dystrophies (CDs and CRDs)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This natural-history study supports RPGR, especially RPGRORF15, as the shared causal gene across multiple subtype branches.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_57ad94c7-d914-4a84-ab33-597c8d4bafdd-2022-08-05T160000.000Z" target="_blank">CGGV:assertion_57ad94c7-d914-4a84-ab33-597c8d4bafdd-2022-08-05T160000.000Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"RPGR | HGNC:10295 | RPGR-related retinopathy | MONDO:0100437 | XL | Definitive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen classifies the RPGR-RPGR-related retinopathy gene-disease relationship as definitive with X-linked inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5042,42 +5314,42 @@ review_notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Pathophysiology Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">35 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-03-18T23:22:19.122667</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -5456,29 +5728,29 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>OpenAI</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Pathophysiology of RPGR-Related Retinopathy</div>
-                            
-                            
+
+
                             <span class="report-badge">o3-deep-research-2025-06-26</span>
-                            
-                            
+
+
                             <span class="report-badge">108 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-03-18T23:15:32.338646</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Pathophysiology of RPGR-Related Retinopathy</h1>
 <p><strong>RPGR-related retinopathy</strong> (X-linked retinitis pigmentosa due to <em>RPGR</em> mutations) is an inherited retinal dystrophy characterized by early-onset, progressive photoreceptor degeneration. It typically presents in childhood with night blindness and advances to severe visual impairment by the third or fourth decade (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10752277/#:~:text=Retinitis%20pigmentosa%20GTPase%20regulator%20%28RPGR%29,clinical%20manifestations%2C%20and%20the%20recent">pmc.ncbi.nlm.nih.gov</a>) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10752277/#:~:text=When%20RPGR,myopia%20is%20common%20with%20a">pmc.ncbi.nlm.nih.gov</a>). <em>RPGR</em> mutations account for ~70–80% of X-linked retinitis pigmentosa cases (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10752277/#:~:text=Pathogenic%20variants%20in%20RP%20GTPase,5%2C6%2C7%2C8%2C9">pmc.ncbi.nlm.nih.gov</a>). The disease is Mendelian (X-linked recessive) and primarily affects the retina (UBERON:0000966), especially the rod and cone photoreceptor cells (CL:0000604 for rods, CL:0000605 for cones). Pathogenesis stems from dysfunction of the <strong>RPGR</strong> protein (HGNC:10295), a cilia-associated protein crucial for photoreceptor cell structure and function. There are two major <em>RPGR</em> isoforms: a ubiquitously expressed full-length isoform and a retina-specific <em>RPGR-ORF15</em> isoform (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10752277/#:~:text=RPGR%20is%20located%20on%20the,ORF15%7D%20isoform%20%5BFigure">pmc.ncbi.nlm.nih.gov</a>) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10752277/#:~:text=RPGR%20is%20expressed%20broadly%20throughout,23%20%2C%2034%2C25">pmc.ncbi.nlm.nih.gov</a>). Notably, ~80% of disease-causing variants localize to the unique ORF15 exon, which encodes a glutamate-rich C-terminal domain critical for retinal function (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10752277/#:~:text=protein%20stability%20and%20interactions%2C,of%201%E2%80%935%20bp%20that%20are">pmc.ncbi.nlm.nih.gov</a>) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10752277/#:~:text=ORF15%20region%3B%20however%2C%20in,30">pmc.ncbi.nlm.nih.gov</a>). No pathogenic mutations are found in exons 16–19, indicating that loss of the ORF15-containing isoform cannot be compensated by the full-length isoform in the retina (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10752277/#:~:text=whereas%20the%20remaining%2020,the%20phenotype%20in%20the%20retina">pmc.ncbi.nlm.nih.gov</a>).</p>
@@ -5552,11 +5824,11 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
