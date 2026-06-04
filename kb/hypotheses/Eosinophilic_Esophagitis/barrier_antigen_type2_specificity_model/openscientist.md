@@ -201,13 +201,13 @@ These artifacts are important provenance for hypothesis-level review.
 
 # Barrier-Antigen Type 2 Specificity Model for Eosinophilic Esophagitis: Hypothesis Evaluation Report
 
-**Hypothesis ID:** `barrier_antigen_type2_specificity_model`  
-**Disease:** Eosinophilic Esophagitis (EoE)  
-**Category:** Complex  
-**Status in KB:** EMERGING  
-**Report Date:** 2026-06-04  
-**Papers Reviewed:** 100  
-**Confirmed Findings:** 6  
+**Hypothesis ID:** `barrier_antigen_type2_specificity_model`
+**Disease:** Eosinophilic Esophagitis (EoE)
+**Category:** Complex
+**Status in KB:** EMERGING
+**Report Date:** 2026-06-04
+**Papers Reviewed:** 100
+**Confirmed Findings:** 6
 
 ---
 
@@ -397,36 +397,36 @@ UPSTREAM TRIGGERS (Genetic susceptibility + Environmental factors)
 
 ### Gap 1: Food Antigen Specificity Mechanism (CRITICAL)
 
-**Scope:** The mechanism by which individual patients develop immune responses to specific food antigens is entirely unknown.  
-**Why it matters:** This is the central "open mechanistic subproblem" acknowledged in the seed hypothesis and has direct clinical consequences — no reliable diagnostic test exists to predict food triggers, forcing empiric elimination diets with serial endoscopies. Elemental diet (~91% remission) confirms food-driven disease, but predicting *which* foods for *which* patients remains impossible.  
-**What was checked:** Literature on IgE, IgG4, T-cell responses, FIRE phenomenon, allergy testing accuracy, elemental diet outcomes, and omalizumab trial data.  
+**Scope:** The mechanism by which individual patients develop immune responses to specific food antigens is entirely unknown.
+**Why it matters:** This is the central "open mechanistic subproblem" acknowledged in the seed hypothesis and has direct clinical consequences — no reliable diagnostic test exists to predict food triggers, forcing empiric elimination diets with serial endoscopies. Elemental diet (~91% remission) confirms food-driven disease, but predicting *which* foods for *which* patients remains impossible.
+**What was checked:** Literature on IgE, IgG4, T-cell responses, FIRE phenomenon, allergy testing accuracy, elemental diet outcomes, and omalizumab trial data.
 **Resolution needed:** Antigen-specific T-cell repertoire studies from esophageal biopsies; single-cell TCR sequencing of esophageal T cells before and after food reintroduction; HLA typing in dietary responder cohorts; in vitro antigen presentation assays with patient-specific food proteins.
 
 ### Gap 2: Eosinophil vs. Mast Cell Contribution to Symptoms (HIGH PRIORITY)
 
-**Scope:** Anti-IL-5 data dissociate eosinophil counts from symptom improvement, but no trial has specifically targeted mast cells in EoE.  
-**Why it matters:** If mast cells are the primary symptom mediators, eosinophil-based monitoring (the current clinical standard) may miss clinically relevant disease activity, and treatment targeting should shift accordingly.  
-**What was checked:** Anti-IL-5 trials (mepolizumab, reslizumab), mast cell persistence studies, OSM signaling data, fibroblast transcriptomic studies, MC-AI computational analysis.  
+**Scope:** Anti-IL-5 data dissociate eosinophil counts from symptom improvement, but no trial has specifically targeted mast cells in EoE.
+**Why it matters:** If mast cells are the primary symptom mediators, eosinophil-based monitoring (the current clinical standard) may miss clinically relevant disease activity, and treatment targeting should shift accordingly.
+**What was checked:** Anti-IL-5 trials (mepolizumab, reslizumab), mast cell persistence studies, OSM signaling data, fibroblast transcriptomic studies, MC-AI computational analysis.
 **Resolution needed:** A clinical trial of mast cell-targeted therapy (e.g., anti-SIGLEC-8 lirentelimab, anti-KIT inhibitor) with both eosinophil and symptom endpoints; co-monitoring of mast cell and eosinophil counts with validated symptom scores.
 
 ### Gap 3: Barrier Dysfunction — Cause or Consequence?
 
-**Scope:** Directionality of the barrier-inflammation relationship.  
-**Why it matters:** Determines whether barrier-targeted therapies would be preventive or merely palliative.  
-**What was checked:** GWAS evidence, persistence in remission, functional studies, conditional knockout models.  
-**Current state:** Genetic evidence (CAPN14, DSP/PPL) and persistent DSG1 downregulation in remission favor a primary barrier defect. However, IL-13 itself impairs barrier function, creating a feedback loop. The initial trigger vs. amplification mechanism remains ambiguous.  
+**Scope:** Directionality of the barrier-inflammation relationship.
+**Why it matters:** Determines whether barrier-targeted therapies would be preventive or merely palliative.
+**What was checked:** GWAS evidence, persistence in remission, functional studies, conditional knockout models.
+**Current state:** Genetic evidence (CAPN14, DSP/PPL) and persistent DSG1 downregulation in remission favor a primary barrier defect. However, IL-13 itself impairs barrier function, creating a feedback loop. The initial trigger vs. amplification mechanism remains ambiguous.
 **Resolution needed:** Longitudinal birth cohort studies in at-risk individuals with serial barrier function measurements before disease onset; conditional barrier-gene rescue in animal models.
 
 ### Gap 4: Type 2 Molecular Heterogeneity (MODERATE)
 
-**Scope:** Unsupervised clustering of 312 patients identified 5 molecular subgroups with heterogeneous type 2 gene expression that was not proportional to disease features ([PMID: 32197970](https://pubmed.ncbi.nlm.nih.gov/32197970/)).  
-**Why it matters:** The model assumes a uniform pathway, but molecular endotypes may require distinct therapeutic strategies.  
+**Scope:** Unsupervised clustering of 312 patients identified 5 molecular subgroups with heterogeneous type 2 gene expression that was not proportional to disease features ([PMID: 32197970](https://pubmed.ncbi.nlm.nih.gov/32197970/)).
+**Why it matters:** The model assumes a uniform pathway, but molecular endotypes may require distinct therapeutic strategies.
 **Resolution needed:** Prospective molecular endotyping linked to treatment response data; endotype-stratified clinical trials.
 
 ### Gap 5: IFN-γ/Type 1 Immune Contribution (EMERGING)
 
-**Scope:** scRNA-seq studies identify upregulated interferon response signature genes in EoE epithelium, with IFN-γ from CD8+ T cells disrupting barrier function and inducing apoptosis via caspase activation ([PMID: 39884574](https://pubmed.ncbi.nlm.nih.gov/39884574/)).  
-**Why it matters:** Represents a non-type-2 pathway that could explain treatment-refractory cases.  
+**Scope:** scRNA-seq studies identify upregulated interferon response signature genes in EoE epithelium, with IFN-γ from CD8+ T cells disrupting barrier function and inducing apoptosis via caspase activation ([PMID: 39884574](https://pubmed.ncbi.nlm.nih.gov/39884574/)).
+**Why it matters:** Represents a non-type-2 pathway that could explain treatment-refractory cases.
 **Resolution needed:** IFN-γ blockade in EoE patients refractory to type 2-targeted therapy; characterization of CD8+ T cell clones in EoE tissue.
 
 ### Gap 6: Source-Level and Dataset Absences
@@ -443,27 +443,27 @@ UPSTREAM TRIGGERS (Genetic susceptibility + Environmental factors)
 ## Alternative Models
 
 ### 1. Mast Cell-Centric Effector Model
-**Relationship to seed hypothesis:** Parallel/competing effector pathway  
+**Relationship to seed hypothesis:** Parallel/competing effector pathway
 Mast cells, not eosinophils, may be the primary disease effectors. MCs disrupt barrier function via OSM ([PMID: 37302713](https://pubmed.ncbi.nlm.nih.gov/37302713/)), persist in remission independently of eosinophils ([PMID: 29772120](https://pubmed.ncbi.nlm.nih.gov/29772120/)), and may drive esophageal dysmotility and even achalasia-like presentations ([PMID: 33355505](https://pubmed.ncbi.nlm.nih.gov/33355505/)). This model is complementary to the seed hypothesis but challenges its emphasis on eosinophils as terminal effectors.
 
 ### 2. Epithelial-Intrinsic Model (SPINK7/Protease/Alarmin Cascade)
-**Relationship:** Upstream refinement of seed hypothesis  
+**Relationship:** Upstream refinement of seed hypothesis
 The primary defect is epithelial-intrinsic loss of SPINK7, which unleashes proteolytic activity, damages barrier integrity, and autonomously triggers alarmin release and type 2 inflammation without requiring antigen penetration as a necessary intermediate step ([PMID: 29980278](https://pubmed.ncbi.nlm.nih.gov/29980278/)). This may explain how barrier dysfunction alone could initiate inflammation.
 
 ### 3. Microbiome–Barrier–Immune Axis
-**Relationship:** Upstream environmental modifier  
+**Relationship:** Upstream environmental modifier
 Early-life microbiome disruption (loss of Lactobacillales) alters esophageal epithelial gene expression including barrier function genes, priming the tissue for exaggerated type 2 inflammation upon allergen exposure ([PMID: 34627858](https://pubmed.ncbi.nlm.nih.gov/34627858/)). Complementary to the seed hypothesis; provides an environmental context for barrier dysfunction development.
 
 ### 4. IFN-γ / Mixed Immune Model
-**Relationship:** Parallel/modifying pathway  
+**Relationship:** Parallel/modifying pathway
 IFN-γ from CD8+ T cells disrupts esophageal epithelial differentiation, barrier integrity, and induces apoptosis via caspase activation ([PMID: 39884574](https://pubmed.ncbi.nlm.nih.gov/39884574/)). Suggests the immune environment in EoE is not purely type 2 and could explain molecular heterogeneity and treatment-refractory subgroups.
 
 ### 5. Fibrosis-Remodeling as Independent Disease Driver
-**Relationship:** Downstream parallel pathway  
+**Relationship:** Downstream parallel pathway
 TGF-β-driven fibrosis and subepithelial remodeling may become self-sustaining independently of ongoing type 2 inflammation, explaining treatment-refractory fibrostenotic disease. Nonepithelial gene expression (predominantly fibroblast-derived) correlates more strongly with symptom severity than epithelial genes ([PMID: 38768900](https://pubmed.ncbi.nlm.nih.gov/38768900/)).
 
 ### 6. Epigenetic Priming Model
-**Relationship:** Upstream/complementary  
+**Relationship:** Upstream/complementary
 Demethylation of the CCL26 promoter inversely correlates with eotaxin-3 expression in allergic tissue ([PMID: 24323578](https://pubmed.ncbi.nlm.nih.gov/24323578/)). Amniotic fluid exposure modifies esophageal epithelial differentiation and IL-13 responsiveness ([PMID: 39189791](https://pubmed.ncbi.nlm.nih.gov/39189791/)). Early-life epigenetic programming may predispose to EoE.
 
 ---
