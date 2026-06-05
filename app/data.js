@@ -51882,6 +51882,79 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "HROB-related gametogenic failure",
+    "disease_id": "MONDO:0971176",
+    "category": "Mendelian",
+    "parents": [
+      "Primary ovarian insufficiency",
+      "Ovarian dysgenesis",
+      "Female infertility"
+    ],
+    "creation_date": "2026-06-05T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "HROB-related gametogenic failure is a recessive meiotic DNA-repair disorder caused by biallelic loss-of-function variants in HROB (also known as C17orf53 or MCM8IP). HROB encodes the OB-fold factor that recruits and activates the MCM8-MCM9 helicase during homologous-recombination repair of DNA breaks, including the programmed double-strand breaks of meiotic prophase I. The human spectrum reported to date is female: primary ovarian insufficiency, ovarian dysgenesis with hypergonadotropic hypogonadism, and delayed puberty (ovarian dysgenesis 11, OMIM:620897). Hrob-mutant mice are infertile in both sexes from germ-cell depletion with prophase I meiotic arrest, so an analogous male spermatogenic-failure branch is predicted but has not yet been reported in humans. The shared mechanistic theme is failed homologous recombination during meiosis with germ-cell loss.",
+    "pathophysiology": [
+      "Impaired homologous recombination",
+      "Prophase I meiotic arrest and germ cell depletion",
+      "Ovarian follicle depletion and primary ovarian insufficiency",
+      "Spermatogenic arrest (predicted male branch)"
+    ],
+    "cell_types": [
+      "germ cell",
+      "oocyte",
+      "spermatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000586",
+      "CL:0000023",
+      "CL:0000017"
+    ],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination",
+      "apoptotic process",
+      "female gamete generation",
+      "male gamete generation"
+    ],
+    "phenotypes": [
+      "Premature ovarian insufficiency",
+      "Hypergonadotropic hypogonadism",
+      "Streak ovary",
+      "Delayed puberty"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth"
+    ],
+    "phenotype_ids": [
+      "HP:0008209",
+      "HP:0000815",
+      "HP:0010464",
+      "HP:0000823"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HROB"
+    ],
+    "treatments": [
+      "Hormone replacement therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "HROB-related_gametogenic_failure.yaml",
+    "page_url": "../pages/disorders/HROB-related_gametogenic_failure.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Hairy Cell Leukemia",
     "disease_id": "MONDO:0018935",
     "category": "",
@@ -63912,7 +63985,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000135",
       "HP:0000750",
+      "HP:0001328",
       "HP:0000098",
+      "HP:0001252",
       "HP:0000054",
       "HP:0007018",
       "HP:0000027",
@@ -97025,6 +97100,94 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "SETBP1 Haploinsufficiency Disorder",
+    "disease_id": "MONDO:0014482",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-06-04T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SETBP1 haploinsufficiency disorder (SETBP1-HD; intellectual disability, autosomal dominant 29 / MRD29) is an autosomal dominant neurodevelopmental disorder caused by heterozygous loss-of-function variants, deletions, or structural rearrangements that disrupt one copy of SETBP1. Reduced dosage of the SETBP1 transcription-factor / epigenetic-hub protein perturbs neural forebrain developmental programs, producing a characteristic phenotype of prominent expressive speech and language impairment (notably childhood apraxia of speech), intellectual ability ranging from normal to severe disability, mild motor developmental delay and hypotonia, attention/behavioral problems, and mild facial dysmorphism with refractive errors and strabismus. It is mechanistically distinct from Schinzel-Giedion syndrome, which is caused by SETBP1 degron-region gain-of-function variants and protein over-accumulation.",
+    "pathophysiology": [
+      "SETBP1 haploinsufficiency",
+      "Disrupted neurodevelopmental transcriptional programs",
+      "Neurodevelopmental and speech-language impairment"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Regulation of transcription by RNA polymerase II",
+      "Wnt signaling pathway",
+      "Forebrain development"
+    ],
+    "phenotypes": [
+      "Childhood apraxia of speech",
+      "Speech and language disorder",
+      "Expressive language impairment",
+      "Dysarthria",
+      "Intellectual disability",
+      "Motor developmental delay",
+      "Hypotonia",
+      "Attention deficit hyperactivity disorder",
+      "Strabismus",
+      "Refractive error",
+      "Facial dysmorphism"
+    ],
+    "phenotype_categories": [
+      "Behavioral",
+      "Physical"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011098",
+      "HP:0002463",
+      "HP:0002474",
+      "HP:0001260",
+      "HP:0001249",
+      "HP:0001270",
+      "HP:0001252",
+      "HP:0007018",
+      "HP:0000486",
+      "HP:0000539",
+      "HP:0001999"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SETBP1"
+    ],
+    "treatments": [
+      "Speech and language therapy",
+      "Multidisciplinary supportive care",
+      "Occupational therapy",
+      "Behavioral intervention",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SETBP1_Disorder.yaml",
+    "page_url": "../pages/disorders/SETBP1_Haploinsufficiency_Disorder.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "SHH_Holoprosencephaly_Spectrum",
     "disease_id": "MONDO:0007733",
     "category": "Genetic",
@@ -107537,6 +107700,103 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Treacher Collins Syndrome",
+    "disease_id": "MONDO:0002457",
+    "category": "Mendelian",
+    "parents": [
+      "Mandibulofacial dysostosis"
+    ],
+    "creation_date": "2026-05-28T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "TCS1",
+      "TCS2",
+      "TCS3",
+      "TCS4"
+    ],
+    "description": "Treacher Collins syndrome (TCS) is an autosomal dominant craniofacial disorder characterized by bilateral and symmetric hypoplasia of the zygomatic bones, maxilla, and mandible, resulting in malar flattening, micrognathia, downslanted palpebral fissures, lower eyelid colobomas, external ear anomalies, and conductive hearing loss. TCS is caused by mutations in genes involved in ribosome biogenesis (TCOF1, POLR1B, POLR1C, POLR1D), which lead to inadequate ribosome production in neural crest cells, triggering p53-dependent apoptosis during embryonic development. Incidence is approximately 1 in 50,000 live births. Intellect is typically normal.\n",
+    "pathophysiology": [
+      "Impaired Ribosome Biogenesis in Neural Crest Cells",
+      "p53-Dependent Neural Crest Cell Apoptosis",
+      "Craniofacial Skeletal Hypoplasia"
+    ],
+    "cell_types": [
+      "neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000333"
+    ],
+    "biological_processes": [
+      "Ribosome biogenesis",
+      "Apoptotic process",
+      "Neural crest cell migration"
+    ],
+    "phenotypes": [
+      "Malar Flattening",
+      "Micrognathia",
+      "Downslanted Palpebral Fissures",
+      "Conductive Hearing Loss",
+      "Microtia",
+      "Atresia of External Auditory Canal",
+      "Lower Eyelid Coloboma",
+      "Cleft Palate",
+      "Choanal Atresia",
+      "Upper Airway Obstruction",
+      "Feeding Difficulties",
+      "Obstructive Sleep Apnea"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000272",
+      "HP:0000347",
+      "HP:0000494",
+      "HP:0000405",
+      "HP:0008551",
+      "HP:0000413",
+      "HP:0000652",
+      "HP:0000175",
+      "HP:0000453",
+      "HP:0002781",
+      "HP:0011968",
+      "HP:0002870"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "TCOF1",
+      "POLR1D",
+      "POLR1C",
+      "POLR1B"
+    ],
+    "treatments": [
+      "Craniofacial Reconstruction",
+      "Speech Therapy",
+      "Airway Management",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Treacher_Collins_Syndrome.yaml",
+    "page_url": "../pages/disorders/Treacher_Collins_Syndrome.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 3,
+    "num_genes": 4,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Triphalangeal_Thumb_Polysyndactyly",
     "disease_id": "MONDO:0008270",
     "category": "Genetic",
@@ -114483,11 +114743,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1142,
-  "total_unique_evidence_sources": 21366,
+  "total_disorder_pages": 1145,
+  "total_unique_evidence_sources": 21381,
   "total_unique_disease_categories": 45,
-  "total_unique_phenotype_categories": 197,
-  "total_pathographs": 1135,
-  "total_unique_pathological_events": 5605
+  "total_unique_phenotype_categories": 198,
+  "total_pathographs": 1138,
+  "total_unique_pathological_events": 5614
 };
 window.dispatchEvent(new Event('searchDataReady'));
