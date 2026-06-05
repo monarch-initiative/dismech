@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Pseudohypoparathyroidism</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Genetic</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0019992" target="_blank">
                         MONDO:0019992
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Endocrine Disorder</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Calcium-Phosphate Metabolism Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Pseudohypoparathyroidism (PHP) is a group of disorders caused by impaired signaling at the GNAS locus, producing resistance to parathyroid hormone and, in many patients, additional endocrine and developmental abnormalities. The phenotype reflects both parent-of-origin effects (imprinting) and tissue-specific dependence on Gs alpha signaling.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,35 +3065,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3031,9 +3101,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3041,8 +3111,8 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#mechanistic-hypotheses">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◈</div>
@@ -3050,9 +3120,9 @@
                 <div class="stat-label">Hypotheses</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3060,8 +3130,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3069,8 +3139,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3078,8 +3148,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3087,13 +3157,13 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3101,9 +3171,9 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#mechanistic-hypotheses">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◈</div>
@@ -3111,2101 +3181,2221 @@
                 <div class="stat-label">Hyp. Reports</div>
             </div>
             </a>
-            
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">3</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         PHP1A
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Usually caused by maternally inherited inactivating GNAS variants with parathyroid hormone resistance, additional hormone resistance, and Albright hereditary osteodystrophy features.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40972900" target="_blank">PMID:40972900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"While maternal mutations result in PHP type 1A, which consists of PTH resistance and AHO, paternal mutations lead to pseudo-pseudohypoparathyroidism (PPHP), that is, AHO without hormone resistance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms maternal-allele mutations classically produce PHP1A with PTH resistance and AHO.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         PHP1B
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Usually caused by GNAS methylation defects (often including STX16-related imprinting abnormalities) with predominant renal PTH resistance and less pronounced Albright hereditary osteodystrophy.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40972900" target="_blank">PMID:40972900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Epigenetic alterations of GNAS cause PHP type 1B (PHP1B), defined by PTH resistance in the absence of AHO."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the subtype definition of PHP1B as an epigenetic GNAS disorder with predominant PTH resistance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Pseudopseudohypoparathyroidism
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Usually caused by paternally inherited inactivating GNAS variants and characterized by Albright hereditary osteodystrophy features with limited or absent hormone resistance.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40972900" target="_blank">PMID:40972900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"While maternal mutations result in PHP type 1A, which consists of PTH resistance and AHO, paternal mutations lead to pseudo-pseudohypoparathyroidism (PPHP), that is, AHO without hormone resistance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly distinguishes paternal-allele PPHP from maternal-allele PHP1A.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
         <div class="card" id="mechanistic-hypotheses">
             <div class="card-header">
                 <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
                 <h2 class="card-title">Mechanistic Hypotheses</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-canonical-imprinting-model">
                 <div class="item-name">Canonical GNAS Imprinting Model</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">canonical_imprinting_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">CANONICAL</span>
-                    
-                    
+
+
                     <span class="tag tag-classification">PHP1A</span>
-                    
+
                     <span class="tag tag-classification">PHP1B</span>
-                    
+
                     <span class="tag tag-classification">Pseudopseudohypoparathyroidism</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">Parent-of-origin-specific GNAS expression explains subtype stratification: maternal alterations more often produce hormone resistance, while paternal coding variants favor AHO-predominant phenotypes.</div>
-                
-                
+
+
                 <div class="mapping-notes">Retained as CANONICAL per the 2026 falcon hypothesis-search report (kb/hypotheses/Pseudohypoparathyroidism/canonical_imprinting_model; openscientist timed out on this hypothesis). The parent-of-origin framework is robustly supported by tissue-specific Gnas knockout mouse models and the molecular control region (1A DMR). Key refinements: (1) the STX16-ICR boundary establishes imprinting via OCT4-dependent chromatin conformation during embryogenesis; (2) the iPPSD nomenclature integrates GNAS-imprinting disorders with other cAMP-pathway disorders (acrodysostosis via PRKAR1A/PDE4D; PTHLH; TRPS1) sharing brachydactyly phenotypes; (3) tissue distribution of imprinting (renal proximal tubule, thyroid, pituitary, ovary, DMH hypothalamus) underlies the PHP1A-specific endocrine resistance and obesity pattern absent in PPHP.</div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Pathograph links</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-gnas-imprinting-dependent-signaling-defect">GNAS Imprinting-Dependent Signaling Defect</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-renal-pth-resistance">Renal PTH Resistance</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Defective Gs alpha signaling blunts cAMP response to PTH in proximal renal tubules.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-gnas-imprinting-dependent-signaling-defect">GNAS Imprinting-Dependent Signaling Defect</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-multihormone-resistance">Multihormone Resistance</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Resistance may extend to other Gs alpha-coupled endocrine pathways including TSH and GHRH.</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Intermediates: TSH resistance; growth hormone deficiency</span>
-                            
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-gnas-imprinting-dependent-signaling-defect">GNAS Imprinting-Dependent Signaling Defect</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-aho-developmental-tissue-effects">AHO Developmental Tissue Effects</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Reduced GNAS signaling in bone and adipose lineages drives Albright hereditary osteodystrophy features.</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Intermediates: altered Gs alpha-cAMP signaling in mesenchymal lineages</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Deep research</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/canonical_imprinting_model/falcon.md" target="_blank">Falcon</a>
-                            
+
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/canonical_imprinting_model/falcon.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
-                            
-                            
+
+
                             <span class="reference-summary">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-23T06:23:57.643184</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40972900" target="_blank">PMID:40972900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Thus, genomic imprinting plays a key role in the phenotypes associated with GNAS alterations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports imprinting as the organizing principle for subtype-specific phenotype patterns.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-endocrine-resistance-model">
                 <div class="item-name">Endocrine Resistance Model</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">endocrine_resistance_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">CANONICAL</span>
-                    
-                    
+
+
                     <span class="tag tag-classification">PHP1A</span>
-                    
+
                     <span class="tag tag-classification">PHP1B</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">Impaired Gs alpha signaling in hormone-responsive tissues causes PTH-centered mineral metabolism abnormalities and variable resistance to additional endocrine axes such as TSH and GH pathways.</div>
-                
-                
+
+
                 <div class="mapping-notes">Retained as CANONICAL per the 2026 falcon hypothesis-search report (kb/hypotheses/Pseudohypoparathyroidism/endocrine_resistance_model; openscientist timed out). Multi-axis resistance pattern (PTH, TSH, GHRH, gonadotropin) is supported by tissue-specific Gsα-mediated GPCR signaling failure in imprinted tissues. Key qualifications: (1) PHP1A and PHP1B differ in non-PTH endocrine resistance — PHP1A typically has TSH/gonadotropin resistance while PHP1B is predominantly PTH-resistant; (2) novel ACRDYS-like resistance syndromes (PRKAR1A, PDE4D mutations) reproduce the phenotype with different molecular lesions in the same cAMP signaling cascade.</div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Pathograph links</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-gnas-imprinting-dependent-signaling-defect">GNAS Imprinting-Dependent Signaling Defect</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-multihormone-resistance">Multihormone Resistance</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Resistance may extend to other Gs alpha-coupled endocrine pathways including TSH and GHRH.</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Intermediates: TSH resistance; growth hormone deficiency</span>
-                            
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-renal-pth-resistance">Renal PTH Resistance</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Hyperphosphatemia</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Reduced renal phosphate excretion causes chronic phosphate retention.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-renal-pth-resistance">Renal PTH Resistance</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Hypocalcemia</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Impaired renal response to PTH contributes to persistent low serum calcium.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-renal-pth-resistance">Renal PTH Resistance</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Elevated Parathyroid Hormone</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Secondary hyperparathyroidism develops as parathyroid output rises to compensate.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-multihormone-resistance">Multihormone Resistance</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Hypothyroidism</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">TSH resistance can lead to biochemical and clinical hypothyroidism.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-multihormone-resistance">Multihormone Resistance</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Short Stature</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Combined endocrine resistance and skeletal effects can limit linear growth.</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Intermediates: growth hormone deficiency</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Deep research</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/endocrine_resistance_model/falcon.md" target="_blank">Falcon</a>
-                            
+
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/endocrine_resistance_model/falcon.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
-                            
-                            
+
+
                             <span class="reference-summary">36 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-23T06:34:59.176852</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"specific features, such as PTH resistance, TSH resistance, growth hormone deficiency"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Consensus guidance supports a multiaxis endocrine resistance framework.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-aho-mesenchymal-model">
                 <div class="item-name">AHO Mesenchymal Differentiation Model</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">aho_mesenchymal_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">CANONICAL</span>
-                    
-                    
+
+
                     <span class="tag tag-classification">PHP1A</span>
-                    
+
                     <span class="tag tag-classification">Pseudopseudohypoparathyroidism</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">Altered GNAS-dependent signaling in bone and mesenchymal lineages drives brachydactyly, ectopic ossification, and related AHO structural phenotypes.</div>
-                
-                
+
+
                 <div class="mapping-notes">Retained as CANONICAL per the 2026 falcon hypothesis-search report (kb/hypotheses/Pseudohypoparathyroidism/aho_mesenchymal_model; openscientist timed out). The chondrocyte-specific (PMID:15765186) and osteoblast-specific (PMID:15797856) Gsα knockout mouse studies establish biallelic Gsα expression in bone/cartilage as the mechanistic basis for AHO features in both PHP1A and PPHP. α-SMA- expressing dermal sheath cells were recently identified as the cellular source of heterotopic subcutaneous ossifications (PMID:40256763). AHO-like brachydactyly also arises from mutations in other PTHrP→Gsα→cAMP→PKA pathway nodes (PRKAR1A, PDE4D, PTHLH, TRPS1), so the model is pathway-correct but not GNAS-exclusive.</div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Pathograph links</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-gnas-imprinting-dependent-signaling-defect">GNAS Imprinting-Dependent Signaling Defect</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-aho-developmental-tissue-effects">AHO Developmental Tissue Effects</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Reduced GNAS signaling in bone and adipose lineages drives Albright hereditary osteodystrophy features.</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Intermediates: altered Gs alpha-cAMP signaling in mesenchymal lineages</span>
-                            
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-multihormone-resistance">Multihormone Resistance</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Short Stature</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Combined endocrine resistance and skeletal effects can limit linear growth.</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Intermediates: growth hormone deficiency</span>
-                            
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-aho-developmental-tissue-effects">AHO Developmental Tissue Effects</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Brachydactyly</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Disordered endochondral growth shortens metacarpals and other tubular bones.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-aho-developmental-tissue-effects">AHO Developmental Tissue Effects</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Subcutaneous Ossifications</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Ectopic dermal and subcutaneous ossification forms firm palpable nodules.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-aho-developmental-tissue-effects">AHO Developmental Tissue Effects</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Obesity</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Altered GNAS-dependent metabolic regulation contributes to early-onset adiposity.</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Intermediates: MC4R-related appetite and energy homeostasis signaling</span>
-                            
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-aho-developmental-tissue-effects">AHO Developmental Tissue Effects</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Developmental Delay</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Some patients show neurodevelopmental effects with learning or global delay.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Deep research</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/aho_mesenchymal_model/falcon.md" target="_blank">Falcon</a>
-                            
+
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/aho_mesenchymal_model/falcon.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
-                            
-                            
+
+
                             <span class="reference-summary">52 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-23T06:57:06.028899</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"resistance to PTH, ectopic ossifications, brachydactyly and early-onset obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the core AHO morphologic feature set grouped in this model.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-neurohypocalcemia-model">
                 <div class="item-name">Neurohypocalcemia Symptom Model</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">neurohypocalcemia_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">CANONICAL</span>
-                    
-                    
+
+
                     <span class="tag tag-classification">PHP1A</span>
-                    
+
                     <span class="tag tag-classification">PHP1B</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">Neurologic symptoms, including tetany and seizures, arise primarily from downstream hypocalcemia and associated mineral imbalance.</div>
-                
-                
+
+
                 <div class="mapping-notes">Retained as CANONICAL per the 2026 falcon hypothesis-search report (kb/hypotheses/Pseudohypoparathyroidism/neurohypocalcemia_model; openscientist timed out). Hypocalcemia from impaired renal-tubular PTH responsiveness is the proximal driver of tetany, seizures, and Trousseau/Chvostek signs in PHP1A and PHP1B. Key qualification: intracerebral calcifications (basal ganglia, dentate) develop independently of acute calcium status and may reflect chronic phosphate-calcium dysregulation. Cognitive impairment in PHP1A is partly dissociable from calcium status — linked to early-onset Gsα haploinsufficiency in CNS development rather than acute neurohypocalcemia alone.</div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Pathograph links</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-renal-pth-resistance">Renal PTH Resistance</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-mineral-ion-imbalance-and-neuromuscular-excitability">Mineral Ion Imbalance and Neuromuscular Excitability</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Severe calcium-phosphate imbalance destabilizes neuromuscular function.</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Intermediates: hypocalcemia; hyperphosphatemia</span>
-                            
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-mineral-ion-imbalance-and-neuromuscular-excitability">Mineral Ion Imbalance and Neuromuscular Excitability</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Tetany</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Increased neuromuscular excitability causes cramps, spasms, and carpopedal signs.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-mineral-ion-imbalance-and-neuromuscular-excitability">Mineral Ion Imbalance and Neuromuscular Excitability</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Seizures</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Marked hypocalcemia can precipitate focal or generalized seizures.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Deep research</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/neurohypocalcemia_model/falcon.md" target="_blank">Falcon</a>
-                            
+
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/neurohypocalcemia_model/falcon.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
-                            
-                            
+
+
                             <span class="reference-summary">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-23T07:12:12.944148</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423572" target="_blank">PMID:38423572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This case demonstrates the importance of screening for hypocalcaemia in patients with de novo epileptic seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports neurologic manifestations as a downstream consequence of hypocalcemia in PHP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-neuroendocrine-obesity-model">
                 <div class="item-name">GNAS-Related Neuroendocrine Obesity Model</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">neuroendocrine_obesity_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">EMERGING</span>
-                    
-                    
+
+
                     <span class="tag tag-classification">PHP1A</span>
-                    
+
                     <span class="tag tag-classification">PHP1B</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">Early-onset obesity may reflect disrupted Gs alpha-dependent GPCR signaling in energy-homeostasis pathways, superimposed on classic PHP endocrine and skeletal mechanisms.</div>
-                
-                
+
+
                 <div class="mapping-notes">Retained as EMERGING per the 2026 falcon hypothesis-search report (kb/hypotheses/Pseudohypoparathyroidism/neuroendocrine_obesity_model; openscientist timed out). The most rigorous mechanistic finding (PMID:27991864) demonstrates that maternal Gsα loss in the dorsomedial nucleus of the hypothalamus (DMH) impairs MC4R/Gsα signaling, reducing energy expenditure and BAT activation without causing hyperphagia. This DMH-imprinting model explains why obesity is specific to PHP1A (maternal mutations) and absent in PPHP (paternal mutations). Additional candidate contributions: TSH/GH resistance contributing to metabolic-rate suppression, and melanocortin/PCSK1 pathway dysregulation.</div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Pathograph links</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-aho-developmental-tissue-effects">AHO Developmental Tissue Effects</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Obesity</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Altered GNAS-dependent metabolic regulation contributes to early-onset adiposity.</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Intermediates: MC4R-related appetite and energy homeostasis signaling</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Deep research</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/neuroendocrine_obesity_model/falcon.md" target="_blank">Falcon</a>
-                            
+
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pseudohypoparathyroidism/neuroendocrine_obesity_model/falcon.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
-                            
-                            
+
+
                             <span class="reference-summary">46 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-23T07:31:07.233571</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38103632" target="_blank">PMID:38103632</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Genetic or epigenetic alterations in GNAS are known to cause pseudohypoparathyroidism in its different subtypes and have been recently associated with isolated, early-onset, severe obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports obesity-specific mechanistic superimposition on canonical PHP pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gnas-imprinting-dependent-signaling-defect">
                 <div class="item-name">GNAS Imprinting-Dependent Signaling Defect</div>
-                
+
                 <div class="item-desc">Pathogenic variants or epigenetic abnormalities at the GNAS locus reduce functional Gs alpha signaling. Because GNAS expression is parent-of-origin dependent in selected tissues, maternal defects disproportionately impair receptor signaling in renal proximal tubules and endocrine targets.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-aho-mesenchymal-model">AHO Mesenchymal Differentiation Model</a>
-                        
+
                     </span>
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-canonical-imprinting-model">Canonical GNAS Imprinting Model</a>
-                        
+
                     </span>
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-endocrine-resistance-model">Endocrine Resistance Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        GNAS
-                        
-                        <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GNAS
+
+
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         genomic imprinting
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0071514" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0071514" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071514">GO:0071514</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         adenylate cyclase-modulating G protein-coupled receptor signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007188" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007188" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007188">GO:0007188</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Renal PTH Resistance</span>
-	                            
+
 	                            <span class="crosslink-desc">Defective Gs alpha signaling blunts cAMP response to PTH in proximal renal tubules.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-canonical-imprinting-model">Canonical GNAS Imprinting Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Multihormone Resistance</span>
-	                            
+
 	                            <span class="crosslink-desc">Resistance may extend to other Gs alpha-coupled endocrine pathways including TSH and GHRH.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-canonical-imprinting-model">Canonical GNAS Imprinting Model</a>
-                                        
+
                                     </span>
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-endocrine-resistance-model">Endocrine Resistance Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">AHO Developmental Tissue Effects</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced GNAS signaling in bone and adipose lineages drives Albright hereditary osteodystrophy features.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-canonical-imprinting-model">Canonical GNAS Imprinting Model</a>
-                                        
+
                                     </span>
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-aho-mesenchymal-model">AHO Mesenchymal Differentiation Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40972900" target="_blank">PMID:40972900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Thus, genomic imprinting plays a key role in the phenotypes associated with GNAS alterations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes imprinting as the upstream mechanism determining subtype-specific manifestations.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25905388" target="_blank">PMID:25905388</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"PHP1A and PHP1B are caused by maternally-inherited changes at the imprinted GNAS complex gene"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports maternal-allele GNAS alterations as a core etiologic mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-pth-resistance">
                 <div class="item-name">Renal PTH Resistance</div>
-                
+
                 <div class="item-desc">Kidney target tissues fail to mount a normal phosphaturic and calcium-preserving response to PTH. This produces biochemical findings of hypocalcemia and hyperphosphatemia despite elevated circulating PTH.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-endocrine-resistance-model">Endocrine Resistance Model</a>
-                        
+
                     </span>
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-neurohypocalcemia-model">Neurohypocalcemia Symptom Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         epithelial cell of proximal tubule
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         response to parathyroid hormone
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0071107" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0071107" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071107">GO:0071107</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         phosphate ion homeostasis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055062">GO:0055062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         calcium ion homeostasis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055074">GO:0055074</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         kidney
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-location">
                         proximal tubule
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004134">UBERON:0004134</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hyperphosphatemia</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced renal phosphate excretion causes chronic phosphate retention.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-endocrine-resistance-model">Endocrine Resistance Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypocalcemia</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired renal response to PTH contributes to persistent low serum calcium.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-endocrine-resistance-model">Endocrine Resistance Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Elevated Parathyroid Hormone</span>
-	                            
+
 	                            <span class="crosslink-desc">Secondary hyperparathyroidism develops as parathyroid output rises to compensate.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-endocrine-resistance-model">Endocrine Resistance Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Mineral Ion Imbalance and Neuromuscular Excitability</span>
-	                            
+
 	                            <span class="crosslink-desc">Severe calcium-phosphate imbalance destabilizes neuromuscular function.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-neurohypocalcemia-model">Neurohypocalcemia Symptom Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40972900" target="_blank">PMID:40972900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"including the proximal renal tubule, where PTH exerts critical actions."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies proximal renal tubule as the key imprinting-sensitive site for PTH resistance.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37014531" target="_blank">PMID:37014531</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is characterized by hypocalcemia, hyperphosphatemia, and an elevated parathyroid hormone concentration secondary to the resistance of target tissues to the biological actions of parathyroid hormone."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms the biochemical triad resulting from end-organ PTH resistance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mineral-ion-imbalance-and-neuromuscular-excitability">
                 <div class="item-name">Mineral Ion Imbalance and Neuromuscular Excitability</div>
-                
+
                 <div class="item-desc">Hypocalcemia increases neuronal and neuromuscular excitability, lowering seizure threshold and producing intermittent acute neurologic symptoms.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-neurohypocalcemia-model">Neurohypocalcemia Symptom Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         calcium ion homeostasis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055074">GO:0055074</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Tetany</span>
-	                            
+
 	                            <span class="crosslink-desc">Increased neuromuscular excitability causes cramps, spasms, and carpopedal signs.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-neurohypocalcemia-model">Neurohypocalcemia Symptom Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Seizures</span>
-	                            
+
 	                            <span class="crosslink-desc">Marked hypocalcemia can precipitate focal or generalized seizures.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-neurohypocalcemia-model">Neurohypocalcemia Symptom Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35410271" target="_blank">PMID:35410271</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Laboratory assessments of the patient revealed hypokalemia, hypocalcemia and hyperphosphatemia despite elevated PTH levels."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates clinically relevant mineral imbalance expected from PTH resistance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multihormone-resistance">
                 <div class="item-name">Multihormone Resistance</div>
-                
+
                 <div class="item-desc">In affected subtypes, resistance extends beyond PTH to additional Gs alpha-coupled hormonal pathways, especially thyroid and growth axes.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-aho-mesenchymal-model">AHO Mesenchymal Differentiation Model</a>
-                        
+
                     </span>
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-endocrine-resistance-model">Endocrine Resistance Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         hormone-mediated signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0009755" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0009755" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009755">GO:0009755</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypothyroidism</span>
-	                            
+
 	                            <span class="crosslink-desc">TSH resistance can lead to biochemical and clinical hypothyroidism.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-endocrine-resistance-model">Endocrine Resistance Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Short Stature</span>
-	                            
+
 	                            <span class="crosslink-desc">Combined endocrine resistance and skeletal effects can limit linear growth.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-endocrine-resistance-model">Endocrine Resistance Model</a>
-                                        
+
                                     </span>
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-aho-mesenchymal-model">AHO Mesenchymal Differentiation Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"specific features, such as PTH resistance, TSH resistance, growth hormone deficiency"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports that endocrine resistance in PHP commonly extends beyond PTH signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aho-developmental-tissue-effects">
                 <div class="item-name">AHO Developmental Tissue Effects</div>
-                
+
                 <div class="item-desc">Albright hereditary osteodystrophy reflects altered developmental signaling in bone, adipose tissue, and other mesenchymal lineages, partially independent of biochemical severity.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-aho-mesenchymal-model">AHO Mesenchymal Differentiation Model</a>
-                        
+
                     </span>
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-neuroendocrine-obesity-model">GNAS-Related Neuroendocrine Obesity Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         osteoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         adipocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         endochondral ossification
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         ossification
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001503">GO:0001503</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         bone element
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001474">UBERON:0001474</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Brachydactyly</span>
-	                            
+
 	                            <span class="crosslink-desc">Disordered endochondral growth shortens metacarpals and other tubular bones.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-aho-mesenchymal-model">AHO Mesenchymal Differentiation Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Subcutaneous Ossifications</span>
-	                            
+
 	                            <span class="crosslink-desc">Ectopic dermal and subcutaneous ossification forms firm palpable nodules.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-aho-mesenchymal-model">AHO Mesenchymal Differentiation Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Obesity</span>
-	                            
+
 	                            <span class="crosslink-desc">Altered GNAS-dependent metabolic regulation contributes to early-onset adiposity.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-aho-mesenchymal-model">AHO Mesenchymal Differentiation Model</a>
-                                        
+
                                     </span>
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-neuroendocrine-obesity-model">GNAS-Related Neuroendocrine Obesity Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Developmental Delay</span>
-	                            
+
 	                            <span class="crosslink-desc">Some patients show neurodevelopmental effects with learning or global delay.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-aho-mesenchymal-model">AHO Mesenchymal Differentiation Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"resistance to PTH, ectopic ossifications, brachydactyly and early-onset obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines the core AHO-associated developmental phenotype cluster.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40972900" target="_blank">PMID:40972900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"While maternal mutations result in PHP type 1A, which consists of PTH resistance and AHO, paternal mutations lead to pseudo-pseudohypoparathyroidism (PPHP), that is, AHO without hormone resistance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports parent-of-origin partitioning of AHO features versus hormone resistance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -5216,921 +5406,963 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AHO Developmental Tissue Effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Albright hereditary osteodystrophy reflects altered developmental signaling in bone, adipose tissue, and other mesenchymal lineages, partially independent of biochemical severity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast\", \"adipocyte\"], \"biological_processes\": [\"endochondral ossification\", \"ossification\"], \"locations\": [\"bone element\"]}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortened metacarpals and digits, especially in the fourth and fifth rays.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"Calcium and Active Vitamin D Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcium supplementation combined with active vitamin D (calcitriol or alfacalcidol) to correct hypocalcemia and hyperphosphatemia. Standard of care for PHP1A and PHP1B; correction of hypocalcemia resolves tetany, seizures, and dyskinesias.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"calcium\", \"calcitriol\"]}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable neurodevelopmental impairment across disease subtypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Elevated Parathyroid Hormone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Compensatory PTH elevation despite hypocalcemia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003165\"}}, {\"id\": \"GNAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GNAS\"], \"association\": \"Loss-of-Function Variant or Imprinting Defect\"}}, {\"id\": \"GNAS Imprinting-Dependent Signaling Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants or epigenetic abnormalities at the GNAS locus reduce functional Gs alpha signaling. Because GNAS expression is parent-of-origin dependent in selected tissues, maternal defects disproportionately impair receptor signaling in renal proximal tubules and endocrine targets.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"genomic imprinting\", \"adenylate cyclase-modulating G protein-coupled receptor signaling pathway\"], \"genes\": [\"GNAS\"]}}, {\"id\": \"Hyperphosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum phosphate from impaired renal phosphate excretion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002905\"}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low serum calcium with elevated PTH due to end-organ resistance.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002901\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"TSH resistance causing low thyroid hormone effect.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"Intravenous Calcium Gluconate (Acute Tetany)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous calcium gluconate is the acute treatment for symptomatic hypocalcemic tetany, seizures, and laryngospasm in PHP. Used emergently before transition to oral calcium + active vitamin D maintenance therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"calcium gluconate\"]}}, {\"id\": \"Mineral Ion Imbalance and Neuromuscular Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypocalcemia increases neuronal and neuromuscular excitability, lowering seizure threshold and producing intermittent acute neurologic symptoms.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"calcium ion homeostasis\"]}}, {\"id\": \"Multihormone Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In affected subtypes, resistance extends beyond PTH to additional Gs alpha-coupled hormonal pathways, especially thyroid and growth axes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"hormone-mediated signaling pathway\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset weight gain and increased adiposity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Renal PTH Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Kidney target tissues fail to mount a normal phosphaturic and calcium-preserving response to PTH. This produces biochemical findings of hypocalcemia and hyperphosphatemia despite elevated circulating PTH.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"response to parathyroid hormone\", \"phosphate ion homeostasis\", \"calcium ion homeostasis\"], \"locations\": [\"kidney\", \"proximal tubule\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypocalcemia-associated seizure episodes, often in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced linear growth from endocrine and skeletal mechanisms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Subcutaneous Ossifications\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ectopic ossification in skin and soft tissues.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034282\"}}, {\"id\": \"Tetany\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neuromuscular irritability with spasm during hypocalcemic episodes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001281\"}}], \"edges\": [{\"source\": \"GNAS Imprinting-Dependent Signaling Defect\", \"target\": \"Renal PTH Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective Gs alpha signaling blunts cAMP response to PTH in proximal renal tubules.\", \"hypothesis_groups\": [\"canonical_imprinting_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GNAS Imprinting-Dependent Signaling Defect\", \"target\": \"Multihormone Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resistance may extend to other Gs alpha-coupled endocrine pathways including TSH and GHRH.\", \"hypothesis_groups\": [\"canonical_imprinting_model\", \"endocrine_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"TSH resistance\", \"growth hormone deficiency\"]}, {\"source\": \"GNAS Imprinting-Dependent Signaling Defect\", \"target\": \"AHO Developmental Tissue Effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GNAS signaling in bone and adipose lineages drives Albright hereditary osteodystrophy features.\", \"hypothesis_groups\": [\"canonical_imprinting_model\", \"aho_mesenchymal_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered Gs alpha-cAMP signaling in mesenchymal lineages\"]}, {\"source\": \"Renal PTH Resistance\", \"target\": \"Hyperphosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced renal phosphate excretion causes chronic phosphate retention.\", \"hypothesis_groups\": [\"endocrine_resistance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal PTH Resistance\", \"target\": \"Hypocalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired renal response to PTH contributes to persistent low serum calcium.\", \"hypothesis_groups\": [\"endocrine_resistance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal PTH Resistance\", \"target\": \"Elevated Parathyroid Hormone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Secondary hyperparathyroidism develops as parathyroid output rises to compensate.\", \"hypothesis_groups\": [\"endocrine_resistance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal PTH Resistance\", \"target\": \"Mineral Ion Imbalance and Neuromuscular Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe calcium-phosphate imbalance destabilizes neuromuscular function.\", \"hypothesis_groups\": [\"neurohypocalcemia_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypocalcemia\", \"hyperphosphatemia\"]}, {\"source\": \"Mineral Ion Imbalance and Neuromuscular Excitability\", \"target\": \"Tetany\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased neuromuscular excitability causes cramps, spasms, and carpopedal signs.\", \"hypothesis_groups\": [\"neurohypocalcemia_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mineral Ion Imbalance and Neuromuscular Excitability\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked hypocalcemia can precipitate focal or generalized seizures.\", \"hypothesis_groups\": [\"neurohypocalcemia_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multihormone Resistance\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TSH resistance can lead to biochemical and clinical hypothyroidism.\", \"hypothesis_groups\": [\"endocrine_resistance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multihormone Resistance\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Combined endocrine resistance and skeletal effects can limit linear growth.\", \"hypothesis_groups\": [\"endocrine_resistance_model\", \"aho_mesenchymal_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"growth hormone deficiency\"]}, {\"source\": \"AHO Developmental Tissue Effects\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered endochondral growth shortens metacarpals and other tubular bones.\", \"hypothesis_groups\": [\"aho_mesenchymal_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AHO Developmental Tissue Effects\", \"target\": \"Subcutaneous Ossifications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic dermal and subcutaneous ossification forms firm palpable nodules.\", \"hypothesis_groups\": [\"aho_mesenchymal_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AHO Developmental Tissue Effects\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered GNAS-dependent metabolic regulation contributes to early-onset adiposity.\", \"hypothesis_groups\": [\"aho_mesenchymal_model\", \"neuroendocrine_obesity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"MC4R-related appetite and energy homeostasis signaling\"]}, {\"source\": \"AHO Developmental Tissue Effects\", \"target\": \"Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Some patients show neurodevelopmental effects with learning or global delay.\", \"hypothesis_groups\": [\"aho_mesenchymal_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Calcium and Active Vitamin D Replacement\", \"target\": \"Hypocalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravenous Calcium Gluconate (Acute Tetany)\", \"target\": \"Hypocalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GNAS\", \"target\": \"GNAS Imprinting-Dependent Signaling Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AHO Developmental Tissue Effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Albright hereditary osteodystrophy reflects altered developmental signaling in bone, adipose tissue, and other mesenchymal lineages, partially independent of biochemical severity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast\", \"adipocyte\"], \"biological_processes\": [\"endochondral ossification\", \"ossification\"], \"locations\": [\"bone element\"]}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortened metacarpals and digits, especially in the fourth and fifth rays.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"Calcium and Active Vitamin D Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcium supplementation combined with active vitamin D (calcitriol or alfacalcidol) to correct hypocalcemia and hyperphosphatemia. Standard of care for PHP1A and PHP1B; correction of hypocalcemia resolves tetany, seizures, and dyskinesias.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"calcium\", \"calcitriol\"]}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable neurodevelopmental impairment across disease subtypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Elevated Parathyroid Hormone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Compensatory PTH elevation despite hypocalcemia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003165\"}}, {\"id\": \"GNAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GNAS\"], \"gene_terms\": [{\"label\": \"GNAS\", \"id\": \"hgnc:4392\"}], \"association\": \"Loss-of-Function Variant or Imprinting Defect\"}}, {\"id\": \"GNAS Imprinting-Dependent Signaling Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants or epigenetic abnormalities at the GNAS locus reduce functional Gs alpha signaling. Because GNAS expression is parent-of-origin dependent in selected tissues, maternal defects disproportionately impair receptor signaling in renal proximal tubules and endocrine targets.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"genomic imprinting\", \"adenylate cyclase-modulating G protein-coupled receptor signaling pathway\"], \"genes\": [\"GNAS\"], \"gene_terms\": [{\"label\": \"GNAS\", \"id\": \"hgnc:4392\"}]}}, {\"id\": \"Hyperphosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum phosphate from impaired renal phosphate excretion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002905\"}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low serum calcium with elevated PTH due to end-organ resistance.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002901\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"TSH resistance causing low thyroid hormone effect.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"Intravenous Calcium Gluconate (Acute Tetany)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous calcium gluconate is the acute treatment for symptomatic hypocalcemic tetany, seizures, and laryngospasm in PHP. Used emergently before transition to oral calcium + active vitamin D maintenance therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"calcium gluconate\"]}}, {\"id\": \"Mineral Ion Imbalance and Neuromuscular Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypocalcemia increases neuronal and neuromuscular excitability, lowering seizure threshold and producing intermittent acute neurologic symptoms.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"calcium ion homeostasis\"]}}, {\"id\": \"Multihormone Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In affected subtypes, resistance extends beyond PTH to additional Gs alpha-coupled hormonal pathways, especially thyroid and growth axes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"hormone-mediated signaling pathway\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset weight gain and increased adiposity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Renal PTH Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Kidney target tissues fail to mount a normal phosphaturic and calcium-preserving response to PTH. This produces biochemical findings of hypocalcemia and hyperphosphatemia despite elevated circulating PTH.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"response to parathyroid hormone\", \"phosphate ion homeostasis\", \"calcium ion homeostasis\"], \"locations\": [\"kidney\", \"proximal tubule\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypocalcemia-associated seizure episodes, often in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced linear growth from endocrine and skeletal mechanisms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Subcutaneous Ossifications\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ectopic ossification in skin and soft tissues.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034282\"}}, {\"id\": \"Tetany\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neuromuscular irritability with spasm during hypocalcemic episodes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001281\"}}], \"edges\": [{\"source\": \"GNAS Imprinting-Dependent Signaling Defect\", \"target\": \"Renal PTH Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective Gs alpha signaling blunts cAMP response to PTH in proximal renal tubules.\", \"hypothesis_groups\": [\"canonical_imprinting_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GNAS Imprinting-Dependent Signaling Defect\", \"target\": \"Multihormone Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resistance may extend to other Gs alpha-coupled endocrine pathways including TSH and GHRH.\", \"hypothesis_groups\": [\"canonical_imprinting_model\", \"endocrine_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"TSH resistance\", \"growth hormone deficiency\"]}, {\"source\": \"GNAS Imprinting-Dependent Signaling Defect\", \"target\": \"AHO Developmental Tissue Effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GNAS signaling in bone and adipose lineages drives Albright hereditary osteodystrophy features.\", \"hypothesis_groups\": [\"canonical_imprinting_model\", \"aho_mesenchymal_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered Gs alpha-cAMP signaling in mesenchymal lineages\"]}, {\"source\": \"Renal PTH Resistance\", \"target\": \"Hyperphosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced renal phosphate excretion causes chronic phosphate retention.\", \"hypothesis_groups\": [\"endocrine_resistance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal PTH Resistance\", \"target\": \"Hypocalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired renal response to PTH contributes to persistent low serum calcium.\", \"hypothesis_groups\": [\"endocrine_resistance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal PTH Resistance\", \"target\": \"Elevated Parathyroid Hormone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Secondary hyperparathyroidism develops as parathyroid output rises to compensate.\", \"hypothesis_groups\": [\"endocrine_resistance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal PTH Resistance\", \"target\": \"Mineral Ion Imbalance and Neuromuscular Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe calcium-phosphate imbalance destabilizes neuromuscular function.\", \"hypothesis_groups\": [\"neurohypocalcemia_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypocalcemia\", \"hyperphosphatemia\"]}, {\"source\": \"Mineral Ion Imbalance and Neuromuscular Excitability\", \"target\": \"Tetany\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased neuromuscular excitability causes cramps, spasms, and carpopedal signs.\", \"hypothesis_groups\": [\"neurohypocalcemia_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mineral Ion Imbalance and Neuromuscular Excitability\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked hypocalcemia can precipitate focal or generalized seizures.\", \"hypothesis_groups\": [\"neurohypocalcemia_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multihormone Resistance\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TSH resistance can lead to biochemical and clinical hypothyroidism.\", \"hypothesis_groups\": [\"endocrine_resistance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multihormone Resistance\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Combined endocrine resistance and skeletal effects can limit linear growth.\", \"hypothesis_groups\": [\"endocrine_resistance_model\", \"aho_mesenchymal_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"growth hormone deficiency\"]}, {\"source\": \"AHO Developmental Tissue Effects\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered endochondral growth shortens metacarpals and other tubular bones.\", \"hypothesis_groups\": [\"aho_mesenchymal_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AHO Developmental Tissue Effects\", \"target\": \"Subcutaneous Ossifications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic dermal and subcutaneous ossification forms firm palpable nodules.\", \"hypothesis_groups\": [\"aho_mesenchymal_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AHO Developmental Tissue Effects\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered GNAS-dependent metabolic regulation contributes to early-onset adiposity.\", \"hypothesis_groups\": [\"aho_mesenchymal_model\", \"neuroendocrine_obesity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"MC4R-related appetite and energy homeostasis signaling\"]}, {\"source\": \"AHO Developmental Tissue Effects\", \"target\": \"Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Some patients show neurodevelopmental effects with learning or global delay.\", \"hypothesis_groups\": [\"aho_mesenchymal_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Calcium and Active Vitamin D Replacement\", \"target\": \"Hypocalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravenous Calcium Gluconate (Acute Tetany)\", \"target\": \"Hypocalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GNAS\", \"target\": \"GNAS Imprinting-Dependent Signaling Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">14</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(3)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Elevated Parathyroid Hormone
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003165" target="_blank">
-                            Elevated circulating parathyroid hormone level
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003165)</span>
-                        </span>
-                        
+                        Elevated circulating parathyroid hormone level
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003165" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003165">HP:0003165</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35410271" target="_blank">PMID:35410271</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Laboratory assessments of the patient revealed hypokalemia, hypocalcemia and hyperphosphatemia despite elevated PTH levels."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports elevation of PTH despite biochemical hypocalcemia-hyperphosphatemia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypothyroidism
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank">
-                            Hypothyroidism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000821)</span>
-                        </span>
-                        
+                        Hypothyroidism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"specific features, such as PTH resistance, TSH resistance, growth hormone deficiency"</div>
-                
-                
+
+
                 <div class="evidence-explanation">TSH resistance provides mechanistic support for hypothyroid manifestations in PHP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Brachydactyly
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank">
-                            Brachydactyly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001156)</span>
-                        </span>
-                        
+                        Brachydactyly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001156">HP:0001156</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"resistance to PTH, ectopic ossifications, brachydactyly and early-onset obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Consensus statement lists brachydactyly among major diagnostic criteria.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypocalcemia
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank">
-                            Hypocalcemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002901)</span>
-                        </span>
-                        
+                        Hypocalcemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002901">HP:0002901</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37014531" target="_blank">PMID:37014531</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is characterized by hypocalcemia, hyperphosphatemia, and an elevated parathyroid hormone concentration secondary to the resistance of target tissues to the biological actions of parathyroid hormone."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms hypocalcemia as a defining biochemical consequence of PHP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hyperphosphatemia
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002905" target="_blank">
-                            Hyperphosphatemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002905)</span>
-                        </span>
-                        
+                        Hyperphosphatemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002905" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002905">HP:0002905</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37014531" target="_blank">PMID:37014531</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is characterized by hypocalcemia, hyperphosphatemia, and an elevated parathyroid hormone concentration secondary to the resistance of target tissues to the biological actions of parathyroid hormone."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms hyperphosphatemia as part of the hallmark PHP biochemical triad.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Tetany
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001281" target="_blank">
-                            Tetany
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001281)</span>
-                        </span>
-                        
+                        Tetany
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001281" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001281">HP:0001281</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35410271" target="_blank">PMID:35410271</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Seven months after delivery, she experienced tetany and dysphonia with diarrhea."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents tetany as an acute symptomatic manifestation in PHP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Subcutaneous Ossifications
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0034282" target="_blank">
-                            Subcutaneous ossification
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0034282)</span>
-                        </span>
-                        
+                        Subcutaneous ossification
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034282" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034282">HP:0034282</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"subcutaneous and/or deeper ectopic ossifications and neurocognitive impairment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Consensus guidance highlights subcutaneous ectopic ossifications as a monitored feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizures
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
-                            Seizure
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001250)</span>
-                        </span>
-                        
+                        Seizure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423572" target="_blank">PMID:38423572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We describe a case in which epileptic seizures and abnormalities in dental development were the main clinical manifestation of PHP type 1B."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports seizures as a clinically important presentation in PHP1B.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Developmental Delay
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
-                            Global developmental delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
-                        </span>
-                        
+                        Global developmental delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"subcutaneous and/or deeper ectopic ossifications and neurocognitive impairment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Neurocognitive impairment in consensus guidance supports developmental and cognitive phenotype burden.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short Stature
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank">
-                            Short stature
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004322)</span>
-                        </span>
-                        
+                        Short stature
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"include short bones, short stature, a stocky build, early-onset obesity and ectopic ossifications"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies short stature as part of the core physical phenotype in PHP-related disorders.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Obesity
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank">
-                            Obesity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001513)</span>
-                        </span>
-                        
+                        Obesity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38103632" target="_blank">PMID:38103632</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Genetic or epigenetic alterations in GNAS are known to cause pseudohypoparathyroidism in its different subtypes and have been recently associated with isolated, early-onset, severe obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports mechanistic and clinical linkage between GNAS defects and early-onset obesity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Chiari Malformation Type 1
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank">
-                            Chiari type I malformation
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0007099)</span>
-                        </span>
-                        
+                        Chiari type I malformation
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007099">HP:0007099</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36662765" target="_blank">PMID:36662765</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"prevalence of CM1 is at least 10-fold higher"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Krishnan et al. (2023) demonstrate that PHP1A patients have at least 10-fold higher CM1 prevalence than the general population (10.8% by imaging; 21.7% with LLCT), correlating with mouse-model evidence of aberrant cranial base development.
 </div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Basal Ganglia Calcification
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002135" target="_blank">
-                            Basal ganglia calcification
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002135)</span>
-                        </span>
-                        
+                        Basal ganglia calcification
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002135" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002135">HP:0002135</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35410271" target="_blank">PMID:35410271</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CT scanning of the brain revealed globus pallidus calcification"</div>
-                
-                
+
+
                 <div class="evidence-explanation">CT-confirmed globus pallidus calcification documented in a PHP1B patient, supporting basal ganglia calcification as a phenotype that develops in the setting of chronic mineral dysregulation.
 </div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Round Face
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank">
-                            Round face
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000311)</span>
-                        </span>
-                        
+                        Round face
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000311">HP:0000311</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29072892" target="_blank">PMID:29072892</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"short stature, round"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews defines the AHO phenotype as including short stature, round facies, and subcutaneous ossifications — the classic AHO triad characteristic of PHP1A.
 </div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -6155,476 +6387,529 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     GNAS
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Loss-of-Function Variant or Imprinting Defect)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GNAS
+
+
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37014531" target="_blank">PMID:37014531</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pseudohypoparathyroidism (PHP) is a disorder caused by mutations and/or epigenetic changes at the complex GNAS locus."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports both genetic and epigenetic GNAS mechanisms in disease causation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Calcium and Active Vitamin D Replacement
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         calcium
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:29108">CHEBI:29108</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         calcitriol
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17823">CHEBI:17823</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Calcium supplementation combined with active vitamin D (calcitriol or alfacalcidol) to correct hypocalcemia and hyperphosphatemia. Standard of care for PHP1A and PHP1B; correction of hypocalcemia resolves tetany, seizures, and dyskinesias.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypocalcemia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002901">HP:0002901</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25905388" target="_blank">PMID:25905388</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Calcium and vitamin D are the standard therapy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Endocrinology textbook reference frames calcium and active vitamin D supplementation as the cornerstone of hypoparathyroidism / PHP treatment for correcting hypocalcemia-driven neuromuscular symptoms.
 </div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Intravenous Calcium Gluconate (Acute Tetany)
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         calcium gluconate
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_3309" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3309" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3309">CHEBI:3309</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Intravenous calcium gluconate is the acute treatment for symptomatic hypocalcemic tetany, seizures, and laryngospasm in PHP. Used emergently before transition to oral calcium + active vitamin D maintenance therapy.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypocalcemia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002901">HP:0002901</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35410271" target="_blank">PMID:35410271</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Tetany symptoms were relieved after intravenous calcium gluconate"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case report of PHP1B with tetany symptoms documents resolution after intravenous calcium gluconate supplementation, illustrating the acute emergency use of IV calcium for symptomatic hypocalcemia.
 </div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Parathyroid Hormone
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Elevated PTH with hypocalcemia and hyperphosphatemia supports hormone resistance.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37014531" target="_blank">PMID:37014531</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is characterized by hypocalcemia, hyperphosphatemia, and an elevated parathyroid hormone concentration secondary to the resistance of target tissues to the biological actions of parathyroid hormone."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports elevated PTH in the context of end-organ resistance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Serum Calcium
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Decreased)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Persistent or recurrent hypocalcemia is common at presentation.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37014531" target="_blank">PMID:37014531</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is characterized by hypocalcemia, hyperphosphatemia, and an elevated parathyroid hormone concentration secondary to the resistance of target tissues to the biological actions of parathyroid hormone."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports hypocalcemia as a central biochemical finding.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Serum Phosphate
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Renal phosphate retention leads to chronic hyperphosphatemia.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37014531" target="_blank">PMID:37014531</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is characterized by hypocalcemia, hyperphosphatemia, and an elevated parathyroid hormone concentration secondary to the resistance of target tissues to the biological actions of parathyroid hormone."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports persistent hyperphosphatemia in PHP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -7527,41 +7812,41 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/29072892" target="_blank">PMID:29072892</a>
                             </div>
-                            
+
                             <div class="reference-title">Disorders of GNAS Inactivation.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
