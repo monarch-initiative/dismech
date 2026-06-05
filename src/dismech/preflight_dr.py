@@ -18,8 +18,9 @@ unit-tested without any network/OAK access:
 1. Pure logic — :func:`extract_gene_mentions`, :func:`rank_genes`,
    :func:`evaluate` — operates on plain strings and gene sets.
 2. OAK-backed lookup — :func:`mondo_causal_genes` — queries
-   ``sqlite:obo:mondo`` for ``RO:0004003`` (*has material basis in germline
-   mutation in*) edges to HGNC genes.
+   ``sqlite:obo:mondo`` for the causal-gene relationship edges (chiefly
+   ``RO:0004003`` *has material basis in germline mutation in*; see
+   :data:`CAUSAL_GENE_PREDICATES`) to HGNC genes.
 
 CLI::
 
@@ -32,17 +33,31 @@ import argparse
 import re
 import sys
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 # OAK relationship predicates that connect a MONDO disease to its causal
-# gene(s). Germline is the primary signal; somatic is included so that
-# cancer/somatic-driver entries are not spuriously flagged SKIP.
+# gene(s). The set below is grounded in the predicates MONDO actually uses on
+# edges whose object is an HGNC gene (counts from a full sqlite:obo:mondo scan):
+#   RO:0004003 has material basis in germline mutation in        (~6184)
+#   RO:0004020 disease has basis in dysfunction of                  (~19)
+#   RO:0004001 has material basis in gain of function germline ...  (~10)
+#   RO:0004004 has material basis in somatic mutation in             (~7)
+#   RO:0004021 disease caused by disruption of                       (~3)
+# Germline (0004003/0004001) is the dominant signal; the somatic predicate
+# (0004004) is included so cancer/somatic-driver entries are not spuriously
+# flagged SKIP/FAIL. The "is causal ... mutation in" forms (0004013/0004014,
+# the Orphanet-style inverse phrasing) have no HGNC edges in current MONDO but
+# are kept defensively in case future releases adopt them.
 CAUSAL_GENE_PREDICATES = (
     "RO:0004003",  # has material basis in germline mutation in
-    "RO:0004013",  # has material basis in germline mutation in (somatic variant)
-    "RO:0004020",  # has material basis in somatic mutation in
-    "RO:0004021",  # has material basis in somatic mutation in (loss/gain)
+    "RO:0004001",  # has material basis in gain of function germline mutation in
+    "RO:0004004",  # has material basis in somatic mutation in
+    "RO:0004020",  # disease has basis in dysfunction of
+    "RO:0004021",  # disease caused by disruption of
+    "RO:0004013",  # is causal germline mutation in (defensive; unused in MONDO)
+    "RO:0004014",  # is causal somatic mutation in (defensive; unused in MONDO)
 )
 
 DEFAULT_MONDO_ADAPTER_SPEC = "sqlite:obo:mondo"
@@ -65,7 +80,7 @@ NON_GENE_TOKENS = frozenset(
         # Common biomedical abbreviations
         "DNA", "RNA", "MRNA", "CDNA", "RRNA", "TRNA", "SNRNA", "MIRNA",
         "ATP", "ADP", "AMP", "GTP", "NAD", "NADH", "NADP", "FAD",
-        "CSF", "CNS", "PNS", "ECM", "ER", "ROS", "ATP", "PH", "BMI",
+        "CSF", "CNS", "PNS", "ECM", "ER", "ROS", "PH", "BMI",
         "MRI", "CT", "EEG", "ECG", "EKG", "PET", "USA", "UK", "EU", "WHO",
         "AR", "AD", "XL", "XLR", "XLD", "MOI", "SNV", "CNV", "INDEL",
         "WT", "KO", "KI", "IPSC", "IPSCS", "FDA", "EMA", "ICP", "LP",
@@ -74,6 +89,9 @@ NON_GENE_TOKENS = frozenset(
         # Organizations / databases / sources that recur in DR report prose
         "CDC", "NCBI", "NIH", "ICD", "GTR", "NORD", "GARD", "OLS", "PDF",
         "HTML", "API", "WWW", "HTTP", "HTTPS",
+        # Lab / sequencing method abbreviations
+        "PCR", "QPCR", "RTPCR", "WES", "WGS", "NGS", "FISH", "MLPA",
+        "GWAS", "CRISPR", "ELISA", "IHC", "WB", "FACS",
         # Gangliosides / glycolipids — substrate names, not gene symbols
         "GM1", "GM2", "GM3", "GD1A", "GD1B", "GD2", "GD3", "GA1", "GA2",
         "GQ1B", "GT1B", "GB3", "GB4", "GL3", "LACCER",
@@ -109,9 +127,9 @@ class PreflightResult:
         causal = ", ".join(self.causal_genes) or "<none>"
         return (
             f"NEC preflight: {self.status}\n"
-            f"  MONDO:        {self.mondo_id}\n"
-            f"  causal gene:  {causal}\n"
-            f"  top in report:{top}\n"
+            f"  MONDO:         {self.mondo_id}\n"
+            f"  causal gene:   {causal}\n"
+            f"  top in report: {top}\n"
             f"  {self.message}"
         )
 
@@ -142,13 +160,13 @@ def rank_genes(counts: Counter) -> list[tuple[str, int]]:
     return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
 
 
-def _norm(genes) -> set[str]:
+def _norm(genes: Iterable[str]) -> set[str]:
     return {g.upper() for g in genes}
 
 
 def evaluate(
     top_genes: list[tuple[str, int]],
-    causal_genes,
+    causal_genes: Iterable[str],
     mondo_id: str = "",
 ) -> PreflightResult:
     """Compare ranked report genes against the MONDO causal gene set.
@@ -166,8 +184,9 @@ def evaluate(
       gene is a different real gene (wrong-entity report, e.g. SNX14 for a
       SLC9A1 disease).
     """
-    causal = _norm(causal_genes)
-    causal_display = sorted(causal_genes)
+    causal_list = list(causal_genes)
+    causal = _norm(causal_list)
+    causal_display = sorted(causal_list)
 
     if not causal:
         return PreflightResult(

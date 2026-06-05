@@ -6,9 +6,15 @@ injected gene sets, so the decision logic is deterministic and network-free.
 
 from __future__ import annotations
 
+import pytest
+
+from dismech import preflight_dr
 from dismech.preflight_dr import (
+    CAUSAL_GENE_PREDICATES,
     evaluate,
     extract_gene_mentions,
+    main,
+    mondo_causal_genes,
     rank_genes,
 )
 
@@ -42,6 +48,15 @@ def test_extract_drops_ontology_and_lab_tokens():
     counts = extract_gene_mentions(text)
     assert counts["HEXB"] == 1
     for noise in ("MONDO", "OMIM", "PMID", "DNA", "RNA", "CSF", "AR"):
+        assert noise not in counts
+
+
+def test_extract_drops_sequencing_method_acronyms():
+    # Lab/sequencing acronyms recur in DR prose and must not inflate gene counts.
+    text = "WES and WGS plus PCR, NGS, FISH and MLPA confirmed HEXB variants."
+    counts = extract_gene_mentions(text)
+    assert counts["HEXB"] == 1
+    for noise in ("WES", "WGS", "PCR", "NGS", "FISH", "MLPA"):
         assert noise not in counts
 
 
@@ -125,6 +140,17 @@ def test_skip_when_no_gene_mentions():
     assert result.status == "SKIP"
 
 
+def test_skip_when_all_tokens_are_stoplisted():
+    # Gene-shaped tokens are present but every one is in the stoplist, so the
+    # ranked list is empty after filtering and the check must SKIP, not FAIL.
+    report = "DNA RNA MRI CT PCR WES MONDO OMIM HGNC CNS ROS analysis."
+    ranked = _ranked(report)
+    assert ranked == []
+    result = evaluate(ranked, {"SLC9A1"}, mondo_id="MONDO:0014572")
+    assert result.status == "SKIP"
+    assert result.ok
+
+
 # --------------------------------------------------------------------------- #
 # Multi-gene MONDO entries and exit-code mapping
 # --------------------------------------------------------------------------- #
@@ -143,3 +169,120 @@ def test_render_is_human_readable():
     text = result.render()
     assert "NEC preflight: PASS" in text
     assert "SLC9A1" in text
+
+
+# --------------------------------------------------------------------------- #
+# Predicate set is grounded in what MONDO actually uses for causal-gene edges
+# --------------------------------------------------------------------------- #
+
+
+def test_causal_predicate_set_covers_germline_and_somatic():
+    # The two dominant germline forms and the somatic-driver form must all be
+    # present, otherwise GoF-germline / cancer entries would spuriously SKIP.
+    for predicate in ("RO:0004003", "RO:0004001", "RO:0004004"):
+        assert predicate in CAUSAL_GENE_PREDICATES
+
+
+# --------------------------------------------------------------------------- #
+# OAK-backed lookup exercised through a stub adapter (no network)
+# --------------------------------------------------------------------------- #
+
+
+class _StubAdapter:
+    """Minimal OAK-like adapter for mondo_causal_genes tests."""
+
+    def __init__(self, triples, labels=None):
+        self._triples = triples
+        self._labels = labels or {}
+
+    def relationships(self, subjects=None):
+        return list(self._triples)
+
+    def label(self, curie):
+        return self._labels.get(curie)
+
+
+def test_mondo_causal_genes_filters_to_hgnc_and_uses_labels():
+    adapter = _StubAdapter(
+        triples=[
+            ("MONDO:0014572", "RO:0004003", "HGNC:11071"),
+            # Non-causal predicate is ignored even though object is HGNC.
+            ("MONDO:0014572", "RO:0004026", "HGNC:99999"),
+            # Non-HGNC object is ignored.
+            ("MONDO:0014572", "RO:0004003", "UBERON:0000955"),
+        ],
+        labels={"HGNC:11071": "SLC9A1"},
+    )
+    assert mondo_causal_genes("MONDO:0014572", adapter=adapter) == ["SLC9A1"]
+
+
+def test_mondo_causal_genes_falls_back_to_curie_without_label():
+    adapter = _StubAdapter(
+        triples=[("MONDO:0000123", "RO:0004004", "HGNC:1234")],
+        labels={},  # no label available
+    )
+    assert mondo_causal_genes("MONDO:0000123", adapter=adapter) == ["HGNC:1234"]
+
+
+def test_mondo_causal_genes_deduplicates_case_insensitively():
+    adapter = _StubAdapter(
+        triples=[
+            ("MONDO:0000123", "RO:0004003", "HGNC:1"),
+            ("MONDO:0000123", "RO:0004013", "HGNC:2"),
+        ],
+        labels={"HGNC:1": "ABC1", "HGNC:2": "abc1"},
+    )
+    assert mondo_causal_genes("MONDO:0000123", adapter=adapter) == ["ABC1"]
+
+
+def test_mondo_causal_genes_empty_for_multifactorial():
+    adapter = _StubAdapter(triples=[("MONDO:0007", "RO:0004026", "HGNC:5")])
+    assert mondo_causal_genes("MONDO:0007", adapter=adapter) == []
+
+
+# --------------------------------------------------------------------------- #
+# CLI entry point
+# --------------------------------------------------------------------------- #
+
+
+def test_main_errors_on_missing_report(tmp_path):
+    missing = tmp_path / "nope.md"
+    with pytest.raises(SystemExit):
+        main([str(missing), "MONDO:0014572"])
+
+
+def test_main_errors_on_bad_mondo_curie(tmp_path):
+    report = tmp_path / "r.md"
+    report.write_text("SLC9A1", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        main([str(report), "not-a-curie"])
+
+
+def test_main_exit_codes(tmp_path, monkeypatch, capsys):
+    report = tmp_path / "r.md"
+    report.write_text("SNX14 SNX14 SNX14 dominate this report.", encoding="utf-8")
+
+    # Stub the OAK lookup so the CLI stays offline and deterministic.
+    monkeypatch.setattr(preflight_dr, "mondo_causal_genes", lambda *_a, **_k: ["SLC9A1"])
+    code = main([str(report), "MONDO:0014572"])
+    out = capsys.readouterr().out
+    assert "NEC preflight: FAIL" in out
+    assert code == 2  # FAIL is always non-zero
+
+    # PASS path returns 0.
+    report.write_text("SLC9A1 SLC9A1 SLC9A1 confirmed.", encoding="utf-8")
+    assert main([str(report), "MONDO:0014572"]) == 0
+
+
+def test_main_warn_exit_respects_strict(tmp_path, monkeypatch):
+    report = tmp_path / "r.md"
+    # Top gene is causal but a non-causal gene competes strongly → WARN.
+    report.write_text(
+        "C12orf57 C12orf57 C12orf57 cause. CHSY1 CHSY1 CHSY1 conflated.",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(preflight_dr, "mondo_causal_genes", lambda *_a, **_k: ["C12orf57"])
+    # Default: WARN is downgraded to exit 0.
+    assert main([str(report), "MONDO:0009033"]) == 0
+    # --strict: WARN exits non-zero.
+    assert main([str(report), "MONDO:0009033", "--strict"]) == 1
