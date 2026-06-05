@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,20 +2961,20 @@
         <header class="page-header">
             <h1>Neuromyelitis Optica</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Neurological Disorder</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0019100" target="_blank">
                         MONDO:0019100
                     </a>
                 </span>
-                
-                
-                
+
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Autoimmune Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2917,11 +2987,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Neuromyelitis optica spectrum disorder (NMOSD) is an autoimmune astrocytopathy characterized by aquaporin-4 (AQP4) autoantibody-mediated injury to astrocytes and secondary demyelination, predominantly affecting the optic nerves, spinal cord, and area postrema. AQP4-IgG is detectable in approximately 80% of patients. The disease follows a relapsing course in most cases and shows a strong female predominance (up to 9:1). Mean age at onset is approximately 40 years for AQP4-antibody-positive disease, later than multiple sclerosis. Range of mean onset across studies is 32.6-45.7 years. Pediatric onset is uncommon (&lt;5%), while late-onset (&gt;50 years) accounts for approximately 25% of cases.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2991,33 +3061,33 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
+
+
             <a class="stat-link" href="#definitions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📘</div>
@@ -3025,9 +3095,9 @@
                 <div class="stat-label">Definitions</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3035,9 +3105,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3045,12 +3115,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3058,14 +3128,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3073,8 +3143,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3082,2181 +3152,2327 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
         <div class="card" id="definitions">
             <div class="card-header">
                 <div class="card-icon" style="background: #cffafe; color: #0e7490;">📘</div>
                 <h2 class="card-title">Definitions</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">2015 IPND NMOSD Diagnostic Criteria (Adults)</div>
-                
+
                 <div class="item-desc">International consensus diagnostic criteria for NMOSD, stratified by AQP4-IgG status.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">DIAGNOSTIC_CRITERIA</span>
-                    
-                    
+
+
                     <span class="tag tag-parent">Adult patients</span>
-                    
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="criteria-block">
                     <div class="criteria-title">NMOSD with AQP4-IgG</div>
-                    
+
                     <div class="item-desc">Criteria when AQP4-IgG is detected.</div>
-                    
-                    
+
+
                     <div class="criteria-meta">
-                        
-                        
+
+
                         Minimum required: 1
                     </div>
-                    
-                    
-    
+
+
+
     <div class="criteria-group">
         <div class="criteria-header">Core clinical characteristics</div>
         <ul class="criteria-list">
-            
+
             <li>
                 <span class="criteria-term">Optic neuritis</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Acute myelitis</span>
-                
+
                 <span class="criteria-detail">Acute inflammatory myelitis.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Area postrema syndrome</span>
-                
+
                 <span class="criteria-detail">Episode of otherwise unexplained hiccups or nausea and vomiting.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Acute brainstem syndrome</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Symptomatic narcolepsy or acute diencephalic syndrome</span>
-                
+
                 <span class="criteria-detail">With NMOSD-typical diencephalic MRI lesions.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Symptomatic cerebral syndrome</span>
-                
+
                 <span class="criteria-detail">With NMOSD-typical brain lesions.</span>
-                
+
             </li>
-            
+
         </ul>
     </div>
-    
-    
-                    
-    
-    
-                    
-    
+
+
+
+
+
+
+
     <div class="criteria-group">
         <div class="criteria-header">Exclusion criteria</div>
         <ul class="criteria-list">
-            
+
             <li>
                 <span class="criteria-term">Alternative diagnoses excluded</span>
-                
+
             </li>
-            
+
         </ul>
     </div>
-    
-    
-                    
-    
-    
-                    
-    
+
+
+
+
+
+
+
     <div class="criteria-group">
         <div class="criteria-header">Laboratory requirements</div>
         <ul class="criteria-list">
-            
+
             <li>
                 <span class="criteria-term">AQP4-IgG positive</span>
-                
+
                 <span class="criteria-detail">Positive test using best available detection method (cell-based assay recommended).</span>
-                
+
             </li>
-            
+
         </ul>
     </div>
-    
-    
-                    
-    
-    
-                    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="criteria-block">
                     <div class="criteria-title">NMOSD without AQP4-IgG or unknown status</div>
-                    
+
                     <div class="item-desc">Criteria for seronegative or untested AQP4-IgG.</div>
-                    
-                    
+
+
                     <div class="criteria-meta">
-                        
-                        
+
+
                         Minimum required: 2
                     </div>
-                    
-                    
-    
+
+
+
     <div class="criteria-group">
         <div class="criteria-header">Core clinical characteristics</div>
         <ul class="criteria-list">
-            
+
             <li>
                 <span class="criteria-term">Optic neuritis</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Acute myelitis</span>
-                
+
                 <span class="criteria-detail">Acute inflammatory myelitis.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Area postrema syndrome</span>
-                
+
                 <span class="criteria-detail">Episode of otherwise unexplained hiccups or nausea and vomiting.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Acute brainstem syndrome</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Symptomatic narcolepsy or acute diencephalic syndrome</span>
-                
+
                 <span class="criteria-detail">With NMOSD-typical diencephalic MRI lesions.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Symptomatic cerebral syndrome</span>
-                
+
                 <span class="criteria-detail">With NMOSD-typical brain lesions.</span>
-                
+
             </li>
-            
+
         </ul>
     </div>
-    
-    
-                    
-    
-    
-                    
-    
+
+
+
+
+
+
+
     <div class="criteria-group">
         <div class="criteria-header">Exclusion criteria</div>
         <ul class="criteria-list">
-            
+
             <li>
                 <span class="criteria-term">Alternative diagnoses excluded</span>
-                
+
             </li>
-            
+
         </ul>
     </div>
-    
-    
-                    
-    
+
+
+
+
     <div class="criteria-group">
         <div class="criteria-header">Imaging requirements</div>
         <ul class="criteria-list">
-            
+
             <li>
                 <span class="criteria-term">Acute optic neuritis MRI requirement</span>
-                
+
                 <span class="criteria-detail">Brain MRI normal or only nonspecific white matter lesions, or optic nerve MRI with T2-hyperintense or T1-weighted gadolinium-enhancing lesion extending over &gt;1/2 optic nerve length or involving optic chiasm.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Acute myelitis MRI requirement</span>
-                
+
                 <span class="criteria-detail">Intramedullary MRI lesion extending over &gt;=3 contiguous segments (LETM), or &gt;=3 contiguous segments of focal spinal cord atrophy with history compatible with acute myelitis.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Area postrema syndrome MRI requirement</span>
-                
+
                 <span class="criteria-detail">Associated dorsal medulla/area postrema lesions.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Acute brainstem syndrome MRI requirement</span>
-                
+
                 <span class="criteria-detail">Associated periependymal brainstem lesions.</span>
-                
+
             </li>
-            
+
         </ul>
     </div>
-    
-    
-                    
-    
+
+
+
+
     <div class="criteria-group">
         <div class="criteria-header">Laboratory requirements</div>
         <ul class="criteria-list">
-            
+
             <li>
                 <span class="criteria-term">AQP4-IgG negative or testing unavailable</span>
-                
+
                 <span class="criteria-detail">Negative test using best available detection method, or testing unavailable.</span>
-                
+
             </li>
-            
+
         </ul>
     </div>
-    
-    
-                    
-    
+
+
+
+
     <div class="criteria-group">
         <div class="criteria-header">Additional requirements</div>
         <ul class="criteria-list">
-            
+
             <li>
                 <span class="criteria-term">At least one key core characteristic</span>
-                
+
                 <span class="criteria-detail">At least one core clinical characteristic must be optic neuritis, acute myelitis with longitudinally extensive transverse myelitis (LETM), or area postrema syndrome.</span>
-                
+
             </li>
-            
+
             <li>
                 <span class="criteria-term">Dissemination in space</span>
-                
+
                 <span class="criteria-detail">Two or more different core clinical characteristics.</span>
-                
+
             </li>
-            
+
         </ul>
     </div>
-    
-    
-                    
-    
-    
-                    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26092914" target="_blank">PMID:26092914</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The core clinical characteristics required for patients with NMOSD with AQP4-IgG include clinical syndromes or MRI findings related to optic nerve, spinal cord, area postrema, other brainstem, diencephalic, or cerebral presentations. More stringent clinical criteria, with additional neuroimaging..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract summarizes stratified criteria and core clinical characteristics.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
                 <div class="item-desc">Notes: Criteria elements summarized from Table 1 (adult NMOSD diagnostic criteria) in Wingerchuk et al. 2015 (PMCID: PMC4515040).</div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aqp4-igg-mediated-astrocyte-injury">
                 <div class="item-name">AQP4-IgG-Mediated Astrocyte Injury</div>
-                
+
                 <div class="item-desc">Autoantibodies against AQP4 bind astrocytic end-feet and trigger complement-dependent astrocyte damage, driving neuroinflammation. AQP4-IgG is detectable in approximately 80% of NMOSD patients.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         astrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         complement activation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35454180" target="_blank">PMID:35454180</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In NMOSD, the autoantibody (NMO-IgG) binds to the extracellular loops of AQP4 as expressed in perivascular astrocytic end-feet and disrupts astrocytes in a complement-dependent manner."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract describes AQP4-IgG binding and complement-mediated astrocyte disruption.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28235212" target="_blank">PMID:28235212</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pathognomonic serum autoantibodies against aquaporin-4 (AQP4-IgG, also termed NMO-IgG) are detectable in around 80 % of NMO patients"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms AQP4-IgG seropositivity rate and its pathognomonic status.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aqp4-endocytosis-and-complement-independent-cytotoxicity">
                 <div class="item-name">AQP4 Endocytosis and Complement-Independent Cytotoxicity</div>
-                
+
                 <div class="item-desc">NMO-IgG can induce complement-independent astrocyte injury, with antibody- induced endocytosis of AQP4 implicated in this mechanism.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         endocytosis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006897">GO:0006897</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35454180" target="_blank">PMID:35454180</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Recent studies have also demonstrated complement-independent cytotoxic effects of NMO-IgG. Antibody-induced endocytosis of AQP4 has been suggested to be involved in this mechanism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract notes complement-independent cytotoxicity and AQP4 endocytosis in NMOSD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-6-mediated-th17-skewing-and-blood-brain-barrier-disruption">
                 <div class="item-name">IL-6-Mediated Th17 Skewing and Blood-Brain Barrier Disruption</div>
-                
+
                 <div class="item-desc">IL-6 promotes differentiation of T cells into Th17 cells, which produce IL-17, a potent pro-inflammatory cytokine that disrupts blood-brain barrier tight junctions and recruits immune cells to sites of CNS inflammation. This pathway is the therapeutic target of satralizumab (anti-IL-6 receptor).</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         T-helper 17 cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000899">CL:0000899</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         T-helper 17 cell differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0072539" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0072539" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072539">GO:0072539</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         interleukin-6-mediated signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0070102" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0070102" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070102">GO:0070102</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23202933" target="_blank">PMID:23202933</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Like other autoimmune diseases, Th17 cells and their effector cytokines (such as interleukin 6) have been implicated in pathogenesis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review of NMO molecular pathogenesis identifies Th17 cells and IL-6 as key players in the inflammatory cascade.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37175665" target="_blank">PMID:37175665</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"IL-6 is essential for the differentiation of T cells into Th17 cells and has been implicated in the initiation and progression of neuroinflammation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review confirms IL-6 drives Th17 differentiation in autoimmune neuroinflammatory diseases including NMO.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b-cell-and-plasmablast-mediated-aqp4-igg-production">
                 <div class="item-name">B Cell and Plasmablast-Mediated AQP4-IgG Production</div>
-                
+
                 <div class="item-desc">B cells differentiate into AQP4-IgG-producing plasmablasts peripherally. The pathogenic autoantibody enters the CNS when the blood-brain barrier is permeable and binds AQP4 on astrocytic end-feet. This pathway is the therapeutic target of inebilizumab (anti-CD19) and rituximab (anti-CD20).</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         plasmablast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000980" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000980" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000980">CL:0000980</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         B cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         B cell differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030183" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030183" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030183">GO:0030183</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23202933" target="_blank">PMID:23202933</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Peripheral production of the antibody is triggered by an unknown process in genetically susceptible individuals. Anti-AQP4 antibody enters the central nervous system (CNS) when the blood brain barrier is made permeable"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review describes peripheral B cell production of pathogenic AQP4-IgG and its entry into the CNS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutamate-excitotoxicity-via-eaat2-downregulation">
                 <div class="item-name">Glutamate Excitotoxicity via EAAT2 Downregulation</div>
-                
+
                 <div class="item-desc">NMO-IgG binding to astrocytic AQP4 causes endocytosis of AQP4 with concomitant loss of the excitatory amino acid transporter 2 (EAAT2), disrupting glutamate homeostasis. EAAT2 and AQP4 exist as a macromolecular complex in astrocytic membranes. Reduced EAAT2 leads to extracellular glutamate accumulation and excitotoxic damage to oligodendrocytes and neurons.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         astrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         glutamate secretion
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0014047" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0014047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014047">GO:0014047</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18838545" target="_blank">PMID:18838545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Without complement, astrocytic membranes remain intact, but AQP4 is endocytosed with concomitant loss of Na(+)-dependent glutamate transport and loss of the excitatory amino acid transporter 2 (EAAT2)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hinson et al. demonstrate that NMO-IgG binding causes AQP4 endocytosis with concomitant loss of EAAT2 and glutamate transport.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18838545" target="_blank">PMID:18838545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"binding of NMO-IgG to astrocytic AQP4 initiates several potentially neuropathogenic mechanisms: complement activation, AQP4 and EAAT2 down-regulation, and disruption of glutamate homeostasis"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Study identifies disruption of glutamate homeostasis as a key neuropathogenic mechanism in NMO.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-bystander-injury-to-oligodendrocytes-and-neurons">
                 <div class="item-name">Complement Bystander Injury to Oligodendrocytes and Neurons</div>
-                
+
                 <div class="item-desc">Complement activation on AQP4-expressing astrocytes generates soluble activated complement components that diffuse to nearby oligodendrocytes and neurons, depositing membrane attack complex (MAC/C5b-9) on these bystander cells. This complement bystander mechanism explains how AQP4-IgG targeting astrocytes leads to secondary demyelination and neuronal loss without direct antibody binding to oligodendrocytes or neurons.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         oligodendrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         complement activation, classical pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006958">GO:0006958</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28567523" target="_blank">PMID:28567523</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we report evidence for a complement &#39;bystander mechanism&#39; to account for early oligodendrocyte injury in NMO in which activated, soluble complement proteins following AQP4-IgG binding to astrocyte AQP4 result in deposition of the complement membrane attack complex (MAC) on nearby oligodendrocytes"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Tradtrantip et al. demonstrate complement bystander mechanism for oligodendrocyte injury and demyelination in NMO.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30348195" target="_blank">PMID:30348195</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These results support a novel mechanism for early neuron injury in NMO and provide evidence that complement bystander injury may be a general phenomenon for brain cell injury following AQP4-IgG-targeted astrocyte death"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Duan et al. extend the bystander mechanism to neurons, showing complement-dependent neuronal death near injured astrocytes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulocyte-infiltration-and-vasculocentric-immune-complex-deposition">
                 <div class="item-name">Granulocyte Infiltration and Vasculocentric Immune Complex Deposition</div>
-                
+
                 <div class="item-desc">NMO lesions are characterized by deposits of IgG and IgM co-localizing with products of complement activation in a vasculocentric pattern around blood vessels. Complement deposition on astrocytes is associated with granulocyte (neutrophil and eosinophil) infiltration, astrocyte necrosis, and subsequent demyelination. This granulocyte-rich inflammatory pattern distinguishes NMO from MS.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neutrophil
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         eosinophil
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neutrophil chemotaxis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030593">GO:0030593</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17282996" target="_blank">PMID:17282996</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"NMO lesions are characterized by deposits of IgG and IgM co-localizing with products of complement activation in a vasculocentric pattern around thickened hyalinized blood vessels, suggesting a pathogenic role for humoral immunity targeting an antigen in the perivascular space"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Roemer et al. demonstrate vasculocentric immune complex deposition as a hallmark of NMO pathology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23579868" target="_blank">PMID:23579868</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"complement deposition at the surface of astrocytes, associated with granulocyte infiltration and astrocyte necrosis and followed by demyelination, global tissue destruction and the formation of cystic, necrotic lesions"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Misu et al. identify complement-mediated granulocyte infiltration and astrocyte necrosis as the initiating event in destructive NMO lesions.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34530847" target="_blank">PMID:34530847</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It binds to AQP4 channels on astrocytes, triggering activation of the classical complement cascade, causing granulocyte, eosinophil, and lymphocyte infiltration, culminating in injury first to astrocyte, then oligodendrocytes followed by demyelination and neuronal loss"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Comprehensive review confirms the sequence of complement activation, granulocyte/eosinophil infiltration, and secondary injury.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">11</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Nausea and Vomiting
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank">
-                            Nausea and vomiting
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002017)</span>
-                        </span>
-                        
+                        Nausea and vomiting
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21368286" target="_blank">PMID:21368286</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Aquaporin-4 (AQP4) autoimmunity targets this region, resulting in intractable nausea associated with vomiting or hiccups in NMO."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Neuropathological study demonstrates area postrema targeting by AQP4 autoimmunity causing nausea and vomiting.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28235212" target="_blank">PMID:28235212</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Inflammatory lesions of the area postrema typically cause intractable nausea and vomiting and/or hiccups."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review confirms area postrema lesions as the cause of intractable nausea and vomiting in NMO.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Optic Neuritis
-                        
+
                         <span class="phenotype-freq">VERY_COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank">
-                            Optic neuritis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100653)</span>
-                        </span>
-                        
+                        Optic neuritis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100653">HP:0100653</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28235212" target="_blank">PMID:28235212</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neuromyelitis optica (NMO) is an autoimmune disorder of the central nervous system (CNS), that predominantly affects the spinal cord and optic nerves."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Optic nerve involvement is one of the two predominant sites in NMO.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:71211" target="_blank">ORPHA:71211</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A rare inflammatory disease of the central nervous system characterized mainly by attacks of uni- or bilateral optic neuritis (ON) and acute myelitis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet definition identifies optic neuritis as a hallmark feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Visual Loss
-                        
+
                         <span class="phenotype-freq">COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank">
-                            Visual loss
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000572)</span>
-                        </span>
-                        
+                        Visual loss
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000572">HP:0000572</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819039" target="_blank">PMID:38819039</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neuromyelitis optica spectrum disorders are neuroinflammatory demyelinating disorders that lead to permanent visual loss and motor dysfunction."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Visual loss is explicitly described as a consequence of NMOSD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Neurogenic Bladder Dysfunction
-                        
+
                         <span class="phenotype-freq">COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank">
-                            Urinary retention
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000016)</span>
-                        </span>
-                        
+                        Urinary retention
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000016">HP:0000016</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30076494" target="_blank">PMID:30076494</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The literature, although somewhat limited for diseases other than MS, suggests that bladder dysfunction is not uncommon in these diseases, presumably reflecting lesions in the spinal descending and ascending pathways. The pattern of bladder dysfunction is a combination of overactive bladder and..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Systematic review documents neurogenic bladder dysfunction pattern in NMO as a combination of overactive bladder and urinary retention.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Myelitis
-                        
+
                         <span class="phenotype-freq">VERY_COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012486" target="_blank">
-                            Myelitis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012486)</span>
-                        </span>
-                        
+                        Myelitis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012486">HP:0012486</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28235212" target="_blank">PMID:28235212</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neuromyelitis optica (NMO) is an autoimmune disorder of the central nervous system (CNS), that predominantly affects the spinal cord and optic nerves."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Spinal cord involvement via myelitis is one of the two predominant manifestations of NMO.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:71211" target="_blank">ORPHA:71211</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A rare inflammatory disease of the central nervous system characterized mainly by attacks of uni- or bilateral optic neuritis (ON) and acute myelitis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet definition identifies acute myelitis as a defining feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Muscle Weakness
-                        
+
                         <span class="phenotype-freq">COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank">
-                            Muscle weakness
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001324)</span>
-                        </span>
-                        
+                        Muscle weakness
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819039" target="_blank">PMID:38819039</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neuromyelitis optica spectrum disorders are neuroinflammatory demyelinating disorders that lead to permanent visual loss and motor dysfunction."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Motor dysfunction in NMOSD manifests clinically as weakness.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Spasticity
-                        
+
                         <span class="phenotype-freq">COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank">
-                            Spasticity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001257)</span>
-                        </span>
-                        
+                        Spasticity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34986968" target="_blank">PMID:34986968</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pain can be detected in more than 80% of NMOSD patients, with evoked pain mostly being caused by painful tonic muscle spasms and neuropathic pain as the most characteristic types."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Painful tonic muscle spasms are a hallmark spasticity-related manifestation in NMOSD, arising from spinal cord demyelination.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Painful Tonic Spasms
-                        
+
                         <span class="phenotype-freq">COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank">
-                            Muscle spasm
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003394)</span>
-                        </span>
-                        
+                        Muscle spasm
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003394">HP:0003394</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34986968" target="_blank">PMID:34986968</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pain can be detected in more than 80% of NMOSD patients, with evoked pain mostly being caused by painful tonic muscle spasms and neuropathic pain as the most characteristic types."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Painful tonic muscle spasms are identified as a major characteristic pain type in NMOSD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Depression
-                        
+
                         <span class="phenotype-freq">COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank">
-                            Depression
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000716)</span>
-                        </span>
-                        
+                        Depression
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36223704" target="_blank">PMID:36223704</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Forty-nine (40.2%; 95% CI, 31.5% to 48.9%) patients experienced depression, which was moderate to severe in 22 patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cross-sectional study documents 40% depression prevalence in NMOSD.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34986968" target="_blank">PMID:34986968</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Depression is often comorbid with pain, and their comorbidity can severely influence quality of life."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review highlights the pain-depression comorbidity in NMOSD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intractable Hiccups
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0100247" target="_blank">
-                            Recurrent singultus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100247)</span>
-                        </span>
-                        
+                        Recurrent singultus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100247" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100247">HP:0100247</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21368286" target="_blank">PMID:21368286</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Aquaporin-4 (AQP4) autoimmunity targets this region, resulting in intractable nausea associated with vomiting or hiccups in NMO."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hiccups are specifically described as a consequence of area postrema involvement in NMO.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28235212" target="_blank">PMID:28235212</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Inflammatory lesions of the area postrema typically cause intractable nausea and vomiting and/or hiccups."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review confirms hiccups as a typical area postrema manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Neuropathic Pain
-                        
+
                         <span class="phenotype-freq">COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank">
-                            Pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012531)</span>
-                        </span>
-                        
+                        Pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34986968" target="_blank">PMID:34986968</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pain can be detected in more than 80% of NMOSD patients, with evoked pain mostly being caused by painful tonic muscle spasms and neuropathic pain as the most characteristic types."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review identifies neuropathic pain as one of the most characteristic pain types in NMOSD.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36223704" target="_blank">PMID:36223704</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A total of 122 NMOSD patients were enrolled. Eighty-one (66.4%; 95% CI, 39.9% to 92.9%) had current pain, of which 35 (28.7%; 95% CI, 20.7% to 36.7%) had neuropathic pain."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cross-sectional study quantifies neuropathic pain prevalence at 28.7% among NMOSD patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -5281,495 +5497,540 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Eculizumab
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">complement inhibitor therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: complement 5 inhibitor agent therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001483" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001483</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001483" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001483">MAXO:0001483</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         eculizumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C48386" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C48386" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C48386">NCIT:C48386</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Complement C5 inhibitor approved as maintenance therapy for AQP4-IgG seropositive NMOSD.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33741809" target="_blank">PMID:33741809</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Eculizumab, inebilizumab, and satralizumab are effective maintenance therapies approved for the treatment of AQP-4 seropositive NMOSD."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract lists eculizumab as an approved maintenance therapy for NMOSD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Inebilizumab
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">biologic therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         inebilizumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C88283" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C88283" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C88283">NCIT:C88283</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Anti-CD19 B-cell depleting antibody approved as maintenance therapy for AQP4-IgG seropositive NMOSD.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33741809" target="_blank">PMID:33741809</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Eculizumab, inebilizumab, and satralizumab are effective maintenance therapies approved for the treatment of AQP-4 seropositive NMOSD."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract lists inebilizumab as an approved maintenance therapy for NMOSD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Satralizumab
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">biologic therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         satralizumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C152307" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152307" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152307">NCIT:C152307</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Anti-IL-6 receptor antibody approved as maintenance therapy for AQP4-IgG seropositive NMOSD.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33741809" target="_blank">PMID:33741809</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Eculizumab, inebilizumab, and satralizumab are effective maintenance therapies approved for the treatment of AQP-4 seropositive NMOSD."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract lists satralizumab as an approved maintenance therapy for NMOSD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Rituximab
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">B-cell depletion therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         rituximab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Anti-CD20 B-cell depleting monoclonal antibody used off-label as maintenance therapy for NMOSD relapse prevention. One of the most commonly used long-term immunosuppressants for NMOSD.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34530847" target="_blank">PMID:34530847</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"long-term NMOSD relapse prevention includes off-label use of immunosuppressants, particularly rituximab"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Comprehensive review identifies rituximab as the primary off-label immunosuppressant for NMOSD relapse prevention.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Plasma Exchange
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">plasmapheresis</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Plasmapheresis</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15304</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15304">NCIT:C15304</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Therapeutic plasma exchange (plasmapheresis) used as acute attack treatment for NMOSD, particularly for severe relapses or those refractory to corticosteroids. Removes circulating AQP4-IgG and complement components.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34530847" target="_blank">PMID:34530847</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The most common treatments used for relapses are steroids and plasma exchange"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review identifies plasma exchange as a standard acute treatment for NMOSD relapses.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6572,373 +6833,373 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">19</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s00415-023-11910-z" target="_blank">DOI:10.1007/s00415-023-11910-z</a>
                             </div>
-                            
+
                             <div class="reference-title">Update on the diagnosis and treatment of neuromyelitis optica spectrum disorders (NMOSD) – revised recommendations of the Neuromyelitis Optica Study Group (NEMOS). Part II: Attack therapy and long-term management</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41598-024-53661-5" target="_blank">DOI:10.1038/s41598-024-53661-5</a>
                             </div>
-                            
+
                             <div class="reference-title">Anti-aquaporin-4 immune complex stimulates complement-dependent Th17 cytokine release in neuromyelitis optica spectrum disorders</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1096/fj.09-141978" target="_blank">DOI:10.1096/fj.09-141978</a>
                             </div>
-                            
+
                             <div class="reference-title">Cellular mechanisms of IL‐17‐induced blood‐brain barrier disruption</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1111/1756-185x.14973" target="_blank">DOI:10.1111/1756-185x.14973</a>
                             </div>
-                            
+
                             <div class="reference-title">Neuromyelitis optica spectrum disorders (&lt;scp&gt;NMOSD&lt;/scp&gt;) and systemic lupus erythematosus (&lt;scp&gt;SLE&lt;/scp&gt;): Dangerous duo</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1111/cen3.70019" target="_blank">DOI:10.1111/cen3.70019</a>
                             </div>
-                            
+
                             <div class="reference-title">NMOSD: Innate Immunology Revisited</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1126/sciadv.adq7560" target="_blank">DOI:10.1126/sciadv.adq7560</a>
                             </div>
-                            
+
                             <div class="reference-title">Structural basis of aquaporin-4 autoantibody binding in neuromyelitis optica</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1172/jci141694" target="_blank">DOI:10.1172/jci141694</a>
                             </div>
-                            
+
                             <div class="reference-title">Blood-brain barrier resealing in neuromyelitis optica occurs independently of astrocyte regeneration</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1177/17562864251357393" target="_blank">DOI:10.1177/17562864251357393</a>
                             </div>
-                            
+
                             <div class="reference-title">Induction of immune tolerance in NMOSD and MOGAD</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s41232-023-00291-5" target="_blank">DOI:10.1186/s41232-023-00291-5</a>
                             </div>
-                            
+
                             <div class="reference-title">Autoimmune-mediated astrocytopathy</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1212/nxi.0000000000000343" target="_blank">DOI:10.1212/nxi.0000000000000343</a>
                             </div>
-                            
+
                             <div class="reference-title">Disruption of the leptomeningeal blood barrier in neuromyelitis optica spectrum disorder</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1212/nxi.0000000000000727" target="_blank">DOI:10.1212/nxi.0000000000000727</a>
                             </div>
-                            
+
                             <div class="reference-title">Clinical utility of AQP4-IgG titers and measures of complement-mediated cell killing in NMOSD</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1212/wnl.0000000000201465" target="_blank">DOI:10.1212/wnl.0000000000201465</a>
                             </div>
-                            
+
                             <div class="reference-title">Differentiating Multiple Sclerosis From AQP4-Neuromyelitis Optica Spectrum Disorder and MOG-Antibody Disease With Imaging</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fimmu.2022.959469" target="_blank">DOI:10.3389/fimmu.2022.959469</a>
                             </div>
-                            
+
                             <div class="reference-title">The causal relationship between neuromyelitis optica spectrum disorder and other autoimmune diseases</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fimmu.2024.1320094" target="_blank">DOI:10.3389/fimmu.2024.1320094</a>
                             </div>
-                            
+
                             <div class="reference-title">Differentiated pattern of complement system activation between MOG-IgG-associated disease and AQP4-IgG-positive neuromyelitis optica spectrum disorder</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fimmu.2025.1635989" target="_blank">DOI:10.3389/fimmu.2025.1635989</a>
                             </div>
-                            
+
                             <div class="reference-title">B cell depletion as a therapeutic strategy for neuromyelitis optica spectrum disorder: rationale, evidence, and challenges</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fneur.2017.00062" target="_blank">DOI:10.3389/fneur.2017.00062</a>
                             </div>
-                            
+
                             <div class="reference-title">Different Phenotypes at Onset in Neuromyelitis Optica Spectrum Disorder Patients with Aquaporin-4 Autoimmunity</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/ijms25063179" target="_blank">DOI:10.3390/ijms25063179</a>
                             </div>
-                            
+
                             <div class="reference-title">The Role of Gut Microbiota in Neuromyelitis Optica Spectrum Disorder</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/ijms251910625" target="_blank">DOI:10.3390/ijms251910625</a>
                             </div>
-                            
+
                             <div class="reference-title">Blood–Brain Barrier Disruption in Neuroimmunological Disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/26656646" target="_blank">PMID:26656646</a>
                             </div>
-                            
+
                             <div class="reference-title">Oligodendrocyte death results in immune-mediated CNS demyelination.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">4</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Neuromyelitis Optica. Core disease mechanisms, molecular and cellular path...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-08T19:50:58.008617</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Neuromyelitis Optica. Core disease mechanisms, molecular and cellular path...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -7267,14 +7528,14 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -7314,29 +7575,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Pathophysiology Research Report</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">23 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-01-31T14:19:42.162343</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Disease Pathophysiology Research Report</p>
 <p>Target Disease
@@ -7488,29 +7749,29 @@ Primary mechanisms
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Perplexity</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Comprehensive Pathophysiology of Neuromyelitis Optica Spectrum Disorder</div>
-                            
-                            
+
+
                             <span class="report-badge">sonar-deep-research</span>
-                            
-                            
+
+
                             <span class="report-badge">52 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-02-01T09:19:49.768923</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Comprehensive Pathophysiology of Neuromyelitis Optica Spectrum Disorder</h1>
 <p>Neuromyelitis optica spectrum disorder (NMOSD) is a severe inflammatory demyelinating disease of the central nervous system characterized by relapsing attacks that cause profound disability through irreversible damage to the optic nerves, spinal cord, brainstem, and brain.[1][4][21] Unlike multiple sclerosis, which primarily targets oligodendrocytes and myelin, NMOSD is fundamentally an astrocytopathy—a disease in which astrocytes are the primary targets of autoimmune destruction.[1][3][4] The discovery of disease-specific autoantibodies against the aquaporin-4 water channel protein in 2004 revolutionized understanding of this disorder and established it as a distinct entity from multiple sclerosis based on fundamentally different immunopathological mechanisms.[3] This comprehensive analysis examines the molecular cascades, cellular interactions, and anatomical vulnerabilities that drive NMOSD pathogenesis, with particular emphasis on how autoimmune targeting of a single astrocytic protein triggers multisystem neurological failure.</p>
@@ -7578,11 +7839,11 @@ Primary mechanisms
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

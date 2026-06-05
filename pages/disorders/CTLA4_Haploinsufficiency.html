@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>CTLA4 Haploinsufficiency</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0014493" target="_blank">
                         MONDO:0014493
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Primary Immunodeficiency</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Autoimmune Disorder</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Lymphoproliferative Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,11 +2993,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 CTLA4 haploinsufficiency, also known as CHAI disease, is an autosomal dominant inborn error of immunity caused by heterozygous CTLA4 variants that reduce CTLA-4 dosage or impair ligand binding. Loss of this inhibitory checkpoint disrupts regulatory T-cell suppression, amplifies CD28-dependent effector T-cell activation, and destabilizes B-cell homeostasis. The clinical spectrum is variably penetrant and includes hypogammaglobulinemia, lymphoproliferation, autoimmune cytopenias, enteropathy, recurrent infections, and multi-organ lymphocytic infiltration.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2997,34 +3067,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3032,8 +3102,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3041,9 +3111,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3051,10 +3121,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3062,8 +3132,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3071,8 +3141,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3080,15 +3150,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3096,718 +3166,817 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal Dominant
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">CTLA4 haploinsufficiency is inherited as an autosomal dominant disorder with marked phenotypic variability and incomplete penetrance. Disease can arise through familial transmission or de novo heterozygous variants, and some mutation carriers remain clinically unaffected despite measurable CTLA-4 pathway dysfunction.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
+
+
         <span class="tag tag-classification">Penetrance: INCOMPLETE</span>
-        
-        
-        
+
+
+
         <span class="tag tag-classification">Expressivity: VARIABLE</span>
-        
-        
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25329329" target="_blank">PMID:25329329</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We studied a large family in which five individuals presented with a complex, autosomal dominant immune dysregulation syndrome characterized by hypogammaglobulinemia, recurrent infections and multiple autoimmune clinical features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The discovery cohort establishes autosomal dominant inheritance for the syndrome caused by heterozygous CTLA4 mutations.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25213377" target="_blank">PMID:25213377</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We identified germline heterozygous mutations in CTLA4 in subjects with severe immune dysregulation from four unrelated families."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Independent families with heterozygous germline CTLA4 variants confirm a dominant loss-of-function disease mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ctla-4-checkpoint-failure-in-regulatory-t-cells">
                 <div class="item-name">CTLA-4 Checkpoint Failure in Regulatory T Cells</div>
-                
+
                 <div class="item-desc">CTLA-4 is a core inhibitory checkpoint used by regulatory T cells to restrain CD28-mediated activation of conventional T cells. Heterozygous CTLA4 mutations lower CTLA-4 abundance or disrupt ligand binding, impairing Treg suppressive function and CD80 transendocytosis. This creates a primary defect in peripheral tolerance that propagates downstream immune dysregulation.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         regulatory T cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000815">CL:0000815</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        negative regulation of T cell activation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0050868" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-    
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CTLA4
+
+
+    <a href="https://bioregistry.io/hgnc:2505" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2505">hgnc:2505</a>
+
+
+
+    </span>
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        negative regulation of T cell activation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050868" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050868">GO:0050868</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Excess Effector T Cell Activation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">B Cell Compartment Dysregulation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25213377" target="_blank">PMID:25213377</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"human CTLA4 haploinsufficiency caused dysregulation of FoxP3(+) regulatory T (Treg) cells, hyperactivation of effector T cells, and lymphocytic infiltration of target organs."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The index human cohort links CTLA4 haploinsufficiency directly to Treg dysfunction and loss of peripheral immune restraint.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25329329" target="_blank">PMID:25329329</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"However, CTLA-4 protein expression was decreased in regulatory T cells (Treg cells) in both patients and carriers with CTLA4 mutations. Whereas Treg cells were generally present at elevated numbers in these individuals, their suppressive function, CTLA-4 ligand binding and transendocytosis of..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional studies in mutation carriers show that the core mechanistic defect is impaired CTLA-4-dependent Treg checkpoint activity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excess-effector-t-cell-activation">
                 <div class="item-name">Excess Effector T Cell Activation</div>
-                
+
                 <div class="item-desc">When CTLA-4-mediated restraint is reduced, conventional effector T cells become pathologically activated and sustain excess co-stimulatory signaling and inflammatory cytokine output.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         T cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         T cell activation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042110">GO:0042110</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cytokine production
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001816">GO:0001816</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Lymphocytic Tissue Infiltration</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25213377" target="_blank">PMID:25213377</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our data indicate that germline CTLA4 haploinsufficiency causes lymphoproliferation, lymphocytic infiltration of nonlymphoid organs, autoimmune cytopenias, and B cell abnormalities with an accumulation of CD21lo B cells."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This study directly ties CTLA4 haploinsufficiency to unchecked effector T-cell activation downstream of checkpoint failure.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphocytic-tissue-infiltration">
                 <div class="item-name">Lymphocytic Tissue Infiltration</div>
-                
+
                 <div class="item-desc">Hyperactivated lymphocytes accumulate in lymphoid and nonlymphoid tissues, producing lymphoproliferation and inflammatory infiltration of organs including the gut, lung, bone marrow, and central nervous system.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         lymphocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000542">CL:0000542</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         leukocyte migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050900">GO:0050900</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25213377" target="_blank">PMID:25213377</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our data indicate that germline CTLA4 haploinsufficiency causes lymphoproliferation, lymphocytic infiltration of nonlymphoid organs, autoimmune cytopenias, and B cell abnormalities with an accumulation of CD21lo B cells."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This study directly supports organ infiltration as a downstream consequence of CTLA4 checkpoint failure.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25213377" target="_blank">PMID:25213377</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our index patient—a 22-year-old female (A.II.1)—developed brain, gastrointestinal (GI), and lung lymphocytic infiltrates, autoimmune thrombocytopenia, and hypogammaglobulinemia in early childhood."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This patient-level description grounds the infiltration phenotype in specific nonlymphoid organs.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b-cell-compartment-dysregulation">
                 <div class="item-name">B Cell Compartment Dysregulation</div>
-                
+
                 <div class="item-desc">CTLA4 haploinsufficiency destabilizes the B-cell compartment, causing progressive loss of circulating B cells, contraction of switched-memory B cells, and expansion of autoreactive CD21low B cells.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         B cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         B cell differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030183" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030183" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030183">GO:0030183</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypogammaglobulinemia</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of circulating and memory B-cell compartments reduces antibody output, producing a CVID-like hypogammaglobulinemia phenotype.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25213377" target="_blank">PMID:25213377</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients also exhibited progressive loss of circulating B cells, associated with an increase of predominantly autoreactive CD21(lo) B cells and accumulation of B cells in nonlymphoid organs."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This patient cohort demonstrates the characteristic B-cell depletion and autoreactive CD21low expansion that define the compartment-level defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25329329" target="_blank">PMID:25329329</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in CTLA4 were also associated with decreased circulating B cell numbers."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Independent confirmation that CTLA4 mutations impair B-cell homeostasis in affected individuals.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3818,431 +3987,449 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abatacept\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Abatacept is a CTLA-4-Ig fusion protein that functionally replaces the lost checkpoint signal by blocking CD80/CD86-mediated co-stimulation. It is the prototypic targeted therapy for CTLA4 haploinsufficiency and can induce rapid improvement in refractory immune dysregulation, especially enteropathy, arthritis, and lymphoproliferative disease.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"abatacept\"]}}, {\"id\": \"B Cell Compartment Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CTLA4 haploinsufficiency destabilizes the B-cell compartment, causing progressive loss of circulating B cells, contraction of switched-memory B cells, and expansion of autoreactive CD21low B cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"B cell differentiation\"]}}, {\"id\": \"CTLA-4 Checkpoint Failure in Regulatory T Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CTLA-4 is a core inhibitory checkpoint used by regulatory T cells to restrain CD28-mediated activation of conventional T cells. Heterozygous CTLA4 mutations lower CTLA-4 abundance or disrupt ligand binding, impairing Treg suppressive function and CD80 transendocytosis. This creates a primary defect in peripheral tolerance that propagates downstream immune dysregulation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"regulatory T cell\"], \"biological_processes\": [\"negative regulation of T cell activation\"], \"genes\": [\"CTLA4\"]}}, {\"id\": \"CTLA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CTLA4\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"Excess Effector T Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When CTLA-4-mediated restraint is reduced, conventional effector T cells become pathologically activated and sustain excess co-stimulatory signaling and inflammatory cytokine output.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\", \"cytokine production\"]}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced serum immunoglobulin concentrations are a common manifestation and often contribute to a CVID-like clinical presentation with recurrent infections.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004313\"}}, {\"id\": \"Lymphocytic Tissue Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperactivated lymphocytes accumulate in lymphoid and nonlymphoid tissues, producing lymphoproliferation and inflammatory infiltration of organs including the gut, lung, bone marrow, and central nervous system.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lymphocyte\"], \"biological_processes\": [\"leukocyte migration\"]}}], \"edges\": [{\"source\": \"CTLA-4 Checkpoint Failure in Regulatory T Cells\", \"target\": \"Excess Effector T Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CTLA-4 Checkpoint Failure in Regulatory T Cells\", \"target\": \"B Cell Compartment Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excess Effector T Cell Activation\", \"target\": \"Lymphocytic Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"B Cell Compartment Dysregulation\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of circulating and memory B-cell compartments reduces antibody output, producing a CVID-like hypogammaglobulinemia phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abatacept\", \"target\": \"Excess Effector T Cell Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CTLA4\", \"target\": \"CTLA-4 Checkpoint Failure in Regulatory T Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abatacept\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Abatacept is a CTLA-4-Ig fusion protein that functionally replaces the lost checkpoint signal by blocking CD80/CD86-mediated co-stimulation. It is the prototypic targeted therapy for CTLA4 haploinsufficiency and can induce rapid improvement in refractory immune dysregulation, especially enteropathy, arthritis, and lymphoproliferative disease.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"abatacept\"]}}, {\"id\": \"B Cell Compartment Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CTLA4 haploinsufficiency destabilizes the B-cell compartment, causing progressive loss of circulating B cells, contraction of switched-memory B cells, and expansion of autoreactive CD21low B cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"B cell differentiation\"]}}, {\"id\": \"CTLA-4 Checkpoint Failure in Regulatory T Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CTLA-4 is a core inhibitory checkpoint used by regulatory T cells to restrain CD28-mediated activation of conventional T cells. Heterozygous CTLA4 mutations lower CTLA-4 abundance or disrupt ligand binding, impairing Treg suppressive function and CD80 transendocytosis. This creates a primary defect in peripheral tolerance that propagates downstream immune dysregulation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"regulatory T cell\"], \"biological_processes\": [\"negative regulation of T cell activation\"], \"genes\": [\"CTLA4\"], \"gene_terms\": [{\"label\": \"CTLA4\", \"id\": \"hgnc:2505\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"CTLA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CTLA4\"], \"gene_terms\": [{\"label\": \"CTLA4\", \"id\": \"hgnc:2505\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"Excess Effector T Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When CTLA-4-mediated restraint is reduced, conventional effector T cells become pathologically activated and sustain excess co-stimulatory signaling and inflammatory cytokine output.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\", \"cytokine production\"]}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced serum immunoglobulin concentrations are a common manifestation and often contribute to a CVID-like clinical presentation with recurrent infections.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004313\"}}, {\"id\": \"Lymphocytic Tissue Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperactivated lymphocytes accumulate in lymphoid and nonlymphoid tissues, producing lymphoproliferation and inflammatory infiltration of organs including the gut, lung, bone marrow, and central nervous system.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lymphocyte\"], \"biological_processes\": [\"leukocyte migration\"]}}], \"edges\": [{\"source\": \"CTLA-4 Checkpoint Failure in Regulatory T Cells\", \"target\": \"Excess Effector T Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CTLA-4 Checkpoint Failure in Regulatory T Cells\", \"target\": \"B Cell Compartment Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Excess Effector T Cell Activation\", \"target\": \"Lymphocytic Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"B Cell Compartment Dysregulation\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of circulating and memory B-cell compartments reduces antibody output, producing a CVID-like hypogammaglobulinemia phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abatacept\", \"target\": \"Excess Effector T Cell Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CTLA4\", \"target\": \"CTLA-4 Checkpoint Failure in Regulatory T Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">6</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypogammaglobulinemia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank">
-                            Decreased circulating immunoglobulin concentration
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004313)</span>
-                        </span>
-                        
+                        Decreased circulating immunoglobulin concentration
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004313">HP:0004313</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25329329" target="_blank">PMID:25329329</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We studied a large family in which five individuals presented with a complex, autosomal dominant immune dysregulation syndrome characterized by hypogammaglobulinemia, recurrent infections and multiple autoimmune clinical features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hypogammaglobulinemia is one of the defining clinical manifestations in the original CTLA4 disease family.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Autoimmune thrombocytopenia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001973" target="_blank">
-                            Autoimmune thrombocytopenia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001973)</span>
-                        </span>
-                        
+                        Autoimmune thrombocytopenia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001973" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001973">HP:0001973</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25213377" target="_blank">PMID:25213377</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our index patient—a 22-year-old female (A.II.1)—developed brain, gastrointestinal (GI), and lung lymphocytic infiltrates, autoimmune thrombocytopenia, and hypogammaglobulinemia in early childhood."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The index family shows autoimmune thrombocytopenia as an early and severe hematologic manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Autoimmune hemolytic anemia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank">
-                            Autoimmune hemolytic anemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001890)</span>
-                        </span>
-                        
+                        Autoimmune hemolytic anemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001890">HP:0001890</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25213377" target="_blank">PMID:25213377</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patient B.I.1, previously diagnosed with common variable immunodeficiency (CVID), had hepatosplenomegaly, autoimmune hemolytic anemia (AIHA), autoimmune thrombocytopenia, pulmonary nodules, and cerebral infiltrative lesions."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This affected patient demonstrates autoimmune hemolytic anemia within the broader CTLA4 haploinsufficiency phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Lymphadenopathy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank">
-                            Lymphadenopathy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002716)</span>
-                        </span>
-                        
+                        Lymphadenopathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25329329" target="_blank">PMID:25329329</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lymphadenopathy (Fig. 2e) and hepatosplenomegaly were also found in patients (Supplementary Notes)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This full-text clinical description links CTLA4 haploinsufficiency to overt lymphoproliferative disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Autoimmune enteropathy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank">
-                            Abnormality of the gastrointestinal tract
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011024)</span>
-                        </span>
-                        
+                        Abnormality of the gastrointestinal tract
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011024">HP:0011024</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37205940" target="_blank">PMID:37205940</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We discuss a case of VEO-IBD in which the patient presented with severe and refractory enteropathy, leading to diagnosis of CTLA-4 haploinsufficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This pediatric case confirms that severe enteropathy can be a presenting manifestation of CTLA4 haploinsufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35935971" target="_blank">PMID:35935971</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Primary immunodeficiency may present with treatment-refractory enteropathy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Additional gastrointestinal cases broaden the enteropathy spectrum to include refractory celiac-like disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Autoimmunity
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank">
-                            Autoimmunity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002960)</span>
-                        </span>
-                        
+                        Autoimmunity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002960">HP:0002960</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25329329" target="_blank">PMID:25329329</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We studied a large family in which five individuals presented with a complex, autosomal dominant immune dysregulation syndrome characterized by hypogammaglobulinemia, recurrent infections and multiple autoimmune clinical features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The discovery cohort explicitly establishes multi-organ autoimmunity as a core clinical feature of CTLA4 haploinsufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4267,319 +4454,347 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CTLA4
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSATIVE)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CTLA4
+
+
+    <a href="https://bioregistry.io/hgnc:2505" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2505">hgnc:2505</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25329329" target="_blank">PMID:25329329</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We identified a heterozygous nonsense mutation in exon 1 of CTLA4. Screening of 71 unrelated patients with comparable clinical phenotypes identified five additional families (nine individuals) with previously undescribed splice site and missense mutations in CTLA4."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cohort study defines the mutational spectrum, showing that multiple heterozygous CTLA4 variant classes can cause the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31396201" target="_blank">PMID:31396201</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This variant lay within the highly conserved MYPPPY motif of CTLA-4: a critical structural determinant of ligand binding, which is also bound by the anti-CTLA-4 monoclonal antibody ipilimumab."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This case report shows that disease-causing missense variants can impair a conserved CTLA-4 ligand-binding motif, refining the causal mechanism beyond simple dosage loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25213377" target="_blank">PMID:25213377</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We identified germline heterozygous mutations in CTLA4 in subjects with severe immune dysregulation from four unrelated families."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms CTLA4 as the causal gene and anchors the disease as a heterozygous germline loss-of-function disorder.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Abatacept
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         abatacept
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C28898" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C28898" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C28898">NCIT:C28898</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Abatacept is a CTLA-4-Ig fusion protein that functionally replaces the lost checkpoint signal by blocking CD80/CD86-mediated co-stimulation. It is the prototypic targeted therapy for CTLA4 haploinsufficiency and can induce rapid improvement in refractory immune dysregulation, especially enteropathy, arthritis, and lymphoproliferative disease.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">Excess Effector T Cell Activation</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Abatacept blocks CD80/CD86 engagement, suppressing the excess co-stimulation and downstream tissue-directed inflammation created by CTLA-4 pathway failure.</span>
-                        
-                        
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34116213" target="_blank">PMID:34116213</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here we present two pediatric cases of severe CTLA4-haploinsufficiency refractory to conventional immunosuppressive therapies that responded rapidly to treatment with abatacept."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This pediatric series shows that targeted CTLA4-Ig therapy can rapidly suppress refractory disease manifestations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34116213" target="_blank">PMID:34116213</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here we present two pediatric cases of severe CTLA4-haploinsufficiency refractory to conventional immunosuppressive therapies that responded rapidly to treatment with abatacept."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports abatacept as targeted therapy for severe pediatric CTLA4 haploinsufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35935971" target="_blank">PMID:35935971</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"They are both now in complete clinical and endoscopic remission on abatacept."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates clinically meaningful abatacept response in refractory gastrointestinal disease caused by CTLA4 haploinsufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5127,42 +5342,42 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of CTLA4 Haploinsufficiency. Core disease mechanisms, molecular and cellular...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-12T10:11:01.163696</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of CTLA4 Haploinsufficiency. Core disease mechanisms, molecular and cellular...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -5506,11 +5721,11 @@ notes: &gt;-
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
