@@ -671,6 +671,38 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
 
 If a DR-suggested citation cannot be verified against the real abstract, do not use it. Find an alternative source or remove the claim entirely.
 
+**NEC preflight — the fourth failure mode (run this BEFORE the snippet/term checks):**
+A separate, more insidious failure is **Named Entity Confusion (NEC)** (issue #3889): the DR
+tool resolves the queried disease *name* to a **different disease entity** and returns a report
+that is *coherent but entirely about the wrong condition*. Because every PMID, snippet, and
+ontology term in such a report is real (just for the wrong disease), the three hallucination
+checks above **cannot catch it** — they validate the report against its own wrong-entity sources.
+Confirmed cases: PR #3874 (Lichtenstein-Knorr/SLC9A1 returned as SNX14/SCAR20) and PRs
+#3835/#3871 (the "Temtamy" eponym collision). NEC is most likely for eponyms shared by multiple
+OMIM/MONDO entries, historical synonyms that differ from current MONDO classification, and
+numbered series (SCAR1–20, CMT types) where numbering has shifted.
+
+Run the gene-identity preflight on every DR report before extracting anything from it:
+
+```bash
+just preflight-dr research/Your_Disease-deep-research-falcon.md MONDO:XXXXXXX
+```
+
+It counts the report's most-mentioned gene symbol(s) and compares them against the MONDO
+causal gene(s) (`RO:0004003`), emitting:
+- **PASS** — primary gene matches the MONDO causal gene; proceed to the snippet/term checks.
+- **WARN** — a causal gene appears but is not dominant, or a non-causal gene competes strongly
+  (eponym/locus mixing); manually confirm which disease the report is actually about and exclude
+  the wrong-entity content before curating.
+- **FAIL** — no causal gene appears and a different gene dominates; **discard the report
+  entirely, do not cherry-pick** — rebuild from primary literature.
+- **SKIP** — MONDO has no single causal gene (multifactorial); the gene check does not apply, so
+  fall back to manual semantic confirmation that the report describes the right disease.
+
+The gene extractor is a heuristic (uppercase symbol shapes minus a stoplist), so treat WARN/SKIP
+as "look closer," not "all clear." It is a fast triage signal, not a substitute for reading the
+report.
+
 **Historical note:** Issue #1737 audited DR-sourced entries and found ~1% hallucination rate in the cache layer — the dismech validation stack catches these errors, but only *after* the curator runs the checks. Treating DR outputs as leads rather than ground truth is the most reliable protection.
 
 ### 3. Validation Workflow

@@ -452,6 +452,15 @@ validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
+# Named Entity Confusion (NEC) preflight for a deep-research report (dismech #3889).
+# Checks that the report's most-mentioned gene matches the queried disease's
+# MONDO causal gene. PASS/SKIP exit 0; FAIL exits non-zero. Add --strict to also
+# fail on WARN (eponym/locus conflation).
+# Usage: just preflight-dr research/Some_Disease-deep-research-falcon.md MONDO:0014572
+[group('QC')]
+preflight-dr report mondo_id *flags:
+    uv run python -m dismech.preflight_dr {{report}} {{mondo_id}} {{flags}}
+
 # Deterministically validate reference cache frontmatter against the
 # linkml-reference-validator cache contract before the heavier data validators.
 [group('QC')]
