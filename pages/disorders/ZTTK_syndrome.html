@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>ZTTK syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0014936" target="_blank">
                         MONDO:0014936
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">neurodevelopmental disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 ZTTK syndrome is a multisystem neurodevelopmental disorder caused by heterozygous loss-of-function variants in SON. The core disease mechanism is SON haploinsufficiency with downstream disturbance of RNA processing and neurodevelopmental programs, producing intellectual disability and broader congenital anomaly phenotypes.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,35 +3065,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3031,9 +3101,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3041,10 +3111,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3052,8 +3122,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3061,16 +3131,16 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3078,437 +3148,493 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-son-haploinsufficiency">
                 <div class="item-name">SON haploinsufficiency</div>
-                
+
                 <div class="item-desc">ZTTK syndrome is caused by heterozygous loss-of-function variants in SON, establishing SON insufficiency as the proximal disease mechanism.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        SON
-                        
-                        <a href="https://bioregistry.io/hgnc:11183" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SON
+
+
+    <a href="https://bioregistry.io/hgnc:11183" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11183">hgnc:11183</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired neuronal migration</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced SON dosage disrupts developmental programs required for normal cortical neuron positioning.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Dendritic spine abnormalities</span>
-	                            
+
 	                            <span class="crosslink-desc">SON insufficiency also perturbs maturation of synaptic structures in cortical neurons.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14030739" target="_blank">DOI:10.3390/genes14030739</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Zhu–Tokita–Takenouchi–Kim (ZTTK) syndrome, an intellectual disability syndrome first described in 2016, is caused by heterozygous loss-of-function variants in SON."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly establishes SON loss-of-function as the primary causal mechanism in ZTTK syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-migration">
                 <div class="item-name">Impaired neuronal migration</div>
-                
+
                 <div class="item-desc">SON insufficiency disrupts corticogenesis by impairing neuronal migration in the developing brain.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neuron migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001764">GO:0001764</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Brain malformation</span>
-	                            
+
 	                            <span class="crosslink-desc">Abnormal corticogenesis contributes to the brain-malformation phenotype.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neurodevelopmental impairment</span>
-	                            
+
 	                            <span class="crosslink-desc">Abnormal cortical development contributes to the syndrome&#39;s cognitive and developmental phenotype.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32448361" target="_blank">PMID:32448361</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These data indicate that SON insufficiency causes neuronal migration defects and dendritic spine abnormalities, which seem neuropathological bases of the neural symptoms of ZTTK syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports impaired neuronal migration as a mechanistic node.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dendritic-spine-abnormalities">
                 <div class="item-name">Dendritic spine abnormalities</div>
-                
+
                 <div class="item-desc">SON insufficiency reduces dendritic spine density, indicating impaired synaptic maturation.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         pyramidal neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000598">CL:0000598</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         dendritic spine morphogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0060997" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060997" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060997">GO:0060997</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neurodevelopmental impairment</span>
-	                            
+
 	                            <span class="crosslink-desc">Synaptic structural abnormalities are likely to contribute to cognitive dysfunction in affected individuals.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32448361" target="_blank">PMID:32448361</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These data indicate that SON insufficiency causes neuronal migration defects and dendritic spine abnormalities, which seem neuropathological bases of the neural symptoms of ZTTK syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports dendritic spine pathology as a parallel downstream consequence of SON insufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-impairment">
                 <div class="item-name">Neurodevelopmental impairment</div>
-                
+
                 <div class="item-desc">The convergent consequence of SON haploinsufficiency in the nervous system is a broad neurodevelopmental disorder centered on intellectual disability.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Intellectual disability</span>
-	                            
+
 	                            <span class="crosslink-desc">The core neurodevelopmental outcome is intellectual disability.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14030739" target="_blank">DOI:10.3390/genes14030739</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Zhu–Tokita–Takenouchi–Kim (ZTTK) syndrome, an intellectual disability syndrome first described in 2016, is caused by heterozygous loss-of-function variants in SON."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports neurodevelopmental impairment, particularly intellectual disability, as a defining disease outcome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3519,275 +3645,287 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain malformations are part of the recognized congenital anomaly spectrum in ZTTK syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012443\"}}, {\"id\": \"Dendritic spine abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SON insufficiency reduces dendritic spine density, indicating impaired synaptic maturation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pyramidal neuron\"], \"biological_processes\": [\"dendritic spine morphogenesis\"]}}, {\"id\": \"Impaired neuronal migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SON insufficiency disrupts corticogenesis by impairing neuronal migration in the developing brain.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuron migration\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a core and defining manifestation of ZTTK syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Neurodevelopmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent consequence of SON haploinsufficiency in the nervous system is a broad neurodevelopmental disorder centered on intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SON\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SON\"], \"association\": \"Heterozygous loss-of-function causal gene\"}}, {\"id\": \"SON haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZTTK syndrome is caused by heterozygous loss-of-function variants in SON, establishing SON insufficiency as the proximal disease mechanism.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SON\"]}}], \"edges\": [{\"source\": \"SON haploinsufficiency\", \"target\": \"Impaired neuronal migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced SON dosage disrupts developmental programs required for normal cortical neuron positioning.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SON haploinsufficiency\", \"target\": \"Dendritic spine abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SON insufficiency also perturbs maturation of synaptic structures in cortical neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired neuronal migration\", \"target\": \"Brain malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal corticogenesis contributes to the brain-malformation phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired neuronal migration\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development contributes to the syndrome\u0027s cognitive and developmental phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dendritic spine abnormalities\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic structural abnormalities are likely to contribute to cognitive dysfunction in affected individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The core neurodevelopmental outcome is intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SON\", \"target\": \"SON haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain malformations are part of the recognized congenital anomaly spectrum in ZTTK syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012443\"}}, {\"id\": \"Dendritic spine abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SON insufficiency reduces dendritic spine density, indicating impaired synaptic maturation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pyramidal neuron\"], \"biological_processes\": [\"dendritic spine morphogenesis\"]}}, {\"id\": \"Impaired neuronal migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SON insufficiency disrupts corticogenesis by impairing neuronal migration in the developing brain.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuron migration\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a core and defining manifestation of ZTTK syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Neurodevelopmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent consequence of SON haploinsufficiency in the nervous system is a broad neurodevelopmental disorder centered on intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SON\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SON\"], \"gene_terms\": [{\"label\": \"SON\", \"id\": \"hgnc:11183\"}], \"association\": \"Heterozygous loss-of-function causal gene\"}}, {\"id\": \"SON haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZTTK syndrome is caused by heterozygous loss-of-function variants in SON, establishing SON insufficiency as the proximal disease mechanism.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SON\"], \"gene_terms\": [{\"label\": \"SON\", \"id\": \"hgnc:11183\"}]}}], \"edges\": [{\"source\": \"SON haploinsufficiency\", \"target\": \"Impaired neuronal migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced SON dosage disrupts developmental programs required for normal cortical neuron positioning.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SON haploinsufficiency\", \"target\": \"Dendritic spine abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SON insufficiency also perturbs maturation of synaptic structures in cortical neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired neuronal migration\", \"target\": \"Brain malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal corticogenesis contributes to the brain-malformation phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired neuronal migration\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development contributes to the syndrome\u0027s cognitive and developmental phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dendritic spine abnormalities\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic structural abnormalities are likely to contribute to cognitive dysfunction in affected individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The core neurodevelopmental outcome is intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SON\", \"target\": \"SON haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">4</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intellectual disability
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
-                            Intellectual disability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001249)</span>
-                        </span>
-                        
+                        Intellectual disability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14030739" target="_blank">DOI:10.3390/genes14030739</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Zhu–Tokita–Takenouchi–Kim (ZTTK) syndrome, an intellectual disability syndrome first described in 2016, is caused by heterozygous loss-of-function variants in SON."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports intellectual disability as a defining phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Facial dysmorphism
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000271" target="_blank">
-                            Abnormality of the face
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000271)</span>
-                        </span>
-                        
+                        Abnormality of the face
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000271" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000271">HP:0000271</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32448361" target="_blank">PMID:32448361</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Zhu-Tokita-Takenouchi-Kim (ZTTK) syndrome, a rare congenital anomaly syndrome characterized by intellectual disability, brain malformation, facial dysmorphism, musculoskeletal abnormalities, and some visceral malformations is caused by de novo heterozygous mutations of the SON gene."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract background explicitly identifies facial dysmorphism as part of the human syndrome phenotype, though the study&#39;s primary mechanistic evidence is model-organism based.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Brain malformation
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank">
-                            Abnormal brain morphology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012443)</span>
-                        </span>
-                        
+                        Abnormal brain morphology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012443">HP:0012443</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32448361" target="_blank">PMID:32448361</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Zhu-Tokita-Takenouchi-Kim (ZTTK) syndrome, a rare congenital anomaly syndrome characterized by intellectual disability, brain malformation, facial dysmorphism, musculoskeletal abnormalities, and some visceral malformations is caused by de novo heterozygous mutations of the SON gene."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports brain malformation as part of the human ZTTK phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Musculoskeletal abnormalities
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank">
-                            Abnormality of the musculoskeletal system
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0033127)</span>
-                        </span>
-                        
+                        Abnormality of the musculoskeletal system
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033127">HP:0033127</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32448361" target="_blank">PMID:32448361</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Zhu-Tokita-Takenouchi-Kim (ZTTK) syndrome, a rare congenital anomaly syndrome characterized by intellectual disability, brain malformation, facial dysmorphism, musculoskeletal abnormalities, and some visceral malformations is caused by de novo heterozygous mutations of the SON gene."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports musculoskeletal abnormalities as part of the human ZTTK phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -3812,115 +3950,133 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     SON
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Heterozygous loss-of-function causal gene)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SON
+
+
+    <a href="https://bioregistry.io/hgnc:11183" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11183">hgnc:11183</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14030739" target="_blank">DOI:10.3390/genes14030739</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Zhu–Tokita–Takenouchi–Kim (ZTTK) syndrome, an intellectual disability syndrome first described in 2016, is caused by heterozygous loss-of-function variants in SON."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports SON as the causal gene and loss-of-function as the pathogenic mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_b7e86b1d-154a-40b5-b454-fad392f87782-2025-11-10T170000.000Z" target="_blank">CGGV:assertion_b7e86b1d-154a-40b5-b454-fad392f87782-2025-11-10T170000.000Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"SON | HGNC:11183 | ZTTK syndrome | MONDO:0014936 | AD | Definitive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen classifies the SON-ZTTK syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4276,42 +4432,42 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of ZTTK syndrome. Core disease mechanisms, molecular and cellular pathways, i...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-14T16:27:15.664887</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of ZTTK syndrome. Core disease mechanisms, molecular and cellular pathways, i...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -4647,11 +4803,11 @@ notes: &gt;-
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
