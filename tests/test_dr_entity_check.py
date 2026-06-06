@@ -60,6 +60,17 @@ def test_extract_drops_sequencing_method_acronyms():
         assert noise not in counts
 
 
+def test_extract_drops_short_english_words_in_headers():
+    # ALL-CAPS section headers ("OVERVIEW OF SNX14 AND THE ROLE IN ...") spray
+    # short English words that are gene-symbol-shaped; they must not be counted.
+    text = "ROLE OF SNX14 IN DISEASE AS IT IS UP TO 43 TIMES; NO HEXB BY ITSELF."
+    counts = extract_gene_mentions(text)
+    assert counts["SNX14"] == 1
+    assert counts["HEXB"] == 1
+    for noise in ("OF", "IN", "AS", "IT", "IS", "UP", "TO", "NO", "BY"):
+        assert noise not in counts
+
+
 # --------------------------------------------------------------------------- #
 # Case 1 (PASS): report's primary gene matches MONDO canonical gene
 # --------------------------------------------------------------------------- #

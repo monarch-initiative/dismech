@@ -86,6 +86,10 @@ NON_GENE_TOKENS = frozenset(
         "WT", "KO", "KI", "IPSC", "IPSCS", "FDA", "EMA", "ICP", "LP",
         "TYPE", "MIM", "OK", "NA", "ND", "II", "III", "IV", "VI", "VII",
         "VIII", "IX", "XI", "XII",
+        # Common short English words that appear in ALL-CAPS section headers and
+        # would otherwise inflate gene counts (no current HGNC symbols collide).
+        "OF", "OR", "TO", "BY", "AT", "AN", "AS", "IF", "IS", "UP", "NO", "ON",
+        "IN", "IT", "BE", "WE", "SO", "DO", "VS", "VIA",
         # Organizations / databases / sources that recur in DR report prose
         "CDC", "NCBI", "NIH", "ICD", "GTR", "NORD", "GARD", "OLS", "PDF",
         "HTML", "API", "WWW", "HTTP", "HTTPS",
@@ -184,6 +188,9 @@ def evaluate(
       gene is a different real gene (wrong-entity report, e.g. SNX14 for a
       SLC9A1 disease).
     """
+    # Materialize once: ``causal_genes`` is an Iterable and may be a generator,
+    # which would be exhausted after the first pass. Keep this list() — both the
+    # normalized set and the display list below depend on re-reading it.
     causal_list = list(causal_genes)
     causal = _norm(causal_list)
     causal_display = sorted(causal_list)
