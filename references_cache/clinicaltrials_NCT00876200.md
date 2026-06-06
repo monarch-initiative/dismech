@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT00876200"
+reference_id: clinicaltrials:NCT00876200
 title: "The Efficacy of Minoxidil in Children With Williams-Beuren Syndrome: a Randomized Clinical Trial."
 content_type: summary
 ---
