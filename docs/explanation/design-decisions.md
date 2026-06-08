@@ -255,13 +255,13 @@ This section details decisions we have **not yet made or formalized**.
 
 | Area | Status | Tracking |
 |---|---|---|
-| Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | #3756 |
+| Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | `updated_date` field | Deprecated in favor of git history; legacy entries may retain it pending bulk cleanup | — |
-| KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | #2100 |
-| Obsolete ontology terms | Should fail validation but do not yet | #712 |
+| KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
+| Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
-| Schema docs vs. script docs separation | Schema element pages currently mix in script docs | #2737 |
+| Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |
 
 
 ## 9. Changing a decision
