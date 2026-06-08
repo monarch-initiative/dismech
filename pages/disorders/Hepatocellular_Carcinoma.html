@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,20 +2961,20 @@
         <header class="page-header">
             <h1>Hepatocellular Carcinoma</h1>
             <div class="header-meta">
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0007256" target="_blank">
                         MONDO:0007256
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">liver carcinoma</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2917,11 +2987,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Hepatocellular carcinoma (HCC) is the most common primary liver malignancy, typically arising in the setting of chronic liver disease and cirrhosis. Major risk factors include chronic hepatitis B or C infection, alcohol-related liver disease, and metabolic dysfunction-associated steatotic liver disease (MASLD/NAFLD). HCC pathogenesis involves multiple molecular pathways including WNT/beta-catenin, TP53, telomere maintenance, and chromatin remodeling. The combination of atezolizumab (anti-PD-L1) plus bevacizumab (anti-VEGF) has established immunotherapy as first-line treatment for advanced HCC, based on the IMbrave150 trial.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2991,44 +3061,44 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
-            
-                
-            
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3036,10 +3106,10 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3047,8 +3117,8 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#histopathology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">✶</div>
@@ -3056,8 +3126,8 @@
                 <div class="stat-label">Histopath.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3065,10 +3135,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3076,8 +3146,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3085,8 +3155,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3094,8 +3164,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3103,13 +3173,13 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3117,8 +3187,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3126,1286 +3196,1382 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            
+
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Harrison's Chapter</div>
                 <div class="tag-list">
-                    
+
                     <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-                    
+
                     <span class="tag tag-classification">GASTROINTESTINAL</span>
-                    
+
                 </div>
             </div>
-            
-            
-            
+
+
+
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
                 <div class="tag-list">
                     <span class="tag tag-classification">Carcinoma</span>
                 </div>
             </div>
-            
-            
-            
-            
+
+
+
+
         </div>
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0007256" target="_blank">MONDO:0007256</a>
-                        
-                        
+
+
                         <span class="mapping-label">hepatocellular carcinoma</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">MONDO</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">MONDO provides an exact disease term for hepatocellular carcinoma.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="mapping-section">
                 <div class="classification-category">NCIT</div>
-                
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/NCIT_C3099" target="_blank">NCIT:C3099</a>
-                        
-                        
+
+
                         <span class="mapping-label">Hepatocellular Carcinoma</span>
-                        
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">NCIT</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">NCIT provides an exact neoplasm term for hepatocellular carcinoma.</div>
-                    
-                    
+
+
                     <ul class="mapping-tree">
-                        
+
                         <li style="padding-left: 0px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C7057" target="_blank">Disease, Disorder or Finding</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 14px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C2991" target="_blank">Disease or Disorder</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 28px;">
-                            
+
                             <span class="mapping-ellipsis">...</span>
-                            
+
                         </li>
-                        
+
                         <li style="padding-left: 42px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C2852" target="_blank">Adenocarcinoma</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 56px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C210140" target="_blank">Digestive System Adenocarcinoma</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 70px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C3099" target="_blank">Hepatocellular Carcinoma</a>
-                            
-                            
+
+
                         </li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="mapping-section">
                 <div class="classification-category">ICD-10-CM</div>
-                
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/ICD10CM_C22.0" target="_blank">ICD10CM:C22.0</a>
-                        
-                        
+
+
                         <span class="mapping-label">Liver cell carcinoma</span>
-                        
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">ICD-10-CM</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">ICD-10-CM provides an exact code for liver cell carcinoma / hepatocellular carcinoma.</div>
-                    
-                    
+
+
                     <ul class="mapping-tree">
-                        
+
                         <li style="padding-left: 0px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/ICD10CM_C00-D49" target="_blank">Neoplasms (C00-D49)</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 14px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/ICD10CM_C15-C26" target="_blank">Malignant neoplasms of digestive organs (C15-C26)</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 28px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/ICD10CM_C22" target="_blank">Malignant neoplasm of liver and intrahepatic bile ducts</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 42px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/ICD10CM_C22.0" target="_blank">Liver cell carcinoma</a>
-                            
-                            
+
+
                         </li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
+
+
+
             <div class="mapping-section">
                 <div class="classification-category">NCIT</div>
-                
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/NCIT_C3099" target="_blank">NCIT:C3099</a>
-                        
-                        
+
+
                         <span class="mapping-label">Hepatocellular Carcinoma</span>
-                        
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">NCIT</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">NCIT provides an exact neoplasm term for hepatocellular carcinoma.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">4</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Viral Hepatitis-Associated HCC
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">HCC arising in the context of chronic hepatitis B or C infection. HBV can be directly oncogenic through viral integration, while HCV promotes HCC primarily through cirrhosis and chronic inflammation.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Alcohol-Related HCC
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">HCC arising in alcohol-related liver disease and cirrhosis. Associated with specific molecular features and generally presents at more advanced stage.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         MASLD-Associated HCC
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">HCC arising in metabolic dysfunction-associated steatotic liver disease (formerly NAFLD/NASH). Increasingly common subtype that can occur even without cirrhosis. May have distinct immune microenvironment features affecting immunotherapy response.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Fibrolamellar HCC
-                        
-                        
-                        
-                                
+
+
+
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C4131" target="_blank">NCIT:C4131</a>
-                                
-                        
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
-                            
+
+
+
+
+
+
                             <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C4131" target="_blank">NCIT NCIT:C4131</a>
-                            
-                        
+
+
                     </div>
-                    
+
                     <div class="item-desc">Rare variant occurring in younger patients without cirrhosis. Characterized by DNAJB1-PRKACA fusion. Distinct clinical behavior and treatment considerations.</div>
-                    
-                    
+
+
                     <div class="item-meta" style="margin-top: 8px;">
                         <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
-                        
+
                         <span class="tag tag-classification">
                             Fibrolamellar Carcinoma
-                            
+
                             (skos:closeMatch)
-                            
+
                         </span>
-                        
+
                         <a href="http://purl.obolibrary.org/obo/NCIT_C4131" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C4131</a>
-                        
-                        
+
+
                     </div>
-                    
-                    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">9</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-liver-injury-and-cirrhosis">
                 <div class="item-name">Chronic Liver Injury and Cirrhosis</div>
-                
+
                 <div class="item-desc">Most HCC arises in the context of chronic liver disease and cirrhosis. Persistent hepatocyte death and regeneration in an inflammatory environment promotes accumulation of genetic alterations. Cirrhosis itself is a premalignant condition with ongoing oxidative stress and genomic instability.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         hepatocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         liver
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Telomere Dysfunction and Genomic Instability</span>
-	                            
+
 	                            <span class="crosslink-desc">Repeated hepatocyte division leads to telomere shortening</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Accumulation of Driver Mutations</span>
-	                            
+
 	                            <span class="crosslink-desc">Chronic regeneration promotes mutation accumulation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41567639" target="_blank">PMID:41567639</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HCC typically arises in patients with chronic liver disease, including hepatitis, cirrhosis, and non-alcoholic fatty liver diseases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This abstract states that HCC commonly arises in chronic liver disease and cirrhosis, supporting the mechanism described.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-telomere-dysfunction-and-genomic-instability">
                 <div class="item-name">Telomere Dysfunction and Genomic Instability</div>
-                
+
                 <div class="item-desc">Chronic hepatocyte proliferation leads to telomere shortening, causing genomic instability. TERT promoter mutations, which are the most common HCC mutations, reactivate telomerase to enable unlimited replication. This creates a checkpoint bypass allowing survival of genetically unstable cells.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         telomere maintenance
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0000723" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0000723" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000723">GO:0000723</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">WNT/Beta-Catenin Pathway Activation</span>
-	                            
+
 	                            <span class="crosslink-desc">Genomic instability promotes acquisition of pathway-activating mutations</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
-    
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-driver-mutations">
                 <div class="item-name">Accumulation of Driver Mutations</div>
-                
+
                 <div class="item-desc">Multiple driver genes are recurrently mutated in HCC, including TERT promoter (60%), TP53 (30%), CTNNB1 (30%), AXIN1 (10%), and ARID1A (10%). These mutations affect telomere maintenance, cell cycle control, WNT signaling, and chromatin remodeling.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         DNA repair
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006281">GO:0006281</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">PI3K/AKT/mTOR Pathway Activation</span>
-	                            
+
 	                            <span class="crosslink-desc">Somatic and expression-level pathway changes select for oncogenic growth signaling.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
-    
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-pathway-activation">
                 <div class="item-name">WNT/Beta-Catenin Pathway Activation</div>
-                
+
                 <div class="item-desc">Activating mutations in CTNNB1 (beta-catenin) or inactivating mutations in AXIN1 lead to constitutive WNT pathway activation. This drives cell proliferation and is associated with a distinct molecular subclass of HCC with specific clinical features including cholestasis and immune exclusion.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Wnt signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016055">GO:0016055</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Enhanced Hepatocyte Proliferation</span>
-	                            
+
 	                            <span class="crosslink-desc">WNT signaling drives cell proliferation and stemness</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
-    
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-akt-mtor-pathway-activation">
                 <div class="item-name">PI3K/AKT/mTOR Pathway Activation</div>
-                
+
                 <div class="item-desc">PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt activation is reported in 40-60% of HCC tissue, and dysregulated pathway-associated genes and upstream receptor inputs increase AKT/TOR signaling, supporting hepatocyte survival, anabolic growth, proliferation, and immune infiltration patterns relevant to targeted therapy and immunotherapy response.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         TOR signaling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031929">GO:0031929</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         phosphatidylinositol-mediated signaling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048015">GO:0048015</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Enhanced Hepatocyte Proliferation</span>
-	                            
+
 	                            <span class="crosslink-desc">PI3K/AKT/mTOR activation promotes tumor-cell growth and survival signaling.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Immune Evasion and Immunosuppressive Microenvironment</span>
-	                            
+
 	                            <span class="crosslink-desc">Pathway-associated signatures correlate with immune infiltration and checkpoint expression.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984212" target="_blank">PMID:29984212</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The signaling pathways known to be activated in HCC tissue include the Wnt/β-catenin pathway (up to 50% of HCC), the phosphatidylinositol-3-kinase and protein kinase B (PI3K/Akt) pathway (40–60% of HCC), the Myc pathway (30–60%), the Hedgehog pathway (50–60%), and the MET pathway (30–40%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review summarizes human HCC tissue data and supports recurrent PI3K/Akt activation in a large fraction of HCC.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35592706" target="_blank">PMID:35592706</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The dysregulated PI3K/AKT/mTOR pathway acts as the main regulator of tumorigenesis in hepatocellular carcinoma (HCC)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This bioinformatic HCC cohort analysis directly supports PI3K/AKT/mTOR dysregulation as an oncogenic signaling axis and links pathway-associated gene signatures to immune infiltration.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-pathway-inactivation">
                 <div class="item-name">TP53 Pathway Inactivation</div>
-                
+
                 <div class="item-desc">TP53 mutations are common in HCC, particularly in HBV-associated and aflatoxin-associated tumors. Loss of p53 function removes a critical checkpoint, allowing survival of cells with DNA damage and promoting genomic instability.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         apoptotic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
-    
+
+
+
+
+
+
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-hepatocyte-proliferation">
                 <div class="item-name">Enhanced Hepatocyte Proliferation</div>
-                
+
                 <div class="item-desc">Combined effects of telomerase reactivation, cell cycle checkpoint loss, and mitogenic signaling drive uncontrolled hepatocyte proliferation and tumor growth.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cell population proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
-    
+
+
+
+
+
+
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiogenesis-and-vegf-signaling">
                 <div class="item-name">Angiogenesis and VEGF Signaling</div>
-                
+
                 <div class="item-desc">HCC is a highly vascular tumor dependent on angiogenesis. VEGF signaling promotes new blood vessel formation supplying the tumor. VEGF also has immunosuppressive effects, contributing to the immune-excluded microenvironment. This provides the rationale for anti-VEGF therapy in combination with immunotherapy.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         angiogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Immune Evasion and Immunosuppressive Microenvironment</span>
-	                            
+
 	                            <span class="crosslink-desc">VEGF-mediated immunosuppression contributes to T cell exclusion and checkpoint upregulation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19637355" target="_blank">PMID:19637355</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is a highly vascular tumor, and angiogenesis is believed to play a considerable role in its development and progression."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Abstract notes HCC is highly vascular and angiogenesis plays a major role, supporting this mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion-and-immunosuppressive-microenvironment">
                 <div class="item-name">Immune Evasion and Immunosuppressive Microenvironment</div>
-                
+
                 <div class="item-desc">HCC develops in a chronically inflamed liver with an inherently immunosuppressive microenvironment. Tumor cells upregulate PD-L1, VEGF-mediated immunosuppression excludes effector T cells, and recruitment of regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages creates an immune-tolerant niche. The combination of anti-PD-L1 with anti-VEGF addresses both the checkpoint-mediated and VEGF-mediated immunosuppression.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         CD8-positive, alpha-beta T cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Negative Regulation of T Cell Mediated Immunity
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002710">GO:0002710</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32158599" target="_blank">PMID:32158599</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The HCC tumor microenvironment is characterized by a dysfunction of the immune system through multiple mechanisms, including accumulation of various immunosuppressive factors, recruitment of regulatory T cells and myeloid-derived suppressor cells, and induction of T cell exhaustion accompanied..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review specifically describes HCC&#39;s immunosuppressive microenvironment including Treg and MDSC recruitment, T cell exhaustion, and checkpoint ligand-receptor interactions — directly supporting all claims in this node about HCC immune evasion mechanisms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
         <div class="card" id="histopathology">
             <div class="card-header">
                 <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
                 <h2 class="card-title">Histopathology</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Hepatocellular Carcinoma
-                    
+
                     <span class="histopathology-freq">VERY_FREQUENT</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Hepatocellular carcinoma is the most common primary liver malignancy.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27785449" target="_blank">PMID:27785449</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is the most common primary liver malignancy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Abstract states that HCC is the most common primary liver malignancy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4416,244 +4582,265 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Driver Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple driver genes are recurrently mutated in HCC, including TERT promoter (60%), TP53 (30%), CTNNB1 (30%), AXIN1 (10%), and ARID1A (10%). These mutations affect telomere maintenance, cell cycle control, WNT signaling, and chromatin remodeling.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Angiogenesis and VEGF Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC is a highly vascular tumor dependent on angiogenesis. VEGF signaling promotes new blood vessel formation supplying the tumor. VEGF also has immunosuppressive effects, contributing to the immune-excluded microenvironment. This provides the rationale for anti-VEGF therapy in combination with immunotherapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Atezolizumab plus Bevacizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line standard of care for unresectable HCC based on IMbrave150 trial. Anti-PD-L1 (atezolizumab) combined with anti-VEGF (bevacizumab) demonstrated superior overall survival compared to sorafenib. Requires adequate liver function (Child-Pugh A) and no high-risk varices.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"atezolizumab\", \"bevacizumab\"]}}, {\"id\": \"Chronic Liver Injury and Cirrhosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most HCC arises in the context of chronic liver disease and cirrhosis. Persistent hepatocyte death and regeneration in an inflammatory environment promotes accumulation of genetic alterations. Cirrhosis itself is a premalignant condition with ongoing oxidative stress and genomic instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Durvalumab plus Tremelimumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative first-line immunotherapy option. HIMALAYA trial demonstrated durvalumab (anti-PD-L1) with single priming dose of tremelimumab (anti-CTLA-4) improves survival compared to sorafenib. Option for patients who cannot receive bevacizumab.\", \"meta\": {\"therapeutic_agents\": [\"durvalumab\", \"tremelimumab\"]}}, {\"id\": \"Enhanced Hepatocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined effects of telomerase reactivation, cell cycle checkpoint loss, and mitogenic signaling drive uncontrolled hepatocyte proliferation and tumor growth.\", \"meta\": {\"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC develops in a chronically inflamed liver with an inherently immunosuppressive microenvironment. Tumor cells upregulate PD-L1, VEGF-mediated immunosuppression excludes effector T cells, and recruitment of regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages creates an immune-tolerant niche. The combination of anti-PD-L1 with anti-VEGF addresses both the checkpoint-mediated and VEGF-mediated immunosuppression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"PI3K/AKT/mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt activation is reported in 40-60% of HCC tissue, and dysregulated pathway-associated genes and upstream receptor inputs increase AKT/TOR signaling, supporting hepatocyte survival, anabolic growth, proliferation, and immune infiltration patterns relevant to targeted therapy and immunotherapy response.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\", \"phosphatidylinositol-mediated signaling\"]}}, {\"id\": \"Telomere Dysfunction and Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte proliferation leads to telomere shortening, causing genomic instability. TERT promoter mutations, which are the most common HCC mutations, reactivate telomerase to enable unlimited replication. This creates a checkpoint bypass allowing survival of genetically unstable cells.\", \"meta\": {\"biological_processes\": [\"telomere maintenance\"]}}, {\"id\": \"WNT/Beta-Catenin Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in CTNNB1 (beta-catenin) or inactivating mutations in AXIN1 lead to constitutive WNT pathway activation. This drives cell proliferation and is associated with a distinct molecular subclass of HCC with specific clinical features including cholestasis and immune exclusion.\", \"meta\": {\"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Telomere Dysfunction and Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated hepatocyte division leads to telomere shortening\"}, {\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Accumulation of Driver Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic regeneration promotes mutation accumulation\"}, {\"source\": \"Telomere Dysfunction and Genomic Instability\", \"target\": \"WNT/Beta-Catenin Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic instability promotes acquisition of pathway-activating mutations\"}, {\"source\": \"Accumulation of Driver Mutations\", \"target\": \"PI3K/AKT/mTOR Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic and expression-level pathway changes select for oncogenic growth signaling.\"}, {\"source\": \"WNT/Beta-Catenin Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT signaling drives cell proliferation and stemness\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR activation promotes tumor-cell growth and survival signaling.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathway-associated signatures correlate with immune infiltration and checkpoint expression.\"}, {\"source\": \"Angiogenesis and VEGF Signaling\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VEGF-mediated immunosuppression contributes to T cell exclusion and checkpoint upregulation\"}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Durvalumab plus Tremelimumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Driver Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple driver genes are recurrently mutated in HCC, including TERT promoter (60%), TP53 (30%), CTNNB1 (30%), AXIN1 (10%), and ARID1A (10%). These mutations affect telomere maintenance, cell cycle control, WNT signaling, and chromatin remodeling.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Angiogenesis and VEGF Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC is a highly vascular tumor dependent on angiogenesis. VEGF signaling promotes new blood vessel formation supplying the tumor. VEGF also has immunosuppressive effects, contributing to the immune-excluded microenvironment. This provides the rationale for anti-VEGF therapy in combination with immunotherapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Atezolizumab plus Bevacizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line standard of care for unresectable HCC based on IMbrave150 trial. Anti-PD-L1 (atezolizumab) combined with anti-VEGF (bevacizumab) demonstrated superior overall survival compared to sorafenib. Requires adequate liver function (Child-Pugh A) and no high-risk varices. Immunotherapy trials in HCC require careful interpretation due to delayed treatment effects and potential violations of proportional hazard assumptions, which may affect the apparent magnitude of benefit from surrogate endpoints like PFS.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"atezolizumab\", \"bevacizumab\"]}}, {\"id\": \"Chronic Liver Injury and Cirrhosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most HCC arises in the context of chronic liver disease and cirrhosis. Persistent hepatocyte death and regeneration in an inflammatory environment promotes accumulation of genetic alterations. Cirrhosis itself is a premalignant condition with ongoing oxidative stress and genomic instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Durvalumab plus Tremelimumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative first-line immunotherapy option. HIMALAYA trial demonstrated durvalumab (anti-PD-L1) with single priming dose of tremelimumab (anti-CTLA-4) improves survival compared to sorafenib. Option for patients who cannot receive bevacizumab. Like other HCC immunotherapy trials, trial interpretation requires careful consideration of delayed treatment effects and proportional hazards violations when assessing surrogate endpoints.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"durvalumab\", \"tremelimumab\"]}}, {\"id\": \"Enhanced Hepatocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined effects of telomerase reactivation, cell cycle checkpoint loss, and mitogenic signaling drive uncontrolled hepatocyte proliferation and tumor growth.\", \"meta\": {\"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC develops in a chronically inflamed liver with an inherently immunosuppressive microenvironment. Tumor cells upregulate PD-L1, VEGF-mediated immunosuppression excludes effector T cells, and recruitment of regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages creates an immune-tolerant niche. The combination of anti-PD-L1 with anti-VEGF addresses both the checkpoint-mediated and VEGF-mediated immunosuppression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"PI3K/AKT/mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt activation is reported in 40-60% of HCC tissue, and dysregulated pathway-associated genes and upstream receptor inputs increase AKT/TOR signaling, supporting hepatocyte survival, anabolic growth, proliferation, and immune infiltration patterns relevant to targeted therapy and immunotherapy response.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\", \"phosphatidylinositol-mediated signaling\"]}}, {\"id\": \"Telomere Dysfunction and Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte proliferation leads to telomere shortening, causing genomic instability. TERT promoter mutations, which are the most common HCC mutations, reactivate telomerase to enable unlimited replication. This creates a checkpoint bypass allowing survival of genetically unstable cells.\", \"meta\": {\"biological_processes\": [\"telomere maintenance\"]}}, {\"id\": \"WNT/Beta-Catenin Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in CTNNB1 (beta-catenin) or inactivating mutations in AXIN1 lead to constitutive WNT pathway activation. This drives cell proliferation and is associated with a distinct molecular subclass of HCC with specific clinical features including cholestasis and immune exclusion.\", \"meta\": {\"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Telomere Dysfunction and Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated hepatocyte division leads to telomere shortening\"}, {\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Accumulation of Driver Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic regeneration promotes mutation accumulation\"}, {\"source\": \"Telomere Dysfunction and Genomic Instability\", \"target\": \"WNT/Beta-Catenin Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic instability promotes acquisition of pathway-activating mutations\"}, {\"source\": \"Accumulation of Driver Mutations\", \"target\": \"PI3K/AKT/mTOR Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic and expression-level pathway changes select for oncogenic growth signaling.\"}, {\"source\": \"WNT/Beta-Catenin Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT signaling drives cell proliferation and stemness\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR activation promotes tumor-cell growth and survival signaling.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathway-associated signatures correlate with immune infiltration and checkpoint expression.\"}, {\"source\": \"Angiogenesis and VEGF Signaling\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VEGF-mediated immunosuppression contributes to T cell exclusion and checkpoint upregulation\"}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Durvalumab plus Tremelimumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">7</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(4)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">4</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hepatomegaly
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank">
-                            Hepatomegaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002240)</span>
-                        </span>
-                        
+                        Hepatomegaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002240">HP:0002240</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Ascites
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank">
-                            Ascites
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001541)</span>
-                        </span>
-                        
+                        Ascites
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001541">HP:0001541</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Jaundice
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank">
-                            Jaundice
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000952)</span>
-                        </span>
-                        
+                        Jaundice
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000952">HP:0000952</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Nausea
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank">
-                            Nausea
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002018)</span>
-                        </span>
-                        
+                        Nausea
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002018">HP:0002018</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abdominal Pain
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank">
-                            Abdominal pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002027)</span>
-                        </span>
-                        
+                        Abdominal pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Fatigue
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank">
-                            Fatigue
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012378)</span>
-                        </span>
-                        
+                        Fatigue
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Weight Loss
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank">
-                            Weight loss
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001824)</span>
-                        </span>
-                        
+                        Weight loss
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4678,748 +4865,857 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TERT Promoter
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Activating Mutation)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TP53
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Loss of Function)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CTNNB1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Activating Mutation)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     AXIN1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Loss of Function)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     ARID1A
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Loss of Function)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">8</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Atezolizumab plus Bevacizumab
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         atezolizumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106250">NCIT:C106250</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         bevacizumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C2039">NCIT:C2039</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                <div class="item-desc">First-line standard of care for unresectable HCC based on IMbrave150 trial. Anti-PD-L1 (atezolizumab) combined with anti-VEGF (bevacizumab) demonstrated superior overall survival compared to sorafenib. Requires adequate liver function (Child-Pugh A) and no high-risk varices.</div>
-                
-                
+
+
+
+                <div class="item-desc">First-line standard of care for unresectable HCC based on IMbrave150 trial. Anti-PD-L1 (atezolizumab) combined with anti-VEGF (bevacizumab) demonstrated superior overall survival compared to sorafenib. Requires adequate liver function (Child-Pugh A) and no high-risk varices. Immunotherapy trials in HCC require careful interpretation due to delayed treatment effects and potential violations of proportional hazard assumptions, which may affect the apparent magnitude of benefit from surrogate endpoints like PFS.</div>
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">Immune Evasion and Immunosuppressive Microenvironment</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Atezolizumab (anti-PD-L1) blocks PD-L1-mediated T cell suppression while bevacizumab (anti-VEGF) reverses VEGF-mediated immunosuppression, together restoring anti-tumor immunity in HCC.</span>
-                        
-                        
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39687036" target="_blank">PMID:39687036</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Superior outcomes with combined anti-PD-L1/anti-VEGF demonstrate that targeting both checkpoint-mediated and VEGF-mediated immunosuppression is effective in HCC.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">Angiogenesis and VEGF Signaling</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Bevacizumab directly inhibits VEGF-driven angiogenesis that sustains HCC tumor growth.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39687036" target="_blank">PMID:39687036</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib"</div>
-                
-                
+
+
                 <div class="evidence-explanation">IMbrave150 abstract reports improved overall and progression-free survival with atezolizumab plus bevacizumab versus sorafenib.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42184925" target="_blank">PMID:42184925</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
-                <div class="evidence-snippet">"Overall survival remains the most robust endpoint in oncology trials, although surrogate endpoints such as progression‑free survival, time‑to‑progression, and objective response rate are frequently used to accelerate drug development. The validity of surrogate endpoints in hepatocellular..."</div>
-                
-                
-                <div class="evidence-explanation">Methodological review highlighting the challenges in interpreting HCC trial results, including surrogate endpoint validity and immunotherapy-specific statistical considerations relevant to interpreting IMbrave150 and similar immunotherapy trials.</div>
-                
-                
-                
+
+                <div class="evidence-snippet">"immunotherapy has introduced challenges to traditional statistical models through delayed treatment effects and violations of the proportional hazard assumption"</div>
+
+
+                <div class="evidence-explanation">This methodological review contextualizes the interpretation of HCC immunotherapy trials, highlighting that delayed treatment effects and proportional hazards violations are key considerations when evaluating atezolizumab + bevacizumab or other checkpoint inhibitor trials.</div>
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Durvalumab plus Tremelimumab
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         durvalumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C103194" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C103194" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C103194">NCIT:C103194</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         tremelimumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C49085" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49085" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49085">NCIT:C49085</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                <div class="item-desc">Alternative first-line immunotherapy option. HIMALAYA trial demonstrated durvalumab (anti-PD-L1) with single priming dose of tremelimumab (anti-CTLA-4) improves survival compared to sorafenib. Option for patients who cannot receive bevacizumab.</div>
-                
-                
+
+
+
+                <div class="item-desc">Alternative first-line immunotherapy option. HIMALAYA trial demonstrated durvalumab (anti-PD-L1) with single priming dose of tremelimumab (anti-CTLA-4) improves survival compared to sorafenib. Option for patients who cannot receive bevacizumab. Like other HCC immunotherapy trials, trial interpretation requires careful consideration of delayed treatment effects and proportional hazards violations when assessing surrogate endpoints.</div>
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">Immune Evasion and Immunosuppressive Microenvironment</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Durvalumab (anti-PD-L1) blocks adaptive immune resistance while tremelimumab (anti-CTLA-4) priming dose expands the T cell repertoire, together overcoming the immunosuppressive HCC microenvironment.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42184925" target="_blank">PMID:42184925</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The validity of surrogate endpoints in hepatocellular carcinoma remains debated due to tumor heterogeneity, competing risks related to liver disease, and the influence of post‑progression therapies"</div>
+
+
+                <div class="evidence-explanation">This methodological review explains the challenges in interpreting surrogate endpoints (like those used in HIMALAYA trial) in HCC, due to tumor heterogeneity, competing risks from underlying liver disease, and post-progression therapy effects.</div>
+
+
+
             </div>
-            
+
+
+        </div>
+    </details>
+
+
+            </div>
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Sorafenib
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">targeted therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C93352</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         sorafenib
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50924">CHEBI:50924</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Multi-kinase inhibitor targeting RAF, VEGFR, and PDGFR. Was first systemic therapy to improve survival in HCC. Now used in second line or when immunotherapy is contraindicated.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Lenvatinib
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">targeted therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C93352</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         lenvatinib
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:85994">CHEBI:85994</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Multi-kinase inhibitor with activity against VEGFR, FGFR, PDGFR, RET, and KIT. Non-inferior to sorafenib in first line. Alternative when immunotherapy not appropriate.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Resection
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">hepatic resection</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hepatectomy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15249" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15249</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15249" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15249">NCIT:C15249</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Potentially curative for early-stage HCC in patients with preserved liver function (Child-Pugh A). Limited by underlying cirrhosis in many patients. Requires adequate future liver remnant.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Liver Transplantation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">organ transplantation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0010039</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0010039">MAXO:0010039</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Potentially curative treatment that addresses both tumor and underlying cirrhosis. Milan criteria (single tumor 5 cm or less or up to 3 tumors each 3 cm or less, no vascular invasion, no metastases) guide patient selection. Limited by organ availability.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Transarterial Chemoembolization (TACE)
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">chemotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000647">MAXO:0000647</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Locoregional therapy delivering chemotherapy directly to tumor via hepatic artery followed by embolization. Standard for intermediate-stage HCC (BCLC-B). Can be used as bridge to transplant or with systemic therapy.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Radiofrequency/Microwave Ablation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">ablation therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000452" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000452</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000452" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000452">MAXO:0000452</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Thermal ablation for small tumors (typically less than 3 cm). Effective alternative to resection for early-stage HCC, particularly in patients with limited liver function.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Alpha-Fetoprotein (AFP)
-                    
+
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Liver Function Tests
-                    
+
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     PIVKA-II (DCP)
-                    
+
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5892,8 +6188,9 @@ treatments:
     First-line standard of care for unresectable HCC based on IMbrave150 trial. Anti-PD-L1
     (atezolizumab) combined with anti-VEGF (bevacizumab) demonstrated superior overall
     survival compared to sorafenib. Requires adequate liver function (Child-Pugh A)
-    and
-    no high-risk varices.
+    and no high-risk varices. Immunotherapy trials in HCC require careful interpretation due to
+    delayed treatment effects and potential violations of proportional hazard assumptions,
+    which may affect the apparent magnitude of benefit from surrogate endpoints like PFS.
   notes: &gt;-
     HCC trial interpretation requires careful consideration of endpoint selection and
     validity of surrogates. Overall survival remains the most robust endpoint, though
@@ -5911,14 +6208,18 @@ treatments:
   - reference: PMID:39687036
     reference_title: &#34;Efficacy and Safety of Atezolizumab plus Bevacizumab versus Sorafenib in Hepatocellular Carcinoma with Main Trunk and/or Contralateral Portal Vein Invasion in IMbrave150.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Atezolizumab plus bevacizumab significantly improved overall survival (OS) and progression-free survival (PFS) versus sorafenib&#34;
     explanation: &#34;IMbrave150 abstract reports improved overall and progression-free survival with atezolizumab plus bevacizumab versus sorafenib.&#34;
   - reference: PMID:42184925
     reference_title: &#34;Beyond hazard ratios: interpreting trial endpoints and survival analysis in systemic therapy for hepatocellular carcinoma.&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: &#34;Overall survival remains the most robust endpoint in oncology trials, although surrogate endpoints such as progression‑free survival, time‑to‑progression, and objective response rate are frequently used to accelerate drug development. The validity of surrogate endpoints in hepatocellular carcinoma remains debated due to tumor heterogeneity, competing risks related to liver disease, and the influence of post‑progression therapies. Furthermore, immunotherapy has introduced challenges to traditional statistical models through delayed treatment effects and violations of the proportional hazard assumption.&#34;
-    explanation: &#34;Methodological review highlighting the challenges in interpreting HCC trial results, including surrogate endpoint validity and immunotherapy-specific statistical considerations relevant to interpreting IMbrave150 and similar immunotherapy trials.&#34;
+    snippet: &#34;immunotherapy has introduced challenges to traditional statistical models through delayed treatment effects and violations of the proportional hazard assumption&#34;
+    explanation: &gt;-
+      This methodological review contextualizes the interpretation of HCC immunotherapy trials,
+      highlighting that delayed treatment effects and proportional hazards violations are key considerations
+      when evaluating atezolizumab + bevacizumab or other checkpoint inhibitor trials.
   treatment_term:
     preferred_term: immunotherapy
     term:
@@ -5958,7 +6259,9 @@ treatments:
   description: &gt;-
     Alternative first-line immunotherapy option. HIMALAYA trial demonstrated durvalumab
     (anti-PD-L1) with single priming dose of tremelimumab (anti-CTLA-4) improves survival
-    compared to sorafenib. Option for patients who cannot receive bevacizumab.
+    compared to sorafenib. Option for patients who cannot receive bevacizumab. Like other
+    HCC immunotherapy trials, trial interpretation requires careful consideration of delayed treatment
+    effects and proportional hazards violations when assessing surrogate endpoints.
   treatment_term:
     preferred_term: immunotherapy
     term:
@@ -5973,6 +6276,15 @@ treatments:
       term:
         id: NCIT:C49085
         label: Tremelimumab
+  evidence:
+  - reference: PMID:42184925
+    reference_title: &#34;Beyond hazard ratios: interpreting trial endpoints and survival analysis in systemic therapy for hepatocellular carcinoma.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The validity of surrogate endpoints in hepatocellular carcinoma remains debated due to tumor heterogeneity, competing risks related to liver disease, and the influence of post‑progression therapies&#34;
+    explanation: &gt;-
+      This methodological review explains the challenges in interpreting surrogate endpoints (like those used in HIMALAYA trial) in HCC,
+      due to tumor heterogeneity, competing risks from underlying liver disease, and post-progression therapy effects.
   target_mechanisms:
   - target: Immune Evasion and Immunosuppressive Microenvironment
     treatment_effect: INHIBITS
@@ -6374,1393 +6686,1393 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">23</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s00330-024-10606-w" target="_blank">DOI:10.1007/s00330-024-10606-w</a>
                             </div>
-                            
+
                             <div class="reference-title">ESR Essentials: diagnosis of hepatocellular carcinoma—practice recommendations by ESGAR</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s00330-024-10606-w" target="_blank">DOI:10.1007/s00330-024-10606-w</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s12029-023-00961-0" target="_blank">DOI:10.1007/s12029-023-00961-0</a>
                             </div>
-                            
+
                             <div class="reference-title">Clinical Practice Guidelines For the Management of Hepatocellular Carcinoma: A Systematic Review</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, including Australia.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, including Australia."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s12029-023-00961-0" target="_blank">DOI:10.1007/s12029-023-00961-0</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, including Australia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1159/000539371" target="_blank">DOI:10.1159/000539371</a>
                             </div>
-                            
+
                             <div class="reference-title">EASL-EASD-EASO Clinical Practice Guidelines on the Management of Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD)</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">EASL-EASD-EASO Clinical Practice Guidelines on the Management of Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD)</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Metabolic dysfunction-associated steatotic liver disease (MASLD), previously termed non-alcoholic fatty liver disease (NAFLD), is defined as steatotic liver disease (SLD) in the presence of one or more cardiometabolic risk factor(s) and the absence of harmful alcohol intake."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1159/000539371" target="_blank">DOI:10.1159/000539371</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Metabolic dysfunction-associated steatotic liver disease (MASLD), previously termed non-alcoholic fatty liver disease (NAFLD), is defined as steatotic liver disease (SLD) in the presence of one or more cardiometabolic risk factor(s) and the absence of harmful alcohol intake."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s12885-023-11112-w" target="_blank">DOI:10.1186/s12885-023-11112-w</a>
                             </div>
-                            
+
                             <div class="reference-title">Efficacy and safety of atezolizumab plus bevacizumab treatment for advanced hepatocellular carcinoma in the real world: a single-arm meta-analysis</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Atezolizumab plus bevacizumab was approved in 2020 as a first-line treatment for advanced hepatocellular carcinoma (HCC).</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Atezolizumab plus bevacizumab was approved in 2020 as a first-line treatment for advanced hepatocellular carcinoma (HCC)."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12885-023-11112-w" target="_blank">DOI:10.1186/s12885-023-11112-w</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Atezolizumab plus bevacizumab was approved in 2020 as a first-line treatment for advanced hepatocellular carcinoma (HCC)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s12885-024-12407-2" target="_blank">DOI:10.1186/s12885-024-12407-2</a>
                             </div>
-                            
+
                             <div class="reference-title">Genomic profiling informs therapies and prognosis for patients with hepatocellular carcinoma in clinical practice</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) genomic research has discovered actionable genetic changes that might guide treatment decisions and clinical trials.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) genomic research has discovered actionable genetic changes that might guide treatment decisions and clinical trials."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12885-024-12407-2" target="_blank">DOI:10.1186/s12885-024-12407-2</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) genomic research has discovered actionable genetic changes that might guide treatment decisions and clinical trials."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s12920-024-01965-w" target="_blank">DOI:10.1186/s12920-024-01965-w</a>
                             </div>
-                            
+
                             <div class="reference-title">Genomic landscape of hepatocellular carcinoma in Egyptian patients by whole exome sequencing</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Genomic landscape of hepatocellular carcinoma in Egyptian patients by whole exome sequencing</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Genomic landscape of hepatocellular carcinoma in Egyptian patients by whole exome sequencing"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s12943-024-02062-3" target="_blank">DOI:10.1186/s12943-024-02062-3</a>
                             </div>
-                            
+
                             <div class="reference-title">Single-cell tumor heterogeneity landscape of hepatocellular carcinoma: unraveling the pro-metastatic subtype and its interaction loop with fibroblasts</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Tumor heterogeneity presents a formidable challenge in understanding the mechanisms driving tumor progression and metastasis.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Tumor heterogeneity presents a formidable challenge in understanding the mechanisms driving tumor progression and metastasis."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12943-024-02062-3" target="_blank">DOI:10.1186/s12943-024-02062-3</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Tumor heterogeneity presents a formidable challenge in understanding the mechanisms driving tumor progression and metastasis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1200/jco.23.02745" target="_blank">DOI:10.1200/jco.23.02745</a>
                             </div>
-                            
+
                             <div class="reference-title">Systemic Therapy for Advanced Hepatocellular Carcinoma: ASCO Guideline Update</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">To update an evidence-based guideline to assist in clinical decision-making for patients with advanced hepatocellular carcinoma (HCC).</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"To update an evidence-based guideline to assist in clinical decision-making for patients with advanced hepatocellular carcinoma (HCC)."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1200/jco.23.02745" target="_blank">DOI:10.1200/jco.23.02745</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To update an evidence-based guideline to assist in clinical decision-making for patients with advanced hepatocellular carcinoma (HCC)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.14744/hf.2023.2023.0028" target="_blank">DOI:10.14744/hf.2023.2023.0028</a>
                             </div>
-                            
+
                             <div class="reference-title">Cross talk between genetics and biochemistry in the pathogenesis of hepatocellular carcinoma</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Cross talk between genetics and biochemistry in the pathogenesis of hepatocellular carcinoma</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Cross talk between genetics and biochemistry in the pathogenesis of hepatocellular carcinoma"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.20517/2394-5079.2024.16" target="_blank">DOI:10.20517/2394-5079.2024.16</a>
                             </div>
-                            
+
                             <div class="reference-title">Introduction to 2023 Chinese expert consensus on the whole-course management of hepatocellular carcinoma</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Introduction to 2023 Chinese expert consensus on the whole-course management of hepatocellular carcinoma</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Introduction to 2023 Chinese expert consensus on the whole-course management of hepatocellular carcinoma"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.21037/hbsn-22-469" target="_blank">DOI:10.21037/hbsn-22-469</a>
                             </div>
-                            
+
                             <div class="reference-title">A review of 2022 Chinese clinical guidelines on the management of hepatocellular carcinoma: updates and insights</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">A review of 2022 Chinese clinical guidelines on the management of hepatocellular carcinoma: updates and insights</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"A review of 2022 Chinese clinical guidelines on the management of hepatocellular carcinoma: updates and insights"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.2147/jhc.s478604" target="_blank">DOI:10.2147/jhc.s478604</a>
                             </div>
-                            
+
                             <div class="reference-title">Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3350/cmh.2024.0824" target="_blank">DOI:10.3350/cmh.2024.0824</a>
                             </div>
-                            
+
                             <div class="reference-title">Hepatocellular carcinoma: updates on epidemiology, surveillance, diagnosis and treatment</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is a major global burden, ranking as the third leading cause of cancer-related mortality.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is a major global burden, ranking as the third leading cause of cancer-related mortality."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3350/cmh.2024.0824" target="_blank">DOI:10.3350/cmh.2024.0824</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is a major global burden, ranking as the third leading cause of cancer-related mortality."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1416295" target="_blank">DOI:10.3389/fphar.2024.1416295</a>
                             </div>
-                            
+
                             <div class="reference-title">Novel genetic alterations in liver cancer distinguish distinct clinical outcomes and combination immunotherapy responses</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Genomic profiling has revolutionized therapeutic interventions and the clinical management of liver cancer.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Genomic profiling has revolutionized therapeutic interventions and the clinical management of liver cancer."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1416295" target="_blank">DOI:10.3389/fphar.2024.1416295</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Genomic profiling has revolutionized therapeutic interventions and the clinical management of liver cancer."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/biom14060656" target="_blank">DOI:10.3390/biom14060656</a>
                             </div>
-                            
+
                             <div class="reference-title">Molecular Mechanisms in Tumorigenesis of Hepatocellular Carcinoma and in Target Treatments—An Overview</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Hepatocellular carcinoma is the most common primary malignancy of the liver, with hepatocellular differentiation.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Hepatocellular carcinoma is the most common primary malignancy of the liver, with hepatocellular differentiation."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biom14060656" target="_blank">DOI:10.3390/biom14060656</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma is the most common primary malignancy of the liver, with hepatocellular differentiation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/biomedicines12071624" target="_blank">DOI:10.3390/biomedicines12071624</a>
                             </div>
-                            
+
                             <div class="reference-title">Preclinical Models of Hepatocellular Carcinoma: Current Utility, Limitations, and Challenges</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Hepatocellular carcinoma (HCC), the predominant primary liver tumor, remains one of the most lethal cancers worldwide, despite the advances in therapy in recent years.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC), the predominant primary liver tumor, remains one of the most lethal cancers worldwide, despite the advances in therapy in recent years."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biomedicines12071624" target="_blank">DOI:10.3390/biomedicines12071624</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma (HCC), the predominant primary liver tumor, remains one of the most lethal cancers worldwide, despite the advances in therapy in recent years."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cancers16030666" target="_blank">DOI:10.3390/cancers16030666</a>
                             </div>
-                            
+
                             <div class="reference-title">Management of Hepatocellular Carcinoma in 2024: The Multidisciplinary Paradigm in an Evolving Treatment Landscape</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Liver cancer is the third most common cause of cancer-related deaths worldwide, and hepatocellular carcinoma (HCC) makes up the majority of liver cancer cases.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Liver cancer is the third most common cause of cancer-related deaths worldwide, and hepatocellular carcinoma (HCC) makes up the majority of liver cancer cases."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16030666" target="_blank">DOI:10.3390/cancers16030666</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Liver cancer is the third most common cause of cancer-related deaths worldwide, and hepatocellular carcinoma (HCC) makes up the majority of liver cancer cases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cancers16050901" target="_blank">DOI:10.3390/cancers16050901</a>
                             </div>
-                            
+
                             <div class="reference-title">Hepatocellular Carcinoma: Old and Emerging Therapeutic Targets</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Liver cancer, predominantly hepatocellular carcinoma (HCC), globally ranks sixth in incidence and third in cancer-related deaths.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Liver cancer, predominantly hepatocellular carcinoma (HCC), globally ranks sixth in incidence and third in cancer-related deaths."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16050901" target="_blank">DOI:10.3390/cancers16050901</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Liver cancer, predominantly hepatocellular carcinoma (HCC), globally ranks sixth in incidence and third in cancer-related deaths."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cancers16233933" target="_blank">DOI:10.3390/cancers16233933</a>
                             </div>
-                            
+
                             <div class="reference-title">Hepatocellular Carcinoma Surveillance Strategies: Major Guidelines and Screening Advances</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, with prognosis and treatment outcomes that are significantly influenced by the stage at diagnosis.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, with prognosis and treatment outcomes that are significantly influenced by the stage at diagnosis."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16233933" target="_blank">DOI:10.3390/cancers16233933</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is a leading cause of cancer-related deaths globally, with prognosis and treatment outcomes that are significantly influenced by the stage at diagnosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3748/wjg.v30.i19.2488" target="_blank">DOI:10.3748/wjg.v30.i19.2488</a>
                             </div>
-                            
+
                             <div class="reference-title">Hepatocellular carcinoma-the role of the underlying liver disease in clinical practice</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) is one of the most common causes of cancer-related mortality.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) is one of the most common causes of cancer-related mortality."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3748/wjg.v30.i19.2488" target="_blank">DOI:10.3748/wjg.v30.i19.2488</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) is one of the most common causes of cancer-related mortality."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.4254/wjh.v16.i5.716" target="_blank">DOI:10.4254/wjh.v16.i5.716</a>
                             </div>
-                            
+
                             <div class="reference-title">Genetic screening of liver cancer: State of the art</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Liver cancer, primarily hepatocellular carcinoma, remains a global health challenge with rising incidence and limited therapeutic options.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Liver cancer, primarily hepatocellular carcinoma, remains a global health challenge with rising incidence and limited therapeutic options."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.4254/wjh.v16.i5.716" target="_blank">DOI:10.4254/wjh.v16.i5.716</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Liver cancer, primarily hepatocellular carcinoma, remains a global health challenge with rising incidence and limited therapeutic options."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Hepatocellular Carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.7150/thno.95971" target="_blank">DOI:10.7150/thno.95971</a>
                             </div>
-                            
+
                             <div class="reference-title">Single cell analyses reveal the PD-1 blockade response-related immune features in hepatocellular carcinoma</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Single cell analyses reveal the PD-1 blockade response-related immune features in hepatocellular carcinoma</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Single cell analyses reveal the PD-1 blockade response-related immune features in hepatocellular carcinoma"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1159/000539897" target="_blank">DOI:10.1159/000539897</a>
                             </div>
-                            
+
                             <div class="reference-title">Efficacy and Safety of Atezolizumab plus Bevacizumab versus Sorafenib in Hepatocellular Carcinoma with Main Trunk and/or Contralateral Portal Vein Invasion in IMbrave150</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Characteristics Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">71 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-08T19:35:16.062652</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -8682,11 +8994,11 @@ For each section, provide:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -8736,7 +9048,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatocellular_Carcinoma", "yamlRevision": "46d694e834c9"};
+        const OS_CONFIG = {"diseaseName": "Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatocellular_Carcinoma", "yamlRevision": "493c5e94cb4a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
