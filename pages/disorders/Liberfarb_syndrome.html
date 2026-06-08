@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Liberfarb syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0030045" target="_blank">
                         MONDO:0030045
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">mitochondrial disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Liberfarb syndrome is a rare PISD-related multisystem developmental disorder affecting the eye, ear, bone, and brain. Reported manifestations include early-onset retinal degeneration, hearing loss, microcephaly, intellectual disability, skeletal dysplasia, and short stature, with cellular evidence of mitochondrial fragmentation and impaired phospholipid metabolism.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,34 +3065,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3030,8 +3100,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3039,9 +3109,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3049,10 +3119,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3060,8 +3130,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3069,16 +3139,16 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3086,609 +3156,724 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Liberfarb syndrome is caused by biallelic pathogenic PISD variants and follows autosomal recessive inheritance.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Biallelic variants in PISD cause a phenotypic spectrum ranging from short stature with spondyloepimetaphyseal dysplasia (SEMD) to a multisystem disorder affecting eyes, ears, bones, and brain."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports recessive disease caused by biallelic PISD variants.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pisd-deficiency">
                 <div class="item-name">PISD deficiency</div>
-                
+
                 <div class="item-desc">Liberfarb syndrome is caused by pathogenic biallelic PISD variants that impair phosphatidylserine decarboxylase function in mitochondria.</div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        PISD
-                        
-                        <a href="https://bioregistry.io/hgnc:8999" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        phospholipid biosynthetic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008654" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-    
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PISD
+
+
+    <a href="https://bioregistry.io/hgnc:8999" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8999">hgnc:8999</a>
+
+
+
+    </span>
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PISD
+
+
+    <a href="https://bioregistry.io/hgnc:8999" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8999">hgnc:8999</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        phospholipid biosynthetic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008654" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008654">GO:0008654</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         phospholipid metabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006644">GO:0006644</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         phosphatidylserine decarboxylase activity
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0004609" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004609">GO:0004609</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         mitochondrial inner membrane
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005743">GO:0005743</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired mitochondrial phospholipid metabolism</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired PISD function disrupts phosphatidylethanolamine biosynthesis within mitochondria.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Fragmented mitochondrial morphology</span>
-	                            
+
 	                            <span class="crosslink-desc">Mitochondrial structural integrity is compromised downstream of PISD dysfunction.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"PISD encodes the mitochondrial-localized enzyme phosphatidylserine decarboxylase."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports PISD as the primary disease gene and enzyme defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The enzyme phosphatidylserine decarboxylase (PISD) is responsible for the conversion of phosphatidylserine (PS) to phosphatidylethanolamine (PE)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports the phosphatidylserine-to-phosphatidylethanolamine biochemical mechanism annotated on the initiating PISD defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-phospholipid-metabolism">
                 <div class="item-name">Impaired mitochondrial phospholipid metabolism</div>
-                
+
                 <div class="item-desc">Defective PISD activity impairs conversion of phosphatidylserine to phosphatidylethanolamine, disrupting mitochondrial membrane homeostasis.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         phospholipid biosynthetic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008654" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008654" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008654">GO:0008654</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         phospholipid metabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006644">GO:0006644</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         mitochondrial inner membrane
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005743">GO:0005743</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Fragmented mitochondrial morphology</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of mitochondrial phosphatidylethanolamine homeostasis compromises mitochondrial membrane structure and fragmentation control.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Skeletal dysplasia</span>
-	                            
+
 	                            <span class="crosslink-desc">PISD-related phospholipid metabolism disruption is linked to abnormal bone formation and skeletal dysplasia.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hearing impairment</span>
-	                            
+
 	                            <span class="crosslink-desc">The same PISD phospholipid-metabolism mechanism is linked to sensory defects, including hearing impairment.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Retinal degeneration</span>
-	                            
+
 	                            <span class="crosslink-desc">PISD-related phospholipid metabolism disruption is linked to the ocular sensory branch of the syndrome.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Microcephaly</span>
-	                            
+
 	                            <span class="crosslink-desc">PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Intellectual disability</span>
-	                            
+
 	                            <span class="crosslink-desc">PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development and neurodevelopmental impairment.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The PISD precursor is self-cleaved to generate a heteromeric mature enzyme that converts phosphatidylserine to the phospholipid phosphatidylethanolamine."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports the relevant phospholipid metabolic function disrupted in disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"PISD is required to maintain mitochondrial PE (mtPE), as PE imported from the CDP-ethanolamine pathway alone cannot sustain adequate mtPE levels."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports mitochondrial phosphatidylethanolamine deficiency as the membrane-level metabolic consequence of impaired PISD function.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fragmented-mitochondrial-morphology">
                 <div class="item-name">Fragmented mitochondrial morphology</div>
-                
+
                 <div class="item-desc">Patient-derived cells show abnormal mitochondrial fragmentation, supporting a mitochondrial structural defect downstream of PISD dysfunction.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         mitochondrion organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007005">GO:0007005</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"However, patient cells had a significantly higher proportion of fragmented mitochondria compared to control cells"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports abnormal mitochondrial morphology in PISD-related disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3699,610 +3884,637 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Fragmented mitochondrial morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived cells show abnormal mitochondrial fragmentation, supporting a mitochondrial structural defect downstream of PISD dysfunction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrion organization\"]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is part of the multisystem Liberfarb syndrome phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Impaired mitochondrial phospholipid metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective PISD activity impairs conversion of phosphatidylserine to phosphatidylethanolamine, disrupting mitochondrial membrane homeostasis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid biosynthetic process\", \"phospholipid metabolic process\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is part of the reported multisystem developmental phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly has been reported in patients with Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"PISD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causal biallelic variant\"}}, {\"id\": \"PISD deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liberfarb syndrome is caused by pathogenic biallelic PISD variants that impair phosphatidylserine decarboxylase function in mitochondria.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid biosynthetic process\", \"phospholipid metabolic process\"], \"molecular_functions\": [\"phosphatidylserine decarboxylase activity\"], \"genes\": [\"PISD\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Retinal degeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset retinal degeneration is a core ocular manifestation of Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000546\"}}, {\"id\": \"Skeletal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal dysplasia is a core manifestation of the PISD-related skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002652\"}}], \"edges\": [{\"source\": \"PISD deficiency\", \"target\": \"Impaired mitochondrial phospholipid metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired PISD function disrupts phosphatidylethanolamine biosynthesis within mitochondria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PISD deficiency\", \"target\": \"Fragmented mitochondrial morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial structural integrity is compromised downstream of PISD dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Fragmented mitochondrial morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of mitochondrial phosphatidylethanolamine homeostasis compromises mitochondrial membrane structure and fragmentation control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Skeletal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal bone formation and skeletal dysplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same PISD phospholipid-metabolism mechanism is linked to sensory defects, including hearing impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Retinal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to the ocular sensory branch of the syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development and neurodevelopmental impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PISD\", \"target\": \"PISD deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Fragmented mitochondrial morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived cells show abnormal mitochondrial fragmentation, supporting a mitochondrial structural defect downstream of PISD dysfunction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrion organization\"]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is part of the multisystem Liberfarb syndrome phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Impaired mitochondrial phospholipid metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective PISD activity impairs conversion of phosphatidylserine to phosphatidylethanolamine, disrupting mitochondrial membrane homeostasis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid biosynthetic process\", \"phospholipid metabolic process\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is part of the reported multisystem developmental phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly has been reported in patients with Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"PISD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causal biallelic variant\"}}, {\"id\": \"PISD deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liberfarb syndrome is caused by pathogenic biallelic PISD variants that impair phosphatidylserine decarboxylase function in mitochondria.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid biosynthetic process\", \"phospholipid metabolic process\"], \"molecular_functions\": [\"phosphatidylserine decarboxylase activity\"], \"genes\": [\"PISD\"], \"gene_terms\": [{\"label\": \"PISD\", \"id\": \"hgnc:8999\", \"modifier\": \"DECREASED\"}, {\"label\": \"PISD\", \"id\": \"hgnc:8999\"}], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Retinal degeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset retinal degeneration is a core ocular manifestation of Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000546\"}}, {\"id\": \"Skeletal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal dysplasia is a core manifestation of the PISD-related skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002652\"}}], \"edges\": [{\"source\": \"PISD deficiency\", \"target\": \"Impaired mitochondrial phospholipid metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired PISD function disrupts phosphatidylethanolamine biosynthesis within mitochondria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PISD deficiency\", \"target\": \"Fragmented mitochondrial morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial structural integrity is compromised downstream of PISD dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Fragmented mitochondrial morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of mitochondrial phosphatidylethanolamine homeostasis compromises mitochondrial membrane structure and fragmentation control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Skeletal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal bone formation and skeletal dysplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same PISD phospholipid-metabolism mechanism is linked to sensory defects, including hearing impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Retinal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to the ocular sensory branch of the syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development and neurodevelopmental impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PISD\", \"target\": \"PISD deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">9</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hearing impairment
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank">
-                            Hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000365)</span>
-                        </span>
-                        
+                        Hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We observed four individuals in two unrelated but consanguineous families from Portugal and Brazil affected by early-onset retinal degeneration, sensorineural hearing loss, microcephaly, intellectual disability, and skeletal dysplasia with scoliosis and short stature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports sensorineural hearing loss as a core Liberfarb syndrome phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Optic atrophy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank">
-                            Optic atrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000648)</span>
-                        </span>
-                        
+                        Optic atrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000648">HP:0000648</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fundus examination disclosed optic disc pallor, generalized mottling of the retinal pigment epithelium (RPE) with areas of atrophy interspersed with pigmentary changes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports optic atrophy through optic disc pallor in an affected Liberfarb syndrome patient.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Microcephaly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank">
-                            Microcephaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000252)</span>
-                        </span>
-                        
+                        Microcephaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We observed four individuals in two unrelated but consanguineous families from Portugal and Brazil affected by early-onset retinal degeneration, sensorineural hearing loss, microcephaly, intellectual disability, and skeletal dysplasia with scoliosis and short stature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports microcephaly in the clinically defined Liberfarb syndrome cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Skeletal dysplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank">
-                            Skeletal dysplasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002652)</span>
-                        </span>
-                        
+                        Skeletal dysplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002652">HP:0002652</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We describe a 17-year-old male patient, born to unrelated healthy parents, with disproportionate short stature and SEMD, featuring platyspondyly, prominent epiphyses, and metaphyseal dysplasia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports skeletal dysplasia in PISD-related disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Joint hypermobility
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank">
-                            Joint hypermobility
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001382)</span>
-                        </span>
-                        
+                        Joint hypermobility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"microcephaly, early-onset retinal degeneration, hearing loss, intellectual disability, severe joint laxity, and short stature with skeletal dysplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The clinical report directly lists severe joint laxity in the shared Liberfarb syndrome phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Scoliosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank">
-                            Scoliosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002650)</span>
-                        </span>
-                        
+                        Scoliosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"sensorineural hearing loss, microcephaly, intellectual disability, and skeletal dysplasia with scoliosis and short stature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract directly supports scoliosis as part of the skeletal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intellectual disability
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
-                            Intellectual disability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001249)</span>
-                        </span>
-                        
+                        Intellectual disability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We observed four individuals in two unrelated but consanguineous families from Portugal and Brazil affected by early-onset retinal degeneration, sensorineural hearing loss, microcephaly, intellectual disability, and skeletal dysplasia with scoliosis and short stature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports intellectual disability as part of the core multisystem phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short stature
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank">
-                            Short stature
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004322)</span>
-                        </span>
-                        
+                        Short stature
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Biallelic variants in PISD cause a phenotypic spectrum ranging from short stature with spondyloepimetaphyseal dysplasia (SEMD) to a multisystem disorder affecting eyes, ears, bones, and brain."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports short stature in the PISD disease spectrum that includes Liberfarb syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Retinal degeneration
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank">
-                            Retinal degeneration
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000546)</span>
-                        </span>
-                        
+                        Retinal degeneration
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000546">HP:0000546</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"early-onset retinal degeneration, sensorineural hearing loss, microcephaly, intellectual disability, and skeletal dysplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The clinical report directly lists early-onset retinal degeneration among the shared Liberfarb syndrome manifestations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4327,115 +4539,116 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     PISD
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal biallelic variant)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Biallelic variants in PISD cause a phenotypic spectrum ranging from short stature with spondyloepimetaphyseal dysplasia (SEMD) to a multisystem disorder affecting eyes, ears, bones, and brain."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports PISD as the causal disease gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_c79d65c7-3c7b-42fa-a84b-894bc865316d-2024-10-02T160000.000Z" target="_blank">CGGV:assertion_c79d65c7-3c7b-42fa-a84b-894bc865316d-2024-10-02T160000.000Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"PISD | HGNC:8999 | Liberfarb syndrome | MONDO:0030045 | AR | Moderate"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen classifies the PISD-Liberfarb syndrome gene-disease relationship as moderate with autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4932,42 +5145,42 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Liberfarb syndrome. Core disease mechanisms, molecular and cellular pathwa...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-13T18:49:12.458092</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Liberfarb syndrome. Core disease mechanisms, molecular and cellular pathwa...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -5313,11 +5526,11 @@ notes: &gt;-
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>5-Oxoprolinase Deficiency</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0009825" target="_blank">
                         MONDO:0009825
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Inherited Glutathione Metabolism Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Inborn Error of Metabolism</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,12 +2991,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 5-oxoprolinase deficiency is a very rare autosomal recessive inborn error of the gamma-glutamyl cycle caused by biallelic variants in OPLAH, which encodes ATP-dependent 5-oxoprolinase. Reduced 5-oxoprolinase activity impairs conversion of 5-oxo-L-proline to L-glutamate, producing persistent 5-oxoprolinuria. The clinical significance is heterogeneous and incompletely resolved: some molecularly confirmed individuals have largely benign courses, while symptomatic reports describe developmental delay, speech delay, seizures, metabolic acidosis, and neuroimaging abnormalities. The most consistent disease-level features are elevated urinary 5-oxoproline and reduced 5-oxoprolinase activity.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2996,35 +3066,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3032,9 +3102,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3042,10 +3112,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3053,8 +3123,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3062,8 +3132,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3071,14 +3141,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3086,8 +3156,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3095,603 +3165,671 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oplah-molecular-function-deficiency">
                 <div class="item-name">OPLAH molecular function deficiency</div>
-                
+
                 <div class="item-desc">Biallelic OPLAH variants reduce ATP-dependent 5-oxoprolinase activity in the gamma-glutamyl cycle. OPLAH encodes 5-oxoprolinase, which normally converts 5-oxo-L-proline to L-glutamate.
 </div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        OPLAH
-                        
-                        <a href="https://bioregistry.io/hgnc:8149" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        OPLAH
+
+
+    <a href="https://bioregistry.io/hgnc:8149" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8149">hgnc:8149</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         glutathione metabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006749">GO:0006749</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         glutathione biosynthetic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006750" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006750" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006750">GO:0006750</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         glutamate metabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006536" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006536" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006536">GO:0006536</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         5-oxoprolinase (ATP-hydrolyzing) activity
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0017168" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0017168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0017168">GO:0017168</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Gamma-glutamyl cycle block and 5-oxoproline accumulation</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced 5-oxoprolinase activity blocks clearance of 5-oxo-L-proline.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Reduced 5-oxoprolinase activity</span>
-	                            
+
 	                            <span class="crosslink-desc">OPLAH encodes the enzyme measured as reduced 5-oxoprolinase activity.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Reduced circulating 5-oxoprolinase activity</span>
-	                            
+
 	                            <span class="crosslink-desc">OPLAH molecular dysfunction is directly reflected by reduced measured 5-oxoprolinase activity.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"OPLAH | 5-oxoprolinase, ATP-hydrolysing | hgnc:8149 | Disease-causing germline mutation(s) in"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet identifies OPLAH as the disease-causing gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"bi-allelic mutations in OPLAH were indicated."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The largest patient series supports biallelic OPLAH variants as the molecular cause.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25129617" target="_blank">PMID:25129617</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"reported missense mutations in the OPLAH gene. A yeast in vivo growth assay"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional testing of reported OPLAH missense variants supports reduced enzyme activity for selected alleles.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gamma-glutamyl-cycle-block-and-5-oxoproline-accumulation">
                 <div class="item-name">Gamma-glutamyl cycle block and 5-oxoproline accumulation</div>
-                
+
                 <div class="item-desc">The gamma-glutamyl cycle mediates glutathione synthesis and degradation. Impaired 5-oxoprolinase activity causes accumulation of 5-oxo-L-proline, also called pyroglutamic acid, producing the diagnostic 5-oxoprolinuria.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         glutathione metabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006749">GO:0006749</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         glutathione biosynthetic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006750" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006750" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006750">GO:0006750</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         glutamate metabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006536" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006536" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006536">GO:0006536</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Increased urinary 5-oxoproline</span>
-	                            
+
 	                            <span class="crosslink-desc">Failure to clear 5-oxo-L-proline causes elevated urinary 5-oxoproline.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Increased urinary L-pyroglutamic acid</span>
-	                            
+
 	                            <span class="crosslink-desc">Urinary L-pyroglutamic acid is the HPO phenotype corresponding to accumulated 5-oxoproline.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Metabolic acidosis</span>
-	                            
+
 	                            <span class="crosslink-desc">Metabolic acidosis is reported in OPLAH deficiency, but the causal connection to 5-oxoprolinuria is incompletely resolved.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypoglycemia</span>
-	                            
+
 	                            <span class="crosslink-desc">Hypoglycemia is an occasional Orphanet phenotype with uncertain mechanistic connection to OPLAH deficiency.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Feeding difficulties in infancy</span>
-	                            
+
 	                            <span class="crosslink-desc">Feeding problems occur in symptomatic 5-oxoprolinuria reports, but penetrance and causality remain uncertain.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Failure to thrive</span>
-	                            
+
 	                            <span class="crosslink-desc">Failure to thrive is an occasional reported manifestation in the variable symptomatic spectrum.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Global developmental delay</span>
-	                            
+
 	                            <span class="crosslink-desc">Developmental delay is reported in symptomatic patients, but larger series note incomplete segregation with 5-oxoprolinuria.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypotonia</span>
-	                            
+
 	                            <span class="crosslink-desc">Hypotonia is an occasional reported neurologic phenotype with uncertain direct mechanism.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Seizure</span>
-	                            
+
 	                            <span class="crosslink-desc">Seizures are reported in symptomatic patients, but a direct biochemical mechanism is not established.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Delayed speech and language development</span>
-	                            
+
 	                            <span class="crosslink-desc">Speech delay is part of the reported variable neurologic spectrum.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cerebral atrophy</span>
-	                            
+
 	                            <span class="crosslink-desc">Brain atrophy has been reported in a symptomatic OPLAH-deficient patient, but causality remains case-level.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Postnatal macrocephaly</span>
-	                            
+
 	                            <span class="crosslink-desc">Postnatal macrocephaly has been reported in a symptomatic patient and in Orphanet, without a defined intermediate mechanism.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cerebral hypomyelination</span>
-	                            
+
 	                            <span class="crosslink-desc">Hypomyelination was reported in a symptomatic patient with elevated urinary 5-oxoproline.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ventriculomegaly</span>
-	                            
+
 	                            <span class="crosslink-desc">Ventriculomegaly was reported in a symptomatic OPLAH-deficient patient, but mechanism is unresolved.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypoplasia of the corpus callosum</span>
-	                            
+
 	                            <span class="crosslink-desc">Corpus callosum hypoplasia was reported in a symptomatic OPLAH-deficient patient, with uncertain causality.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"the γ-glutamyl cycle, affecting either glutathione synthetase or 5-oxoprolinase."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Places 5-oxoprolinase deficiency in the gamma-glutamyl cycle.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"5-Oxoprolinase deficiency is associated with 5-oxoprolinuria"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review evidence supports 5-oxoprolinuria as the core biochemical abnormality.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25851806" target="_blank">PMID:25851806</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All patients had significantly elevated urine 5-oxoproline."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical series documents elevated urinary 5-oxoproline in affected patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3702,1089 +3840,1134 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic private OPLAH variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported affected individuals carry homozygous or compound heterozygous OPLAH variants, many private to individual families. Published functional work supports activity loss for selected missense variants, but clinical penetrance remains uncertain.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral atrophy is an occasional imaging abnormality and has been reported in a recent symptomatic OPLAH case.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Cerebral hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral hypomyelination has been reported in a symptomatic child with OPLAH-associated 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006808\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay is occasional in the reported phenotype spectrum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive is an occasional reported feature of the variable symptomatic spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty has been reported in symptomatic infant presentations of inherited 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The gamma-glutamyl cycle mediates glutathione synthesis and degradation. Impaired 5-oxoprolinase activity causes accumulation of 5-oxo-L-proline, also called pyroglutamic acid, producing the diagnostic 5-oxoprolinuria.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glutathione metabolic process\", \"glutathione biosynthetic process\", \"glutamate metabolic process\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is reported frequently by Orphanet, but literature emphasizes uncertain segregation in some families.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia is an occasional reported metabolic manifestation in Orphanet.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum hypoplasia has been reported in a symptomatic child with OPLAH-associated 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002079\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is an occasional reported neuromuscular manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased urinary 5-oxoproline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18183\", \"term_label\": \"5-oxo-L-proline\", \"readouts\": [{\"target\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated urinary 5-oxoproline directly reports accumulation of the substrate that is not cleared by deficient OPLAH activity.\\n\"}, {\"target\": \"Increased urinary L-pyroglutamic acid\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary 5-oxoproline is the measured metabolite represented clinically as increased urinary L-pyroglutamic acid.\\n\"}]}}, {\"id\": \"Increased urinary L-pyroglutamic acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent urinary 5-oxoproline elevation is the defining biochemical phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0410132\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metabolic acidosis is occasional and is not as consistently associated with OPLAH deficiency as 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Molecular genetic testing\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Molecular testing of OPLAH is important in symptomatic individuals with persistent 5-oxoprolinuria to establish the diagnosis and distinguish OPLAH deficiency from glutathione synthetase deficiency and other overlapping causes of 5-oxoprolinuria.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"OPLAH molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic OPLAH variants reduce ATP-dependent 5-oxoprolinase activity in the gamma-glutamyl cycle. OPLAH encodes 5-oxoprolinase, which normally converts 5-oxo-L-proline to L-glutamate.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"glutathione metabolic process\", \"glutathione biosynthetic process\", \"glutamate metabolic process\"], \"molecular_functions\": [\"5-oxoprolinase (ATP-hydrolyzing) activity\"], \"genes\": [\"OPLAH\"]}}, {\"id\": \"OPLAH variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"OPLAH\"], \"variant_count\": 1}}, {\"id\": \"Postnatal macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal macrocephaly is an occasional reported head-size abnormality.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005490\"}}, {\"id\": \"Reduced 5-oxoprolinase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"OPLAH molecular function deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced 5-oxoprolinase activity is the direct functional readout of deficient OPLAH molecular function.\\n\"}, {\"target\": \"Reduced circulating 5-oxoprolinase activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced enzyme activity is the biochemical measurement represented by the reduced circulating 5-oxoprolinase activity phenotype.\\n\"}]}}, {\"id\": \"Reduced circulating 5-oxoprolinase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity is the direct biochemical expression of OPLAH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0040142\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are occasional reported neurologic manifestations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Symptomatic neurologic care and longitudinal follow-up\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying therapy is established for OPLAH deficiency. Management is therefore centered on long-term observation and standard symptomatic care for manifestations such as epilepsy, developmental delay, and speech delay. A reported antioxidant and cofactor regimen did not improve the two OPLAH-deficient patients in one mixed 5-oxoprolinuria series, so this entry does not model that regimen as an effective OPLAH-directed therapy.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventriculomegaly has been reported in a symptomatic child with OPLAH-associated 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}], \"edges\": [{\"source\": \"OPLAH molecular function deficiency\", \"target\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced 5-oxoprolinase activity blocks clearance of 5-oxo-L-proline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"OPLAH molecular function deficiency\", \"target\": \"Reduced 5-oxoprolinase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OPLAH encodes the enzyme measured as reduced 5-oxoprolinase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"OPLAH molecular function deficiency\", \"target\": \"Reduced circulating 5-oxoprolinase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OPLAH molecular dysfunction is directly reflected by reduced measured 5-oxoprolinase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Increased urinary 5-oxoproline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to clear 5-oxo-L-proline causes elevated urinary 5-oxoproline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Increased urinary L-pyroglutamic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urinary L-pyroglutamic acid is the HPO phenotype corresponding to accumulated 5-oxoproline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metabolic acidosis is reported in OPLAH deficiency, but the causal connection to 5-oxoprolinuria is incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoglycemia is an occasional Orphanet phenotype with uncertain mechanistic connection to OPLAH deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding problems occur in symptomatic 5-oxoprolinuria reports, but penetrance and causality remain uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to thrive is an occasional reported manifestation in the variable symptomatic spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental delay is reported in symptomatic patients, but larger series note incomplete segregation with 5-oxoprolinuria.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is an occasional reported neurologic phenotype with uncertain direct mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures are reported in symptomatic patients, but a direct biochemical mechanism is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech delay is part of the reported variable neurologic spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brain atrophy has been reported in a symptomatic OPLAH-deficient patient, but causality remains case-level.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Postnatal macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal macrocephaly has been reported in a symptomatic patient and in Orphanet, without a defined intermediate mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Cerebral hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypomyelination was reported in a symptomatic patient with elevated urinary 5-oxoproline.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventriculomegaly was reported in a symptomatic OPLAH-deficient patient, but mechanism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corpus callosum hypoplasia was reported in a symptomatic OPLAH-deficient patient, with uncertain causality.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Symptomatic neurologic care and longitudinal follow-up\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptomatic neurologic care and longitudinal follow-up\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptomatic neurologic care and longitudinal follow-up\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Molecular genetic testing\", \"target\": \"Increased urinary L-pyroglutamic acid\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Molecular genetic testing\", \"target\": \"Reduced circulating 5-oxoprolinase activity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Increased urinary 5-oxoproline\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated urinary 5-oxoproline directly reports accumulation of the substrate that is not cleared by deficient OPLAH activity.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Increased urinary L-pyroglutamic acid\", \"target\": \"Increased urinary 5-oxoproline\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary 5-oxoproline is the measured metabolite represented clinically as increased urinary L-pyroglutamic acid.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"OPLAH molecular function deficiency\", \"target\": \"Reduced 5-oxoprolinase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced 5-oxoprolinase activity is the direct functional readout of deficient OPLAH molecular function.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reduced circulating 5-oxoprolinase activity\", \"target\": \"Reduced 5-oxoprolinase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity is the biochemical measurement represented by the reduced circulating 5-oxoprolinase activity phenotype.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"OPLAH variants\", \"target\": \"OPLAH molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic private OPLAH variants\", \"target\": \"OPLAH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic private OPLAH variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported affected individuals carry homozygous or compound heterozygous OPLAH variants, many private to individual families. Published functional work supports activity loss for selected missense variants, but clinical penetrance remains uncertain.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral atrophy is an occasional imaging abnormality and has been reported in a recent symptomatic OPLAH case.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Cerebral hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral hypomyelination has been reported in a symptomatic child with OPLAH-associated 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006808\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay is occasional in the reported phenotype spectrum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive is an occasional reported feature of the variable symptomatic spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty has been reported in symptomatic infant presentations of inherited 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The gamma-glutamyl cycle mediates glutathione synthesis and degradation. Impaired 5-oxoprolinase activity causes accumulation of 5-oxo-L-proline, also called pyroglutamic acid, producing the diagnostic 5-oxoprolinuria.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glutathione metabolic process\", \"glutathione biosynthetic process\", \"glutamate metabolic process\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is reported frequently by Orphanet, but literature emphasizes uncertain segregation in some families.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia is an occasional reported metabolic manifestation in Orphanet.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum hypoplasia has been reported in a symptomatic child with OPLAH-associated 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002079\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is an occasional reported neuromuscular manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased urinary 5-oxoproline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18183\", \"term_label\": \"5-oxo-L-proline\", \"readouts\": [{\"target\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated urinary 5-oxoproline directly reports accumulation of the substrate that is not cleared by deficient OPLAH activity.\\n\"}, {\"target\": \"Increased urinary L-pyroglutamic acid\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary 5-oxoproline is the measured metabolite represented clinically as increased urinary L-pyroglutamic acid.\\n\"}]}}, {\"id\": \"Increased urinary L-pyroglutamic acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent urinary 5-oxoproline elevation is the defining biochemical phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0410132\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metabolic acidosis is occasional and is not as consistently associated with OPLAH deficiency as 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Molecular genetic testing\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Molecular testing of OPLAH is important in symptomatic individuals with persistent 5-oxoprolinuria to establish the diagnosis and distinguish OPLAH deficiency from glutathione synthetase deficiency and other overlapping causes of 5-oxoprolinuria.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"OPLAH molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic OPLAH variants reduce ATP-dependent 5-oxoprolinase activity in the gamma-glutamyl cycle. OPLAH encodes 5-oxoprolinase, which normally converts 5-oxo-L-proline to L-glutamate.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"glutathione metabolic process\", \"glutathione biosynthetic process\", \"glutamate metabolic process\"], \"molecular_functions\": [\"5-oxoprolinase (ATP-hydrolyzing) activity\"], \"genes\": [\"OPLAH\"], \"gene_terms\": [{\"label\": \"OPLAH\", \"id\": \"hgnc:8149\"}]}}, {\"id\": \"OPLAH variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"OPLAH\"], \"gene_terms\": [{\"label\": \"OPLAH\", \"id\": \"hgnc:8149\"}], \"variant_count\": 1}}, {\"id\": \"Postnatal macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal macrocephaly is an occasional reported head-size abnormality.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005490\"}}, {\"id\": \"Reduced 5-oxoprolinase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"OPLAH molecular function deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced 5-oxoprolinase activity is the direct functional readout of deficient OPLAH molecular function.\\n\"}, {\"target\": \"Reduced circulating 5-oxoprolinase activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced enzyme activity is the biochemical measurement represented by the reduced circulating 5-oxoprolinase activity phenotype.\\n\"}]}}, {\"id\": \"Reduced circulating 5-oxoprolinase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity is the direct biochemical expression of OPLAH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0040142\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are occasional reported neurologic manifestations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Symptomatic neurologic care and longitudinal follow-up\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying therapy is established for OPLAH deficiency. Management is therefore centered on long-term observation and standard symptomatic care for manifestations such as epilepsy, developmental delay, and speech delay. A reported antioxidant and cofactor regimen did not improve the two OPLAH-deficient patients in one mixed 5-oxoprolinuria series, so this entry does not model that regimen as an effective OPLAH-directed therapy.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventriculomegaly has been reported in a symptomatic child with OPLAH-associated 5-oxoprolinuria.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}], \"edges\": [{\"source\": \"OPLAH molecular function deficiency\", \"target\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced 5-oxoprolinase activity blocks clearance of 5-oxo-L-proline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"OPLAH molecular function deficiency\", \"target\": \"Reduced 5-oxoprolinase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OPLAH encodes the enzyme measured as reduced 5-oxoprolinase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"OPLAH molecular function deficiency\", \"target\": \"Reduced circulating 5-oxoprolinase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OPLAH molecular dysfunction is directly reflected by reduced measured 5-oxoprolinase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Increased urinary 5-oxoproline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to clear 5-oxo-L-proline causes elevated urinary 5-oxoproline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Increased urinary L-pyroglutamic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urinary L-pyroglutamic acid is the HPO phenotype corresponding to accumulated 5-oxoproline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metabolic acidosis is reported in OPLAH deficiency, but the causal connection to 5-oxoprolinuria is incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoglycemia is an occasional Orphanet phenotype with uncertain mechanistic connection to OPLAH deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding problems occur in symptomatic 5-oxoprolinuria reports, but penetrance and causality remain uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to thrive is an occasional reported manifestation in the variable symptomatic spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental delay is reported in symptomatic patients, but larger series note incomplete segregation with 5-oxoprolinuria.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is an occasional reported neurologic phenotype with uncertain direct mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures are reported in symptomatic patients, but a direct biochemical mechanism is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech delay is part of the reported variable neurologic spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brain atrophy has been reported in a symptomatic OPLAH-deficient patient, but causality remains case-level.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Postnatal macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal macrocephaly has been reported in a symptomatic patient and in Orphanet, without a defined intermediate mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Cerebral hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypomyelination was reported in a symptomatic patient with elevated urinary 5-oxoproline.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventriculomegaly was reported in a symptomatic OPLAH-deficient patient, but mechanism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corpus callosum hypoplasia was reported in a symptomatic OPLAH-deficient patient, with uncertain causality.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Symptomatic neurologic care and longitudinal follow-up\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptomatic neurologic care and longitudinal follow-up\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptomatic neurologic care and longitudinal follow-up\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Molecular genetic testing\", \"target\": \"Increased urinary L-pyroglutamic acid\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Molecular genetic testing\", \"target\": \"Reduced circulating 5-oxoprolinase activity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gamma-glutamyl cycle block and 5-oxoproline accumulation\", \"target\": \"Increased urinary 5-oxoproline\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated urinary 5-oxoproline directly reports accumulation of the substrate that is not cleared by deficient OPLAH activity.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Increased urinary L-pyroglutamic acid\", \"target\": \"Increased urinary 5-oxoproline\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary 5-oxoproline is the measured metabolite represented clinically as increased urinary L-pyroglutamic acid.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"OPLAH molecular function deficiency\", \"target\": \"Reduced 5-oxoprolinase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced 5-oxoprolinase activity is the direct functional readout of deficient OPLAH molecular function.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reduced circulating 5-oxoprolinase activity\", \"target\": \"Reduced 5-oxoprolinase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity is the biochemical measurement represented by the reduced circulating 5-oxoprolinase activity phenotype.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"OPLAH variants\", \"target\": \"OPLAH molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic private OPLAH variants\", \"target\": \"OPLAH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">15</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(7)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Feeding difficulties in infancy
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank">
-                            Feeding difficulties in infancy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008872)</span>
-                        </span>
-                        
+                        Feeding difficulties in infancy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008872">HP:0008872</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0008872 | Feeding difficulties in infancy | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports feeding difficulties in infancy as occasional.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25851806" target="_blank">PMID:25851806</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients were hospitalized between the age of 13days to 1year and 3months for hypersomnia, developmental retardation, feeding deficiency, vomiting, icterus and recurrent pneumonia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The Chinese clinical series reported feeding problems among symptomatic 5-oxoprolinuria patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Metabolic acidosis
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank">
-                            Metabolic acidosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001942)</span>
-                        </span>
-                        
+                        Metabolic acidosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001942">HP:0001942</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0001942 | Metabolic acidosis | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports metabolic acidosis as occasional.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypoglycemia
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank">
-                            Hypoglycemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001943)</span>
-                        </span>
-                        
+                        Hypoglycemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001943">HP:0001943</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0001943 | Hypoglycemia | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports hypoglycemia as occasional.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypotonia
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank">
-                            Hypotonia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001252)</span>
-                        </span>
-                        
+                        Hypotonia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0001252 | Hypotonia | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports hypotonia as occasional.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">7</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Global developmental delay
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
-                            Global developmental delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
-                        </span>
-                        
+                        Global developmental delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0001263 | Global developmental delay | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports global developmental delay as frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25851806" target="_blank">PMID:25851806</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"developmental retardation"</div>
-                
-                
+
+
                 <div class="evidence-explanation">A Chinese clinical series reported developmental delay among symptomatic patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizure
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
-                            Seizure
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001250)</span>
-                        </span>
-                        
+                        Seizure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0001250 | Seizure | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports seizures as occasional.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"presented with epilepsy at the age of 2 years."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case report documents epilepsy in a child with a homozygous OPLAH variant.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Delayed speech and language development
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank">
-                            Delayed speech and language development
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000750)</span>
-                        </span>
-                        
+                        Delayed speech and language development
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000750 | Delayed speech and language development | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports delayed speech and language development as occasional.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"He did not speak fluently. He was using 5-10 words with decreased language fluency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent case report documents impaired speech fluency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cerebral atrophy
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank">
-                            Cerebral atrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002059)</span>
-                        </span>
-                        
+                        Cerebral atrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002059">HP:0002059</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0002059 | Cerebral atrophy | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports cerebral atrophy as occasional.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent case report documents cerebral atrophy among brain MRI findings.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cerebral hypomyelination
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank">
-                            Cerebral hypomyelination
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006808)</span>
-                        </span>
-                        
+                        Cerebral hypomyelination
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006808">HP:0006808</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent case report documents cerebral hypomyelination among brain MRI findings.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Ventriculomegaly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank">
-                            Ventriculomegaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002119)</span>
-                        </span>
-                        
+                        Ventriculomegaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002119">HP:0002119</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent case report documents ventriculomegaly among brain MRI findings.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypoplasia of the corpus callosum
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank">
-                            Hypoplasia of the corpus callosum
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002079)</span>
-                        </span>
-                        
+                        Hypoplasia of the corpus callosum
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002079">HP:0002079</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent case report documents corpus callosum hypoplasia among brain MRI findings.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Failure to thrive
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank">
-                            Failure to thrive
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001508)</span>
-                        </span>
-                        
+                        Failure to thrive
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0001508 | Failure to thrive | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports failure to thrive as occasional.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Increased urinary L-pyroglutamic acid
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0410132" target="_blank">
-                            Increased level of L-pyroglutamic acid in urine
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0410132)</span>
-                        </span>
-                        
+                        Increased level of L-pyroglutamic acid in urine
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410132" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0410132">HP:0410132</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0410132 | Increased level of L-pyroglutamic acid in urine | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports increased urinary L-pyroglutamic acid as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In all patients with 5-oxoprolinuria studied"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The mutation series is anchored on patients ascertained for 5-oxoprolinuria.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Reduced circulating 5-oxoprolinase activity
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0040142" target="_blank">
-                            Reduced circulating 5-oxoprolinase activity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0040142)</span>
-                        </span>
-                        
+                        Reduced circulating 5-oxoprolinase activity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040142" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040142">HP:0040142</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0040142 | Reduced circulating 5-oxoprolinase activity | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports reduced circulating 5-oxoprolinase activity as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Postnatal macrocephaly
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005490" target="_blank">
-                            Postnatal macrocephaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005490)</span>
-                        </span>
-                        
+                        Postnatal macrocephaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005490" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005490">HP:0005490</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0005490 | Postnatal macrocephaly | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports postnatal macrocephaly as occasional.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"His past medical history revealed postnatal macrocephaly, hydrocephalus, and well-controlled epilepsy with levetiracetam."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent case report documents postnatal macrocephaly in a symptomatic OPLAH-deficient child.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4809,826 +4992,884 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     OPLAH variants
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: OPLAH
+
+
+    <a href="https://bioregistry.io/hgnc:8149" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8149">hgnc:8149</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21651516" target="_blank">PMID:21651516</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"mutation in OPLAH (which encodes 5-oxoprolinase)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">First molecular report links OPLAH to 5-oxoprolinase deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"the absence of 5-oxoprolinuria in all tested heterozygotes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports recessive biochemical expression and absence of the urinary biomarker in tested carriers.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Symptomatic neurologic care and longitudinal follow-up
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy is established for OPLAH deficiency. Management is therefore centered on long-term observation and standard symptomatic care for manifestations such as epilepsy, developmental delay, and speech delay. A reported antioxidant and cofactor regimen did not improve the two OPLAH-deficient patients in one mixed 5-oxoprolinuria series, so this entry does not model that regimen as an effective OPLAH-directed therapy.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Global developmental delay
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delayed speech and language development
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"No treatment has been recommended for gamma-glutamyl transpeptidase, 5-oxoprolinase and dipeptidase deficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Glutathione-metabolism review supports absence of an established disease-specific therapy.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25851806" target="_blank">PMID:25851806</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"After treatment by l-carnitine, vitamin E, B1, B2 and coenzyme Q10, three patients with GSS deficiency improved, but the two 5-oxoprolinase-deficient patients did not respond to treatment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical series supports not modeling antioxidant/cofactor therapy as effective for OPLAH-deficient patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"well-controlled epilepsy with levetiracetam"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case report supports standard symptomatic seizure management in an OPLAH-deficient patient.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Molecular genetic testing
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic testing</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000127" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000127</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000127" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000127">MAXO:0000127</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Molecular testing of OPLAH is important in symptomatic individuals with persistent 5-oxoprolinuria to establish the diagnosis and distinguish OPLAH deficiency from glutathione synthetase deficiency and other overlapping causes of 5-oxoprolinuria.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased level of L-pyroglutamic acid in urine
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0410132" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410132" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0410132">HP:0410132</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Reduced circulating 5-oxoprolinase activity
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0040142" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040142" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040142">HP:0040142</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21651516" target="_blank">PMID:21651516</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"highlights the importance of establishing a molecular diagnosis"</div>
-                
-                
+
+
                 <div class="evidence-explanation">First molecular report emphasizes molecular diagnosis in clinically abnormal cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25851806" target="_blank">PMID:25851806</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Genetic analysis is important for the deferential diagnosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical series supports genetic testing to distinguish OPLAH from GSS deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses autosomal recessive inheritance, recurrence risk, carrier testing, and interpretation of biallelic private OPLAH variants in families with confirmed OPLAH deficiency.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autosomal recessive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports autosomal recessive inheritance, supporting recurrence-risk counseling.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"all 20 mutations identified were novel and private"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Private family-specific variants support individualized counseling and family testing.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Increased urinary 5-oxoproline
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Urinary 5-oxoproline, also called L-pyroglutamic acid, is persistently increased and is the primary biochemical marker for OPLAH deficiency.
 </div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Gamma-glutamyl cycle block and 5-oxoproline accumulation</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Positive
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Elevated urinary 5-oxoproline directly reports accumulation of the substrate that is not cleared by deficient OPLAH activity.
 </div>
-                        
-                        
-                        
-                        
-    
-    
+
+
+
+
+
+
                     </div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Increased urinary L-pyroglutamic acid</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Positive
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Urinary 5-oxoproline is the measured metabolite represented clinically as increased urinary L-pyroglutamic acid.
 </div>
-                        
-                        
-                        
-                        
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0410132 | Increased level of L-pyroglutamic acid in urine | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet maps the urinary 5-oxoproline abnormality to the L-pyroglutamic-acid HPO phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"quantitation of 5-oxoproline by stable isotope dilution gave a value of 177.9"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case report provides quantitative urinary 5-oxoproline elevation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0410132 | Increased level of L-pyroglutamic acid in urine | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet supports increased urinary L-pyroglutamic acid as the dominant biochemical phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Reduced 5-oxoprolinase activity
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: OPLAH variants reduce 5-oxoprolinase activity, blocking the ATP-dependent conversion of 5-oxo-L-proline in the gamma-glutamyl cycle.
 </div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">OPLAH molecular function deficiency</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Negative
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Reduced 5-oxoprolinase activity is the direct functional readout of deficient OPLAH molecular function.
 </div>
-                        
-                        
-                        
-                        
-    
-    
+
+
+
+
+
+
                     </div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Reduced circulating 5-oxoprolinase activity</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Negative
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Reduced enzyme activity is the biochemical measurement represented by the reduced circulating 5-oxoprolinase activity phenotype.
 </div>
-                        
-                        
-                        
-                        
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0040142 | Reduced circulating 5-oxoprolinase activity | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet supports reduced circulating 5-oxoprolinase activity as the corresponding biochemical phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25129617" target="_blank">PMID:25129617</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"revealed that only p.S323R, p.G860R and p.D1241V affected the activity of the"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional assay supports reduced 5-oxoprolinase activity for selected OPLAH missense variants.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0040142 | Reduced circulating 5-oxoprolinase activity | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet supports reduced 5-oxoprolinase activity as very frequent.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6574,288 +6815,288 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">14</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                             </div>
-                            
+
                             <div class="reference-title">5-oxoprolinase deficiency</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                             </div>
-                            
+
                             <div class="reference-title">Inborn errors in the metabolism of glutathione.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/21651516" target="_blank">PMID:21651516</a>
                             </div>
-                            
+
                             <div class="reference-title">5-Oxoprolinase deficiency: report of the first human OPLAH mutation.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/25129617" target="_blank">PMID:25129617</a>
                             </div>
-                            
+
                             <div class="reference-title">New insights into the genetics of 5-oxoprolinase deficiency and further evidence that it is a benign biochemical condition.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/25851806" target="_blank">PMID:25851806</a>
                             </div>
-                            
+
                             <div class="reference-title">Five Chinese patients with 5-oxoprolinuria due to glutathione synthetase and 5-oxoprolinase deficiencies.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                             </div>
-                            
+
                             <div class="reference-title">Unravelling 5-oxoprolinuria (pyroglutamic aciduria) due to bi-allelic OPLAH mutations: 20 new mutations in 14 families.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                             </div>
-                            
+
                             <div class="reference-title">Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1111/j.1399-0004.2011.01728.x" target="_blank">DOI:10.1111/j.1399-0004.2011.01728.x</a>
                             </div>
-                            
+
                             <div class="reference-title">5-Oxoprolinase deficiency: report of the first human OPLAH mutation</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/8904_2012_166" target="_blank">DOI:10.1007/8904_2012_166</a>
                             </div>
-                            
+
                             <div class="reference-title">5-Oxoprolinuria in Heterozygous Patients for 5-Oxoprolinase (OPLAH) Missense Changes</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1159/000536295" target="_blank">DOI:10.1159/000536295</a>
                             </div>
-                            
+
                             <div class="reference-title">Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/jcm13195781" target="_blank">DOI:10.3390/jcm13195781</a>
                             </div>
-                            
+
                             <div class="reference-title">Drug-Related Pyroglutamic Acidosis: Systematic Literature Review</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.clinme.2024.100030" target="_blank">DOI:10.1016/j.clinme.2024.100030</a>
                             </div>
-                            
+
                             <div class="reference-title">Pyroglutamate acidosis 2023. A review of 100 cases</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1074/jbc.m117.805028" target="_blank">DOI:10.1074/jbc.m117.805028</a>
                             </div>
-                            
+
                             <div class="reference-title">Discovery of a widespread prokaryotic 5-oxoprolinase that was hiding in plain sight</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.19185/matters.201609000009" target="_blank">DOI:10.19185/matters.201609000009</a>
                             </div>
-                            
+
                             <div class="reference-title">Carnitine Palmitoyltransfersase-1c and 5-oxoprolinase interact in the mouse brain</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Cyberian Codex</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Evidence Basis</div>
-                            
-                            
+
+
                             <span class="report-badge">codex-local-synthesis</span>
-                            
-                            
+
+
                             <span class="report-badge">7 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-03T11:03:39Z</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h3>Evidence Basis</h3>
 <p>This local Codex synthesis uses the cached Orphanet record for ORPHA:33572 and
@@ -6905,29 +7146,29 @@ this disease returned off-topic literature and was not used.</p>
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Characteristics Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">16 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-29T20:22:26.218487</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -7780,11 +8021,11 @@ For each section, provide:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
