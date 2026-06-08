@@ -228,6 +228,43 @@ Edge cases:
 - In silico “modeling studies” belong to COMPUTATIONAL, even if they use clinical datasets as input.
 - If a paper mixes sources, split evidence items so each item gets a single `evidence_source`.
 
+### Primary MONDO Disease Anchor (`disease_term`)
+
+> **Status:** Proposed decision rule, pending maintainer ratification ([#3881](https://github.com/monarch-initiative/dismech/issues/3881)). It codifies current practice — empirically, ~99.7% of current entries already carry a top-level MONDO `disease_term`, and every present exception is a MONDO gap, not a standing exception.
+
+Every primary dismech **disease** entry should resolve to a single top-level
+`disease_term.term.id` MONDO identifier. The primary anchor range is MONDO
+(disease / inherited disease susceptibility) only — NCIT is allowed for cancer
+`subtype_term` facets but **not** for the primary entry anchor, so "no MONDO ID
+on the primary entry" means "no anchor at all," not "anchored elsewhere."
+
+When a candidate primary anchor is missing, ask **"Is this a disease/disorder?"**
+
+1. **Yes, and MONDO has a term** → anchor to it. This is the default. (See
+   [#795](https://github.com/monarch-initiative/dismech/issues/795) for the SOP
+   on partial / inexact matches and `skos:closeMatch`/`broadMatch`.)
+2. **Yes, but MONDO lacks it** → **file a MONDO NTR**; temporarily document the
+   intended target in `notes`. "Missing MONDO ID" on a disease entry is *always*
+   a MONDO gap to be closed, never a permanent state. (This is the worklist of
+   epic [#3691](https://github.com/monarch-initiative/dismech/issues/3691);
+   `FICUS_syndrome.yaml` already documents its intended target this way.)
+3. **No — it is a recurring pathophysiological *process / state*** (e.g.
+   dysbiosis, a fibrotic response, a signaling-adaptation pattern) → model it in
+   `kb/modules/` and/or as a `pathophysiology` node inside the relevant
+   MONDO-anchored disease(s). It is **not** a standalone disease entry. (Example:
+   oral microbiome dysbiosis lives as a pathophysiology node inside the
+   MONDO-anchored `Dental_Caries.yaml`, not as its own anchorless entry.)
+4. **No — it is a *phenotype / sign*** → reference it from **HPO** via
+   `phenotype_term`; do not create a disease entry.
+
+**Net:** a primary disease entry should *always* resolve to a MONDO ID (rule
+1/2). The only legitimate "no MONDO ID" situations are when the thing **is not a
+disease**, in which case the correct home is a module/node (3) or HPO (4) — i.e.
+it should not be a primary entry in the first place. Reject "file a MONDO NTR"
+for non-disease processes (MONDO correctly declines non-diseases) and reject
+"model as an HPO phenotype" for multi-step processes (a process is not a single
+phenotype).
+
 ### Ontology Term Mappings
 When adding enum values with `meaning` fields, the description MUST exactly match the ontology term's canonical label. Use OAK to verify:
 ```bash
