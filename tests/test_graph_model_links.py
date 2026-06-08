@@ -18,6 +18,67 @@ def test_genetic_item_infers_mechanism_edges_respects_relationship_type() -> Non
     assert not _genetic_item_infers_mechanism_edges({"relationship_type": "PROTECTIVE"})
 
 
+def test_graph_to_json_includes_gene_ids_and_structured_genetic_metadata() -> None:
+    disorder = {
+        "name": "AIP example",
+        "pathophysiology": [
+            {
+                "name": "Biallelic AIP-deficient somatotroph state",
+                "gene": {
+                    "preferred_term": "AIP",
+                    "modifier": "ABSENT",
+                    "term": {"id": "hgnc:358", "label": "AIP"},
+                },
+                "genetic_context": {
+                    "gene": {
+                        "preferred_term": "AIP",
+                        "term": {"id": "hgnc:358", "label": "AIP"},
+                    },
+                    "variant_origin": "GERMLINE_AND_SOMATIC",
+                    "allelic_hit_role": "BIALLELIC_INACTIVATION",
+                    "allelic_events": ["BIALLELIC_INACTIVATION"],
+                    "functional_impact_category": "LOSS_OF_FUNCTION",
+                },
+            }
+        ],
+        "genetic": [
+            {
+                "name": "AIP",
+                "gene_term": {
+                    "preferred_term": "AIP",
+                    "term": {"id": "hgnc:358", "label": "AIP"},
+                },
+                "association": (
+                    "Germline predisposition with somatic second-hit inactivation"
+                ),
+                "relationship_type": "SUSCEPTIBILITY",
+                "variant_origin": "GERMLINE_AND_SOMATIC",
+            }
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+    node_meta = {node["id"]: node.get("meta", {}) for node in data["nodes"]}
+
+    assert node_meta["AIP"]["genes"] == ["AIP"]
+    assert node_meta["AIP"]["gene_terms"] == [{"label": "AIP", "id": "hgnc:358"}]
+    assert node_meta["AIP"]["relationship_type"] == "SUSCEPTIBILITY"
+    assert node_meta["AIP"]["variant_origin"] == "GERMLINE_AND_SOMATIC"
+    assert node_meta["Biallelic AIP-deficient somatotroph state"]["gene_terms"] == [
+        {"label": "AIP", "id": "hgnc:358", "modifier": "ABSENT"}
+    ]
+    assert node_meta["Biallelic AIP-deficient somatotroph state"][
+        "genetic_context"
+    ] == {
+        "variant_origin": "GERMLINE_AND_SOMATIC",
+        "allelic_hit_role": "BIALLELIC_INACTIVATION",
+        "functional_impact_category": "LOSS_OF_FUNCTION",
+        "allelic_events": ["BIALLELIC_INACTIVATION"],
+        "gene_terms": [{"label": "AIP", "id": "hgnc:358"}],
+    }
+
+
 def test_graph_to_json_includes_experimental_and_computational_model_links() -> None:
     """Pathophysiology nodes should expose linked model metadata in graph JSON."""
     disorder = {
