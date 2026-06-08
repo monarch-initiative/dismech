@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Acromesomelic Dysplasia Maroteaux Type</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0011275" target="_blank">
                         MONDO:0011275
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Skeletal Dysplasia</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,12 +2989,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Acromesomelic dysplasia, Maroteaux type (AMDM) is a rare autosomal recessive skeletal dysplasia caused by biallelic loss-of-function mutations in NPR2, encoding natriuretic peptide receptor B (NPR-B). Loss of NPR-B disrupts C-type natriuretic peptide (CNP) signaling in growth plate chondrocytes, reducing intracellular cGMP and impairing endochondral ossification. The disorder is characterized by severe disproportionate short stature with predominant shortening of the middle and distal limb segments, brachydactyly, and mild vertebral changes. Intelligence is generally reported as normal, and facial features are typically unremarkable, though frontal prominence and a short nose have been described. Adult height is typically below 120 cm.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2994,34 +3064,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3029,8 +3099,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3038,9 +3108,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3048,10 +3118,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3059,8 +3129,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3068,8 +3138,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3077,15 +3147,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3093,662 +3163,754 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal Recessive
-                    
+
                 </div>
-                
+
                 <div class="item-desc">AMDM is inherited in an autosomal recessive pattern due to biallelic loss-of-function mutations in NPR2. Obligate heterozygous carriers have heights below the population mean.
 </div>
-                
-                
-    
-    
-    
-    
-                
-    
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15146390" target="_blank">PMID:15146390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We sequenced DNA from 21 families affected by AMDM and found 4 nonsense mutations, 4 frameshift mutations, 2 splice-site mutations, and 11 missense mutations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identification of biallelic NPR2 mutations in 21 AMDM families confirms autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15146390" target="_blank">PMID:15146390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We also found that obligate carriers of NPR2 mutations have heights that are below the mean for matched controls."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Carrier effect on stature confirms gene dosage sensitivity but recessive pattern for the full phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cnp-npr-b-cgmp-signaling-in-growth-plate">
                 <div class="item-name">Impaired CNP-NPR-B-cGMP Signaling in Growth Plate</div>
-                
+
                 <div class="item-desc">NPR-B is a transmembrane guanylyl cyclase receptor that converts GTP to cGMP upon binding its ligand CNP. Biallelic loss-of-function mutations in NPR2 eliminate cGMP production in growth plate chondrocytes, disrupting downstream signaling that normally promotes chondrocyte proliferation and hypertrophy.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Growth plate chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        NPR2
-                        
-                        <a href="https://bioregistry.io/hgnc:7944" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NPR2
+
+
+    <a href="https://bioregistry.io/hgnc:7944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7944">hgnc:7944</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Chondrocyte Hypertrophy
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0003415" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0003415" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003415">GO:0003415</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cGMP Biosynthesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006182" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006182" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006182">GO:0006182</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         receptor guanylyl cyclase activity
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0004383" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004383" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004383">GO:0004383</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         natriuretic peptide receptor activity
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0016941" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016941" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016941">GO:0016941</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Reduced Longitudinal Bone Growth</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15146390" target="_blank">PMID:15146390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We conclude that, although NPR-B is expressed in a number of tissues, its major role is in the regulation of skeletal growth."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes the primacy of NPR-B in skeletal growth regulation, the pathway disrupted in AMDM.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25319082" target="_blank">PMID:25319082</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The main physeal abnormality was a markedly shortened hypertrophic zone"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The cn/cn mouse model demonstrates that loss of NPR-B function leads to a shortened hypertrophic zone in the growth plate, the proximate cause of reduced bone length.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23065701" target="_blank">PMID:23065701</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We determined that the loss of Npr2 causes a reduction in the hypertrophic and proliferative zones of the growth plate, but mineralization of skeletal elements is normal."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The Npr2-pwe mouse confirms that loss of NPR-B reduces both proliferative and hypertrophic zones while mineralization is preserved.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-longitudinal-bone-growth">
                 <div class="item-name">Reduced Longitudinal Bone Growth</div>
-                
+
                 <div class="item-desc">Impaired chondrocyte hypertrophy and proliferation in the growth plate result in shortened endochondral bones, affecting limbs (particularly middle and distal segments) and vertebral bodies. Normal ultrastructure of individual chondrocytes indicates the defect is in growth plate organization rather than intrinsic cell structure.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Growth plate chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Endochondral Bone Growth
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0003416" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0003416" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003416">GO:0003416</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Endochondral Ossification
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Chondrocyte Proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0035988" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0035988" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035988">GO:0035988</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25319082" target="_blank">PMID:25319082</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Cn/cn mice were two thirds the size of the cn/+."</div>
-                
-                
+
+
                 <div class="evidence-explanation">In the cn/cn mouse, body size is approximately two thirds of normal, demonstrating the severity of growth reduction from NPR-B loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25319082" target="_blank">PMID:25319082</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The disorder causes a shortened physeal hypertrophic zone but normal ultrastructure of cn/cn chondrocytes points to abnormality primarily affecting the hypertrophic zone rather than a structural cell or matrix synthesis problem."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Normal chondrocyte ultrastructure indicates the defect is in growth plate zone organization, not individual cell pathology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgf-npr2-signaling-crosstalk">
                 <div class="item-name">FGF-NPR2 Signaling Crosstalk</div>
-                
+
                 <div class="item-desc">FGF receptor signaling promotes dephosphorylation of NPR2, reducing its guanylyl cyclase activity and lowering cGMP in growth plate chondrocytes. This regulatory mechanism positions NPR-B as a convergence point where both loss-of-function mutations (AMDM) and excessive FGF signaling (achondroplasia) impair bone elongation.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Growth plate chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Intracellular Signal Transduction
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0035556" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0035556" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035556">GO:0035556</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29199951" target="_blank">PMID:29199951</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Activating mutations in fibroblast growth factor (FGF) receptor 3 and inactivating mutations in the NPR2 guanylyl cyclase both cause severe short stature"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Introduces the convergence of FGF and NPR2 signaling pathways in skeletal growth regulation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29199951" target="_blank">PMID:29199951</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"FGF-induced dephosphorylation of NPR2 decreases its guanylyl cyclase activity in growth plate chondrocytes in living bone."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that FGF signaling negatively regulates NPR2 activity through dephosphorylation, providing a mechanistic link between FGF pathway disorders and NPR-B dysfunction.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3759,765 +3921,795 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Impaired CNP-NPR-B-cGMP Signaling in Growth Plate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NPR-B is a transmembrane guanylyl cyclase receptor that converts GTP to cGMP upon binding its ligand CNP. Biallelic loss-of-function mutations in NPR2 eliminate cGMP production in growth plate chondrocytes, disrupting downstream signaling that normally promotes chondrocyte proliferation and hypertrophy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Chondrocyte Hypertrophy\", \"cGMP Biosynthesis\"], \"molecular_functions\": [\"receptor guanylyl cyclase activity\", \"natriuretic peptide receptor activity\"], \"genes\": [\"NPR2\"]}}, {\"id\": \"NPR2 Loss-of-Function Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NPR2\"], \"association\": \"Causative\"}}, {\"id\": \"Reduced Longitudinal Bone Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired chondrocyte hypertrophy and proliferation in the growth plate result in shortened endochondral bones, affecting limbs (particularly middle and distal segments) and vertebral bodies. Normal ultrastructure of individual chondrocytes indicates the defect is in growth plate organization rather than intrinsic cell structure.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Endochondral Bone Growth\", \"Endochondral Ossification\", \"Chondrocyte Proliferation\"]}}], \"edges\": [{\"source\": \"Impaired CNP-NPR-B-cGMP Signaling in Growth Plate\", \"target\": \"Reduced Longitudinal Bone Growth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NPR2 Loss-of-Function Mutations\", \"target\": \"Impaired CNP-NPR-B-cGMP Signaling in Growth Plate\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Impaired CNP-NPR-B-cGMP Signaling in Growth Plate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NPR-B is a transmembrane guanylyl cyclase receptor that converts GTP to cGMP upon binding its ligand CNP. Biallelic loss-of-function mutations in NPR2 eliminate cGMP production in growth plate chondrocytes, disrupting downstream signaling that normally promotes chondrocyte proliferation and hypertrophy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Chondrocyte Hypertrophy\", \"cGMP Biosynthesis\"], \"molecular_functions\": [\"receptor guanylyl cyclase activity\", \"natriuretic peptide receptor activity\"], \"genes\": [\"NPR2\"], \"gene_terms\": [{\"label\": \"NPR2\", \"id\": \"hgnc:7944\"}]}}, {\"id\": \"NPR2 Loss-of-Function Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NPR2\"], \"gene_terms\": [{\"label\": \"NPR2\", \"id\": \"hgnc:7944\"}], \"association\": \"Causative\"}}, {\"id\": \"Reduced Longitudinal Bone Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired chondrocyte hypertrophy and proliferation in the growth plate result in shortened endochondral bones, affecting limbs (particularly middle and distal segments) and vertebral bodies. Normal ultrastructure of individual chondrocytes indicates the defect is in growth plate organization rather than intrinsic cell structure.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Endochondral Bone Growth\", \"Endochondral Ossification\", \"Chondrocyte Proliferation\"]}}], \"edges\": [{\"source\": \"Impaired CNP-NPR-B-cGMP Signaling in Growth Plate\", \"target\": \"Reduced Longitudinal Bone Growth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NPR2 Loss-of-Function Mutations\", \"target\": \"Impaired CNP-NPR-B-cGMP Signaling in Growth Plate\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">10</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(7)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
                     <span class="cat-count">7</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Acromesomelic Limb Shortening
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003086" target="_blank">
-                            Acromesomelia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003086)</span>
-                        </span>
-                        
+                        Acromesomelia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003086" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003086">HP:0003086</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34162036" target="_blank">PMID:34162036</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is a rare type of dwarfism characterized by shortening of the middle and distal segments of the limbs with spondylar dysplasia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Nine-patient series supports the classic acromesomelic pattern affecting the middle and distal limb segments.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30359775" target="_blank">PMID:30359775</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Acromesomelic dysplasia type Maroteaux (AMDM) is characterized by extreme shortening of the forelimbs and disproportionate short stature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms the characteristic acromesomelic pattern of limb shortening.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Brachydactyly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank">
-                            Brachydactyly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001156)</span>
-                        </span>
-                        
+                        Brachydactyly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001156">HP:0001156</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694885" target="_blank">PMID:32694885</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"She had acromesomelic shortening of limbs and severe brachydactyly."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical description of brachydactyly in a confirmed AMDM patient.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34178199" target="_blank">PMID:34178199</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinically he has mild mesomelic shortening, more evident in his upper limbs, and brachydactyly"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Brachydactyly documented even in mild AMDM cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cone-Shaped Epiphyses
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0010230" target="_blank">
-                            Cone-shaped epiphyses of the phalanges of the hand
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0010230)</span>
-                        </span>
-                        
+                        Cone-shaped epiphyses of the phalanges of the hand
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010230" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010230">HP:0010230</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34178199" target="_blank">PMID:34178199</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"DP left hand (A) with broadening and shortening of the bones, and significant coned appearance of the epiphyses"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Radiographic demonstration of cone-shaped epiphyses in AMDM patient.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short Metacarpals
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank">
-                            Short metacarpal
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0010049)</span>
-                        </span>
-                        
+                        Short metacarpal
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010049">HP:0010049</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694885" target="_blank">PMID:32694885</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Radiological examination showed that her metacarpals and phalanges were short and wide"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Radiological documentation of short, wide metacarpals in AMDM.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short Feet
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank">
-                            Short foot
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001773)</span>
-                        </span>
-                        
+                        Short foot
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001773">HP:0001773</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35368703" target="_blank">PMID:35368703</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Acromesomelic dysplasia, Maroteaux type (AMDM) is a rare skeletal dysplasia characterized by severe disproportionate short stature, short hands and feet, normal intelligence, and facial dysmorphism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The 2022 AMDM report explicitly identifies short feet as part of the core clinical phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34178199" target="_blank">PMID:34178199</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Photographs showing brachydactyly with broad fingers (A) and short, broad toes and feet (B)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical photographs in a genetically confirmed AMDM case document short, broad feet.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Radial Bowing
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002986" target="_blank">
-                            Radial bowing
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002986)</span>
-                        </span>
-                        
+                        Radial bowing
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002986" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002986">HP:0002986</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34178199" target="_blank">PMID:34178199</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Radial bowing, flared metaphysis and occasional hypoplasia of the distal radius"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Radial bowing listed as a typical finding in AMDM in a clinical comparison table of characteristic skeletal features.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short Forearms
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005773" target="_blank">
-                            Short forearm
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005773)</span>
-                        </span>
-                        
+                        Short forearm
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005773" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005773">HP:0005773</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30359775" target="_blank">PMID:30359775</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Acromesomelic dysplasia type Maroteaux (AMDM) is characterized by extreme shortening of the forelimbs and disproportionate short stature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Extreme forelimb shortening is highlighted as a defining feature of AMDM.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Platyspondyly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank">
-                            Platyspondyly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000926)</span>
-                        </span>
-                        
+                        Platyspondyly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000926">HP:0000926</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694885" target="_blank">PMID:32694885</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Her vertebral bodies were mildly flattened"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Radiographic platyspondyly documented in confirmed AMDM patient.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34178199" target="_blank">PMID:34178199</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pear shaped vertebral bodies with a shorter posterior versus anterior height"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Characteristic vertebral wedging described in AMDM.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Severe Disproportionate Short Stature
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank">
-                            Disproportionate short stature
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003498)</span>
-                        </span>
-                        
+                        Disproportionate short stature
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003498">HP:0003498</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34178199" target="_blank">PMID:34178199</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Postnatal skeletal growth is reduced and final height is usually below 120 cm"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review of AMDM literature confirms adult height typically below 120 cm.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35368703" target="_blank">PMID:35368703</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Acromesomelic dysplasia, Maroteaux type (AMDM) is a rare skeletal dysplasia characterized by severe disproportionate short stature, short hands and feet, normal intelligence, and facial dysmorphism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent clinical series-level description explicitly identifies severe disproportionate short stature as a defining phenotype of AMDM.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694885" target="_blank">PMID:32694885</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Her height was 119.0 cm (-7.4 SD) and weight 35 kg (-2.3 SD)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Specific clinical measurement in a 25-year-old AMDM patient consistent with the expected severe short stature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Lumbar Interpedicular Narrowing
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008486" target="_blank">
-                            Lumbar interpedicular narrowing
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008486)</span>
-                        </span>
-                        
+                        Lumbar interpedicular narrowing
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008486">HP:0008486</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34178199" target="_blank">PMID:34178199</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"failure of widening of the lumbar interpedicular distances with some shortening of the pedicles."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The skeletal survey documents the characteristic lumbar interpedicular narrowing pattern in AMDM.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4542,328 +4734,356 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     NPR2 Loss-of-Function Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NPR2
+
+
+    <a href="https://bioregistry.io/hgnc:7944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7944">hgnc:7944</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15146390" target="_blank">PMID:15146390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Three missense mutations were tested in a functional assay and were found to have markedly deficient guanylyl cyclase activity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional assays confirm that NPR2 missense mutations eliminate guanylyl cyclase activity, establishing loss-of-function as the disease mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694885" target="_blank">PMID:32694885</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Cells expressing HA-R388Q-NPRB showed negligible cGMP responses to C-type natriuretic peptide (CNP) stimulation, indicating that the mutation led to severe loss-of-function."</div>
-                
-                
+
+
                 <div class="evidence-explanation">In vitro functional study of the R388Q variant demonstrates loss of cGMP production and defective membrane trafficking.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30359775" target="_blank">PMID:30359775</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Several homozygous inactivating mutations in NPR2 have been identified in different AMDM patients. We report five novel variants in affected individuals in four different families."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Continued identification of novel NPR2 variants in additional AMDM families broadens the mutational spectrum and confirms genetic homogeneity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Recombinant Human Growth Hormone
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">human growth hormone replacement therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000780" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000780</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000780" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000780">MAXO:0000780</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">AMDM patients show relative GH resistance due to the intrinsic growth plate defect. Long-term high-dose GH therapy can partially overcome this resistance and improve final height above untreated expectations. CNP analogs such as vosoritide require functional NPR-B and are therefore not applicable in AMDM.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33238275" target="_blank">PMID:33238275</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our results confirm the finding of relative GH resistance in AMDM, which when overcome with high-dose GH treatment resulted in improved height SDS during childhood and adolescence and associated quality of life."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Long-term high-dose GH treatment in two siblings produced final heights of 130.5 and 134 cm, above the typical 120 cm for untreated AMDM, confirming partial GH resistance that can be overcome with aggressive dosing.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34178199" target="_blank">PMID:34178199</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Some individuals with AMDM have been treated with recombinant human growth hormone therapy with a variable response"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Growth hormone therapy has been attempted with variable response; the growth defect is intrinsic to the growth plate.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive inheritance of AMDM requires genetic counseling for affected individuals and their families. Obligate heterozygous carriers have heights below the population mean, which is relevant for reproductive planning and family screening. Biallelic NPR2 variant confirmation enables carrier testing for siblings and prenatal or preimplantation genetic testing for at-risk couples.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15146390" target="_blank">PMID:15146390</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We also found that obligate carriers of NPR2 mutations have heights that are below the mean for matched controls."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Carrier heterozygotes have measurably reduced stature, establishing clinical relevance for family genetic counseling and carrier screening.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5577,42 +5797,42 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>OpenAI</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Pathophysiology of Acromesomelic Dysplasia, Maroteaux Type (AMDM)</div>
-                            
-                            
+
+
                             <span class="report-badge">o3-deep-research-2025-06-26</span>
-                            
-                            
+
+
                             <span class="report-badge">80 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-02T22:53:50.576643</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Pathophysiology of Acromesomelic Dysplasia, Maroteaux Type (AMDM)</h1>
 <p><strong>Disease Name:</strong> Acromesomelic Dysplasia, Maroteaux Type<br />
@@ -5681,11 +5901,11 @@ notes: &gt;-
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

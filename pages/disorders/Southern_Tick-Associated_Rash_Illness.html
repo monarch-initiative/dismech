@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Southern Tick-Associated Rash Illness</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Infectious</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0025294" target="_blank">
                         MONDO:0025294
                     </a>
                 </span>
-                
-                
-                
+
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Tick-Borne Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Dermatologic Disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,11 +2989,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Southern tick-associated rash illness (STARI) is an acute lone-star-tick-associated erythema-migrans-like syndrome reported mainly in the southeastern, south-central, and broader eastern United States. Its presentation overlaps early Lyme disease, but microbiologic studies have not confirmed Borrelia burgdorferi, Borrelia lonestari, or another defined bacterial pathogen as the cause, and no validated laboratory diagnostic test exists. In the classic Missouri cohorts, patients were less symptomatic, more often had smaller circular lesions with central clearing, and recovered more rapidly after empiric antibiotic treatment than New York patients with early Lyme disease.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2993,40 +3063,40 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3034,8 +3104,8 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#definitions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📘</div>
@@ -3043,9 +3113,9 @@
                 <div class="stat-label">Definitions</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3053,9 +3123,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3063,14 +3133,14 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
@@ -3078,13 +3148,13 @@
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3092,962 +3162,992 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0025294" target="_blank">MONDO:0025294</a>
-                        
-                        
+
+
                         <span class="mapping-label">tick-borne infectious disease</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:closeMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">MONDO</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">Closest available MONDO parent term while MONDO new term request #9873 for southern tick-associated rash illness remains open.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="mapping-section">
                 <div class="classification-category">NCIT</div>
-                
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/NCIT_C128427" target="_blank">NCIT:C128427</a>
-                        
-                        
+
+
                         <span class="mapping-label">Southern Tick-Associated Rash Illness</span>
-                        
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">NCIT</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">Direct NCIT disease concept for STARI / Masters disease.</div>
-                    
-                    
+
+
                     <ul class="mapping-tree">
-                        
+
                         <li style="padding-left: 0px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C7057" target="_blank">Disease, Disorder or Finding</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 14px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C2991" target="_blank">Disease or Disorder</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 28px;">
-                            
+
                             <span class="mapping-ellipsis">...</span>
-                            
+
                         </li>
-                        
+
                         <li style="padding-left: 42px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C2890" target="_blank">Bacterial Infection</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 56px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C35373" target="_blank">Zoonotic Bacterial Infection</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 70px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C128427" target="_blank">Southern Tick-Associated Rash Illness</a>
-                            
-                            
+
+
                         </li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
-            
+
+
+
+
             <div class="mapping-section">
                 <div class="classification-category">NCIT</div>
-                
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/NCIT_C128427" target="_blank">NCIT:C128427</a>
-                        
-                        
+
+
                         <span class="mapping-label">Southern Tick-Associated Rash Illness</span>
-                        
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">NCIT</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">Direct NCIT disease concept for STARI / Masters disease.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
         <div class="card" id="definitions">
             <div class="card-header">
                 <div class="card-icon" style="background: #cffafe; color: #0e7490;">📘</div>
                 <h2 class="card-title">Definitions</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">Clinical syndrome definition for STARI</div>
-                
+
                 <div class="item-desc">STARI is an illness associated with an erythema-migrans-like skin lesion after lone star tick exposure in the southern United States and is not caused by Borrelia burgdorferi.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">CASE_DEFINITION</span>
-                    
-                    
+
+
                     <span class="tag tag-parent">Disease-level clinical framing of the STARI syndrome</span>
-                    
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16142659" target="_blank">PMID:16142659</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"An illness associated with an EM-like skin lesion, but which is not caused by B. burgdorferi, occurs in many southern states in the United States"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This provides a compact disease-level definition anchoring STARI as a southern US erythema-migrans-like syndrome distinct from Lyme disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">Diagnostic limitation and Lyme distinction</div>
-                
+
                 <div class="item-desc">STARI remains a clinical diagnosis because no laboratory assay can confirm it or reliably distinguish it from early Lyme disease.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">DIAGNOSTIC_CRITERIA</span>
-                    
-                    
+
+
                     <span class="tag tag-parent">Practical diagnostic framing in regions where STARI and Lyme overlap</span>
-                    
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28814545" target="_blank">PMID:28814545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinically, the skin lesions of STARI and early Lyme disease are indistinguishable, and no laboratory tool or method exists for the diagnosis of STARI or differentiation of STARI from Lyme disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the current clinical-reasoning framework: STARI is recognized as a syndrome, but there is no validated confirmatory laboratory test.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lone-star-tick-bite-associated-syndrome-of-unknown-etiology">
                 <div class="item-name">Lone star tick bite-associated syndrome of unknown etiology</div>
-                
+
                 <div class="item-desc">Repeated microbiologic studies have failed to confirm a consistent bacterial cause for STARI. Both early Missouri skin-biopsy work and contemporary 16S sequencing continue to support an unresolved etiology.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15668867" target="_blank">PMID:15668867</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neither B. lonestari nor B. burgdorferi is likely to be the cause of EM-like skin lesions in patients from the Cape Girardeau area of Missouri. The etiology of this condition remains unknown."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Foundational microbiologic study ruling out both B. burgdorferi and B. lonestari in classic Missouri STARI cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40517644" target="_blank">PMID:40517644</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using 16S sequencing, no known bacterial pathogen was detected. Although an etiologic agent remains unknown, these results do provide updated information on rash color, shape, duration, and treatment outcomes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Contemporary cohort data continue to support that no known bacterial pathogen explains STARI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-lyme-biologic-context-of-amblyomma-americanum-bites">
                 <div class="item-name">Non-Lyme biologic context of Amblyomma americanum bites</div>
-                
+
                 <div class="item-desc">Lone star ticks are not competent vectors for Borrelia burgdorferi, and their saliva directly reduces Borrelia viability. This supports modeling STARI as a lone-star-tick-associated syndrome that is biologically distinct from classic Lyme transmission.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15752182" target="_blank">PMID:15752182</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A possible mechanism that could prevent acquisition of B. burgdorferi spirochetes from infected hosts is the toxic effect of A. americanum saliva on B. burgdorferi."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Provides a mechanistic reason that bites from A. americanum do not simply replicate Ixodes-mediated Lyme transmission biology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15752182" target="_blank">PMID:15752182</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"After 48 h, fewer than 13% of saliva-exposed B. burgdorferi were alive."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly demonstrates borreliacidal activity of lone star tick saliva against the Lyme spirochete.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distinct-host-metabolic-response-from-early-lyme-disease">
                 <div class="item-name">Distinct host metabolic response from early Lyme disease</div>
-                
+
                 <div class="item-desc">Patient-serum metabolomics identifies a biochemical state in STARI that differs substantially from early Lyme disease, including altered endocannabinoid-like lipid mediator pathways.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28814545" target="_blank">PMID:28814545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These findings revealed metabolic dissimilarity between early Lyme disease and STARI, and provide a powerful and new approach to inform patient management by objectively distinguishing early Lyme disease from an illness with nearly identical symptoms."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports STARI as a distinct host-response state rather than just a geographic variant of early Lyme disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">6</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(3)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Erythema migrans-like rash
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0031180" target="_blank">
-                            Erythema migrans
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0031180)</span>
-                        </span>
-                        
+                        Erythema migrans
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031180" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031180">HP:0031180</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16142659" target="_blank">PMID:16142659</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"EM-like lesions in Missouri cases were smaller in size than those in New York cases (8.3+/-2.2 cm and 16.4+/-11.5 cm, respectively; P&lt;.001), more circular in shape (P=.004), and more likely to have central clearing (76.2% and 21.6%, respectively; P&lt;.001)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the hallmark rash morphology of STARI in the classic Missouri cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Fever
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank">
-                            Fever
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001945)</span>
-                        </span>
-                        
+                        Fever
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28814545" target="_blank">PMID:28814545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"STARI, is associated with a bite from the lone star tick (Amblyomma americanum), and in addition to the development of an EM-like skin lesion, individuals with STARI can present with mild systemic symptoms (including muscle and joint pains, fatigue, fever, chills, and headache) that are similar..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The cohort summary explicitly includes fever among mild systemic symptoms reported in STARI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Headache
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank">
-                            Headache
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002315)</span>
-                        </span>
-                        
+                        Headache
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28814545" target="_blank">PMID:28814545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"STARI, is associated with a bite from the lone star tick (Amblyomma americanum), and in addition to the development of an EM-like skin lesion, individuals with STARI can present with mild systemic symptoms (including muscle and joint pains, fatigue, fever, chills, and headache) that are similar..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The cohort summary explicitly includes headache among common mild systemic symptoms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Fatigue
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank">
-                            Fatigue
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012378)</span>
-                        </span>
-                        
+                        Fatigue
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28814545" target="_blank">PMID:28814545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"STARI, is associated with a bite from the lone star tick (Amblyomma americanum), and in addition to the development of an EM-like skin lesion, individuals with STARI can present with mild systemic symptoms (including muscle and joint pains, fatigue, fever, chills, and headache) that are similar..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The metabolomics cohort summary explicitly includes fatigue among common mild systemic symptoms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Myalgia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank">
-                            Myalgia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003326)</span>
-                        </span>
-                        
+                        Myalgia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28814545" target="_blank">PMID:28814545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"STARI, is associated with a bite from the lone star tick (Amblyomma americanum), and in addition to the development of an EM-like skin lesion, individuals with STARI can present with mild systemic symptoms (including muscle and joint pains, fatigue, fever, chills, and headache) that are similar..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The cohort summary explicitly includes muscle pains among common mild systemic symptoms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Arthralgia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank">
-                            Arthralgia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002829)</span>
-                        </span>
-                        
+                        Arthralgia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28814545" target="_blank">PMID:28814545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"STARI, is associated with a bite from the lone star tick (Amblyomma americanum), and in addition to the development of an EM-like skin lesion, individuals with STARI can present with mild systemic symptoms (including muscle and joint pains, fatigue, fever, chills, and headache) that are similar..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The cohort summary explicitly includes joint pains among common mild systemic symptoms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4072,24 +4172,24 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
 
         <!-- Treatments -->
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
         <div class="card" id="differentials">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
@@ -4099,118 +4199,118 @@
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from Southern Tick-Associated Rash Illness:
             </p>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <a class="item-name-link" href="Lyme_Disease.html">Lyme disease</a>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0019632" target="_blank">
                             MONDO:0019632
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Ixodes-transmitted Borrelia burgdorferi infection that also presents with erythema migrans but has a defined bacterial etiology, available laboratory testing, and greater potential for disseminated multisystem disease.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>Lyme disease has a defined bacterial etiology, whereas STARI remains of unknown cause and has no validated laboratory diagnostic test.</li>
-                        
+
                         <li>Missouri STARI patients were less symptomatic, more often had single smaller circular lesions with central clearing, and recovered more rapidly after antibiotic treatment than New York early Lyme disease patients.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28814545" target="_blank">PMID:28814545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This, however, can be confused with other illnesses including southern tick-associated rash illness (STARI), an illness that lacks a defined etiological agent or laboratory diagnostic test, and is coprevalent with Lyme disease in portions of the eastern United States."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly frames STARI as a Lyme mimic while emphasizing the lack of a defined etiologic agent or test.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16142659" target="_blank">PMID:16142659</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"After antibiotic treatment, Missouri case patients recovered more rapidly than did New York case patients (P=.037)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the more favorable short-term course of classic Missouri STARI compared with comparator New York early Lyme disease cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4727,42 +4827,42 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Manual Pubmed Review</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Southern Tick-Associated Rash Illness (STARI): Manual Curation Summary</div>
-                            
-                            
+
+
                             <span class="report-badge">n/a</span>
-                            
-                            
+
+
                             <span class="report-badge">7 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-16T19:45:00Z</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Southern Tick-Associated Rash Illness (STARI): Manual Curation Summary</h1>
 <h2>Disease framing and lumping/splitting</h2>
@@ -4832,11 +4932,11 @@ notes: &gt;-
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

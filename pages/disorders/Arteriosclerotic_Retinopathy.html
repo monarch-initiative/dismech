@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Arteriosclerotic Retinopathy</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Complex</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0042495" target="_blank">
                         MONDO:0042495
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Arteriosclerosis disorder</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Retinal vascular disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Arteriosclerotic retinopathy is a chronic retinal vascular disorder marked by arteriosclerotic change in retinal arterioles. In clinical and epidemiologic studies it overlaps with &#34;retinal arteriosclerosis&#34; or &#34;fundus arteriosclerosis&#34; and is commonly operationalized with Scheie atherosclerotic grades or related fundus-photographic grading systems. The disorder is primarily an ocular manifestation and biomarker of systemic vascular disease, including arterial stiffness, carotid atherosclerosis, and cardiovascular risk.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,35 +3065,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3031,9 +3101,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3041,10 +3111,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3052,9 +3122,9 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3062,14 +3132,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3077,8 +3147,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3086,401 +3156,449 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-arteriolar-sclerosis">
                 <div class="item-name">Retinal arteriolar sclerosis</div>
-                
+
                 <div class="item-desc">The central disease process is sclerosis and remodeling of retinal arterioles, visible as Scheie-defined atherosclerotic retinal changes and related fundus arteriosclerosis signs.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal blood vessel endothelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002585">CL:0002585</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         smooth muscle cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000192">CL:0000192</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         blood vessel remodeling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001974">GO:0001974</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         endothelial cell proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001935" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001935" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001935">GO:0001935</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         retina
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-location">
                         arteriole
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0001980" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001980" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001980">UBERON:0001980</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Retinopathy</span>
-	                            
+
 	                            <span class="crosslink-desc">Retinal arteriolar remodeling contributes to clinically visible retinopathy.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239480" target="_blank">PMID:33239480</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"retinopathy based on Scheie classification are often applied to evaluate the impact of hypertension and atherosclerosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports Scheie-classified atherosclerotic retinopathy as the clinical retinal arteriolar sclerosis phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26133318" target="_blank">PMID:26133318</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Significant correlations were found between the presence of arteriosclerotic retinopathy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This hemodialysis cohort directly studied arteriosclerotic retinopathy graded by Scheie S grade.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-vascular-stiffness-and-atherosclerosis-association">
                 <div class="item-name">Systemic vascular stiffness and atherosclerosis association</div>
-                
+
                 <div class="item-desc">Arteriosclerotic retinal findings track with systemic vascular stiffness and macrovascular atherosclerotic burden, supporting the use of retinal vascular imaging as a noninvasive systemic vascular biomarker.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         blood vessel remodeling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001974">GO:0001974</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         retina
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cardiovascular disease risk stratification</span>
-	                            
+
 	                            <span class="crosslink-desc">Retinal microvascular findings can contribute to systemic vascular risk assessment.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239480" target="_blank">PMID:33239480</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"atherosclerotic retinopathy was significantly associated with CAVI and carotid IMT."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The study links Scheie-defined atherosclerotic retinal lesions with functional and morphologic large-artery atherosclerosis measures.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37968750" target="_blank">PMID:37968750</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"fundus arteriosclerosis was significantly associated with the risk of carotid atherosclerosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The large health-examination cohort supports a clinically relevant fundus-arteriosclerosis association with carotid atherosclerosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="graph-warning">
                 <strong>Referential integrity issues (1):</strong>
                 <ul>
-                    
+
                     <li>Target &#39;Cardiovascular disease risk stratification&#39; (from &#39;Systemic vascular stiffness and atherosclerosis association&#39;) not found in named elements</li>
-                    
-                    
+
+
                 </ul>
             </div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3496,256 +3614,272 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">4</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Retinopathy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank">
-                            Retinopathy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000488)</span>
-                        </span>
-                        
+                        Retinopathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000488">HP:0000488</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239480" target="_blank">PMID:33239480</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The absence or presence and extent of retinopathy were characterized by ophthalmologists"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The study operationalized both hypertensive and atherosclerotic retinal lesions as retinopathy grades.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Retinal arteriolar narrowing
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0007843" target="_blank">
-                            Attenuation of retinal blood vessels
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0007843)</span>
-                        </span>
-                        
+                        Attenuation of retinal blood vessels
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007843" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007843">HP:0007843</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38793083" target="_blank">PMID:38793083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A narrower CRAE, wider CRVE and a lower AVR have been associated with increased cardiovascular events."</div>
-                
-                
+
+
                 <div class="evidence-explanation">CRAE is an arteriolar-caliber metric; the review supports narrowed retinal arterioles as a vascular-risk imaging feature, although not specific to Scheie-defined arteriosclerotic retinopathy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Enhanced retinal arteriolar light reflex
-                        
-                    
+
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17070582" target="_blank">PMID:17070582</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The enhanced arteriolar light reflex sign was found in 1053 participants (31.7%"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This population study supports enhanced arteriolar light reflex as a common retinal arteriolar wall sign.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Arteriovenous nicking
-                        
-                    
+
+
+                    <span class="phenotype-id">
+                        Arteriovenous crossing sign
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6001216" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6001216">HP:6001216</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17070582" target="_blank">PMID:17070582</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"arteriovenous nicking (OR 3.12) or retinopathy (OR 1.96)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The study shows that enhanced arteriolar light reflex is strongly associated with arteriovenous nicking and retinopathy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -3770,477 +3904,477 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cardiovascular risk-factor management and retinal surveillance
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">No disease-specific ocular pharmacotherapy was identified in the Falcon report. Practical management is prevention-oriented: identify and treat systemic vascular risk factors and monitor retinal vascular signs over time.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             MODULATES
                         </span>
                         <strong style="color: #5b21b6;">Systemic vascular stiffness and atherosclerosis association</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Risk-factor control targets the systemic vascular disease context that is associated with retinal arteriosclerosis rather than reversing established retinal arteriolar sclerosis directly.</span>
-                        
-                        
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239480" target="_blank">PMID:33239480</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CAVI and carotid IMT are independent determinants of retinopathy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports targeting systemic arterial stiffness and atherosclerosis risk as a management rationale, while not proving direct treatment reversal of retinal lesions.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239480" target="_blank">PMID:33239480</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CAVI and carotid IMT are independent determinants of retinopathy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports a systemic vascular-risk management rationale, although it is observational rather than an intervention trial.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38793083" target="_blank">PMID:38793083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Retinal vascular imaging using AI may help identify the cardiovascular risk"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports retinal vascular imaging as a prevention and surveillance tool for cardiovascular risk.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Hypertension</div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Hypertension is a major systemic vascular context in which Scheie retinopathy grading is applied and atherosclerotic retinal lesions are evaluated.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239480" target="_blank">PMID:33239480</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"evaluate the impact of hypertension and atherosclerosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The study explicitly frames Scheie retinopathy grading as a way to evaluate hypertension and atherosclerosis effects in the ocular fundus.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Heavy alcohol consumption</div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Heavy alcohol consumption was associated with marked enhanced retinal arteriolar light reflex in the Blue Mountains Eye Study cohort.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17070582" target="_blank">PMID:17070582</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Markedly enhanced light reflex was significantly associated with mean arterial blood pressure (OR 1.24), heavy alcohol consumption (OR 2.66, &gt; or = 40 grams alcohol per day), and serum glucose (OR 1.16)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports heavy alcohol consumption as a systemic risk factor associated with marked enhanced retinal arteriolar light reflex.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Dyslipidemia</div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Lipid abnormalities, including higher total cholesterol, LDL cholesterol, and triglycerides, were associated with enhanced retinal arteriolar light reflex.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17070582" target="_blank">PMID:17070582</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"mildly enhanced light reflex was significantly associated with serum glucose (OR 1.11 per SD increase), total cholesterol (OR 1.11), low-density lipoprotein (OR 1.55), triglycerides (OR 1.11)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports dyslipidemia-related measures as risk correlates of enhanced retinal arteriolar light reflex.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Serum glucose dysregulation</div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Higher serum glucose was associated with both mild and marked enhanced retinal arteriolar light reflex, consistent with a metabolic vascular-risk context.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17070582" target="_blank">PMID:17070582</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"serum glucose (OR 1.11 per SD increase)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports serum glucose as a metabolic factor associated with mildly enhanced retinal arteriolar light reflex.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17070582" target="_blank">PMID:17070582</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"serum glucose (OR 1.16)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports serum glucose as a metabolic factor associated with markedly enhanced retinal arteriolar light reflex.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Chronic kidney disease on hemodialysis</div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Chronic kidney disease requiring hemodialysis is a clinical context in which retinal arterial sclerosis has been associated with arterial stiffness and prior cardiovascular disease.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26133318" target="_blank">PMID:26133318</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with chronic kidney disease (CKD) undergoing hemodialysis (HD) have a high prevalence of cardiovascular diseases"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The study directly examined retinal arterial sclerosis in a CKD hemodialysis cohort with high cardiovascular disease burden.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Serum uric acid trajectory
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Higher trajectory)</span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36926048" target="_blank">PMID:36926048</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Higher SUA trajectory groups were significantly associated with an increased risk of incident retinal arteriosclerosis in men"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This longitudinal cohort supports higher serum uric acid trajectories as a male-specific risk marker for incident retinal arteriosclerosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4458,6 +4592,11 @@ phenotypes:
       common retinal arteriolar wall sign.
 - category: Ophthalmologic
   name: Arteriovenous nicking
+  phenotype_term:
+    preferred_term: Arteriovenous nicking
+    term:
+      id: HP:6001216
+      label: Arteriovenous crossing sign
   description: &gt;-
     Arteriovenous nicking is an arteriolar-venular crossing sign that commonly
     clusters with enhanced arteriolar light reflex and retinopathy.
@@ -4796,484 +4935,484 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">12</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.5551/jat.59857" target="_blank">DOI:10.5551/jat.59857</a>
                             </div>
-                            
+
                             <div class="reference-title">Examination of Large Artery Atherosclerosis could Reveal Small Artery Retinopathy in Untreated Middle-Aged Individuals.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Scheie-defined atherosclerotic retinopathy is associated with CAVI and carotid IMT.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"atherosclerotic retinopathy was significantly associated with CAVI and carotid IMT."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.5551/jat.30601" target="_blank">DOI:10.5551/jat.30601</a>
                             </div>
-                            
+
                             <div class="reference-title">Association between Ophthalmological Changes and Cardiovascular Diseases in Patients with Chronic Kidney Disease Undergoing Hemodialysis.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Scheie S grade correlates with arterial stiffness and prior cardiovascular disease in a hemodialysis cohort.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Significant correlations were found between the presence of arteriosclerotic retinopathy"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.ophtha.2006.06.046" target="_blank">DOI:10.1016/j.ophtha.2006.06.046</a>
                             </div>
-                            
+
                             <div class="reference-title">Prevalence and associations of enhanced retinal arteriolar light reflex: a new look at an old sign.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Enhanced retinal arteriolar light reflex is common and associated with AV nicking and retinopathy.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"arteriovenous nicking (OR 3.12) or retinopathy (OR 1.96)."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fcvm.2023.1116486" target="_blank">DOI:10.3389/fcvm.2023.1116486</a>
                             </div>
-                            
+
                             <div class="reference-title">Sex-specific association of serum uric acid trajectories with risk of incident retinal arteriosclerosis in Chinese population: A population-based longitudinal study.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Higher serum uric acid trajectories are associated with incident retinal arteriosclerosis in men.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Higher SUA trajectory groups were significantly associated with an increased risk of incident retinal arteriosclerosis in men"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s40001-023-01508-6" target="_blank">DOI:10.1186/s40001-023-01508-6</a>
                             </div>
-                            
+
                             <div class="reference-title">Sex-specific association between carotid atherosclerosis and fundus arteriosclerosis in a Chinese population: a retrospective cross-sectional study.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Fundus arteriosclerosis is associated with carotid atherosclerosis.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"fundus arteriosclerosis was significantly associated with the risk of carotid atherosclerosis."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41598-023-38378-1" target="_blank">DOI:10.1038/s41598-023-38378-1</a>
                             </div>
-                            
+
                             <div class="reference-title">Association between total bilirubin and gender-specific incidence of fundus arteriosclerosis in a Chinese population: a retrospective cohort study</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Serum total bilirubin was assessed as a sex-specific incident fundus arteriosclerosis risk marker.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/life14040448" target="_blank">DOI:10.3390/life14040448</a>
                             </div>
-                            
+
                             <div class="reference-title">Retinal Structural and Vascular Changes in Patients with Coronary Artery Disease: A Systematic Review and Meta-Analysis.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">OCT/OCTA retinal vascular features can serve as cardiovascular biomarkers.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"retinal vasculature as a biomarker for diagnosis and monitoring of patients with coronary artery disease"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/jpm14050501" target="_blank">DOI:10.3390/jpm14050501</a>
                             </div>
-                            
+
                             <div class="reference-title">Non-Invasive Retinal Vessel Analysis as a Predictor for Cardiovascular Disease.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Retinal vessel analysis can support cardiovascular risk identification and prevention.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Retinal vascular imaging using AI may help identify the cardiovascular risk"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s00415-023-12171-6" target="_blank">DOI:10.1007/s00415-023-12171-6</a>
                             </div>
-                            
+
                             <div class="reference-title">Retinal imaging for the assessment of stroke risk: a systematic review</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Retinal imaging biomarkers were reviewed for prospective stroke-risk assessment.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1167/tvst.12.7.14" target="_blank">DOI:10.1167/tvst.12.7.14</a>
                             </div>
-                            
+
                             <div class="reference-title">A Systematic Review and Meta-Analysis of Applying Deep Learning in the Prediction of the Risk of Cardiovascular Diseases From Retinal Images</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Deep-learning models using retinal images were reviewed for cardiovascular risk prediction.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/jpm13111564" target="_blank">DOI:10.3390/jpm13111564</a>
                             </div>
-                            
+
                             <div class="reference-title">Retinal Findings and Cardiovascular Risk: Prognostic Conditions, Novel Biomarkers, and Emerging Image Analysis Techniques</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Retinal findings and imaging biomarkers were reviewed as cardiovascular prognostic tools.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/jcdd12060230" target="_blank">DOI:10.3390/jcdd12060230</a>
                             </div>
-                            
+
                             <div class="reference-title">Retinal Imaging as a Window into Cardiovascular Health: Towards Harnessing Retinal Analytics for Precision Cardiovascular Medicine</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Retinal analytics were reviewed as tools for precision cardiovascular medicine.</div>
-            
-            
-            
-    
-    
+
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">1. Disease Information</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">29 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-06T13:43:16.992744</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>1. Disease Information</h2>
 <h3>1.1 Disease overview (current understanding)</h3>
@@ -5608,11 +5747,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -5662,7 +5801,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Arteriosclerotic Retinopathy", "mondoId": "MONDO:0042495", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arteriosclerotic_Retinopathy", "yamlRevision": "ab9ce6fa040b"};
+        const OS_CONFIG = {"diseaseName": "Arteriosclerotic Retinopathy", "mondoId": "MONDO:0042495", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arteriosclerotic_Retinopathy", "yamlRevision": "72bb4761478e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
