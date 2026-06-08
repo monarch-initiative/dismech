@@ -44,7 +44,7 @@ from pathlib import Path
 #   RO:0004020 disease has basis in dysfunction of                  (~19)
 #   RO:0004001 has material basis in gain of function germline ...  (~10)
 #   RO:0004004 has material basis in somatic mutation in             (~7)
-#   RO:0004021 disease caused by disruption of                       (~3)
+#   RO:0004021 disease has basis in disruption of                    (~3)
 # Germline (0004003/0004001) is the dominant signal; the somatic predicate
 # (0004004) is included so cancer/somatic-driver entries are not spuriously
 # flagged SKIP/FAIL. The "is causal ... mutation in" forms (0004013/0004014,
@@ -55,7 +55,7 @@ CAUSAL_GENE_PREDICATES = (
     "RO:0004001",  # has material basis in gain of function germline mutation in
     "RO:0004004",  # has material basis in somatic mutation in
     "RO:0004020",  # disease has basis in dysfunction of
-    "RO:0004021",  # disease caused by disruption of
+    "RO:0004021",  # disease has basis in disruption of
     "RO:0004013",  # is causal germline mutation in (defensive; unused in MONDO)
     "RO:0004014",  # is causal somatic mutation in (defensive; unused in MONDO)
 )
