@@ -648,6 +648,34 @@ def test_subtypes_have_disease_term(filepath):
         )
 
 
+def test_reference_range_on_biochemical_validates(validator):
+    """ReferenceRange entries on a Biochemical block should pass schema validation."""
+    data = {
+        "name": "Test Disease",
+        "biochemical": [
+            {
+                "name": "Serum Potassium",
+                "reference_ranges": [
+                    {
+                        "loinc_term": {
+                            "id": "LOINC:2823-3",
+                            "label": "Potassium [Moles/volume] in Serum or Plasma",
+                        },
+                        "lower_bound": 3.5,
+                        "upper_bound": 5.0,
+                        "unit": "mmol/L",
+                        "population": "adults",
+                        "source": "KDIGO 2017",
+                    }
+                ],
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
+
+
 def test_disorder_count():
     """Test that we have the expected number of disorders."""
     assert len(DISORDER_FILES) >= 50, (
