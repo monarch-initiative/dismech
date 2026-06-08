@@ -116,14 +116,14 @@ phenotype_term:
 
 ### 4. The `therapeutic_agent` Slot
 
-Specifies the drug or chemical agent used in a treatment. Use when the MAXO term is generic (e.g., `pharmacotherapy`) but specific drugs are involved:
+Specifies the drug or chemical agent used in a treatment. Use when the treatment term is generic (e.g., `NCIT:C15986` Pharmacotherapy) but specific drugs are involved:
 
 ```yaml
 treatment_term:
-  preferred_term: pharmacotherapy
+  preferred_term: Pharmacotherapy
   term:
-    id: MAXO:0000058
-    label: pharmacotherapy
+    id: NCIT:C15986
+    label: Pharmacotherapy
   therapeutic_agent:
     - preferred_term: zinc acetate
       term:
@@ -199,10 +199,10 @@ phenotype_term:
 - name: Zinc Acetate
   description: Blocks intestinal copper absorption, maintenance therapy.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
       - preferred_term: zinc acetate
         term:
@@ -320,14 +320,14 @@ Based on @cmungall's PR reviews, additional post-composition patterns have been 
 
 **Status:** Now addressed by the `therapeutic_agent` slot on `TreatmentDescriptor`.
 
-When MAXO lacks a specific term (e.g., no term for "zinc therapy"), use the generic term plus `therapeutic_agent`:
+When no specific treatment term is available (e.g., no term for "zinc therapy"), use the generic term plus `therapeutic_agent`:
 
 ```yaml
 treatment_term:
-  preferred_term: pharmacotherapy
+  preferred_term: Pharmacotherapy
   term:
-    id: MAXO:0000058
-    label: pharmacotherapy
+    id: NCIT:C15986
+    label: Pharmacotherapy
   therapeutic_agent:
     - preferred_term: zinc acetate
       term:
@@ -335,7 +335,7 @@ treatment_term:
         label: zinc acetate
 ```
 
-**Best practice:** Always prefer specific MAXO terms when available (e.g., `MAXO:0000109` for vitamin C supplementation). Use `therapeutic_agent` only when MAXO is too generic.
+**Best practice:** Always prefer specific treatment terms when available (e.g., `MAXO:0000109` for vitamin C supplementation). Use `therapeutic_agent` only when the treatment term is too generic.
 
 ### 2. Substrate / Target for Pathophysiology
 
@@ -367,7 +367,7 @@ This is now addressed by the `located_in` slot being available on all Descriptor
 3. **Document approximations**: If the representation is inexact, add a `notes` field
 4. **Request new explicit slots**: If you frequently need a post-composition pattern not covered by existing slots, open an issue
 5. **Avoid deprecated `qualifiers`**: Do not use the generic predicate-value pattern
-6. **For pharmacotherapy**: Prefer specific MAXO terms when available. When using generic `MAXO:0000058`, add `therapeutic_agent` with CHEBI terms for the specific drugs
+6. **For pharmacotherapy**: Prefer specific treatment terms when available. When using generic `NCIT:C15986`, add `therapeutic_agent` with CHEBI terms for the specific drugs
 
 ## See Also
 

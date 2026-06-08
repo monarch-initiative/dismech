@@ -85,8 +85,8 @@ def test_tabular_export_flattens_assertions_descriptors_and_evidence():
                 {
                     "name": "Valproate",
                     "treatment_term": {
-                        "preferred_term": "pharmacotherapy",
-                        "term": {"id": "MAXO:0000058", "label": "pharmacotherapy"},
+                        "preferred_term": "Pharmacotherapy",
+                        "term": {"id": "NCIT:C15986", "label": "Pharmacotherapy"},
                         "qualifiers": [
                             {
                                 "predicate": {
