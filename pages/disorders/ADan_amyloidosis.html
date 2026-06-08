@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>ADan amyloidosis</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0007297" target="_blank">
                         MONDO:0007297
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">amyloidosis</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 ADan amyloidosis is an autosomal dominant cerebral amyloidosis caused by pathogenic ITM2B variants that generate the amyloidogenic ADan peptide. The disease was first recognized as familial Danish dementia and is characterized by cataracts, hearing loss, progressive ataxia, and dementia together with widespread cerebral amyloid angiopathy and neurofibrillary degeneration.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,34 +3065,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3030,8 +3100,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3039,8 +3109,8 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#histopathology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">✶</div>
@@ -3048,8 +3118,8 @@
                 <div class="stat-label">Histopath.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3057,8 +3127,8 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#mechanistic-hypotheses">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◈</div>
@@ -3066,9 +3136,9 @@
                 <div class="stat-label">Hypotheses</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3076,8 +3146,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3085,8 +3155,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3094,9 +3164,9 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
@@ -3104,10 +3174,10 @@
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
@@ -3115,9 +3185,9 @@
                 <div class="stat-label">Models</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3125,8 +3195,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3134,1419 +3204,1502 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal dominant inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">ADan amyloidosis/familial Danish dementia segregates as an autosomal dominant ITM2B-related disorder.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD), also known as heredopathia ophthalmo-oto-encephalica, is an autosomal dominant disorder characterized by cataracts, deafness, progressive ataxia, and dementia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly establishes autosomal dominant inheritance for familial Danish dementia/ADan amyloidosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
         <div class="card" id="mechanistic-hypotheses">
             <div class="card-header">
                 <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
                 <h2 class="card-title">Mechanistic Hypotheses</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-canonical-adan-amyloid-angiopathy-tau-model">
                 <div class="item-name">Canonical ADan Amyloid Angiopathy and Tau Model</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">canonical_adan_amyloid_angiopathy_tau_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">CANONICAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">The human disease mechanism centers on the ITM2B Danish mutation generating ADan peptide, with widespread cerebral amyloid angiopathy, parenchymal ADan protein deposits, and severe neurofibrillary degeneration.</div>
-                
-                
-                
+
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Pathograph links</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-itm2b-frameshift-generates-the-adan-amyloidogenic-peptide">ITM2B frameshift generates the ADan amyloidogenic peptide</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-cerebral-amyloid-deposition">Cerebral amyloid deposition</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Amyloidogenic ADan peptide is deposited in brain vessels and parenchyma.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-cerebral-amyloid-deposition">Cerebral amyloid deposition</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-neurofibrillary-degeneration">Neurofibrillary degeneration</a>
-                            
-                            
-                            
+
+
+
                             <span class="crosslink-desc">Amyloid deposition is accompanied by severe downstream tau pathology and neurodegeneration.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD) is pathologically characterized by widespread cerebral amyloid angiopathy (CAA), parenchymal protein deposits, and neurofibrillary degeneration."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human neuropathology establishes the canonical ADan amyloid angiopathy, parenchymal-deposit, and tau-degeneration axis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-bri2-synaptic-loss-app-model">
                 <div class="item-name">BRI2 Synaptic Loss and APP-Processing Model</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">bri2_synaptic_loss_app_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">EMERGING</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">Model-organism and limited human-brain evidence support a superimposed mature-BRI2 loss-of-function mechanism with impaired glutamatergic transmission and increased APP processing; this is separated from the canonical human ADan deposition pathology.</div>
-                
-                
+
+
                 <div class="mapping-notes">Classified as emerging because the synaptic-transmission evidence is mainly from knock-in mice, and the human APP-processing study used very limited postmortem FDD material.</div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Pathograph links</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-itm2b-frameshift-generates-the-adan-amyloidogenic-peptide">ITM2B frameshift generates the ADan amyloidogenic peptide</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-synaptic-bri2-loss">Synaptic BRI2 loss</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">The same ITM2B mutation also reduces availability of functional mature BRI2 at synapses.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-synaptic-bri2-loss">Synaptic BRI2 loss</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-impaired-glutamatergic-transmission">Impaired glutamatergic transmission</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Reduced mature synaptic BRI2 impairs excitatory neurotransmission.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-synaptic-bri2-loss">Synaptic BRI2 loss</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-increased-app-processing-and-abeta-burden">Increased APP processing and Abeta burden</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">BRI2 normally inhibits amyloid-beta precursor protein processing; reduced mature BRI2 in FDD models and human brain is associated with increased APP-derived metabolites including Abeta.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-impaired-glutamatergic-transmission">Impaired glutamatergic transmission</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathograph">Dementia</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">DIRECT</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Impaired excitatory neurotransmission likely contributes to the progressive cognitive decline of familial Danish dementia.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                         <div class="crosslink-item">
-                            
+
                             <a href="#pathophysiology-increased-app-processing-and-abeta-burden">Increased APP processing and Abeta burden</a>
-                            
+
                             <span class="crosslink-desc">-&gt;</span>
-                            
+
                             <a href="#pathophysiology-cerebral-amyloid-deposition">Cerebral amyloid deposition</a>
-                            
-                            
+
+
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Increased APP processing provides Abeta that co-deposits with ADan in some vascular and parenchymal lesions.</span>
-                            
-                            
+
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33172889" target="_blank">PMID:33172889</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Collectively, the data show that FDD and FBD mutations cause a reduction of BRI2 levels and function at synapses, which results in reduced glutamatergic transmission."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Knock-in mouse data support a distinct synaptic loss-of-function model downstream of pathogenic ITM2B mutations.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21841249" target="_blank">PMID:21841249</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The levels of soluble Aβ42 were increased in FDD and AD brains compared to aging brains (FDD versus Con., 11-fold increase; AD1 versus Con., 4-fold increase; AD2 versus Con., 14-fold increase, Fig. 3A)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Limited human FDD brain data support increased APP/Abeta processing, but the evidence is not as mature as the canonical ADan pathology model.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-itm2b-frameshift-generates-the-adan-amyloidogenic-peptide">
                 <div class="item-name">ITM2B frameshift generates the ADan amyloidogenic peptide</div>
-                
+
                 <div class="item-desc">A decamer duplication near the normal stop codon of ITM2B creates an extended precursor from which the amyloidogenic ADan peptide is released.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-bri2-synaptic-loss-app-model">BRI2 Synaptic Loss and APP-Processing Model</a>
-                        
+
                     </span>
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-canonical-adan-amyloid-angiopathy-tau-model">Canonical ADan Amyloid Angiopathy and Tau Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        ITM2B
-                        
-                        <a href="https://bioregistry.io/hgnc:6174" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ITM2B
+
+
+    <a href="https://bioregistry.io/hgnc:6174" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6174">hgnc:6174</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cerebral amyloid deposition</span>
-	                            
+
 	                            <span class="crosslink-desc">Amyloidogenic ADan peptide is deposited in brain vessels and parenchyma.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-canonical-adan-amyloid-angiopathy-tau-model">Canonical ADan Amyloid Angiopathy and Tau Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Synaptic BRI2 loss</span>
-	                            
+
 	                            <span class="crosslink-desc">The same ITM2B mutation also reduces availability of functional mature BRI2 at synapses.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-bri2-synaptic-loss-app-model">BRI2 Synaptic Loss and APP-Processing Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The decamer duplication mutation produces a frame-shift in the BRI sequence generating a larger-than-normal precursor protein, of which the amyloid subunit (designated ADan) comprises the last 34 C-terminal amino acids."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports generation of the ADan peptide as the initiating molecular lesion.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-amyloid-deposition">
                 <div class="item-name">Cerebral amyloid deposition</div>
-                
+
                 <div class="item-desc">ADan accumulates in leptomeninges, vessel walls, and brain parenchyma, producing cerebral amyloid angiopathy and parenchymal deposits; Abeta can co-deposit in a subset of vascular and parenchymal lesions.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-canonical-adan-amyloid-angiopathy-tau-model">Canonical ADan Amyloid Angiopathy and Tau Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neurofibrillary degeneration</span>
-	                            
+
 	                            <span class="crosslink-desc">Amyloid deposition is accompanied by severe downstream tau pathology and neurodegeneration.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-canonical-adan-amyloid-angiopathy-tau-model">Canonical ADan Amyloid Angiopathy and Tau Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">ADan-induced mitochondrial oxidative apoptosis</span>
-	                            
+
 	                            <span class="crosslink-desc">Amyloidogenic ADan species can trigger neuronal-cell oxidative stress, mitochondrial cytochrome c release, mitochondrial membrane-potential loss, and caspase-dependent apoptosis in vitro.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD) is pathologically characterized by widespread cerebral amyloid angiopathy (CAA), parenchymal protein deposits, and neurofibrillary degeneration."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports the core tissue pathology of ADan amyloidosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Abeta was also present in a proportion of both vascular and parenchymal lesions."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports Falcon&#39;s emphasis that ADan deposition may be accompanied by Abeta co-deposition in affected brain lesions.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurofibrillary-degeneration">
                 <div class="item-name">Neurofibrillary degeneration</div>
-                
+
                 <div class="item-desc">Amyloid deposition is accompanied by severe downstream tau pathology and progressive neurodegeneration.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Dementia</span>
-	                            
+
 	                            <span class="crosslink-desc">Progressive tau-associated neurodegeneration contributes to dementia.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ataxia</span>
-	                            
+
 	                            <span class="crosslink-desc">Widespread neurodegeneration contributes to the progressive ataxic phenotype.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD) is pathologically characterized by widespread cerebral amyloid angiopathy (CAA), parenchymal protein deposits, and neurofibrillary degeneration."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports neurofibrillary degeneration as a downstream tissue-level consequence of ADan deposition.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-bri2-loss">
                 <div class="item-name">Synaptic BRI2 loss</div>
-                
+
                 <div class="item-desc">Danish-dementia ITM2B mutations reduce mature BRI2 abundance at synapses.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-bri2-synaptic-loss-app-model">BRI2 Synaptic Loss and APP-Processing Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired glutamatergic transmission</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced mature synaptic BRI2 impairs excitatory neurotransmission.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-bri2-synaptic-loss-app-model">BRI2 Synaptic Loss and APP-Processing Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Increased APP processing and Abeta burden</span>
-	                            
+
 	                            <span class="crosslink-desc">BRI2 normally inhibits amyloid-beta precursor protein processing; reduced mature BRI2 in FDD models and human brain is associated with increased APP-derived metabolites including Abeta.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-bri2-synaptic-loss-app-model">BRI2 Synaptic Loss and APP-Processing Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33172889" target="_blank">PMID:33172889</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In vivo and in vitro studies show that both pathogenic mutations alter maturation of BRI2 resulting in reduced levels of functional mature BRI2 protein at synapses."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Knock-in mouse and cellular data support a distinct synaptic-loss-of-function mechanism downstream of pathogenic ITM2B mutations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glutamatergic-transmission">
                 <div class="item-name">Impaired glutamatergic transmission</div>
-                
+
                 <div class="item-desc">Loss of functional mature BRI2 at synapses impairs excitatory glutamatergic neurotransmission.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-bri2-synaptic-loss-app-model">BRI2 Synaptic Loss and APP-Processing Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         synaptic transmission, glutamatergic
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035249">GO:0035249</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Dementia</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired excitatory neurotransmission likely contributes to the progressive cognitive decline of familial Danish dementia.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-bri2-synaptic-loss-app-model">BRI2 Synaptic Loss and APP-Processing Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33172889" target="_blank">PMID:33172889</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Collectively, the data show that FDD and FBD mutations cause a reduction of BRI2 levels and function at synapses, which results in reduced glutamatergic transmission."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly links mutant BRI2 loss at synapses to impaired glutamatergic transmission.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-app-processing-and-abeta-burden">
                 <div class="item-name">Increased APP processing and Abeta burden</div>
-                
+
                 <div class="item-desc">Loss of mature BRI2 function increases amyloid-beta precursor protein processing and Abeta metabolite burden in FDD model systems and a human FDD brain sample, providing a mechanistic bridge between ITM2B-related dementia and Alzheimer-like amyloid biology.</div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-mechanistic">
-                        
+
                         <a href="#hypothesis-bri2-synaptic-loss-app-model">BRI2 Synaptic Loss and APP-Processing Model</a>
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         amyloid precursor protein metabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042982" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042982" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042982">GO:0042982</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cerebral amyloid deposition</span>
-	                            
+
 	                            <span class="crosslink-desc">Increased APP processing provides Abeta that co-deposits with ADan in some vascular and parenchymal lesions.</span>
-	                            
-                                
+
+
                                 <span class="tag-list" style="margin-top: 4px;">
-                                    
+
                                     <span class="tag tag-mechanistic">
-                                        
+
                                         <a href="#hypothesis-bri2-synaptic-loss-app-model">BRI2 Synaptic Loss and APP-Processing Model</a>
-                                        
+
                                     </span>
-                                    
+
                                 </span>
-                                
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21841249" target="_blank">PMID:21841249</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The levels of soluble Aβ42 were increased in FDD and AD brains compared to aging brains (FDD versus Con., 11-fold increase; AD1 versus Con., 4-fold increase; AD2 versus Con., 14-fold increase, Fig. 3A)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This human brain analysis quantifies increased soluble Abeta42 in FDD.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21841249" target="_blank">PMID:21841249</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Strikingly, AβPP haplodeficiency prevents memory and synaptic dysfunctions in FDDKI mice, supporting the claim that Danish dementia is mediated, like FAD, through toxic AβPP products [17]."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse genetic-modifier data support APP-derived products as mediators of synaptic and memory phenotypes in FDD models.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adan-induced-mitochondrial-oxidative-apoptosis">
                 <div class="item-name">ADan-induced mitochondrial oxidative apoptosis</div>
-                
+
                 <div class="item-desc">Pyroglutamate-modified ADan is neurotoxic in differentiated SH-SY5Y cells, inducing reactive oxygen species, cytochrome c release, mitochondrial membrane-potential loss, and caspase-3 activation.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         response to oxidative stress
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         intrinsic apoptotic signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0097193" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0097193" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097193">GO:0097193</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Experimental models</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="#experimental-model-adan-pe-challenged-sh-sy5y-neuronal-cell-model">ADan pE-challenged SH-SY5Y neuronal cell model</a>
-                            
+
                             <span class="crosslink-meta">CELL LINE</span>
-                            
-                            
+
+
                             <span class="crosslink-desc">Measures ADan-driven oxidative stress, mitochondrial dysfunction, and intrinsic apoptosis in a neuronal cell-line peptide-challenge model.</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-	                
-	                
-	                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26459115" target="_blank">PMID:26459115</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ADan pE provoked DNA fragmentation after only 8 hour peptide challenge, with increased and statistically significant levels of nucleosome formation observed following 24h treatment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports apoptotic toxicity from pyroglutamate-modified ADan in a neuronal cell model.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26459115" target="_blank">PMID:26459115</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ADan pE challenge resulted, in addition to the release of cytochrome c to the cytoplasm, in a concurrent loss of mitochondrial membrane potential, indicated by the diffuse MitoTracker staining and poor co-localization of both signals (Figure 7B, bottom panel)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports mitochondrial cytochrome c release and membrane-potential loss as part of ADan toxicity.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26459115" target="_blank">PMID:26459115</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In cells challenged with either ADan pE or ADan E, the ROS-scavenging ability of Trolox almost completely abolished caspase-3 activation, an indicator of its protective effect from ADan-induced toxicity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Trolox rescue supports oxidative stress upstream of caspase activation in this in vitro mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
         <div class="card" id="histopathology">
             <div class="card-header">
                 <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
                 <h2 class="card-title">Histopathology</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Cerebral Amyloid Angiopathy and Parenchymal ADan Deposits
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Widespread ADan deposition involves leptomeninges, cerebral blood vessels, and brain parenchyma, producing a cerebral amyloid angiopathy-dominant pathology with parenchymal pre-amyloid lesions.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We showed that ADan is widely distributed in the central nervous system (CNS) in the leptomeninges, blood vessels, and parenchyma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the tissue distribution of ADan deposits in FDD.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A predominance of parenchymal pre-amyloid (non-fibrillary) lesions was found."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This distinguishes the parenchymal lesion type observed in FDD brain.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Neurofibrillary Degeneration with PHF-like Tau
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Severe tau neurofibrillary pathology accompanies ADan/Abeta deposition and has a paired-helical-filament tau immunoblot pattern similar to Alzheimer disease.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"There was severe neurofibrillary pathology, and tau immunoblotting revealed a triplet electrophoretic migration pattern comparable with PHF-tau."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports severe neurofibrillary degeneration and PHF-like tau biochemistry as part of FDD neuropathology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4557,531 +4710,555 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADan amyloid peptide deposition\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\", \"readouts\": [{\"target\": \"Cerebral amyloid deposition\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detection of ADan in CNS vessels and parenchyma reports the defining ADan amyloid deposition mechanism.\"}]}}, {\"id\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Differentiated human SH-SY5Y cells treated with pyroglutamate-modified ADan model ADan-driven oxidative stress, mitochondrial cytochrome c release, and caspase-mediated apoptosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\"}}, {\"id\": \"ADan-induced mitochondrial oxidative apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyroglutamate-modified ADan is neurotoxic in differentiated SH-SY5Y cells, inducing reactive oxygen species, cytochrome c release, mitochondrial membrane-potential loss, and caspase-3 activation.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"response to oxidative stress\", \"intrinsic apoptotic signaling pathway\"], \"experimental_models\": [{\"name\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures ADan-driven oxidative stress, mitochondrial dysfunction, and intrinsic apoptosis in a neuronal cell-line peptide-challenge model.\"}]}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ataxia reflects cerebellar and broader neurodegenerative involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Audiology evaluation and hearing support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Audiology evaluation and hearing-support planning are relevant because hearing loss follows the ocular manifestations and may become severe by mid adulthood.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early cataracts are part of the classic familial Danish dementia syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cerebral amyloid deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADan accumulates in leptomeninges, vessel walls, and brain parenchyma, producing cerebral amyloid angiopathy and parenchymal deposits; Abeta can co-deposit in a subset of vascular and parenchymal lesions.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cognitive decline is a defining late neurodegenerative manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000726\"}}, {\"id\": \"ITM2B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITM2B\"], \"association\": \"Gain-of-toxic-fragment / loss-of-function\"}}, {\"id\": \"ITM2B frameshift generates the ADan amyloidogenic peptide\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A decamer duplication near the normal stop codon of ITM2B creates an extended precursor from which the amyloidogenic ADan peptide is released.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITM2B\"]}}, {\"id\": \"Impaired glutamatergic transmission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional mature BRI2 at synapses impairs excitatory glutamatergic neurotransmission.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synaptic transmission, glutamatergic\"]}}, {\"id\": \"Increased APP processing and Abeta burden\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of mature BRI2 function increases amyloid-beta precursor protein processing and Abeta metabolite burden in FDD model systems and a human FDD brain sample, providing a mechanistic bridge between ITM2B-related dementia and Alzheimer-like amyloid biology.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"amyloid precursor protein metabolic process\"]}}, {\"id\": \"Neurofibrillary degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Amyloid deposition is accompanied by severe downstream tau pathology and progressive neurodegeneration.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ophthalmology-directed cataract care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ophthalmology evaluation and cataract-directed care are clinically relevant because cataracts are an early, progressive feature of familial Danish dementia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paranoid reactions may accompany late progressive dementia in familial Danish dementia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000709\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hearing loss is part of the core syndromic presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Supportive multidisciplinary care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying treatment is established; care is supportive and may involve ophthalmology, audiology, neurology, rehabilitation, and dementia management matched to the staged manifestations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synaptic BRI2 loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Danish-dementia ITM2B mutations reduce mature BRI2 abundance at synapses.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}], \"edges\": [{\"source\": \"ITM2B frameshift generates the ADan amyloidogenic peptide\", \"target\": \"Cerebral amyloid deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amyloidogenic ADan peptide is deposited in brain vessels and parenchyma.\", \"hypothesis_groups\": [\"canonical_adan_amyloid_angiopathy_tau_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ITM2B frameshift generates the ADan amyloidogenic peptide\", \"target\": \"Synaptic BRI2 loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same ITM2B mutation also reduces availability of functional mature BRI2 at synapses.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral amyloid deposition\", \"target\": \"Neurofibrillary degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amyloid deposition is accompanied by severe downstream tau pathology and neurodegeneration.\", \"hypothesis_groups\": [\"canonical_adan_amyloid_angiopathy_tau_model\"]}, {\"source\": \"Cerebral amyloid deposition\", \"target\": \"ADan-induced mitochondrial oxidative apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amyloidogenic ADan species can trigger neuronal-cell oxidative stress, mitochondrial cytochrome c release, mitochondrial membrane-potential loss, and caspase-dependent apoptosis in vitro.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurofibrillary degeneration\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive tau-associated neurodegeneration contributes to dementia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurofibrillary degeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread neurodegeneration contributes to the progressive ataxic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Synaptic BRI2 loss\", \"target\": \"Impaired glutamatergic transmission\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced mature synaptic BRI2 impairs excitatory neurotransmission.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Synaptic BRI2 loss\", \"target\": \"Increased APP processing and Abeta burden\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRI2 normally inhibits amyloid-beta precursor protein processing; reduced mature BRI2 in FDD models and human brain is associated with increased APP-derived metabolites including Abeta.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired glutamatergic transmission\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired excitatory neurotransmission likely contributes to the progressive cognitive decline of familial Danish dementia.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased APP processing and Abeta burden\", \"target\": \"Cerebral amyloid deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased APP processing provides Abeta that co-deposits with ADan in some vascular and parenchymal lesions.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Dementia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Psychosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmology-directed cataract care\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Audiology evaluation and hearing support\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"target\": \"ADan-induced mitochondrial oxidative apoptosis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Cerebral amyloid deposition\", \"target\": \"ADan amyloid peptide deposition\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detection of ADan in CNS vessels and parenchyma reports the defining ADan amyloid deposition mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ITM2B\", \"target\": \"ITM2B frameshift generates the ADan amyloidogenic peptide\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADan amyloid peptide deposition\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\", \"readouts\": [{\"target\": \"Cerebral amyloid deposition\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detection of ADan in CNS vessels and parenchyma reports the defining ADan amyloid deposition mechanism.\"}]}}, {\"id\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Differentiated human SH-SY5Y cells treated with pyroglutamate-modified ADan model ADan-driven oxidative stress, mitochondrial cytochrome c release, and caspase-mediated apoptosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\"}}, {\"id\": \"ADan-induced mitochondrial oxidative apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyroglutamate-modified ADan is neurotoxic in differentiated SH-SY5Y cells, inducing reactive oxygen species, cytochrome c release, mitochondrial membrane-potential loss, and caspase-3 activation.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"response to oxidative stress\", \"intrinsic apoptotic signaling pathway\"], \"experimental_models\": [{\"name\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures ADan-driven oxidative stress, mitochondrial dysfunction, and intrinsic apoptosis in a neuronal cell-line peptide-challenge model.\"}]}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ataxia reflects cerebellar and broader neurodegenerative involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Audiology evaluation and hearing support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Audiology evaluation and hearing-support planning are relevant because hearing loss follows the ocular manifestations and may become severe by mid adulthood.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early cataracts are part of the classic familial Danish dementia syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cerebral amyloid deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADan accumulates in leptomeninges, vessel walls, and brain parenchyma, producing cerebral amyloid angiopathy and parenchymal deposits; Abeta can co-deposit in a subset of vascular and parenchymal lesions.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cognitive decline is a defining late neurodegenerative manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000726\"}}, {\"id\": \"ITM2B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITM2B\"], \"gene_terms\": [{\"label\": \"ITM2B\", \"id\": \"hgnc:6174\"}], \"association\": \"Gain-of-toxic-fragment / loss-of-function\"}}, {\"id\": \"ITM2B frameshift generates the ADan amyloidogenic peptide\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A decamer duplication near the normal stop codon of ITM2B creates an extended precursor from which the amyloidogenic ADan peptide is released.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITM2B\"], \"gene_terms\": [{\"label\": \"ITM2B\", \"id\": \"hgnc:6174\"}]}}, {\"id\": \"Impaired glutamatergic transmission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional mature BRI2 at synapses impairs excitatory glutamatergic neurotransmission.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synaptic transmission, glutamatergic\"]}}, {\"id\": \"Increased APP processing and Abeta burden\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of mature BRI2 function increases amyloid-beta precursor protein processing and Abeta metabolite burden in FDD model systems and a human FDD brain sample, providing a mechanistic bridge between ITM2B-related dementia and Alzheimer-like amyloid biology.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"amyloid precursor protein metabolic process\"]}}, {\"id\": \"Neurofibrillary degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Amyloid deposition is accompanied by severe downstream tau pathology and progressive neurodegeneration.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ophthalmology-directed cataract care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ophthalmology evaluation and cataract-directed care are clinically relevant because cataracts are an early, progressive feature of familial Danish dementia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paranoid reactions may accompany late progressive dementia in familial Danish dementia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000709\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hearing loss is part of the core syndromic presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Supportive multidisciplinary care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying treatment is established; care is supportive and may involve ophthalmology, audiology, neurology, rehabilitation, and dementia management matched to the staged manifestations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synaptic BRI2 loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Danish-dementia ITM2B mutations reduce mature BRI2 abundance at synapses.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}], \"edges\": [{\"source\": \"ITM2B frameshift generates the ADan amyloidogenic peptide\", \"target\": \"Cerebral amyloid deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amyloidogenic ADan peptide is deposited in brain vessels and parenchyma.\", \"hypothesis_groups\": [\"canonical_adan_amyloid_angiopathy_tau_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ITM2B frameshift generates the ADan amyloidogenic peptide\", \"target\": \"Synaptic BRI2 loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same ITM2B mutation also reduces availability of functional mature BRI2 at synapses.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral amyloid deposition\", \"target\": \"Neurofibrillary degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amyloid deposition is accompanied by severe downstream tau pathology and neurodegeneration.\", \"hypothesis_groups\": [\"canonical_adan_amyloid_angiopathy_tau_model\"]}, {\"source\": \"Cerebral amyloid deposition\", \"target\": \"ADan-induced mitochondrial oxidative apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amyloidogenic ADan species can trigger neuronal-cell oxidative stress, mitochondrial cytochrome c release, mitochondrial membrane-potential loss, and caspase-dependent apoptosis in vitro.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurofibrillary degeneration\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive tau-associated neurodegeneration contributes to dementia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurofibrillary degeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread neurodegeneration contributes to the progressive ataxic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Synaptic BRI2 loss\", \"target\": \"Impaired glutamatergic transmission\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced mature synaptic BRI2 impairs excitatory neurotransmission.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Synaptic BRI2 loss\", \"target\": \"Increased APP processing and Abeta burden\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRI2 normally inhibits amyloid-beta precursor protein processing; reduced mature BRI2 in FDD models and human brain is associated with increased APP-derived metabolites including Abeta.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired glutamatergic transmission\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired excitatory neurotransmission likely contributes to the progressive cognitive decline of familial Danish dementia.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased APP processing and Abeta burden\", \"target\": \"Cerebral amyloid deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased APP processing provides Abeta that co-deposits with ADan in some vascular and parenchymal lesions.\", \"hypothesis_groups\": [\"bri2_synaptic_loss_app_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Dementia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Psychosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmology-directed cataract care\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Audiology evaluation and hearing support\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"target\": \"ADan-induced mitochondrial oxidative apoptosis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Cerebral amyloid deposition\", \"target\": \"ADan amyloid peptide deposition\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detection of ADan in CNS vessels and parenchyma reports the defining ADan amyloid deposition mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ITM2B\", \"target\": \"ITM2B frameshift generates the ADan amyloidogenic peptide\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">8</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(5)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sensorineural hearing impairment
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank">
-                            Sensorineural hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000407)</span>
-                        </span>
-                        
+                        Sensorineural hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD), also known as heredopathia ophthalmo-oto-encephalica, is an autosomal dominant disorder characterized by cataracts, deafness, progressive ataxia, and dementia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports hearing loss as part of the syndrome phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cataract
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank">
-                            Cataract
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000518)</span>
-                        </span>
-                        
+                        Cataract
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD), also known as heredopathia ophthalmo-oto-encephalica, is an autosomal dominant disorder characterized by cataracts, deafness, progressive ataxia, and dementia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly lists cataracts as a defining clinical manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">5</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Ataxia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank">
-                            Ataxia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001251)</span>
-                        </span>
-                        
+                        Ataxia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD), also known as heredopathia ophthalmo-oto-encephalica, is an autosomal dominant disorder characterized by cataracts, deafness, progressive ataxia, and dementia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly identifies progressive ataxia as a core clinical feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intention tremor
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank">
-                            Intention tremor
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002080)</span>
-                        </span>
-                        
+                        Intention tremor
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002080">HP:0002080</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with FDD developed cerebellar ataxia with intention tremor in their fourth decade of life, however, unlike FBD cases, did not develop spastic para-paresis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports intention tremor as part of the FDD cerebellar phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Dysarthria
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank">
-                            Dysarthria
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001260)</span>
-                        </span>
-                        
+                        Dysarthria
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Severe to total perceptive hearing loss developed by the fifth decade of life, with vestibular reflex disturbances, slurred speech, and a swaying gait (Strömgren et al. 1970; Strömgren 1981)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review reports slurred speech in the FDD natural history, supporting a dysarthria phenotype annotation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Dementia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank">
-                            Dementia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000726)</span>
-                        </span>
-                        
+                        Dementia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000726">HP:0000726</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD), also known as heredopathia ophthalmo-oto-encephalica, is an autosomal dominant disorder characterized by cataracts, deafness, progressive ataxia, and dementia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports dementia as one of the defining clinical outcomes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Psychosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank">
-                            Psychosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000709)</span>
-                        </span>
-                        
+                        Psychosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000709">HP:0000709</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Progressive dementia probably begins in the sixth decade and may be associated with paranoid reactions and temporal disturbances of consciousness."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review reports paranoid reactions during the dementia stage, supporting a psychosis-related phenotype annotation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cerebral amyloid angiopathy
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011970" target="_blank">
-                            Cerebral amyloid angiopathy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011970)</span>
-                        </span>
-                        
+                        Cerebral amyloid angiopathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011970" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011970">HP:0011970</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD) is pathologically characterized by widespread cerebral amyloid angiopathy (CAA), parenchymal protein deposits, and neurofibrillary degeneration."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports cerebral amyloid angiopathy as part of the ADan amyloidosis phenotype/pathology spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -5106,665 +5283,743 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     ITM2B
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Gain-of-toxic-fragment / loss-of-function)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ITM2B
+
+
+    <a href="https://bioregistry.io/hgnc:6174" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6174">hgnc:6174</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Molecular genetic analysis of the BRI gene in the Danish kindred showed a different defect, namely the presence of a 10-nt duplication (795-796insTTTAATTTGT) between codons 265 and 266, one codon before the normal stop codon 267."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly identifies the pathogenic ITM2B/BRI mutation in familial Danish dementia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling and cascade testing
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling and family testing are relevant because ADan amyloidosis is an autosomal dominant, gene-defined ITM2B disorder.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Familial Danish dementia (FDD), also known as heredopathia ophthalmo-oto-encephalica, is an autosomal dominant disorder characterized by cataracts, deafness, progressive ataxia, and dementia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Autosomal dominant inheritance and molecular diagnosis support genetic counseling and cascade testing in affected families.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Supportive multidisciplinary care
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">No disease-modifying treatment is established; care is supportive and may involve ophthalmology, audiology, neurology, rehabilitation, and dementia management matched to the staged manifestations.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cataract
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ataxia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dementia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000726">HP:0000726</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Psychosis
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000709">HP:0000709</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinically, FDD is characterized by the development and progression of cataracts during the third decade of life (Strömgren et al. 1970). Hearing impairment was reported to appear 10–20 years following the development of ocular problems. Severe to total perceptive hearing loss developed by the..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The staged visual, hearing, speech, and gait manifestations support the need for multidisciplinary supportive management, though this is not a disease-specific treatment trial.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Ophthalmology-directed cataract care
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">ophthalmologist evaluation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000703" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000703</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000703" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000703">MAXO:0000703</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Ophthalmology evaluation and cataract-directed care are clinically relevant because cataracts are an early, progressive feature of familial Danish dementia.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cataract
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinically, FDD is characterized by the development and progression of cataracts during the third decade of life (Strömgren et al. 1970)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Early progressive cataracts support ophthalmology-directed supportive management, although the citation is natural-history rather than treatment-efficacy evidence.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Audiology evaluation and hearing support
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">audiologist evaluation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000734" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000734</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000734" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000734">MAXO:0000734</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Audiology evaluation and hearing-support planning are relevant because hearing loss follows the ocular manifestations and may become severe by mid adulthood.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hearing impairment was reported to appear 10–20 years following the development of ocular problems."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Progressive hearing impairment supports audiology-directed supportive management, although this is natural-history rather than treatment-efficacy evidence.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical therapy for gait and balance impairment
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Physical therapy and gait/balance rehabilitation may be used symptomatically for progressive ataxia and motor dysfunction.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with FDD developed cerebellar ataxia with intention tremor in their fourth decade of life, however, unlike FBD cases, did not develop spastic para-paresis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The clinical motor phenotype supports rehabilitation as symptomatic care; the citation does not establish disease-specific treatment efficacy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     ADan amyloid peptide deposition
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(PRESENT)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: ADan peptide in CNS leptomeninges, vessel walls, and parenchyma is the defining tissue biomarker of familial Danish dementia/ADan amyloidosis.</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Cerebral amyloid deposition</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Present Absent
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Detection of ADan in CNS vessels and parenchyma reports the defining ADan amyloid deposition mechanism.</div>
-                        
-                        
-                        
-                        
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We showed that ADan is widely distributed in the central nervous system (CNS) in the leptomeninges, blood vessels, and parenchyma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human neuropathology supports ADan peptide distribution as a diagnostic readout of the cerebral deposition mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We showed that ADan is widely distributed in the central nervous system (CNS) in the leptomeninges, blood vessels, and parenchyma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports ADan peptide deposition as the defining biochemical/tissue marker of ADan amyloidosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
         <div class="card" id="differentials">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
@@ -5774,167 +6029,167 @@
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from ADan amyloidosis:
             </p>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <a class="item-name-link" href="Alzheimer_Disease.html">Alzheimer disease</a>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0004975" target="_blank">
                             MONDO:0004975
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     ADan amyloidosis overlaps with Alzheimer disease through dementia, amyloid deposition, and neurofibrillary pathology.
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neuropathological findings include severe widespread cerebral amyloid angiopathy, hippocampal plaques, and neurofibrillary tangles, similar to Alzheimer&#39;s disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports Alzheimer disease as an important neuropathologic differential.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     Familial British dementia
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Familial British dementia is another chromosome 13/ITM2B amyloidosis and may resemble ADan amyloidosis through progressive dementia, ataxia, cerebral amyloid angiopathy, and Alzheimer-like tau pathology, but it generates ABri rather than ADan and has prominent spastic tetraparesis.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>ABri rather than ADan amyloid peptide</li>
-                        
+
                         <li>Prominent spastic tetraparesis or spastic paraparesis in FBD</li>
-                        
+
                         <li>FDD has earlier ocular and hearing manifestations and lacks the spastic paraparesis pattern emphasized for FBD</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinical symptoms in patients with FBD appear during the fifth decade of life and include progressive dementia, spastic tetraparesis, and cerebellar ataxia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports FBD as a clinically overlapping dementia/ataxia differential and identifies spastic tetraparesis as a distinguishing feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The 34 amino acid carboxy-terminal (C-terminal) peptide of the mutant protein was isolated from amyloid deposits from FBD patients and was referred to as British amyloid (ABri) (Vidal et al. 1999, 2000b)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ABri peptide generation distinguishes familial British dementia from the ADan peptide mechanism in familial Danish dementia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
         <div id="experimental-models"></div>
         <div class="card" id="models">
             <div class="card-header">
@@ -5942,132 +6197,137 @@
                 <h2 class="card-title">Experimental Models</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box exp-model-box anchor-target" id="experimental-model-adan-pe-challenged-sh-sy5y-neuronal-cell-model">
                 <div class="item-name">
                     ADan pE-challenged SH-SY5Y neuronal cell model
-                    
+
                     <span class="tag tag-exp-model-type">CELL_LINE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="item-desc">Differentiated human SH-SY5Y cells treated with pyroglutamate-modified ADan model ADan-driven oxidative stress, mitochondrial cytochrome c release, and caspase-mediated apoptosis.</div>
-                
-                
-                
-                
+
+
+
+
                 <div class="model-detail-list">
-                    
+
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
                         <div class="model-detail-value">
-                            
-                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
-                            
+
+                            human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+
+
+
                         </div>
                     </div>
-                    
-                    
-                    
+
+
+
                     <div class="model-detail-row">
                         <div class="model-detail-label">Cell source</div>
                         <div class="model-detail-value">Human SH-SY5Y neuroblastoma cell line differentiated with retinoic acid</div>
                     </div>
-                    
-                    
+
+
                     <div class="model-detail-row">
                         <div class="model-detail-label">Culture</div>
                         <div class="model-detail-value">Two-dimensional peptide-challenge culture with ADan pE or control peptides</div>
                     </div>
-                    
-                    
+
+
                 </div>
-                
-                
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Pathograph links</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="#pathophysiology-adan-induced-mitochondrial-oxidative-apoptosis">ADan-induced mitochondrial oxidative apoptosis</a>
-                            
+
                             <span class="crosslink-desc">Measures ADan-driven oxidative stress, mitochondrial dysfunction, and intrinsic apoptosis in a neuronal cell-line peptide-challenge model.</span>
-                            
-                            
-    
-    
+
+
+
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-    
+
+
+
     <div class="findings-section">
         <div class="findings-title">Findings</div>
-        
+
         <div class="finding-item">
-            
+
             <div class="finding-statement">ADan pE induces mitochondrial cytochrome c release and loss of mitochondrial membrane potential.</div>
-            
-            
+
+
             <div class="finding-supporting">"ADan pE challenge resulted, in addition to the release of cytochrome c to the cytoplasm, in a concurrent loss of mitochondrial membrane potential, indicated by the diffuse MitoTracker staining and poor co-localization of both signals (Figure 7B, bottom panel)."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26459115" target="_blank">PMID:26459115</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ADan pE challenge resulted, in addition to the release of cytochrome c to the cytoplasm, in a concurrent loss of mitochondrial membrane potential, indicated by the diffuse MitoTracker staining and poor co-localization of both signals (Figure 7B, bottom panel)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the SH-SY5Y peptide-challenge model for mitochondrial ADan toxicity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -7226,650 +7486,650 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">20</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/10781099" target="_blank">PMID:10781099</a>
                             </div>
-                            
+
                             <div class="reference-title">A decamer duplication in the 3&#39; region of the BRI gene originates an amyloid peptide that is associated with dementia in a Danish kindred.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">FDD is an autosomal dominant syndrome caused by a 10-nt BRI/ITM2B duplication that generates the ADan amyloid peptide.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"The decamer duplication mutation produces a frame-shift in the BRI sequence generating a larger-than-normal precursor protein, of which the amyloid subunit (designated ADan) comprises the last 34 C-terminal amino acids."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/11895040" target="_blank">PMID:11895040</a>
                             </div>
-                            
+
                             <div class="reference-title">Familial Danish dementia: a novel form of cerebral amyloidosis associated with deposition of both amyloid-Dan and amyloid-beta.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">FDD neuropathology includes widespread cerebral amyloid angiopathy, parenchymal deposits, neurofibrillary degeneration, and Abeta co-deposition.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Familial Danish dementia (FDD) is pathologically characterized by widespread cerebral amyloid angiopathy (CAA), parenchymal protein deposits, and neurofibrillary degeneration."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/19779737" target="_blank">PMID:19779737</a>
                             </div>
-                            
+
                             <div class="reference-title">Modeling familial British and Danish dementia.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">FDD progresses from cataracts in the third decade to hearing impairment, cerebellar ataxia with intention tremor, later dementia, and death in the fifth or sixth decade.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Clinically, FDD is characterized by the development and progression of cataracts during the third decade of life (Strömgren et al. 1970)."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/15968464" target="_blank">PMID:15968464</a>
                             </div>
-                            
+
                             <div class="reference-title">Chromosome 13 dementias.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">FBD and FDD share Alzheimer-like pathology including neurofibrillary tangles, amyloid deposits, cerebral amyloid angiopathy, inflammatory components, and de novo ABri/ADan peptide generation.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Two non-Abeta cerebral amyloidoses, familial British and Danish dementias (FBD and FDD), share many aspects of Alzheimer&#39;s disease, including the presence of neurofibrillary tangles, parenchymal preamyloid and amyloid deposits, cerebral amyloid angiopathy and a variety of amyloid-associated..."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s00018-005-5092-5" target="_blank">DOI:10.1007/s00018-005-5092-5</a>
                             </div>
-                            
+
                             <div class="reference-title">Chromosome 13 dementias.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s00429-009-0221-9" target="_blank">DOI:10.1007/s00429-009-0221-9</a>
                             </div>
-                            
+
                             <div class="reference-title">Modeling familial British and Danish dementia.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3233/JAD-2011-110785" target="_blank">DOI:10.3233/JAD-2011-110785</a>
                             </div>
-                            
+
                             <div class="reference-title">Increased AβPP Processing in Familial Danish Dementia Patients.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.nbd.2015.10.003" target="_blank">DOI:10.1016/j.nbd.2015.10.003</a>
                             </div>
-                            
+
                             <div class="reference-title">Oxidative stress and mitochondria-mediated cell death mechanisms triggered by the familial Danish dementia ADan amyloid.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/21841249" target="_blank">PMID:21841249</a>
                             </div>
-                            
+
                             <div class="reference-title">Increased AbetaPP processing in familial Danish dementia patients.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">APP-derived metabolites, including Abeta, are increased in an FDD brain sample, supporting altered APP processing in Danish dementia.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"We find that the levels of several AβPP metabolites, including Aβ, are significantly increased in the brain sample derived from an FDD patient."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/33172889" target="_blank">PMID:33172889</a>
                             </div>
-                            
+
                             <div class="reference-title">Danish and British dementia ITM2b/BRI2 mutations reduce BRI2 protein stability and impair glutamatergic synaptic transmission.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Danish and British ITM2B mutations reduce mature BRI2 at synapses and impair glutamatergic transmission.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Collectively, the data show that FDD and FBD mutations cause a reduction of BRI2 levels and function at synapses, which results in reduced glutamatergic transmission."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1074/jbc.ra120.015679" target="_blank">DOI:10.1074/jbc.ra120.015679</a>
                             </div>
-                            
+
                             <div class="reference-title">Danish and British dementia ITM2b/BRI2 mutations reduce BRI2 protein stability and impair glutamatergic synaptic transmission.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/26459115" target="_blank">PMID:26459115</a>
                             </div>
-                            
+
                             <div class="reference-title">Oxidative stress and mitochondria-mediated cell death mechanisms triggered by the familial Danish dementia ADan amyloid.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">ADan neurotoxicity involves ROS generation, cytochrome c release, mitochondrial membrane-potential disruption, and caspase-3 activation.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"The data presented herein demonstrates that ADan neurotoxicity takes place through a mechanism involving many components of intrinsic apoptosis, including high levels of ROS generation, cyt c release into the cytoplasm, disruption of mitochondrial membrane potential, and final activation of..."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s12974-025-03537-w" target="_blank">DOI:10.1186/s12974-025-03537-w</a>
                             </div>
-                            
+
                             <div class="reference-title">Pathological mechanisms of motor dysfunction in familial Danish dementia: insights from a knock-in rat model</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/41354963" target="_blank">PMID:41354963</a>
                             </div>
-                            
+
                             <div class="reference-title">Pathological mechanisms of motor dysfunction in familial Danish dementia: insights from a knock-in rat model.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">A FDD-KI rat model links vascular amyloid deposition, fibrinogen leakage, neuroinflammation, white-matter injury, and motor dysfunction.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"These findings suggest that CAA and fibrinogen leakage in FDD may drive neuroinflammation, demyelination, and axonal damage in the cerebellum, potentially contributing to the motor and gait impairments observed in FDD."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s44319-024-00077-x" target="_blank">DOI:10.1038/s44319-024-00077-x</a>
                             </div>
-                            
+
                             <div class="reference-title">Functional BRI2-TREM2 interactions in microglia: implications for Alzheimer&#39;s and related dementias</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">BRI2 interacts functionally with TREM2 in microglia, influences TREM2 processing, and affects phagocytosis.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Lastly, Bri2 deletion reduces phagocytosis similarly to a pathogenic TREM2 variant that enhances processing."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s00401-024-02820-z" target="_blank">DOI:10.1007/s00401-024-02820-z</a>
                             </div>
-                            
+
                             <div class="reference-title">Microglia contribute to the production of the amyloidogenic ABri peptide in familial British dementia</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">ITM2B/BRI2 is enriched in iPSC-derived microglia, which can produce amyloidogenic ABri peptide in familial British dementia.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Using patient-derived induced pluripotent stem cells, we show that expression of ITM2B/BRI2 is 34-fold higher in microglia than neurons and 15-fold higher in microglia compared with astrocytes."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1101/2023.06.27.546552" target="_blank">DOI:10.1101/2023.06.27.546552</a>
                             </div>
-                            
+
                             <div class="reference-title">Microglia produce the amyloidogenic ABri peptide in familial British dementia.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1101/2023.09.15.557952" target="_blank">DOI:10.1101/2023.09.15.557952</a>
                             </div>
-                            
+
                             <div class="reference-title">Amyloids at the border: deep mutagenesis and random sequence extension reveal an incomplete amyloid-forming motif in Bri2 that turns amyloidogenic upon C-terminal extension</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Deep mutagenesis maps an ADan amyloid core and supports C-terminal extension as a mechanism that can generate de novo amyloid motifs.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"To systematically explore the consequences of Bri2 C-terminal extension, here, we measure amyloid formation for 676 ADan substitutions and identify the region that forms the putative amyloid core of ADan fibrils, located between positions 20 and 26, where stop-loss occurs."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/1750-1326-9-5" target="_blank">DOI:10.1186/1750-1326-9-5</a>
                             </div>
-                            
+
                             <div class="reference-title">Amyloid peptides ABri and ADan show differential neurotoxicity in transgenic Drosophila models of familial British and Danish dementia</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">ADan is neurotoxic in Drosophila eye and CNS models and causes age-dependent climbing impairment earlier than ABri or Abeta42.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"This effect was stronger for ADan, detected at 7 days post-eclosion, and followed by ABri and Aβ42, whose toxicity became evident after 15 and 21 days, respectively."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1101/2021.06.24.449787" target="_blank">DOI:10.1101/2021.06.24.449787</a>
                             </div>
-                            
+
                             <div class="reference-title">Familial Danish dementia young Knock-in rats expressing humanized APP and human Abeta show impaired pre and postsynaptic glutamatergic transmission</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Young Itm2b Danish knock-in rats expressing humanized App show early glutamatergic synaptic abnormalities.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Collectively, the data show that the pathogenic Danish mutation alters the physiological function of BRI2 at glutamatergic synapses; these functional alterations are detected across species and occur early in life."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of ADan amyloidosis. Core disease mechanisms, molecular and cellular pathways...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-14T16:27:15.812840</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of ADan amyloidosis. Core disease mechanisms, molecular and cellular pathways...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -8217,29 +8477,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">ADan Amyloidosis (Familial Danish Dementia) — Comprehensive Disease Characteristics Report</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">37 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-29T22:27:21.399212</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>ADan Amyloidosis (Familial Danish Dementia) — Comprehensive Disease Characteristics Report</h1>
 <h2>Executive summary</h2>
@@ -8885,11 +9145,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
