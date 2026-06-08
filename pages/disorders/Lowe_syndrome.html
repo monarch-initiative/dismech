@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>Lowe syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0010645" target="_blank">
                         MONDO:0010645
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">X-linked genetic disorders</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Membrane trafficking disorders</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Renal tubulopathies</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,11 +2993,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Lowe syndrome is a rare X-linked multisystem disorder caused by pathogenic OCRL variants that reduce phosphatidylinositol 4,5-bisphosphate 5-phosphatase activity. The disorder classically presents with congenital cataracts, hypotonia or developmental impairment, and proximal tubular dysfunction. Its dominant mechanistic story is defective phosphoinositide control on endosomal and ciliary membranes, causing abnormal actin remodeling, impaired receptor recycling and endocytosis, and progressive kidney and eye disease.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2997,34 +3067,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3032,8 +3102,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3041,9 +3111,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3051,10 +3121,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3062,8 +3132,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3071,8 +3141,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3080,15 +3150,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3096,889 +3166,1008 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     X-linked recessive inheritance
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Classic Lowe syndrome is inherited as an X-linked recessive disorder caused by pathogenic OCRL variants, with affected male probands and heterozygous carrier mothers typical of the syndrome.</div>
-                
-                
-    
-    
-    
-    
-                
-    
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23389333" target="_blank">PMID:23389333</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lowe syndrome is a rare X-linked recessive hereditary disease caused by mutations of the OCRL gene, which encodes an inositol polyphosphate-5-phosphatase."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical genetics study directly states the inheritance pattern and identifies OCRL as the causal gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocrl-phosphatidylinositol-dephosphorylation-defect">
                 <div class="item-name">OCRL phosphatidylinositol dephosphorylation defect</div>
-                
+
                 <div class="item-desc">Pathogenic OCRL variants reduce the 5-phosphatase activity that normally dephosphorylates phosphatidylinositol 4,5-bisphosphate, shifting phosphoinositide homeostasis on internal membranes.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        OCRL
-                        
-                        <a href="https://bioregistry.io/hgnc:8108" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        OCRL
+
+
+    <a href="https://bioregistry.io/hgnc:8108" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8108">hgnc:8108</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         phosphatidylinositol dephosphorylation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0046856" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0046856" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046856">GO:0046856</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Early endosomal PI(4,5)P2 accumulation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ciliary PI(4,5)P2 imbalance</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7761412" target="_blank">PMID:7761412</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These results suggest that OCRL is mainly a lipid phosphatase that may control cellular levels of a critical metabolite, phosphatidylinositol 4,5-bisphosphate."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Foundational biochemical study establishing OCRL as the lipid phosphatase whose deficiency initiates Lowe syndrome pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-endosomal-pi-4-5-p2-accumulation">
                 <div class="item-name">Early endosomal PI(4,5)P2 accumulation</div>
-                
+
                 <div class="item-desc">OCRL loss causes ectopic PI(4,5)P2 accumulation on early endosomes, disturbing endosomal membrane composition.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         endosome organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007032" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007032">GO:0007032</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         early endosome
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005769" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005769" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005769">GO:0005769</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Endosomal actin polymerization increase</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21971085" target="_blank">PMID:21971085</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These trafficking defects are caused by ectopic accumulation of PtdIns4,5P(2) in EEs"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that OCRL loss directly produces phosphoinositide accumulation on early endosomes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endosomal-actin-polymerization-increase">
                 <div class="item-name">Endosomal actin polymerization increase</div>
-                
+
                 <div class="item-desc">Excess early-endosomal PI(4,5)P2 promotes abnormal F-actin accumulation and broader actin cytoskeletal instability.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         actin filament organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007015" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007015" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007015">GO:0007015</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         early endosome
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005769" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005769" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005769">GO:0005769</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Receptor recycling defect</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21971085" target="_blank">PMID:21971085</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"which in turn induces an N-WASP-dependent increase in endosomal F-actin."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Links the phosphoinositide abnormality to excessive endosomal actin assembly.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12428211" target="_blank">PMID:12428211</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we have identified a reproducible cellular abnormality of the actin cytoskeleton in fibroblasts from patients with Lowe syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Independent patient-cell study shows that OCRL deficiency produces a reproducible actin cytoskeletal defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-receptor-recycling-defect">
                 <div class="item-name">Receptor recycling defect</div>
-                
+
                 <div class="item-desc">Abnormal phosphoinositide-actin coupling disrupts clathrin-mediated trafficking and recycling of cargo receptors through endosomes.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         receptor-mediated endocytosis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006898">GO:0006898</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         endocytic recycling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0032456" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0032456" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032456">GO:0032456</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         early endosome
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005769" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005769" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005769">GO:0005769</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Proximal tubular endocytic reabsorption failure</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15917292" target="_blank">PMID:15917292</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These findings suggest a role for OCRL1 in clathrin-mediated trafficking of proteins from endosomes to the TGN and that defects in this pathway might contribute to the Lowe syndrome phenotype."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes OCRL as a regulator of clathrin-dependent endosomal trafficking.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25107275" target="_blank">PMID:25107275</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here we show that OCRL loss in Lowe syndrome patient fibroblasts impacts clathrin-mediated endocytosis and results in an endocytic defect."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Patient-cell study shows that OCRL loss disrupts clathrin-mediated endocytosis itself, not only later sorting steps.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-tubular-endocytic-reabsorption-failure">
                 <div class="item-name">Proximal tubular endocytic reabsorption failure</div>
-                
+
                 <div class="item-desc">In proximal tubule epithelial cells, defective OCRL-dependent trafficking reduces megalin recycling and impairs receptor-mediated uptake of filtered low-molecular-weight proteins.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         epithelial cell of proximal tubule
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         receptor-mediated endocytosis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006898">GO:0006898</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         endocytic recycling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0032456" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0032456" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032456">GO:0032456</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         kidney
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Renal tubular dysfunction</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Low-molecular-weight proteinuria</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21971085" target="_blank">PMID:21971085</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"OCRL depletion impairs the recycling of multiple classes of receptors, including megalin (which mediates protein reabsorption in the kidney) that are retained in engorged EEs."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly connects OCRL-dependent trafficking failure to megalin misrecycling in the renal protein-reabsorption pathway.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25838181" target="_blank">PMID:25838181</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here, we show that deficiency in OCRL1 causes a defect in endocytosis in the zebrafish pronephric tubule, a model for the mammalian renal tubule."</div>
-                
-                
+
+
                 <div class="evidence-explanation">In vivo model organism evidence shows that OCRL loss causes a renal tubular endocytic defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ciliary-pi-4-5-p2-imbalance">
                 <div class="item-name">Ciliary PI(4,5)P2 imbalance</div>
-                
+
                 <div class="item-desc">OCRL localizes to primary cilia; disease-associated OCRL loss shortens cilia and increases ciliary PI(4,5)P2, indicating a parallel ciliary phosphoinositide defect.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cilium assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060271">GO:0060271</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         primary cilium
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Glaucoma</span>
-	                            
+
 	                            <span class="crosslink-desc">OCRL-dependent ciliary mechanosensation in trabecular meshwork cells is a plausible contributor to pressure dysregulation and glaucoma.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22543976" target="_blank">PMID:22543976</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lowe syndrome-associated mutations in OCRL result in shortened cilia and this phenotype can be rescued by the introduction of wild-type OCRL"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Shows that OCRL loss directly perturbs cilium maintenance and that rescue is possible with wild-type OCRL.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28871046" target="_blank">PMID:28871046</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here, we demonstrate that cilia from Lowe syndrome patient fibroblasts exhibit increased levels of PI(4,5)P2 and decreased levels of PI4P."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates a specific ciliary phosphoinositide imbalance in Lowe syndrome patient cells.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3989,542 +4178,566 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ciliary PI(4,5)P2 imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"OCRL localizes to primary cilia; disease-associated OCRL loss shortens cilia and increases ciliary PI(4,5)P2, indicating a parallel ciliary phosphoinositide defect.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cilium assembly\"]}}, {\"id\": \"Early endosomal PI(4,5)P2 accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"OCRL loss causes ectopic PI(4,5)P2 accumulation on early endosomes, disturbing endosomal membrane composition.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"endosome organization\"]}}, {\"id\": \"Endosomal actin polymerization increase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess early-endosomal PI(4,5)P2 promotes abnormal F-actin accumulation and broader actin cytoskeletal instability.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"actin filament organization\"]}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Glaucoma is common, may be present concurrently with cataracts or develop after cataract surgery, and is a major cause of vision loss.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000501\"}}, {\"id\": \"Low-molecular-weight proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-molecular-weight proteinuria is the dominant protein-reabsorption defect of the renal phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"OCRL pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"OCRL\"], \"presence\": \"Positive\", \"association\": \"Loss-of-function\"}}, {\"id\": \"OCRL phosphatidylinositol dephosphorylation defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic OCRL variants reduce the 5-phosphatase activity that normally dephosphorylates phosphatidylinositol 4,5-bisphosphate, shifting phosphoinositide homeostasis on internal membranes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol dephosphorylation\"], \"genes\": [\"OCRL\"]}}, {\"id\": \"Proximal tubular endocytic reabsorption failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In proximal tubule epithelial cells, defective OCRL-dependent trafficking reduces megalin recycling and impairs receptor-mediated uptake of filtered low-molecular-weight proteins.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"receptor-mediated endocytosis\", \"endocytic recycling\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Receptor recycling defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal phosphoinositide-actin coupling disrupts clathrin-mediated trafficking and recycling of cargo receptors through endosomes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"receptor-mediated endocytosis\", \"endocytic recycling\"]}}, {\"id\": \"Renal tubular dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The renal phenotype is a selective proximal tubulopathy rather than a fully expressed generalized Fanconi syndrome in all patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000124\"}}], \"edges\": [{\"source\": \"OCRL phosphatidylinositol dephosphorylation defect\", \"target\": \"Early endosomal PI(4,5)P2 accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"OCRL phosphatidylinositol dephosphorylation defect\", \"target\": \"Ciliary PI(4,5)P2 imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Early endosomal PI(4,5)P2 accumulation\", \"target\": \"Endosomal actin polymerization increase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endosomal actin polymerization increase\", \"target\": \"Receptor recycling defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Receptor recycling defect\", \"target\": \"Proximal tubular endocytic reabsorption failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubular endocytic reabsorption failure\", \"target\": \"Renal tubular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubular endocytic reabsorption failure\", \"target\": \"Low-molecular-weight proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary PI(4,5)P2 imbalance\", \"target\": \"Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OCRL-dependent ciliary mechanosensation in trabecular meshwork cells is a plausible contributor to pressure dysregulation and glaucoma.\"}, {\"source\": \"OCRL pathogenic variants\", \"target\": \"OCRL phosphatidylinositol dephosphorylation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ciliary PI(4,5)P2 imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"OCRL localizes to primary cilia; disease-associated OCRL loss shortens cilia and increases ciliary PI(4,5)P2, indicating a parallel ciliary phosphoinositide defect.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cilium assembly\"]}}, {\"id\": \"Early endosomal PI(4,5)P2 accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"OCRL loss causes ectopic PI(4,5)P2 accumulation on early endosomes, disturbing endosomal membrane composition.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"endosome organization\"]}}, {\"id\": \"Endosomal actin polymerization increase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess early-endosomal PI(4,5)P2 promotes abnormal F-actin accumulation and broader actin cytoskeletal instability.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"actin filament organization\"]}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Glaucoma is common, may be present concurrently with cataracts or develop after cataract surgery, and is a major cause of vision loss.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000501\"}}, {\"id\": \"Low-molecular-weight proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-molecular-weight proteinuria is the dominant protein-reabsorption defect of the renal phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"OCRL pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"OCRL\"], \"gene_terms\": [{\"label\": \"OCRL\", \"id\": \"hgnc:8108\"}], \"presence\": \"Positive\", \"association\": \"Loss-of-function\"}}, {\"id\": \"OCRL phosphatidylinositol dephosphorylation defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic OCRL variants reduce the 5-phosphatase activity that normally dephosphorylates phosphatidylinositol 4,5-bisphosphate, shifting phosphoinositide homeostasis on internal membranes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol dephosphorylation\"], \"genes\": [\"OCRL\"], \"gene_terms\": [{\"label\": \"OCRL\", \"id\": \"hgnc:8108\"}]}}, {\"id\": \"Proximal tubular endocytic reabsorption failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In proximal tubule epithelial cells, defective OCRL-dependent trafficking reduces megalin recycling and impairs receptor-mediated uptake of filtered low-molecular-weight proteins.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"receptor-mediated endocytosis\", \"endocytic recycling\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Receptor recycling defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal phosphoinositide-actin coupling disrupts clathrin-mediated trafficking and recycling of cargo receptors through endosomes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"receptor-mediated endocytosis\", \"endocytic recycling\"]}}, {\"id\": \"Renal tubular dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The renal phenotype is a selective proximal tubulopathy rather than a fully expressed generalized Fanconi syndrome in all patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000124\"}}], \"edges\": [{\"source\": \"OCRL phosphatidylinositol dephosphorylation defect\", \"target\": \"Early endosomal PI(4,5)P2 accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"OCRL phosphatidylinositol dephosphorylation defect\", \"target\": \"Ciliary PI(4,5)P2 imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Early endosomal PI(4,5)P2 accumulation\", \"target\": \"Endosomal actin polymerization increase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endosomal actin polymerization increase\", \"target\": \"Receptor recycling defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Receptor recycling defect\", \"target\": \"Proximal tubular endocytic reabsorption failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubular endocytic reabsorption failure\", \"target\": \"Renal tubular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal tubular endocytic reabsorption failure\", \"target\": \"Low-molecular-weight proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary PI(4,5)P2 imbalance\", \"target\": \"Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OCRL-dependent ciliary mechanosensation in trabecular meshwork cells is a plausible contributor to pressure dysregulation and glaucoma.\"}, {\"source\": \"OCRL pathogenic variants\", \"target\": \"OCRL phosphatidylinositol dephosphorylation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">8</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Bilateral congenital cataract
-                        
+
                         <span class="phenotype-freq">OBLIGATE</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank">
-                            Cataract
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000518)</span>
-                        </span>
-                        
+                        Cataract
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32340490" target="_blank">PMID:32340490</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Of 137 patients, all had bilateral congenital cataracts."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large ophthalmic survey directly supports bilateral congenital cataracts as an obligate phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Glaucoma
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank">
-                            Glaucoma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000501)</span>
-                        </span>
-                        
+                        Glaucoma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32340490" target="_blank">PMID:32340490</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Glaucoma occurred in 54.7% of patients and affected both eyes in the majority of cases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports glaucoma as a frequent ocular complication of Lowe syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Renal tubular dysfunction
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000124" target="_blank">
-                            Renal tubular dysfunction
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000124)</span>
-                        </span>
-                        
+                        Renal tubular dysfunction
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000124" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000124">HP:0000124</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18480301" target="_blank">PMID:18480301</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with Lowe syndrome do not have renal Fanconi syndrome but a selective proximal tubulopathy, variable in extent and dominated by low molecular weight proteinuria and hypercalciuria, the classical features of Dent disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines the characteristic renal phenotype as selective proximal tubular dysfunction.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Low-molecular-weight proteinuria
-                        
+
                         <span class="phenotype-freq">OBLIGATE</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank">
-                            proteinuria
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000093)</span>
-                        </span>
-                        
+                        proteinuria
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18480301" target="_blank">PMID:18480301</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All patients had low molecular weight proteinuria and albuminuria."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cohort study directly supports low-molecular-weight proteinuria as an obligate renal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Chronic kidney disease
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank">
-                            Chronic kidney disease
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012622)</span>
-                        </span>
-                        
+                        Chronic kidney disease
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27708066" target="_blank">PMID:27708066</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CKD stage II-V was found in 82% of patients, of these 58% and 28% had moderate-to-severe CKD in LS and DD2, respectively."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large international cohort directly supports chronic kidney disease as a very frequent phenotype in Lowe syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Generalized hypotonia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank">
-                            Generalized hypotonia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001290)</span>
-                        </span>
-                        
+                        Generalized hypotonia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001290">HP:0001290</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722554" target="_blank">PMID:16722554</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Bilateral cataract and severe hypotonia are present at birth."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review abstract directly supports congenital severe hypotonia as a defining early neurologic feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Global developmental delay
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
-                            Global developmental delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
-                        </span>
-                        
+                        Global developmental delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35803701" target="_blank">PMID:35803701</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Additional features were dental problems (n=77, 56%), bone fractures (n=63, 46%), hypophosphataemia (n=60, 44%), developmental delay and behavioural issues."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large family-survey cohort supports developmental delay as part of the clinical phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypercalciuria
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank">
-                            Hypercalciuria
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002150)</span>
-                        </span>
-                        
+                        Hypercalciuria
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002150">HP:0002150</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18480301" target="_blank">PMID:18480301</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fifteen patients had hypercalciuria, and 14 aminoaciduria."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports hypercalciuria as a very frequent renal manifestation in the reported cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4549,449 +4762,482 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     OCRL pathogenic variants
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Loss-of-function)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: OCRL
+
+
+    <a href="https://bioregistry.io/hgnc:8108" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8108">hgnc:8108</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25480730" target="_blank">PMID:25480730</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All patients carried OCRL gene defects with mutational hot spots at CpG dinucleotides."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Multicenter clinical cohort confirms OCRL defects in all genetically characterized Lowe syndrome patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34586410" target="_blank">PMID:34586410</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Truncating mutations in OCRL exons 1-7 lead to Dent disease-2, whereas those in exons 8-24 lead to Lowe syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports disease framing at the severe syndromic end of an OCRL allelic continuum and informs splitting from Dent disease-2.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_5140c756-fac0-435b-8f59-a5d4a0b0adb3-2020-07-10T160000.000Z" target="_blank">CGGV:assertion_5140c756-fac0-435b-8f59-a5d4a0b0adb3-2020-07-10T160000.000Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"OCRL | HGNC:8108 | oculocerebrorenal syndrome | MONDO:0010645 | XL | Definitive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen classifies the OCRL-oculocerebrorenal syndrome gene-disease relationship as definitive with X-linked inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cataract extraction
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Early cataract surgery is part of standard management to clear the visual axis in affected infants.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722554" target="_blank">PMID:16722554</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The treatment includes: cataract extraction, glaucoma control, physical and speech therapy, use of drugs to address behavioural problems, and correction of the tubular acidosis and the bone disease with the use of bicarbonate, phosphate, potassium and water."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review abstract lists cataract extraction as standard treatment in Lowe syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35847784" target="_blank">PMID:35847784</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"During postoperative one-and-a-half-year follow-up, the boy exhibited an improved visual acuity and a well-controlled IOP without the use of topical IOP-lowering medications."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case report supports clinical benefit from cataract surgery combined with glaucoma surgery in an infant with Lowe syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Glaucoma surgery
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Surgical pressure-lowering procedures are frequently required for glaucoma, with aqueous tube shunts performing well in retrospective survey data.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32340490" target="_blank">PMID:32340490</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Although trabeculectomy and goniotomy are commonly used for pressure management, aqueous tube shunts had the best outcomes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Retrospective ophthalmic survey identifies glaucoma surgery approaches used in practice and highlights the best reported outcomes.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35847784" target="_blank">PMID:35847784</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We recommend combined cataract surgery and minimally invasive glaucoma surgery (MIGS) as a safe, feasible, and efficient method to treat congenital cataract and glaucoma in Lowe syndrome patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case report provides direct procedural evidence for combined surgical glaucoma control in Lowe syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Renal tubular loss replacement
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Supportive replacement of bicarbonate, phosphate, potassium, water, and related losses is used to correct tubular acidosis and bone disease.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722554" target="_blank">PMID:16722554</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The treatment includes: cataract extraction, glaucoma control, physical and speech therapy, use of drugs to address behavioural problems, and correction of the tubular acidosis and the bone disease with the use of bicarbonate, phosphate, potassium and water."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review abstract summarizes the standard supportive replacement strategy for renal tubular and skeletal complications.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18480301" target="_blank">PMID:18480301</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Seven patients required bicarbonate and three required phosphate replacement; all others maintained normal serum values without supplementation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cohort data show real-world use of bicarbonate and phosphate replacement for clinically significant tubular losses.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5547,27 +5793,27 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Deep Research Summary: Lowe Syndrome</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h1>Deep Research Summary: Lowe Syndrome</h1>
 <h2>Research Method</h2>
@@ -5724,11 +5970,11 @@ evidence claims.</p>
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
