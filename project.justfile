@@ -614,6 +614,12 @@ gen-module-pages:
     uv run python -m dismech.render --module {{modules_dir}}
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
+# Generate deep-research index page
+[group('Pages')]
+gen-research-index:
+    uv run python -m dismech.render --research
+    @echo "Generated pages/research/index.html"
+
 # Generate a single comorbidity page
 [group('Pages')]
 gen-comorbidity-page file:
@@ -652,6 +658,11 @@ export-context-scores output_dir="output/context_scores":
 export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
+
+# Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
+[group('Export')]
+export-hpoa:
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
 
 # ============== CX2 Export ==============
 
@@ -804,6 +815,75 @@ research-disorder provider disorder *args="":
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
         --var "category=$category" \
+        $provider_arg \
+        --output "$output_file" \
+        --separate-citations "$output_file.citations.md" \
+        {{args}}
+
+# Deep research on a shared mechanism module using specified provider
+# Examples:
+#   just research-module falcon meiotic_prophase_failure --param max_tokens=12000
+[group('Research')]
+research-module provider module *args="":
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p {{research_dir}}/modules
+    yaml_file="{{modules_dir}}/{{module}}.yaml"
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: Module file not found: $yaml_file"
+        for f in {{modules_dir}}/*.yaml; do basename "$f" .yaml; done | sort
+        exit 1
+    fi
+    module_name=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    print(data.get("name", ""))
+    PY
+    )
+    category=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    print(data.get("category", ""))
+    PY
+    )
+    module_description=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    print(" ".join(str(data.get("description", "")).split()))
+    PY
+    )
+    pathophysiology_summary=$(uv run python - "$yaml_file" <<'PY'
+    import sys
+    from pathlib import Path
+    import yaml
+
+    data = yaml.safe_load(Path(sys.argv[1]).read_text())
+    for node in data.get("pathophysiology") or []:
+        name = node.get("name", "")
+        desc = " ".join(str(node.get("description", "")).split())
+        print(f"- {name}: {desc}")
+    PY
+    )
+    output_file="{{research_dir}}/modules/{{module}}-deep-research-{{provider}}.md"
+    template_file="{{templates_dir}}/module_mechanism_research.md"
+    echo "Researching module: $module_name ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    uv run deep-research-client research \
+        --template "$template_file" \
+        --var "module_name=$module_name" \
+        --var "module_slug={{module}}" \
+        --var "category=$category" \
+        --var "module_description=$module_description" \
+        --var "pathophysiology_summary=$pathophysiology_summary" \
         $provider_arg \
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
@@ -1555,6 +1635,16 @@ list-research:
 [group('Research')]
 literature-scan days='7' max_records='100':
     uv run python scripts/literature_scan.py --days {{days}} --max-records {{max_records}}
+
+# Generate a deterministic Europe PMC mechanistic knowledge-gap scan packet
+[group('Research')]
+knowledge-gap-scan days='7' max_records='200':
+    uv run python scripts/knowledge_gap_scan.py --days {{days}} --max-records {{max_records}}
+
+# Generate a mechanistic knowledge-gap scan packet for an explicit publication-date range
+[group('Research')]
+knowledge-gap-scan-range date_from date_to max_records='200':
+    uv run python scripts/knowledge_gap_scan.py --date-from {{date_from}} --date-to {{date_to}} --max-records {{max_records}}
 
 # Generate a disorder review report (markdown + PDF) for expert review
 # Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml
