@@ -146,6 +146,40 @@ pathophysiology:
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
+- `dna_repair_synthetic_lethality` — Conserved HRR/FA-BRCA deficiency pattern: HRR or FA/BRCA repair deficiency → replication-associated DNA damage accumulation → PARP/platinum synthetic lethality → POLQ/error-prone repair escape → restored HRR and acquired resistance. Key conformance target: `dna_repair_synthetic_lethality#PARP and Platinum Synthetic Lethality`
+- `rtk_grb2_signaling_adaptation` — Conserved RTK/GRB2 adaptor pattern: activated RTK phosphotyrosine docking → GRB2 adaptor hub → RAS-MAPK/PI3K-AKT proliferation output, with an emerging GRB2-RAD51 replication-fork protection branch. Key conformance target: `rtk_grb2_signaling_adaptation#GRB2 Adaptor Hub`
+- `parp_parg_macrodomain_viral_evasion` — Conserved antiviral ADP-ribosylation pattern: viral/interferon PARP induction → NAD-dependent antiviral ADP-ribosylation → PARG/host reset → viral macrodomain de-ADP-ribosylation countermeasure → enhanced viral replication/pathogenesis. Key conformance target: `parp_parg_macrodomain_viral_evasion#Viral Macrodomain De-ADP-Ribosylation Countermeasure`
+- `lysosomal_substrate_accumulation` — Conserved lysosomal storage disease pattern: lysosomal hydrolase/cofactor deficiency → undegraded substrate accumulation in the lysosome → autophagic-lysosomal dysfunction and secondary cascade → storage-cell cytotoxicity and neuroinflammation → progressive multisystem/neurodegenerative disease. Conforming disorder nodes substitute the disorder-specific deficient enzyme, stored substrate, and storage cell type (e.g., glucocerebrosidase/glucocerebroside/Gaucher cell; hexosaminidase/GM2 ganglioside/neuron; alpha-galactosidase A/Gb3/endothelium). Key conformance target: `lysosomal_substrate_accumulation#Lysosomal Substrate Accumulation`
+- `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
+- `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
+- `cardiac_ion_channel_repolarization` — Conserved cardiac channelopathy pattern: cardiac ion-channel or calcium-handling variant → altered action-potential duration / Ca²⁺ handling → arrhythmogenic substrate and triggered activity (EADs/DADs, dispersion of repolarization, reentry) → ventricular tachyarrhythmia → syncope and sudden cardiac death, with a parallel sinoatrial-node automaticity-failure branch producing bradyarrhythmia. For inherited arrhythmia syndromes in structurally normal hearts (Long QT, Short QT, Brugada, RYR2-CPVT, Timothy, torsade/short-coupled VF, familial sick sinus). Key conformance target: `cardiac_ion_channel_repolarization#Arrhythmogenic Substrate and Triggered Activity`
+
+The following modules capture conserved final-common-pathway mechanisms of **"disease-like phenotypes"** — phenotypes that are themselves diseases, carrying both an HP and a MONDO identifier (e.g. osteoporosis, glaucoma). Each is a recurrent downstream convergence point across many disorders:
+- `osteoporosis_bone_resorption` — Conserved low-bone-mass pattern (HP:0000939): bone remodeling imbalance → RANKL-driven osteoclastogenesis → increased osteoclastic bone resorption → impaired osteoblastic formation → net bone loss and skeletal fragility. Key conformance target: `osteoporosis_bone_resorption#Increased Osteoclastic Bone Resorption`
+- `glaucoma_optic_neuropathy` — Conserved glaucomatous optic neuropathy (HP:0000501): trabecular meshwork outflow dysfunction → elevated intraocular pressure → retinal ganglion cell apoptosis → optic nerve degeneration/neuroinflammation → progressive optic neuropathy. Key conformance target: `glaucoma_optic_neuropathy#Retinal Ganglion Cell Apoptosis`
+- `cataract_lens_opacification` — Conserved lens opacification (HP:0000518): lens homeostasis insult → loss of crystallin solubility/chaperone capacity → crystallin aggregation → loss of refractive transparency → cataract. Key conformance target: `cataract_lens_opacification#Crystallin Aggregation and High-Molecular-Weight Complex Deposition`
+- `pulmonary_vascular_remodeling` — Conserved pulmonary arterial hypertension (HP:0002092): endothelial/BMPR2 dysfunction → PASMC proliferation/vasoconstriction → obstructive vascular remodeling → increased pulmonary vascular resistance → PAH with RV overload. Key conformance target: `pulmonary_vascular_remodeling#Obstructive Pulmonary Vascular Remodeling`
+- `cardiomyopathy_maladaptive_remodeling` — Conserved structural/contractile cardiomyopathy (HP:0001638; distinct from the electrical `cardiac_ion_channel_repolarization` module): cardiomyocyte insult → neurohormonal activation → ventricular remodeling → contractile dysfunction → heart failure. Key conformance target: `cardiomyopathy_maladaptive_remodeling#Ventricular Remodeling`
+- `gout_urate_crystal_inflammation` — Conserved gouty arthropathy (HP:0001997): hyperuricemia → monosodium urate crystal deposition → NLRP3 inflammasome activation → IL-1-driven neutrophilic inflammation → recurrent/chronic tophaceous gout. Key conformance target: `gout_urate_crystal_inflammation#NLRP3 Inflammasome Activation`
+- `pancreatitis_acinar_autodigestion` — Conserved pancreatitis (HP:0001733): premature intra-acinar trypsinogen activation → calcium overload/impaired autophagy → acinar autodigestion and necrosis → local/systemic inflammation → pancreatitis. Key conformance target: `pancreatitis_acinar_autodigestion#Acinar Cell Autodigestion and Necrosis`
+- `epilepsy_excitation_inhibition_imbalance` — Conserved epilepsy (HP:0001250): ion-channel/synaptic dysfunction → excitation/inhibition imbalance → neuronal hyperexcitability and hypersynchrony → seizure generation/epileptogenesis → recurrent unprovoked seizures. Key conformance target: `epilepsy_excitation_inhibition_imbalance#Excitation-Inhibition Imbalance`
+- `hypothyroidism_thyroid_hormone_deficiency` — Conserved hypothyroidism (HP:0000821): impaired thyroid hormone synthesis → hormone insufficiency with TSH feedback → reduced peripheral hormone action → decreased metabolic rate → systemic hypometabolic state. Key conformance target: `hypothyroidism_thyroid_hormone_deficiency#Thyroid Hormone Insufficiency`
+- `nephrotic_podocyte_injury` — Conserved nephrotic syndrome (HP:0000100): podocyte injury → foot process effacement/slit diaphragm disruption → glomerular filtration barrier breakdown → massive proteinuria with podocyte loss → nephrotic syndrome. Key conformance target: `nephrotic_podocyte_injury#Glomerular Filtration Barrier Breakdown`
+- `photoreceptor_degeneration` — Conserved inherited retinal degeneration / retinitis pigmentosa (HP:0000510): photoreceptor gene defect → metabolic/oxidative stress → rod photoreceptor apoptosis → secondary cone degeneration → progressive visual field loss. Key conformance target: `photoreceptor_degeneration#Rod Photoreceptor Apoptosis`
+- `nephrolithiasis_crystal_nucleation` — Conserved kidney-stone formation (HP:0000787): urinary supersaturation → crystal nucleation/growth → crystal retention and epithelial adhesion → tubular injury/inflammation → symptomatic kidney stones. Key conformance target: `nephrolithiasis_crystal_nucleation#Crystal Retention and Epithelial Adhesion`
+- `cholelithiasis_biliary_supersaturation` — Conserved cholesterol gallstone formation (HP:0001081): biliary cholesterol supersaturation → cholesterol crystal nucleation → gallbladder hypomotility/bile stasis → gallstone aggregation → cholelithiasis. Key conformance target: `cholelithiasis_biliary_supersaturation#Biliary Cholesterol Supersaturation`
+- `osteoarthritis_cartilage_degradation` — Conserved osteoarthritis (HP:0002758): mechanical overload/chondrocyte stress → catabolic chondrocyte phenotype with cytokine signaling → matrix-degrading enzyme upregulation (MMP-13/ADAMTS) → cartilage matrix loss and subchondral bone remodeling → joint degradation. Key conformance target: `osteoarthritis_cartilage_degradation#Matrix-Degrading Enzyme Upregulation`
+- `sensorineural_hair_cell_loss` — Conserved sensorineural hearing loss (HP:0000407): cochlear sensory epithelium insult → ionic homeostasis disruption/oxidative stress → hair cell mechanotransduction failure and death → spiral ganglion degeneration → progressive sensorineural hearing loss. Key conformance target: `sensorineural_hair_cell_loss#Hair Cell Mechanotransduction Failure and Death`
+- `hemolytic_anemia_erythrocyte_destruction` — Conserved hemolytic anemia (HP:0001878): reduced erythrocyte integrity → oxidative/membrane injury → premature erythrocyte destruction (erythrophagocytosis/intravascular hemolysis) → shortened RBC lifespan with erythropoietic strain → hemolytic anemia. Key conformance target: `hemolytic_anemia_erythrocyte_destruction#Premature Erythrocyte Destruction`
+- `hepatic_steatosis_lipotoxicity` — Conserved fatty liver disease (HP:0001397): hepatocyte lipid overload → lipotoxic stress and organelle dysfunction → hepatocyte injury and inflammation (steatohepatitis) → stellate cell activation/fibrosis (feeds `fibrotic_response`) → steatosis progressing to fibrosis. Key conformance target: `hepatic_steatosis_lipotoxicity#Lipotoxic Stress and Organelle Dysfunction`
+- `peripheral_axonal_degeneration` — Conserved peripheral neuropathy (HP:0009830): insult to peripheral neurons/Schwann cells → axonal transport/mitochondrial dysfunction → distal axonal degeneration/demyelination → length-dependent fiber dysfunction → peripheral neuropathy. Key conformance target: `peripheral_axonal_degeneration#Distal Axonal Degeneration and Demyelination`
+- `cerebellar_purkinje_degeneration` — Conserved cerebellar ataxia (HP:0001251): cerebellar neuron insult → Purkinje cell calcium/proteostasis dysregulation → Purkinje neuron degeneration → loss of cerebellar cortical output → cerebellar ataxia. Key conformance target: `cerebellar_purkinje_degeneration#Purkinje Neuron Degeneration`
+- `emphysema_protease_antiprotease_imbalance` — Conserved emphysema (HP:0002097): oxidant/inflammatory trigger → protease-antiprotease imbalance → alveolar ECM/elastin destruction → alveolar wall destruction and airspace enlargement → emphysema. Key conformance target: `emphysema_protease_antiprotease_imbalance#Protease-Antiprotease Imbalance`
+
+**Module-level hypotheses and gaps:**
+- Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
+- Causal edges opt into those groups with `downstream[].hypothesis_groups`. In conforming disorder entries, copy and specialize the same grouping only when the disease-specific causal edge belongs to that model.
+- Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
 
 ### Evidence Items
 All evidence must have PMID references and support classification:
@@ -252,15 +286,15 @@ cell_types:
     id: CL:0000815
     label: regulatory T cell
 
-# Example: treatment more specific than generic MAXO term
+# Example: treatment more specific than generic pharmacotherapy term
 treatments:
 - name: Anti-TNF Biologic Therapy
   description: Treatment with TNF inhibitors such as adalimumab or infliximab.
   treatment_term:
     preferred_term: anti-TNF biologic therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
 ```
 
 **Guidelines:**
@@ -297,7 +331,6 @@ treatments:
 ```
 
 Common MAXO terms:
-- `MAXO:0000058` - pharmacotherapy (drug treatments)
 - `MAXO:0000004` - surgical procedure
 - `MAXO:0000011` - physical therapy
 - `MAXO:0000079` - genetic counseling
@@ -309,6 +342,7 @@ Common MAXO terms:
 - `MAXO:0000950` - supportive care
 
 Common NCIT clinical intervention terms:
+- `NCIT:C15986` - Pharmacotherapy (drug treatments)
 - `NCIT:C49236` - Therapeutic Procedure
 - `NCIT:C15329` - Surgical Procedure
 - `NCIT:C16186` - Orthopedic Surgical Procedure
@@ -324,14 +358,14 @@ uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 
 #### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
 
-MAXO treatment terms describe the **medical action** (e.g., pharmacotherapy, chemotherapy,
+Treatment terms describe the **medical action** (e.g., Pharmacotherapy, chemotherapy,
 vaccination) but not the specific agent involved. When the action is generic but a
-specific drug or drug class is involved, combine the MAXO action term with the
+specific drug or drug class is involved, combine the generic treatment term with the
 `therapeutic_agent` slot, which is multivalued and bindable to CHEBI (for specific drugs)
 or NCIT (for drug classes).
 
 **When to use `therapeutic_agent`:**
-- `treatment_term` is a generic MAXO action like `MAXO:0000058` (pharmacotherapy),
+- `treatment_term` is a generic action like `NCIT:C15986` (Pharmacotherapy),
   `MAXO:0000647` (chemotherapy), `MAXO:0001017` (vaccination), or `MAXO:0000014` (radiation therapy)
 - A specific drug, chemical, or drug class is referenced in the `name` / `description`
 - You want the treatment to be machine-queryable by drug identity
@@ -349,10 +383,10 @@ treatments:
 - name: Duloxetine
   description: SNRI, FDA-approved for fibromyalgia chronic pain management.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: duloxetine
       term:
@@ -368,8 +402,8 @@ treatments:
   treatment_term:
     preferred_term: anti-TNF biologic therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: monoclonal antibody
       term:
@@ -403,11 +437,91 @@ treatments:
 ```
 
 **Guidelines:**
-- `therapeutic_agent` is optional at the schema level but **recommended whenever `treatment_term` is MAXO:0000058** or another generic action term where a specific drug is involved.
+- `therapeutic_agent` is optional at the schema level but **recommended whenever `treatment_term` is NCIT:C15986** or another generic action term where a specific drug is involved.
 - Use OAK to verify CHEBI terms: `uv run runoak -i sqlite:obo:chebi search "duloxetine"`
 - For NCIT drug-class terms, the local `ncit` adapter is configured in `conf/oak_config.yaml`.
 - A dedicated `treatment.name` (e.g., "Duloxetine") should still match common clinical usage; `therapeutic_agent` carries the machine-readable identifier.
-- Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
+- Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (Pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
+
+### Therapeutic Modality and Antisense Oligonucleotide (ASO) Detail
+
+A treatment's **modality** (the kind of therapeutic platform) is captured by the
+enum-backed `therapeutic_modality` slot — **not** the free-text `role` slot, which
+is overloaded across host roles, pathophysiology-node roles, and treatment roles.
+Prefer `therapeutic_modality` for platform classification so treatments are
+queryable by modality across diseases.
+
+`therapeutic_modality` values: `SMALL_MOLECULE`, `MONOCLONAL_ANTIBODY`,
+`ANTISENSE_OLIGONUCLEOTIDE`, `SIRNA`, `MRNA_THERAPY`, `GENE_THERAPY`,
+`GENE_EDITING`, `CELL_THERAPY`, `PROTEIN_REPLACEMENT`, `PEPTIDE`, `VACCINE`,
+`RADIOTHERAPY`, `SURGERY`, `DEVICE`, `BEHAVIORAL`, `OTHER`.
+
+`therapeutic_modality` complements (does not replace) `treatment_term` (the treatment
+action) and `therapeutic_agent` (the specific drug). A pharmacotherapy ASO still
+uses `NCIT:C15986` for `treatment_term` and an NCIT/CHEBI `therapeutic_agent`.
+
+When `therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE`, add a structured
+`aso_details` block (`AntisenseOligonucleotideDetail`) capturing the molecular
+mechanism, RNA target, splice exon, chemistry, and conjugation:
+
+- `aso_mechanism`: `RNASE_H_KNOCKDOWN`, `SPLICE_MODULATION_EXON_SKIPPING`,
+  `SPLICE_MODULATION_EXON_INCLUSION`, `STERIC_BLOCKADE`, `MIRNA_MODULATION`
+- `target_gene`: `GeneDescriptor` bound to HGNC (lowercase `hgnc:` prefix)
+- `target_transcript`: free text for the RNA target / element (e.g., `APOB mRNA`,
+  `SMN2 ISS-N1`)
+- `target_exon`: free text for splice-switching ASOs (e.g., `exon 51`)
+- `aso_chemistry`: `PHOSPHOROTHIOATE`, `PHOSPHORODIAMIDATE_MORPHOLINO`,
+  `TWO_PRIME_O_METHYL`, `TWO_PRIME_O_METHOXYETHYL`, `LOCKED_NUCLEIC_ACID`,
+  `CONSTRAINED_ETHYL`, `OTHER`
+- `conjugation`: `UNCONJUGATED`, `GALNAC`, `LIPID`, `PEPTIDE`, `ANTIBODY`, `OTHER`
+
+**Example — RNase H knockdown ASO (mipomersen, APOB):**
+```yaml
+treatments:
+- name: Mipomersen
+  therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
+  aso_details:
+    aso_mechanism: RNASE_H_KNOCKDOWN
+    target_gene:
+      preferred_term: APOB
+      term:
+        id: hgnc:603
+        label: APOB
+    target_transcript: APOB mRNA
+    aso_chemistry: TWO_PRIME_O_METHOXYETHYL
+    conjugation: UNCONJUGATED
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: mipomersen
+      term:
+        id: NCIT:C174575
+        label: Mipomersen
+```
+
+**Example — splice-switching exon-skipping ASO (eteplirsen, DMD exon 51):**
+```yaml
+  therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
+  aso_details:
+    aso_mechanism: SPLICE_MODULATION_EXON_SKIPPING
+    target_gene:
+      preferred_term: DMD
+      term:
+        id: hgnc:2928
+        label: DMD
+    target_exon: exon 51
+    aso_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
+    conjugation: UNCONJUGATED
+```
+
+**Example — GalNAc-conjugated ASO (eplontersen, TTR):** same as the RNase H
+example but with `conjugation: GALNAC` and the TTR `target_gene`.
+
+Leave `aso_details` absent for non-ASO treatments. The structured fields are
+optional — populate what is documented and omit fields you cannot source.
 
 ### Subtype Naming Conventions
 
