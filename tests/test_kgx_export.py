@@ -651,10 +651,10 @@ class TestTreatmentTargetPhenotypeToEdge:
             "term": {"id": "HP:0012378", "label": "Fatigue"},
         }
         edge = treatment_target_phenotype_to_edge(
-            "MONDO:0004979", "MAXO:0000058", phenotype
+            "MONDO:0004979", "NCIT:C15986", phenotype
         )
         assert isinstance(edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation)
-        assert edge.subject == "MAXO:0000058"
+        assert edge.subject == "NCIT:C15986"
         assert edge.predicate == "biolink:treats_or_applied_or_studied_to_treat"
         assert edge.object == "HP:0012378"
         assert edge.subject_category == "biolink:Treatment"
@@ -665,7 +665,7 @@ class TestTreatmentTargetPhenotypeToEdge:
         """Test with missing term.id."""
         phenotype = {"preferred_term": "Fatigue"}
         assert treatment_target_phenotype_to_edge(
-            "MONDO:0004979", "MAXO:0000058", phenotype
+            "MONDO:0004979", "NCIT:C15986", phenotype
         ) is None
 
 
