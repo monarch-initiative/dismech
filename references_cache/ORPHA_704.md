@@ -13,6 +13,29 @@ content_type: "structured_record"
 
 A rare autoimmune bullous skin diseases characterized by painful, flaccid blisters and erosions of the oral mucosa, predominantly involving the buccal area, and with or without extension to the epidermis. Mucosa of the larynx, oesophagus, conjunctiva, nose, genitalia and anus, are less frequently affected.
 
+## Inheritance
+
+- Not applicable
+
+## Natural history
+
+- Age of onset: Adult
+- Age of onset: Childhood
+- Age of onset: Elderly
+
+## Epidemiology
+
+| Class | Region | Type | Source |
+|---|---|---|---|
+| 1-9 / 1 000 000 | Bulgaria | Annual incidence | PMID:10692058 |
+| 1-5 / 10 000 | Europe | Point prevalence | INST |
+| <1 / 1 000 000 | Finland | Annual incidence | PMID:6187153 |
+| 1-9 / 1 000 000 | France | Annual incidence | PMID:7829889 |
+| 1-9 / 100 000 | Germany | Point prevalence | PMID:27456755 |
+| 1-9 / 1 000 000 | Tunisia | Annual incidence | PMID:7829889 |
+| 1-9 / 1 000 000 | United Kingdom | Annual incidence | PMID:18614511 |
+| 1-9 / 1 000 000 | United States | Annual incidence | PMID:7416755 |
+
 ## Phenotypes
 
 | HPO ID | Phenotype | Frequency |
