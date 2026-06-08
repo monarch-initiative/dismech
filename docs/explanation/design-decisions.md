@@ -41,7 +41,7 @@ literature-grounded evidence.
 Mendelian, complex/common, infectious, environmental/exposure-related, neoplastic,
 and psychiatric conditions are all represented. Rare and common diseases are both in
 scope. Though Dismech is primarily intended as a resource for human diseases and disorders,
-veterinary and animal-model observations in scope as *evidence* 
+veterinary and animal-model observations are in scope as *evidence* 
 (`evidence_source: MODEL_ORGANISM`).
 
 **Out of scope.** Dismech is **not**:
@@ -262,9 +262,3 @@ This section details decisions we have **not yet made or formalized**.
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
 | Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |
-
-
-## 9. Changing a decision
-
-
-
