@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,20 +2961,20 @@
         <header class="page-header">
             <h1>Papillary Thyroid Carcinoma</h1>
             <div class="header-meta">
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0005075" target="_blank">
                         MONDO:0005075
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">thyroid carcinoma</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2917,11 +2987,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Papillary thyroid carcinoma is the most common differentiated thyroid cancer arising from thyroid follicular cells. It comprises the majority of thyroid malignancies and includes classical, follicular-patterned, and more aggressive variants such as tall cell carcinoma. Papillary thyroid carcinoma is typically driven by MAPK-pathway activating alterations including BRAF V600E, RET/PTC rearrangements, and RAS-family mutations, while additional events such as TERT promoter mutation and aberrant PI3K-PTEN-AKT signaling are associated with aggressive progression and radioactive iodine-refractory disease. Most cases have excellent disease-specific survival, but regional nodal metastasis and recurrence remain clinically important.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2991,40 +3061,40 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3032,10 +3102,10 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3043,8 +3113,8 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#histopathology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">✶</div>
@@ -3052,8 +3122,8 @@
                 <div class="stat-label">Histopath.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3061,10 +3131,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3072,8 +3142,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3081,8 +3151,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3090,8 +3160,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3099,14 +3169,14 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3114,768 +3184,810 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            
+
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Harrison's Chapter</div>
                 <div class="tag-list">
-                    
+
                     <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-                    
+
                 </div>
             </div>
-            
-            
-            
+
+
+
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
                 <div class="tag-list">
                     <span class="tag tag-classification">Carcinoma</span>
                 </div>
             </div>
-            
-            
-            
-            
+
+
+
+
         </div>
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0005075" target="_blank">MONDO:0005075</a>
-                        
-                        
+
+
                         <span class="mapping-label">thyroid gland papillary carcinoma</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">MONDO</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">MONDO provides an exact disease term for papillary thyroid carcinoma; this is the same term used as `disease_term` for this entry.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="mapping-section">
                 <div class="classification-category">NCIT</div>
-                
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/NCIT_C4035" target="_blank">NCIT:C4035</a>
-                        
-                        
+
+
                         <span class="mapping-label">Thyroid Gland Papillary Carcinoma</span>
-                        
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">NCIT</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">NCIT provides an exact neoplasm term for papillary thyroid carcinoma; cross-referenced from MONDO:0005075.</div>
-                    
-                    
+
+
                     <ul class="mapping-tree">
-                        
+
                         <li style="padding-left: 0px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C7057" target="_blank">Disease, Disorder or Finding</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 14px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C2991" target="_blank">Disease or Disorder</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 28px;">
-                            
+
                             <span class="mapping-ellipsis">...</span>
-                            
+
                         </li>
-                        
+
                         <li style="padding-left: 42px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C2852" target="_blank">Adenocarcinoma</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 56px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C2853" target="_blank">Papillary Adenocarcinoma</a>
-                            
-                            
+
+
                         </li>
-                        
+
                         <li style="padding-left: 70px;">
-                            
-                            
+
+
                             <a href="http://purl.obolibrary.org/obo/NCIT_C4035" target="_blank">Thyroid Gland Papillary Carcinoma</a>
-                            
-                            
+
+
                         </li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
-            
+
+
+
+
             <div class="mapping-section">
                 <div class="classification-category">NCIT</div>
-                
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/NCIT_C4035" target="_blank">NCIT:C4035</a>
-                        
-                        
+
+
                         <span class="mapping-label">Thyroid Gland Papillary Carcinoma</span>
-                        
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">NCIT</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">NCIT provides an exact neoplasm term for papillary thyroid carcinoma; cross-referenced from MONDO:0005075.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">3</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Classical Papillary Thyroid Carcinoma
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Conventional papillary thyroid carcinoma with papillary architecture and the characteristic nuclear features used for diagnosis.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Follicular Variant Papillary Thyroid Carcinoma
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Papillary thyroid carcinoma with predominantly follicular architecture and papillary-type nuclear features. Often aligns with a more RAS-like molecular profile than classical PTC.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Tall Cell Variant Papillary Thyroid Carcinoma
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Aggressive histologic variant enriched for BRAF V600E, extrathyroidal extension, and recurrence risk.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-driver-alterations-in-thyroid-follicular-cells">
                 <div class="item-name">Driver Alterations in Thyroid Follicular Cells</div>
-                
+
                 <div class="item-desc">Early oncogenic alterations in papillary thyroid carcinoma commonly include BRAF V600E, RET/PTC rearrangements, and RAS-family mutations. These driver events arise in thyroid follicular cells and establish the genotype-phenotype patterns that distinguish conventional papillary tumors from more follicular-patterned neoplasms.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         thyroid follicular cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002258" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002258" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002258">CL:0002258</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         thyroid gland
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002046">UBERON:0002046</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">MAPK Pathway Hyperactivation</span>
-	                            
+
 	                            <span class="crosslink-desc">Driver mutations and fusions converge on persistent mitogenic signaling</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39502057" target="_blank">PMID:39502057</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The common gene mutations in PTC include BRAF V600E,RET/PTC rearrangement,and RAS mutations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the major early driver classes emphasized in papillary thyroid carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-pathway-hyperactivation">
                 <div class="item-name">MAPK Pathway Hyperactivation</div>
-                
+
                 <div class="item-desc">Driver alterations converge on chronic MAPK signaling, which promotes thyroid follicular cell proliferation and malignant transformation. BRAF-like tumors especially depend on this pathway and often show loss of thyroid differentiation programs relevant to iodine handling.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         MAPK cascade
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Aggressive Progression and Reduced Differentiation</span>
-	                            
+
 	                            <span class="crosslink-desc">Additional oncogenic hits superimposed on driver signaling promote dedifferentiation and treatment resistance</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175860" target="_blank">PMID:41175860</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In most tumors of follicular cell origin, the primary molecular events are RAS or RAS-like (follicular-patterned tumors) and BRAF p.V600E or BRAF V600E-like (conventional papillary carcinomas) alterations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the dominant BRAF-like and RAS-like molecular programs that organize papillary thyroid carcinoma biology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41368991" target="_blank">PMID:41368991</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"BRAF V600E, the most common oncogenic driver in papillary thyroid carcinoma, activates the MAPK pathway and suppresses genes involved in iodine metabolism and differentiation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the role of BRAF-driven MAPK activation and reduced differentiation in a major papillary thyroid carcinoma subset.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aggressive-progression-and-reduced-differentiation">
                 <div class="item-name">Aggressive Progression and Reduced Differentiation</div>
-                
+
                 <div class="item-desc">A subset of papillary thyroid carcinomas acquires additional alterations such as TERT promoter mutation, TP53 disruption, and aberrant PI3K-PTEN-AKT signaling. These changes are associated with progression toward more aggressive, less-differentiated, and radioiodine-refractory disease.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         phosphatidylinositol 3-kinase/protein kinase B signal transduction
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043491">GO:0043491</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030154">GO:0030154</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175860" target="_blank">PMID:41175860</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Progression of thyroid tumors to advanced and less-differentiated carcinomas requires additional oncogenic alterations, including TP53 and TERT promoter mutation, and aberrant PI3K-PTEN-AKT signaling."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the progression model linking additional alterations to aggressive and less-differentiated thyroid carcinoma states.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
         <div class="card" id="histopathology">
             <div class="card-header">
                 <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
                 <h2 class="card-title">Histopathology</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Papillary Thyroid Carcinoma
-                    
+
                     <span class="histopathology-freq">VERY_FREQUENT</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Papillary thyroid carcinoma is the dominant malignant thyroid histology and includes classical, follicular variant, tall cell, and other less common morphologic forms.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21221869" target="_blank">PMID:21221869</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Papillary thyroid carcinomas are the most common thyroid cancers and constitute more than 70% of thyroid malignancies."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports papillary thyroid carcinoma as the predominant malignant thyroid histology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3891,94 +4003,100 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">2</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cervical Lymphadenopathy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank">
-                            Lymphadenopathy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002716)</span>
-                        </span>
-                        
+                        Lymphadenopathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Thyroid Nodule
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0025388" target="_blank">
-                            Thyroid nodule
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0025388)</span>
-                        </span>
-                        
+                        Thyroid nodule
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025388" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025388">HP:0025388</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4003,642 +4121,676 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     BRAF
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Activating Mutations)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41368991" target="_blank">PMID:41368991</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"BRAF V600E, the most common oncogenic driver in papillary thyroid carcinoma, activates the MAPK pathway and suppresses genes involved in iodine metabolism and differentiation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports BRAF V600E as the dominant papillary thyroid carcinoma driver and a mechanism for MAPK activation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41419184" target="_blank">PMID:41419184</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Overall, these findings confirm that BRAF V600E mutation is associated with an increased risk of nodal metastasis and recurrence in papillary thyroid carcinoma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the clinical association between BRAF V600E and adverse recurrence-related features.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     RET
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Gene Fusions)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39502057" target="_blank">PMID:39502057</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The common gene mutations in PTC include BRAF V600E,RET/PTC rearrangement,and RAS mutations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports RET/PTC rearrangements as one of the major recurrent driver classes in papillary thyroid carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     RAS family genes
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Activating Mutations)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39502057" target="_blank">PMID:39502057</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The common gene mutations in PTC include BRAF V600E,RET/PTC rearrangement,and RAS mutations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports RAS-family alterations as recurrent papillary thyroid carcinoma drivers.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175860" target="_blank">PMID:41175860</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In most tumors of follicular cell origin, the primary molecular events are RAS or RAS-like (follicular-patterned tumors) and BRAF p.V600E or BRAF V600E-like (conventional papillary carcinomas) alterations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the distinction between RAS-like follicular-patterned tumors and BRAF-like conventional papillary carcinomas.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TERT
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Promoter Mutations)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175860" target="_blank">PMID:41175860</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Progression of thyroid tumors to advanced and less-differentiated carcinomas requires additional oncogenic alterations, including TP53 and TERT promoter mutation, and aberrant PI3K-PTEN-AKT signaling."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports TERT promoter mutation as a late progression event in aggressive thyroid carcinoma biology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Thyroidectomy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Surgical resection is the mainstay of treatment for localized papillary thyroid carcinoma.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Radioiodine Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">radiation therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000014" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000014</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000014" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000014">MAXO:0000014</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Radioactive iodine is used selectively after surgery for intermediate-risk, high-risk, or metastatic differentiated thyroid cancer.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Mutation-Directed Targeted Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">targeted therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C93352</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Advanced papillary thyroid carcinoma with actionable driver alterations may be treated with genotype-matched targeted therapy, including RET inhibitors for RET fusion-positive disease and BRAF-directed regimens in BRAF V600E- driven refractory tumors.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Lenvatinib or Sorafenib
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">targeted therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C93352</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         lenvatinib
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:85994">CHEBI:85994</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         sorafenib
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50924">CHEBI:50924</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Multi-kinase inhibitors are standard systemic options for progressive radioiodine-refractory differentiated thyroid cancer when surgery and radioiodine are no longer sufficient.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Ionizing Radiation Exposure</div>
-                
-                
+
+
                 <div class="item-desc">Ionizing radiation is the strongest established environmental risk factor for papillary thyroid carcinoma, especially after childhood or adolescent exposure.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21221869" target="_blank">PMID:21221869</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The most common etiologic factor is radiation"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports radiation exposure as the leading established environmental risk factor for papillary thyroid carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Thyroglobulin
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21221869" target="_blank">PMID:21221869</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Immunohistochemical staining with TTF-1 and thyroglobulin is very useful in confirming the diagnosis of papillary thyroid carcinoma especially in metastatic sites."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the diagnostic utility of thyroglobulin in papillary thyroid carcinoma, especially when evaluating metastatic tissue.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Molecular Driver Testing
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39502057" target="_blank">PMID:39502057</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The prognosis of papillary thyroid carcinoma (PTC) is highly dependent on gene mutations and pathologic features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports routine clinical relevance of molecular and pathologic stratification in papillary thyroid carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4990,42 +5142,42 @@ classifications:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Papillary Thyroid Carcinoma. Core disease mechanisms, molecular and cellul...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">19 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-11T22:18:09.935792</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Papillary Thyroid Carcinoma. Core disease mechanisms, molecular and cellul...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -5349,11 +5501,11 @@ classifications:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
