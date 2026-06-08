@@ -50,7 +50,7 @@ def _claim_fixture() -> dict:
                 "name": "Inhaled Corticosteroids",
                 "treatment_term": {
                     "preferred_term": "inhaled corticosteroid therapy",
-                    "term": {"id": "MAXO:0000058", "label": "pharmacotherapy"},
+                    "term": {"id": "NCIT:C15986", "label": "Pharmacotherapy"},
                 },
                 "evidence": [_base_evidence("PMID:333")],
             }
@@ -220,7 +220,7 @@ def test_extracts_treatment_claim() -> None:
     )
 
     assert row.object_label == "inhaled corticosteroid therapy"
-    assert row.object_id == "MAXO:0000058"
+    assert row.object_id == "NCIT:C15986"
     assert row.claim_text == "Test Disease has treatment Inhaled Corticosteroids"
 
 
