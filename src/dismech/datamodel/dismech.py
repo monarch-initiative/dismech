@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-05-20T20:32:50
+# Generation date: 2026-06-02T21:05:05
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1080,8 +1080,12 @@ class GeneticContext(YAMLRoot):
     gene: Optional[Union[dict, GeneDescriptor]] = None
     genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
     allele_type: Optional[str] = None
+    variant_origin: Optional[Union[str, "VariantOriginEnum"]] = None
+    allelic_hit_role: Optional[Union[str, "AllelicHitRoleEnum"]] = None
+    allelic_events: Optional[Union[Union[str, "AllelicEventEnum"], list[Union[str, "AllelicEventEnum"]]]] = empty_list()
     zygosity: Optional[Union[str, "ZygosityEnum"]] = None
     functional_impact: Optional[str] = None
+    functional_impact_category: Optional[Union[str, "FunctionalImpactEnum"]] = None
     complementation_group: Optional[str] = None
     description: Optional[str] = None
     notes: Optional[str] = None
@@ -1095,11 +1099,24 @@ class GeneticContext(YAMLRoot):
         if self.allele_type is not None and not isinstance(self.allele_type, str):
             self.allele_type = str(self.allele_type)
 
+        if self.variant_origin is not None and not isinstance(self.variant_origin, VariantOriginEnum):
+            self.variant_origin = VariantOriginEnum(self.variant_origin)
+
+        if self.allelic_hit_role is not None and not isinstance(self.allelic_hit_role, AllelicHitRoleEnum):
+            self.allelic_hit_role = AllelicHitRoleEnum(self.allelic_hit_role)
+
+        if not isinstance(self.allelic_events, list):
+            self.allelic_events = [self.allelic_events] if self.allelic_events is not None else []
+        self.allelic_events = [v if isinstance(v, AllelicEventEnum) else AllelicEventEnum(v) for v in self.allelic_events]
+
         if self.zygosity is not None and not isinstance(self.zygosity, ZygosityEnum):
             self.zygosity = ZygosityEnum(self.zygosity)
 
         if self.functional_impact is not None and not isinstance(self.functional_impact, str):
             self.functional_impact = str(self.functional_impact)
+
+        if self.functional_impact_category is not None and not isinstance(self.functional_impact_category, FunctionalImpactEnum):
+            self.functional_impact_category = FunctionalImpactEnum(self.functional_impact_category)
 
         if self.complementation_group is not None and not isinstance(self.complementation_group, str):
             self.complementation_group = str(self.complementation_group)
@@ -5546,6 +5563,134 @@ class VariantOriginEnum(EnumDefinitionImpl):
         description="""The origin of variation in a gene with respect to a disease entry. Bound to GENO allele origin terms.""",
     )
 
+class AllelicHitRoleEnum(EnumDefinitionImpl):
+    """
+    Role of a genetic alteration in a multi-hit disease mechanism. This is intentionally separate from variant origin,
+    event type, and functional impact so two-hit models can be represented compositionally.
+    """
+    FIRST_HIT = PermissibleValue(
+        text="FIRST_HIT",
+        title="First hit",
+        description="""Initial alteration that creates a predisposed or partially disabled state, typically a germline alteration in tumor-suppressor syndromes.""")
+    SECOND_HIT = PermissibleValue(
+        text="SECOND_HIT",
+        title="Second hit",
+        description="""Additional alteration that completes functional inactivation or activation in the relevant disease tissue or clone.""")
+    BIALLELIC_INACTIVATION = PermissibleValue(
+        text="BIALLELIC_INACTIVATION",
+        title="Biallelic inactivation",
+        description="Combined state in which both alleles of a gene are functionally inactivated.")
+    COOPERATING_HIT = PermissibleValue(
+        text="COOPERATING_HIT",
+        title="Cooperating hit",
+        description="""Alteration that cooperates with another primary alteration without necessarily being ordered as the first or second hit.""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="The hit role has not been determined.")
+
+    _defn = EnumDefinition(
+        name="AllelicHitRoleEnum",
+        description="""Role of a genetic alteration in a multi-hit disease mechanism. This is intentionally separate from variant origin, event type, and functional impact so two-hit models can be represented compositionally.""",
+    )
+
+class AllelicEventEnum(EnumDefinitionImpl):
+    """
+    Type of genetic or epigenetic event affecting an allele. Use together with variant_origin, allelic_hit_role,
+    zygosity, and functional impact rather than creating cross-product terms.
+    """
+    PATHOGENIC_VARIANT = PermissibleValue(
+        text="PATHOGENIC_VARIANT",
+        title="Pathogenic variant",
+        description="Pathogenic sequence variant or small variant not otherwise specified.")
+    MISSENSE_VARIANT = PermissibleValue(
+        text="MISSENSE_VARIANT",
+        title="Missense variant",
+        description="Sequence variant that changes an amino acid.")
+    NONSENSE_VARIANT = PermissibleValue(
+        text="NONSENSE_VARIANT",
+        title="Nonsense variant",
+        description="Sequence variant that introduces a premature termination codon.")
+    FRAMESHIFT_VARIANT = PermissibleValue(
+        text="FRAMESHIFT_VARIANT",
+        title="Frameshift variant",
+        description="Insertion or deletion that changes the coding reading frame.")
+    SPLICE_SITE_VARIANT = PermissibleValue(
+        text="SPLICE_SITE_VARIANT",
+        title="Splice site variant",
+        description="Variant that disrupts or alters RNA splicing.")
+    DELETION = PermissibleValue(
+        text="DELETION",
+        title="Deletion",
+        description="Sequence or chromosomal deletion event.")
+    COPY_NUMBER_LOSS = PermissibleValue(
+        text="COPY_NUMBER_LOSS",
+        title="Copy-number loss",
+        description="Loss of DNA copy number affecting the gene or locus.")
+    COPY_NUMBER_GAIN = PermissibleValue(
+        text="COPY_NUMBER_GAIN",
+        title="Copy-number gain",
+        description="Gain of DNA copy number affecting the gene or locus.")
+    LOSS_OF_HETEROZYGOSITY = PermissibleValue(
+        text="LOSS_OF_HETEROZYGOSITY",
+        title="Loss of heterozygosity",
+        description="Loss of the wild-type or alternate allele in a tissue or clone.")
+    PROMOTER_METHYLATION = PermissibleValue(
+        text="PROMOTER_METHYLATION",
+        title="Promoter methylation",
+        description="Epigenetic promoter methylation affecting gene expression.")
+    BIALLELIC_INACTIVATION = PermissibleValue(
+        text="BIALLELIC_INACTIVATION",
+        title="Biallelic inactivation",
+        description="Composite event state in which both alleles are functionally inactivated.")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="The allelic event type has not been determined.")
+
+    _defn = EnumDefinition(
+        name="AllelicEventEnum",
+        description="""Type of genetic or epigenetic event affecting an allele. Use together with variant_origin, allelic_hit_role, zygosity, and functional impact rather than creating cross-product terms.""",
+    )
+
+class FunctionalImpactEnum(EnumDefinitionImpl):
+    """
+    Directional or qualitative functional consequence of a variant or genetic context.
+    """
+    LOSS_OF_FUNCTION = PermissibleValue(
+        text="LOSS_OF_FUNCTION",
+        title="Loss of function",
+        description="Complete or partial reduction of normal gene product function.")
+    GAIN_OF_FUNCTION = PermissibleValue(
+        text="GAIN_OF_FUNCTION",
+        title="Gain of function",
+        description="Increased, novel, or constitutive gene product function.")
+    PARTIAL_LOSS_OF_FUNCTION = PermissibleValue(
+        text="PARTIAL_LOSS_OF_FUNCTION",
+        title="Partial loss of function",
+        description="Hypomorphic reduction of normal gene product function.")
+    DOMINANT_NEGATIVE = PermissibleValue(
+        text="DOMINANT_NEGATIVE",
+        title="Dominant negative",
+        description="Mutant product interferes with the remaining wild-type product.")
+    HYPERMORPHIC = PermissibleValue(
+        text="HYPERMORPHIC",
+        title="Hypermorphic",
+        description="Increased normal gene product activity.")
+    NEOMORPHIC = PermissibleValue(
+        text="NEOMORPHIC",
+        title="Neomorphic",
+        description="Novel gene product activity not present in the wild type.")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="Functional impact is not known.")
+
+    _defn = EnumDefinition(
+        name="FunctionalImpactEnum",
+        description="Directional or qualitative functional consequence of a variant or genetic context.",
+    )
+
 class ModifierEnum(EnumDefinitionImpl):
     """
     Qualifiers for direction, intensity, or pathological state of a descriptor
@@ -7028,310 +7173,106 @@ class ICDOMorphologyEnum(EnumDefinitionImpl):
 
 class HarrisonsChapterEnum(EnumDefinitionImpl):
     """
-    Traditional internal medicine chapter groupings for disease classification. Based on Harrison's Principles of
-    Internal Medicine organization. Sub-chapters use is_a to indicate parent category.
+    Harrison's Principles of Internal Medicine classification by Part. Values correspond to the high-level Parts
+    (organ-system or topical groupings) of Harrison's 21st edition (2022). The slot is named `harrisons_chapter` for
+    historical reasons, but the controlled vocabulary lives at the Part level since this is the granularity that
+    matches how curators classify disorders. A single disease may be assigned to multiple Parts (e.g., a hereditary
+    skin disorder could be tagged DERMATOLOGY and GENETICS_ENVIRONMENT_DISEASE). Free-text values used in earlier
+    curation are preserved as `aliases` on the closest-fit Part so that legacy entries continue to validate.
     """
-    cardiomyopathy = PermissibleValue(
-        text="cardiomyopathy",
-        title="Diseases of heart muscle (dilated, hypertrophic, restrictive)",
-        description="Primary diseases of the myocardium affecting systolic or diastolic function.",
-        meaning=MONDO["0004994"])
-    anemia = PermissibleValue(
-        text="anemia",
-        title="Red blood cell disorders",
-        description="Reduced red cell mass or hemoglobin due to production defects, blood loss, or hemolysis.",
-        meaning=MONDO["0002280"])
-    cancer = PermissibleValue(
-        text="cancer",
-        title="Neoplastic diseases and cancer",
-        description="Neoplastic diseases characterized by uncontrolled cell proliferation and invasion.",
-        meaning=MONDO["0004992"])
-    epilepsy = PermissibleValue(
-        text="epilepsy",
-        title="Seizure disorders",
-        description="Recurrent unprovoked seizures from abnormal neuronal activity.",
-        meaning=MONDO["0005027"])
+    GENERAL_CONSIDERATIONS = PermissibleValue(
+        text="GENERAL_CONSIDERATIONS",
+        title="General Considerations in Clinical Medicine",
+        description="""Approach to the patient, clinical decision-making, ethics, evidence-based medicine, screening, and global aspects of medicine. Use sparingly for diseases - most diseases fit a more specific organ-system Part.""")
+    CARDINAL_MANIFESTATIONS = PermissibleValue(
+        text="CARDINAL_MANIFESTATIONS",
+        title="Cardinal Manifestations and Presentation of Diseases",
+        description="""Cardinal symptom and sign presentations (pain, fever, fatigue, weight change, cough, dyspnea, etc.) and chapters on alterations of the skin, ear, nose, and throat. Use for symptom-defined entries that cut across organ systems.""")
+    PHARMACOLOGY = PermissibleValue(
+        text="PHARMACOLOGY",
+        title="Pharmacology",
+        description="""Principles of clinical pharmacology, drug therapeutics, and adverse drug reactions. Rarely used for disorder entries.""")
+    ONCOLOGY_HEMATOLOGY = PermissibleValue(
+        text="ONCOLOGY_HEMATOLOGY",
+        title="Oncology and Hematology",
+        description="""Cancers (solid tumors and hematologic malignancies) and non-malignant hematologic disorders including anemias, coagulation disorders, transfusion medicine, and bone marrow failure syndromes.""")
+    INFECTIOUS_DISEASES = PermissibleValue(
+        text="INFECTIOUS_DISEASES",
+        title="Infectious Diseases",
+        description="""Bacterial, viral, fungal, parasitic, and other microbial infections; antimicrobial therapy; infections in immunocompromised hosts; and infections by organ system when presented from an infectious-disease perspective.""")
+    CARDIOVASCULAR = PermissibleValue(
+        text="CARDIOVASCULAR",
+        title="Disorders of the Cardiovascular System",
+        description="""Cardiac and vascular diseases including ischemic heart disease, heart failure, arrhythmias, cardiomyopathies, valvular and pericardial disease, congenital heart disease, and disorders of the aorta and peripheral vasculature.""")
+    RESPIRATORY = PermissibleValue(
+        text="RESPIRATORY",
+        title="Disorders of the Respiratory System",
+        description="""Pulmonary diseases including obstructive lung disease (asthma, COPD), interstitial and restrictive lung disease, pulmonary vascular disease, and respiratory failure.""")
+    CRITICAL_CARE = PermissibleValue(
+        text="CRITICAL_CARE",
+        title="Critical Care Medicine",
+        description="""Approach to the critically ill patient, including sepsis and septic shock, ARDS, multi-organ failure, and neurologic critical illness.""")
+    KIDNEY_URINARY_TRACT = PermissibleValue(
+        text="KIDNEY_URINARY_TRACT",
+        title="Disorders of the Kidney and Urinary Tract",
+        description="""Renal and urinary tract diseases including glomerular and tubulointerstitial disorders, acute kidney injury, chronic kidney disease, electrolyte and acid-base disturbances, and urolithiasis.""")
+    GASTROINTESTINAL = PermissibleValue(
+        text="GASTROINTESTINAL",
+        title="Disorders of the Gastrointestinal System",
+        description="""Digestive-system disorders including esophageal, gastric, small-bowel, colonic, hepatic, biliary, and pancreatic disease.""")
+    IMMUNE_RHEUMATOLOGIC = PermissibleValue(
+        text="IMMUNE_RHEUMATOLOGIC",
+        title="Immune-Mediated, Inflammatory, and Rheumatologic Disorders",
+        description="""Autoimmune and immune-mediated conditions, connective-tissue diseases, vasculitides, and rheumatologic disorders. Musculoskeletal disorders are also covered here in Harrison's.""")
+    ENDOCRINOLOGY_METABOLISM = PermissibleValue(
+        text="ENDOCRINOLOGY_METABOLISM",
+        title="Endocrinology and Metabolism",
+        description="""Endocrine and metabolic diseases including diabetes mellitus, thyroid, adrenal, pituitary, gonadal, calcium and bone metabolism, lipid disorders, and inborn errors of metabolism.""")
+    NEUROLOGIC = PermissibleValue(
+        text="NEUROLOGIC",
+        title="Neurologic Disorders",
+        description="""Diseases of the central and peripheral nervous system, including stroke, epilepsy, neurodegenerative disease, movement disorders, demyelinating disease, neuromuscular disease, headache, and psychiatric disorders.""")
+    DERMATOLOGY = PermissibleValue(
+        text="DERMATOLOGY",
+        title="Disorders of the Skin",
+        description="""Skin and cutaneous disorders. In Harrison's 21st edition, dermatology is organized as a section within the cardinal manifestations Part; this enum value is provided separately so that disorders that are primarily dermatologic can be classified directly.""")
+    POISONING_ENVENOMATION = PermissibleValue(
+        text="POISONING_ENVENOMATION",
+        title="Poisoning, Drug Overdose, and Envenomation",
+        description="Toxicology, poisoning syndromes, drug overdose, and bites or other venom exposures.")
+    ENVIRONMENTAL_EXPOSURES = PermissibleValue(
+        text="ENVIRONMENTAL_EXPOSURES",
+        title="Disorders Associated with Environmental Exposures",
+        description="""Disorders attributable to environmental exposures such as altitude, hypothermia/hyperthermia, drowning, and radiation injury.""")
+    GENETICS_ENVIRONMENT_DISEASE = PermissibleValue(
+        text="GENETICS_ENVIRONMENT_DISEASE",
+        title="Genes, the Environment, and Disease",
+        description="""Genetic and genomic medicine, chromosomal and Mendelian disorders not better classified by organ system, and the interplay of genes and environment in disease. Use for mechanism-defined entries (RASopathies, ciliopathies, mitochondrial disease, etc.) that span multiple organ systems.""")
+    DISORDER_OF_EAR = PermissibleValue(
+        text="DISORDER_OF_EAR",
+        title="Disorders of the Ear",
+        description="""Disorders of hearing and the vestibular system. Covered in Harrison's under cardinal-manifestation chapters on the ear.""")
+    GLOBAL_MEDICINE = PermissibleValue(
+        text="GLOBAL_MEDICINE",
+        title="Global Medicine",
+        description="Diseases and health issues that are predominantly addressed in a global health context.")
+    AGING = PermissibleValue(
+        text="AGING",
+        title="Aging",
+        description="Disorders, syndromes, and physiologic considerations specific to older adults.")
+    CONSULTATIVE_MEDICINE = PermissibleValue(
+        text="CONSULTATIVE_MEDICINE",
+        title="Consultative Medicine",
+        description="""Approach to the patient when consulting across specialties (medical consultation in surgical patients, perioperative evaluation, etc.).""")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        title="Other",
+        description="""The disorder does not fit cleanly into any of the above Parts. Use sparingly and prefer the most relevant Part where possible.""")
 
     _defn = EnumDefinition(
         name="HarrisonsChapterEnum",
-        description="""Traditional internal medicine chapter groupings for disease classification. Based on Harrison's Principles of Internal Medicine organization. Sub-chapters use is_a to indicate parent category.""",
+        description="""Harrison's Principles of Internal Medicine classification by Part. Values correspond to the high-level Parts (organ-system or topical groupings) of Harrison's 21st edition (2022). The slot is named `harrisons_chapter` for historical reasons, but the controlled vocabulary lives at the Part level since this is the granularity that matches how curators classify disorders. A single disease may be assigned to multiple Parts (e.g., a hereditary skin disorder could be tagged DERMATOLOGY and GENETICS_ENVIRONMENT_DISEASE). Free-text values used in earlier curation are preserved as `aliases` on the closest-fit Part so that legacy entries continue to validate.""",
     )
-
-    @classmethod
-    def _addvals(cls):
-        setattr(cls, "cardiovascular disorder",
-            PermissibleValue(
-                text="cardiovascular disorder",
-                title="Diseases of the heart and blood vessels",
-                description="""Heart and vascular diseases, including ischemic, structural, rhythm, and vascular conditions.""",
-                meaning=MONDO["0004995"]))
-        setattr(cls, "coronary artery disorder",
-            PermissibleValue(
-                text="coronary artery disorder",
-                title="Ischemic heart disease, myocardial infarction, angina",
-                description="""Ischemic heart disease due to coronary artery pathology; includes myocardial infarction and angina.""",
-                meaning=MONDO["0005010"]))
-        setattr(cls, "cardiac rhythm disease",
-            PermissibleValue(
-                text="cardiac rhythm disease",
-                title="Arrhythmias, conduction disorders",
-                description="Electrical conduction or rhythm disorders causing arrhythmias or heart block.",
-                meaning=MONDO["0007263"]))
-        setattr(cls, "valvular heart disease",
-            PermissibleValue(
-                text="valvular heart disease",
-                title="Diseases of heart valves (stenosis, regurgitation)",
-                description="""Structural or functional valve disease (stenosis or regurgitation) affecting cardiac hemodynamics.""",
-                meaning=MONDO["0002869"]))
-        setattr(cls, "vascular disease",
-            PermissibleValue(
-                text="vascular disease",
-                title="Diseases of arteries and veins (aneurysm, PAD, DVT)",
-                description="""Arterial or venous disorders such as aneurysm, peripheral artery disease, or thrombosis.""",
-                meaning=MONDO["0005385"]))
-        setattr(cls, "respiratory system disorder",
-            PermissibleValue(
-                text="respiratory system disorder",
-                title="Diseases of the lungs and airways",
-                description="""Diseases of airways, lung parenchyma, and pleura that impair ventilation or gas exchange.""",
-                meaning=MONDO["0005087"]))
-        setattr(cls, "obstructive lung disease",
-            PermissibleValue(
-                text="obstructive lung disease",
-                title="COPD, asthma, bronchiectasis",
-                description="Airflow limitation from airway narrowing or collapse, including COPD and asthma.",
-                meaning=MONDO["0002267"]))
-        setattr(cls, "interstitial lung disease",
-            PermissibleValue(
-                text="interstitial lung disease",
-                title="Pulmonary fibrosis, sarcoidosis",
-                description="""Diffuse parenchymal lung disorders with inflammation or fibrosis that reduce gas exchange.""",
-                meaning=MONDO["0015925"]))
-        setattr(cls, "pulmonary vascular disease",
-            PermissibleValue(
-                text="pulmonary vascular disease",
-                title="Pulmonary hypertension, pulmonary embolism",
-                description="Pulmonary arterial or venous vascular disorders, including hypertension and embolism."))
-        setattr(cls, "digestive system disorder",
-            PermissibleValue(
-                text="digestive system disorder",
-                title="Diseases of the digestive tract and accessory organs",
-                description="""Diseases of the gastrointestinal tract and accessory organs affecting digestion or absorption.""",
-                meaning=MONDO["0004335"]))
-        setattr(cls, "inflammatory bowel disease",
-            PermissibleValue(
-                text="inflammatory bowel disease",
-                title="Crohn's disease, ulcerative colitis",
-                description="""Chronic immune-mediated intestinal inflammation, typically Crohn disease or ulcerative colitis.""",
-                meaning=MONDO["0005265"]))
-        setattr(cls, "peptic disorder",
-            PermissibleValue(
-                text="peptic disorder",
-                title="Peptic ulcer, GERD, gastritis",
-                description="""Acid-related disorders of the esophagus, stomach, or duodenum such as GERD and peptic ulcer disease.""",
-                meaning=MONDO["0004247"]))
-        setattr(cls, "liver disorder",
-            PermissibleValue(
-                text="liver disorder",
-                title="Diseases of the liver, gallbladder, and biliary system",
-                description="Hepatobiliary diseases involving liver parenchyma, bile ducts, or gallbladder.",
-                meaning=MONDO["0005154"]))
-        setattr(cls, "kidney disorder",
-            PermissibleValue(
-                text="kidney disorder",
-                title="Diseases of the kidneys and urinary system",
-                description="""Renal and urinary tract diseases affecting filtration, electrolyte balance, or urine flow.""",
-                meaning=MONDO["0005240"]))
-        setattr(cls, "glomerular disease",
-            PermissibleValue(
-                text="glomerular disease",
-                title="Glomerulonephritis, nephrotic syndrome",
-                description="""Diseases of the glomerulus causing hematuria, proteinuria, or nephrotic/nephritic syndromes.""",
-                meaning=MONDO["0019722"]))
-        setattr(cls, "hematologic disorder",
-            PermissibleValue(
-                text="hematologic disorder",
-                title="Diseases of blood and blood-forming organs",
-                description="Disorders of blood cells, bone marrow, and hemostasis.",
-                meaning=MONDO["0005570"]))
-        setattr(cls, "coagulation disorder",
-            PermissibleValue(
-                text="coagulation disorder",
-                title="Bleeding and thrombotic disorders",
-                description="""Bleeding or thrombotic disorders from clotting factor, platelet, or regulatory defects.""",
-                meaning=MONDO["0001531"]))
-        setattr(cls, "hematologic malignancy",
-            PermissibleValue(
-                text="hematologic malignancy",
-                title="Leukemia, lymphoma, myeloma",
-                description="Cancers of blood, bone marrow, and lymphoid tissues such as leukemia or lymphoma.",
-                meaning=MONDO["0002334"]))
-        setattr(cls, "solid tumor",
-            PermissibleValue(
-                text="solid tumor",
-                title="Carcinomas, sarcomas, other solid neoplasms",
-                description="Non-hematologic neoplasms arising in organs or soft tissues."))
-        setattr(cls, "infectious disease",
-            PermissibleValue(
-                text="infectious disease",
-                title="Diseases caused by pathogenic microorganisms",
-                description="Illness caused by pathogenic organisms with host invasion and immune response.",
-                meaning=MONDO["0005550"]))
-        setattr(cls, "bacterial infectious disease",
-            PermissibleValue(
-                text="bacterial infectious disease",
-                title="Infections caused by bacteria",
-                description="""Infections caused by bacteria, including community and healthcare-associated pathogens.""",
-                meaning=MONDO["0005113"]))
-        setattr(cls, "viral infectious disease",
-            PermissibleValue(
-                text="viral infectious disease",
-                title="Infections caused by viruses",
-                description="Infections caused by viruses affecting any organ system.",
-                meaning=MONDO["0005108"]))
-        setattr(cls, "fungal infectious disease",
-            PermissibleValue(
-                text="fungal infectious disease",
-                title="Infections caused by fungi",
-                description="Mycoses ranging from superficial to invasive systemic infections.",
-                meaning=MONDO["0002041"]))
-        setattr(cls, "parasitic infectious disease",
-            PermissibleValue(
-                text="parasitic infectious disease",
-                title="Infections caused by parasites (protozoa, helminths)",
-                description="Protozoal or helminth infections, often vector-borne or food/water transmitted.",
-                meaning=MONDO["0005135"]))
-        setattr(cls, "mycobacterial infection",
-            PermissibleValue(
-                text="mycobacterial infection",
-                title="Tuberculosis, NTM, leprosy",
-                description="""Infections due to Mycobacterium species, including tuberculosis and non-tuberculous mycobacteria.""",
-                meaning=MONDO["0020590"]))
-        setattr(cls, "immune system disorder",
-            PermissibleValue(
-                text="immune system disorder",
-                title="Diseases of the immune system including autoimmunity",
-                description="""Immune dysregulation disorders including autoimmunity, immunodeficiency, or hypersensitivity.""",
-                meaning=MONDO["0005046"]))
-        setattr(cls, "autoimmune disease",
-            PermissibleValue(
-                text="autoimmune disease",
-                title="Diseases caused by immune attack on self",
-                description="Immune-mediated tissue damage due to loss of self-tolerance.",
-                meaning=MONDO["0007179"]))
-        setattr(cls, "allergic disease",
-            PermissibleValue(
-                text="allergic disease",
-                title="Hypersensitivity disorders, anaphylaxis",
-                description="Hypersensitivity disorders including atopy, allergic asthma, and anaphylaxis.",
-                meaning=MONDO["0005271"]))
-        setattr(cls, "endocrine system disorder",
-            PermissibleValue(
-                text="endocrine system disorder",
-                title="Diseases of hormonal and metabolic systems",
-                description="Hormonal and metabolic gland disorders affecting systemic homeostasis.",
-                meaning=MONDO["0005151"]))
-        setattr(cls, "diabetes mellitus",
-            PermissibleValue(
-                text="diabetes mellitus",
-                title="Type 1, type 2, and other forms of diabetes",
-                description="Disorders of glucose regulation due to insulin deficiency and/or insulin resistance.",
-                meaning=MONDO["0005015"]))
-        setattr(cls, "thyroid disorder",
-            PermissibleValue(
-                text="thyroid disorder",
-                title="Hyper/hypothyroidism, thyroid nodules, thyroid cancer",
-                description="Thyroid gland dysfunction or structural disease altering metabolic control.",
-                meaning=MONDO["0003240"]))
-        setattr(cls, "adrenal disorder",
-            PermissibleValue(
-                text="adrenal disorder",
-                title="Cushing's, Addison's, pheochromocytoma",
-                description="Adrenal cortex or medulla disorders causing hormone excess or deficiency.",
-                meaning=MONDO["0005495"]))
-        setattr(cls, "nervous system disorder",
-            PermissibleValue(
-                text="nervous system disorder",
-                title="Diseases of the central and peripheral nervous system",
-                description="""Central or peripheral nervous system diseases affecting cognition, sensation, or movement.""",
-                meaning=MONDO["0005071"]))
-        setattr(cls, "cerebrovascular disorder",
-            PermissibleValue(
-                text="cerebrovascular disorder",
-                title="Stroke, TIA, vascular dementia",
-                description="Brain ischemia or hemorrhage due to vascular disease, including stroke and TIA.",
-                meaning=MONDO["0011057"]))
-        setattr(cls, "neurodegenerative disease",
-            PermissibleValue(
-                text="neurodegenerative disease",
-                title="Alzheimer's, Parkinson's, ALS, Huntington's",
-                description="Progressive neuronal loss leading to cognitive or motor decline.",
-                meaning=MONDO["0005559"]))
-        setattr(cls, "demyelinating disease",
-            PermissibleValue(
-                text="demyelinating disease",
-                title="Multiple sclerosis, NMO, ADEM",
-                description="Disorders with loss of myelin in the nervous system, often immune-mediated.",
-                meaning=MONDO["0002562"]))
-        setattr(cls, "neuromuscular disease",
-            PermissibleValue(
-                text="neuromuscular disease",
-                title="Myopathies, neuropathies, NMJ disorders",
-                description="Diseases of peripheral nerve, neuromuscular junction, or muscle leading to weakness.",
-                meaning=MONDO["0019056"]))
-        setattr(cls, "movement disorder",
-            PermissibleValue(
-                text="movement disorder",
-                title="Parkinsonism, dystonia, chorea, ataxia",
-                description="Motor control disorders causing tremor, rigidity, dystonia, chorea, or ataxia.",
-                meaning=MONDO["0005395"]))
-        setattr(cls, "musculoskeletal system disorder",
-            PermissibleValue(
-                text="musculoskeletal system disorder",
-                title="Diseases of joints, connective tissue, and musculoskeletal system",
-                description="Diseases of joints, bones, muscles, or connective tissue.",
-                meaning=MONDO["0002081"]))
-        setattr(cls, "inflammatory arthritis",
-            PermissibleValue(
-                text="inflammatory arthritis",
-                title="Rheumatoid arthritis, spondyloarthritis, gout",
-                description="Inflammatory joint disorders with synovitis, such as RA or spondyloarthropathies."))
-        setattr(cls, "connective tissue disease",
-            PermissibleValue(
-                text="connective tissue disease",
-                title="SLE, scleroderma, Sjogren's, vasculitis",
-                description="""Systemic autoimmune connective tissue disorders affecting skin, joints, vessels, and organs.""",
-                meaning=MONDO["0003900"]))
-        setattr(cls, "skin disorder",
-            PermissibleValue(
-                text="skin disorder",
-                title="Diseases of the skin and appendages",
-                description="Diseases of the skin, hair, nails, and related appendages.",
-                meaning=MONDO["0005093"]))
-        setattr(cls, "psychiatric disorder",
-            PermissibleValue(
-                text="psychiatric disorder",
-                title="Mental and behavioral disorders",
-                description="Mental and behavioral disorders affecting mood, thought, or behavior.",
-                meaning=MONDO["0002025"]))
-        setattr(cls, "otorhinolaryngologic disease",
-            PermissibleValue(
-                text="otorhinolaryngologic disease",
-                title="Diseases of the ear, nose, and throat",
-                description="""Pathological processes of the ear, the nose, and the throat, also known as ENT diseases.""",
-                meaning=MONDO["0024623"]))
-        setattr(cls, "disorder of ear",
-            PermissibleValue(
-                text="disorder of ear",
-                title="Diseases of the ear (otitis, hearing loss, cholesteatoma)",
-                description="""Diseases involving the external, middle, or inner ear, including infections, structural lesions, and hearing disorders.""",
-                meaning=MONDO["0021205"]))
-        setattr(cls, "hereditary disease",
-            PermissibleValue(
-                text="hereditary disease",
-                title="Inherited diseases and birth defects",
-                description="Genetic or congenital disorders due to inherited variants or developmental anomalies.",
-                meaning=MONDO["0003847"]))
 
 class LysosomalStorageEnum(EnumDefinitionImpl):
     """
@@ -8667,11 +8608,20 @@ slots.genetic_context = Slot(uri=DISMECH.genetic_context, name="genetic_context"
 slots.allele_type = Slot(uri=DISMECH.allele_type, name="allele_type", curie=DISMECH.curie('allele_type'),
                    model_uri=DISMECH.allele_type, domain=None, range=Optional[str])
 
+slots.allelic_hit_role = Slot(uri=DISMECH.allelic_hit_role, name="allelic_hit_role", curie=DISMECH.curie('allelic_hit_role'),
+                   model_uri=DISMECH.allelic_hit_role, domain=None, range=Optional[Union[str, "AllelicHitRoleEnum"]])
+
+slots.allelic_events = Slot(uri=DISMECH.allelic_events, name="allelic_events", curie=DISMECH.curie('allelic_events'),
+                   model_uri=DISMECH.allelic_events, domain=None, range=Optional[Union[Union[str, "AllelicEventEnum"], list[Union[str, "AllelicEventEnum"]]]])
+
 slots.zygosity = Slot(uri=DISMECH.zygosity, name="zygosity", curie=DISMECH.curie('zygosity'),
                    model_uri=DISMECH.zygosity, domain=None, range=Optional[Union[str, "ZygosityEnum"]])
 
 slots.functional_impact = Slot(uri=DISMECH.functional_impact, name="functional_impact", curie=DISMECH.curie('functional_impact'),
                    model_uri=DISMECH.functional_impact, domain=None, range=Optional[str])
+
+slots.functional_impact_category = Slot(uri=DISMECH.functional_impact_category, name="functional_impact_category", curie=DISMECH.curie('functional_impact_category'),
+                   model_uri=DISMECH.functional_impact_category, domain=None, range=Optional[Union[str, "FunctionalImpactEnum"]])
 
 slots.complementation_group = Slot(uri=DISMECH.complementation_group, name="complementation_group", curie=DISMECH.curie('complementation_group'),
                    model_uri=DISMECH.complementation_group, domain=None, range=Optional[str])

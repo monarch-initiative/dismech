@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>15q11q13 Microduplication Syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0012081" target="_blank">
                         MONDO:0012081
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">chromosomal disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 15q11q13 microduplication syndrome is a maternally biased chromosomal duplication disorder characterized by neurodevelopmental impairment, autistic behavior, hypotonia, language delay, seizures, and variable epilepsy severity. The syndrome reflects altered dosage of imprinted and neurodevelopmental genes within 15q11-q13, especially UBE3A.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,34 +3065,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3030,8 +3100,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3039,9 +3109,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3049,10 +3119,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3060,8 +3130,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3069,8 +3139,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3078,8 +3148,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3087,8 +3157,8 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
@@ -3096,9 +3166,9 @@
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#trials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
@@ -3106,10 +3176,10 @@
                 <div class="stat-label">Trials</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3117,8 +3187,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3126,904 +3196,1009 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Maternal parent-of-origin effect with subtype-dependent recurrence risk
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0012275" target="_blank">
                             HP:0012275
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Recurrence counseling depends on the structural subtype and parental origin. Unaffected parents of a child with de novo idic(15) generally have low recurrence risk, with residual concern for maternal germline mosaicism. If a mother carries an interstitial 15q11.2-q13.1 duplication, each child has a 50% risk of inheriting the duplication; prenatal or preimplantation genetic testing by chromosomal microarray can detect the duplication but cannot reliably predict severity.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance with maternal imprinting
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
         <span class="tag tag-classification">De novo rate: Maternal idic(15) has been reported de novo in all affected individuals to date. Maternal interstitial 15q11.2-q13.1 duplication is de novo in approximately 85% of probands and maternally inherited in approximately 15%.</span>
-        
+
     </div>
-    
-    
+
+
     <div class="item-desc"><strong>Parent-of-origin effect:</strong> The Dup15q clinical phenotype requires at least one extra maternally derived copy of the 15q11.2-q13.1 Prader-Willi/Angelman critical region; paternal duplications are usually clinically silent or much milder.</div>
-    
-    
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27308687" target="_blank">PMID:27308687</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The diagnosis of maternal dup15q is established by detection of at least one extra maternally derived copy of the Prader-Willi/Angelman critical region"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews defines maternal origin of the duplicated critical-region copy as central to the Dup15q diagnosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27308687" target="_blank">PMID:27308687</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"De novo in all affected individuals reported to date"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports de novo occurrence as the rule for maternal idic(15), with residual recurrence risk from possible maternal germline mosaicism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27308687" target="_blank">PMID:27308687</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"De novo in approximately 85% of probands and inherited from the mother in approximately 15%"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews gives the subtype-specific de novo and inherited proportions for maternal interstitial 15q11.2-q13.1 duplications.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 2 more references</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">3</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Interstitial 15q11-q13 duplication (int15)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Interstitial tandem duplication of 15q11-q13 on the maternal chromosome. Typically milder than idic15, with developmental and behavioral features but lower burden of refractory epilepsy and SUDEP.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Isodicentric 15 (idic15)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Supernumerary isodicentric marker chromosome containing an extra copy of 15q11-q13. More strongly associated with severe, refractory epilepsy and elevated risk of sudden unexpected death in epilepsy (SUDEP).</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Mosaic idic15
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Mosaic form of idic15 in which only a subset of cells carry the supernumerary isodicentric 15 chromosome, producing variable and often attenuated clinical severity relative to non-mosaic idic15.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-15q11-q13-dosage-increase">
                 <div class="item-name">Maternal 15q11-q13 dosage increase</div>
-                
+
                 <div class="item-desc">Maternal duplication of 15q11-q13 increases dosage of imprinted and neurodevelopmental genes, with UBE3A overexpression emerging as a key dosage-sensitive driver.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        UBE3A
-                        
-                        <a href="https://bioregistry.io/hgnc:12496" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        UBE3A
+
+
+    <a href="https://bioregistry.io/hgnc:12496" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12496">hgnc:12496</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">GABAergic signaling disruption</span>
-	                            
+
 	                            <span class="crosslink-desc">Gene-dosage imbalance perturbs inhibitory signaling in cortical networks.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Epileptogenic network dysfunction</span>
-	                            
+
 	                            <span class="crosslink-desc">Dosage imbalance increases susceptibility to abnormal neuronal firing and epilepsy.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25884337" target="_blank">PMID:25884337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Duplications of chromosome region 15q11-q13 with the maternal imprint are associated with a wide spectrum of neuropsychiatric disorders, including autism spectrum disorders, developmental delay, learning difficulties, schizophrenia, and seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports maternal 15q11-q13 dosage increase as the initiating disease mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41751547" target="_blank">PMID:41751547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Dup15q syndrome demonstrates marked heterogeneity in epilepsy severity and seizure semiology, reflecting variable gene dosing effects, maternal imprinting of UBE3A, and altered GABAergic signaling."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports dosage-sensitive imprinting, especially UBE3A, as the core proximal mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ube3a-overexpression-driven-neuronal-hyperexcitability">
                 <div class="item-name">UBE3A overexpression-driven neuronal hyperexcitability</div>
-                
+
                 <div class="item-desc">Patient-derived Dup15q neurons show hyperexcitability that is largely prevented by normalizing UBE3A dosage, supporting UBE3A overexpression as a key cellular mechanism downstream of maternal 15q11-q13 copy-number gain.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        UBE3A
-                        
-                        <a href="https://bioregistry.io/hgnc:12496" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        UBE3A
+
+
+    <a href="https://bioregistry.io/hgnc:12496" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12496">hgnc:12496</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         regulation of membrane potential
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042391">GO:0042391</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         chemical synaptic transmission
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Epileptogenic network dysfunction</span>
-	                            
+
 	                            <span class="crosslink-desc">Increased neuronal excitability provides a cellular substrate for the downstream epilepsy-prone network state.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36898382" target="_blank">PMID:36898382</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Dup15q neurons exhibited hyperexcitability compared with control neurons, and this phenotype was generally prevented by normalizing UBE3A levels using antisense oligonucleotides. Overexpression of UBE3A resulted in a profile similar to that of Dup15q neurons except for synaptic phenotypes. These..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This patient-derived, CRISPR-corrected neuron study directly links UBE3A overexpression to Dup15q neuronal hyperexcitability while acknowledging that other duplicated genes may also contribute.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gabaergic-signaling-disruption">
                 <div class="item-name">GABAergic signaling disruption</div>
-                
+
                 <div class="item-desc">Dup15q disrupts GABAergic signaling in cortical networks, contributing to refractory epilepsy.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         gamma-aminobutyric acid signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007214">GO:0007214</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Epilepsy</span>
-	                            
+
 	                            <span class="crosslink-desc">GABAergic signaling disruption increases seizure susceptibility.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Autism spectrum disorder</span>
-	                            
+
 	                            <span class="crosslink-desc">Circuit-level inhibitory imbalance contributes to autistic behavior.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41751547" target="_blank">PMID:41751547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Dup15q syndrome demonstrates marked heterogeneity in epilepsy severity and seizure semiology, reflecting variable gene dosing effects, maternal imprinting of UBE3A, and altered GABAergic signaling."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports GABAergic signaling disruption as a downstream disease mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sodium-channel-dysfunction">
                 <div class="item-name">Sodium channel dysfunction</div>
-                
+
                 <div class="item-desc">Dup15q neurons show abnormal sodium-channel kinetics with increased sodium current density and altered inactivation.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Epilepsy</span>
-	                            
+
 	                            <span class="crosslink-desc">Abnormal sodium-channel kinetics increase seizure susceptibility.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37329181" target="_blank">PMID:37329181</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Dup15q neurons showed increased sodium current density and a depolarizing shift in steady-state inactivation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports sodium-channel dysfunction in Dup15q neurons.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epileptogenic-network-dysfunction">
                 <div class="item-name">Epileptogenic network dysfunction</div>
-                
+
                 <div class="item-desc">Network-level dysregulation in Dup15q syndrome produces early-onset neurodevelopmental impairment and refractory epilepsy.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Global developmental delay</span>
-	                            
+
 	                            <span class="crosslink-desc">Early network dysfunction manifests as global developmental delay.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Autistic behavior</span>
-	                            
+
 	                            <span class="crosslink-desc">Circuit dysfunction contributes to autistic behavior.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypotonia</span>
-	                            
+
 	                            <span class="crosslink-desc">Abnormal neuronal network development contributes to hypotonia.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Seizure</span>
-	                            
+
 	                            <span class="crosslink-desc">Epileptogenic network dysfunction manifests as seizures of variable severity.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41751547" target="_blank">PMID:41751547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"While idic15 is more strongly associated with refractory epilepsy and SUDEP, both idic15 and int15 subtypes show overlapping developmental and behavioral phenotypes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports a downstream epileptogenic network phenotype with developmental consequences.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="graph-warning">
                 <strong>Referential integrity issues (3):</strong>
                 <ul>
-                    
+
                     <li>Target &#39;Epilepsy&#39; (from &#39;GABAergic signaling disruption&#39;) not found in named elements</li>
-                    
+
                     <li>Target &#39;Autism spectrum disorder&#39; (from &#39;GABAergic signaling disruption&#39;) not found in named elements</li>
-                    
+
                     <li>Target &#39;Epilepsy&#39; (from &#39;Sodium channel dysfunction&#39;) not found in named elements</li>
-                    
-                    
+
+
                 </ul>
             </div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4034,453 +4209,474 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autism spectrum disorder\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic behavior and autism-spectrum features are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Epilepsy\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Epileptogenic network dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Network-level dysregulation in Dup15q syndrome produces early-onset neurodevelopmental impairment and refractory epilepsy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GABAergic signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dup15q disrupts GABAergic signaling in cortical networks, contributing to refractory epilepsy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"gamma-aminobutyric acid signaling pathway\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a core manifestation of Dup15q syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is common, especially in infancy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Maternal 15q11-q13 dosage increase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Maternal duplication of 15q11-q13 increases dosage of imprinted and neurodevelopmental genes, with UBE3A overexpression emerging as a key dosage-sensitive driver.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a core feature, often refractory and clinically variable.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Seizure trigger avoidance and surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Families should receive counseling on avoidable seizure triggers such as sleep deprivation and stress, and clinical follow-up should monitor for new seizures, changes in seizure type, and nutritional or growth issues that can affect epilepsy management.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sodium channel dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dup15q neurons show abnormal sodium-channel kinetics with increased sodium current density and altered inactivation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"UBE3A overexpression-driven neuronal hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived Dup15q neurons show hyperexcitability that is largely prevented by normalizing UBE3A dosage, supporting UBE3A overexpression as a key cellular mechanism downstream of maternal 15q11-q13 copy-number gain.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of membrane potential\", \"chemical synaptic transmission\"], \"genes\": [\"UBE3A\"]}}], \"edges\": [{\"source\": \"Maternal 15q11-q13 dosage increase\", \"target\": \"GABAergic signaling disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gene-dosage imbalance perturbs inhibitory signaling in cortical networks.\"}, {\"source\": \"Maternal 15q11-q13 dosage increase\", \"target\": \"Epileptogenic network dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dosage imbalance increases susceptibility to abnormal neuronal firing and epilepsy.\"}, {\"source\": \"UBE3A overexpression-driven neuronal hyperexcitability\", \"target\": \"Epileptogenic network dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased neuronal excitability provides a cellular substrate for the downstream epilepsy-prone network state.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"UBE3A overexpression increases neuronal excitability in patient-derived neurons.\"]}, {\"source\": \"GABAergic signaling disruption\", \"target\": \"Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"GABAergic signaling disruption increases seizure susceptibility.\"}, {\"source\": \"GABAergic signaling disruption\", \"target\": \"Autism spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Circuit-level inhibitory imbalance contributes to autistic behavior.\"}, {\"source\": \"Sodium channel dysfunction\", \"target\": \"Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Abnormal sodium-channel kinetics increase seizure susceptibility.\"}, {\"source\": \"Epileptogenic network dysfunction\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early network dysfunction manifests as global developmental delay.\"}, {\"source\": \"Epileptogenic network dysfunction\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circuit dysfunction contributes to autistic behavior.\"}, {\"source\": \"Epileptogenic network dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neuronal network development contributes to hypotonia.\"}, {\"source\": \"Epileptogenic network dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptogenic network dysfunction manifests as seizures of variable severity.\"}, {\"source\": \"Seizure trigger avoidance and surveillance\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": [\"Autism spectrum disorder\", \"Epilepsy\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autism spectrum disorder\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic behavior and autism-spectrum features are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Epilepsy\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Epileptogenic network dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Network-level dysregulation in Dup15q syndrome produces early-onset neurodevelopmental impairment and refractory epilepsy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GABAergic signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dup15q disrupts GABAergic signaling in cortical networks, contributing to refractory epilepsy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"gamma-aminobutyric acid signaling pathway\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a core manifestation of Dup15q syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is common, especially in infancy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Maternal 15q11-q13 dosage increase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Maternal duplication of 15q11-q13 increases dosage of imprinted and neurodevelopmental genes, with UBE3A overexpression emerging as a key dosage-sensitive driver.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"], \"gene_terms\": [{\"label\": \"UBE3A\", \"id\": \"hgnc:12496\"}]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a core feature, often refractory and clinically variable.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Seizure trigger avoidance and surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Families should receive counseling on avoidable seizure triggers such as sleep deprivation and stress, and clinical follow-up should monitor for new seizures, changes in seizure type, and nutritional or growth issues that can affect epilepsy management.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sodium channel dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dup15q neurons show abnormal sodium-channel kinetics with increased sodium current density and altered inactivation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"UBE3A overexpression-driven neuronal hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived Dup15q neurons show hyperexcitability that is largely prevented by normalizing UBE3A dosage, supporting UBE3A overexpression as a key cellular mechanism downstream of maternal 15q11-q13 copy-number gain.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of membrane potential\", \"chemical synaptic transmission\"], \"genes\": [\"UBE3A\"], \"gene_terms\": [{\"label\": \"UBE3A\", \"id\": \"hgnc:12496\"}]}}], \"edges\": [{\"source\": \"Maternal 15q11-q13 dosage increase\", \"target\": \"GABAergic signaling disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gene-dosage imbalance perturbs inhibitory signaling in cortical networks.\"}, {\"source\": \"Maternal 15q11-q13 dosage increase\", \"target\": \"Epileptogenic network dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dosage imbalance increases susceptibility to abnormal neuronal firing and epilepsy.\"}, {\"source\": \"UBE3A overexpression-driven neuronal hyperexcitability\", \"target\": \"Epileptogenic network dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased neuronal excitability provides a cellular substrate for the downstream epilepsy-prone network state.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"UBE3A overexpression increases neuronal excitability in patient-derived neurons.\"]}, {\"source\": \"GABAergic signaling disruption\", \"target\": \"Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"GABAergic signaling disruption increases seizure susceptibility.\"}, {\"source\": \"GABAergic signaling disruption\", \"target\": \"Autism spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Circuit-level inhibitory imbalance contributes to autistic behavior.\"}, {\"source\": \"Sodium channel dysfunction\", \"target\": \"Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Abnormal sodium-channel kinetics increase seizure susceptibility.\"}, {\"source\": \"Epileptogenic network dysfunction\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early network dysfunction manifests as global developmental delay.\"}, {\"source\": \"Epileptogenic network dysfunction\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circuit dysfunction contributes to autistic behavior.\"}, {\"source\": \"Epileptogenic network dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neuronal network development contributes to hypotonia.\"}, {\"source\": \"Epileptogenic network dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptogenic network dysfunction manifests as seizures of variable severity.\"}, {\"source\": \"Seizure trigger avoidance and surveillance\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": [\"Autism spectrum disorder\", \"Epilepsy\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">7</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(6)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypotonia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank">
-                            hypotonia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001252)</span>
-                        </span>
-                        
+                        hypotonia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24239951" target="_blank">PMID:24239951</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Duplications are clinically characterized by a variable phenotype that includes central hypotonia, developmental delay, speech delay, seizure, minor dysmorphic features and autism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports hypotonia in Dup15q syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">6</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Global developmental delay
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
-                            Global developmental delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
-                        </span>
-                        
+                        Global developmental delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25884337" target="_blank">PMID:25884337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Duplications of chromosome region 15q11-q13 with the maternal imprint are associated with a wide spectrum of neuropsychiatric disorders, including autism spectrum disorders, developmental delay, learning difficulties, schizophrenia, and seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports developmental delay as a core phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Autistic behavior
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank">
-                            Autistic behavior
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000729)</span>
-                        </span>
-                        
+                        Autistic behavior
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25884337" target="_blank">PMID:25884337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Duplications of chromosome region 15q11-q13 with the maternal imprint are associated with a wide spectrum of neuropsychiatric disorders, including autism spectrum disorders, developmental delay, learning difficulties, schizophrenia, and seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports autistic behavior / autism-spectrum features.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Delayed speech and language development
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank">
-                            delayed speech and language development
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000750)</span>
-                        </span>
-                        
+                        delayed speech and language development
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25884337" target="_blank">PMID:25884337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Duplications of chromosome region 15q11-q13 with the maternal imprint are associated with a wide spectrum of neuropsychiatric disorders, including autism spectrum disorders, developmental delay, learning difficulties, schizophrenia, and seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the language-delayed neurodevelopmental phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intellectual disability
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
-                            Intellectual disability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001249)</span>
-                        </span>
-                        
+                        Intellectual disability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25884337" target="_blank">PMID:25884337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Duplications of chromosome region 15q11-q13 with the maternal imprint are associated with a wide spectrum of neuropsychiatric disorders, including autism spectrum disorders, developmental delay, learning difficulties, schizophrenia, and seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This provides partial support for intellectual disability by directly documenting recurrent learning difficulties within the Dup15q neurodevelopmental phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizure
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
-                            seizure
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001250)</span>
-                        </span>
-                        
+                        seizure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41751547" target="_blank">PMID:41751547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"RESULTS: Dup15q syndrome demonstrates marked heterogeneity in epilepsy severity and seizure semiology, reflecting variable gene dosing effects, maternal imprinting of UBE3A, and altered GABAergic signaling."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports seizures as a major and variable phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sleep disturbance
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank">
-                            Sleep disturbance
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002360)</span>
-                        </span>
-                        
+                        Sleep disturbance
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34344470" target="_blank">PMID:34344470</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Children with Dup15q syndrome showed abnormal sleep physiology with elevated beta power, reduced spindle density, and reduced or absent SWS compared to age-matched neurotypical controls."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports sleep disturbance as a Dup15q phenotype and provides the observed quantitative EEG sleep abnormalities.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4505,572 +4701,652 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     Maternal 15q11-q13 duplication
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal chromosomal duplication)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41751547" target="_blank">PMID:41751547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We synthesized current literature on genomic mechanisms underlying complex neurodevelopmental disorders focusing on Dup15q syndrome and its subtypes-int15, idic15, and mosaic idic15."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports the chromosomal duplication basis of the disorder.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     GABRB3 duplicated-region dosage
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Duplicated GABA-A receptor subunit gene in the 15q11.2-q13.1 region)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GABRB3
+
+
+    <a href="https://bioregistry.io/hgnc:4083" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4083">hgnc:4083</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34344470" target="_blank">PMID:34344470</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"a cluster of gamma-aminobutyric acid type A receptor (GABAAR) genes, GABRB3, GABRA5, and GABRG3, which encode the β3, α5 and γ3 receptor subunits, respectively."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This identifies GABRB3 as one of the duplicated GABA-A receptor subunit genes in the 15q11.2-q13.1 critical region.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     GABRA5 duplicated-region dosage
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Duplicated GABA-A receptor subunit gene in the 15q11.2-q13.1 region)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GABRA5
+
+
+    <a href="https://bioregistry.io/hgnc:4079" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4079">hgnc:4079</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34344470" target="_blank">PMID:34344470</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"a cluster of gamma-aminobutyric acid type A receptor (GABAAR) genes, GABRB3, GABRA5, and GABRG3, which encode the β3, α5 and γ3 receptor subunits, respectively."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This identifies GABRA5 as one of the duplicated GABA-A receptor subunit genes in the 15q11.2-q13.1 critical region.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     GABRG3 duplicated-region dosage
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Duplicated GABA-A receptor subunit gene in the 15q11.2-q13.1 region)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GABRG3
+
+
+    <a href="https://bioregistry.io/hgnc:4088" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4088">hgnc:4088</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34344470" target="_blank">PMID:34344470</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"a cluster of gamma-aminobutyric acid type A receptor (GABAAR) genes, GABRB3, GABRA5, and GABRG3, which encode the β3, α5 and γ3 receptor subunits, respectively."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This identifies GABRG3 as one of the duplicated GABA-A receptor subunit genes in the 15q11.2-q13.1 critical region.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Supportive care
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary supportive care is central, especially for developmental, feeding, communication, educational, and behavioral management. Core services include physical therapy for hypotonia and gross motor delay, occupational therapy for fine-motor and adaptive skills, speech-language therapy with augmentative and alternative communication when needed, feeding therapy, behavioral therapy such as applied behavior analysis, and psychotropic medication when behavioral manifestations require medication.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41751547" target="_blank">PMID:41751547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Understanding the genomic architecture of Dup15q syndrome may inform personalized strategies for epilepsy treatment and prevention."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports individualized supportive care and epilepsy prevention planning.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27308687" target="_blank">PMID:27308687</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Supportive care may include: feeding therapy, occupational and physical therapy, alternative and augmentative communication, behavioral therapy (e.g., applied behavioral analysis therapy), psychotropic medications for behavioral manifestations"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports the specific developmental, communication, feeding, behavioral, and psychotropic components of supportive management.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Antiseizure medication
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Antiseizure medications are used for seizure control, although response is variable and seizures may be refractory.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41751547" target="_blank">PMID:41751547</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"There is a well-known differential response to anti-seizure medications and emerging evidence for neurostimulation and precision medicine."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports antiseizure medication use in the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Seizure trigger avoidance and surveillance
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Families should receive counseling on avoidable seizure triggers such as sleep deprivation and stress, and clinical follow-up should monitor for new seizures, changes in seizure type, and nutritional or growth issues that can affect epilepsy management.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27308687" target="_blank">PMID:27308687</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Agents/circumstances to avoid: Seizure triggers (e.g., sleep deprivation, stress)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews explicitly identifies seizure-trigger avoidance as management guidance for maternal Dup15q.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling should address maternal parent-of-origin effects, subtype-specific de novo versus inherited recurrence risk, maternal interstitial duplication transmission risk, testing of at-risk siblings, and prenatal or preimplantation testing options.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27308687" target="_blank">PMID:27308687</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Evaluation of relatives at risk: Consider genetic testing of sibs of a proband"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports genetic counseling and testing for relatives at risk of inherited maternal interstitial 15q11.2-q13.1 duplication.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
         <div class="card" id="differentials">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
@@ -5080,349 +5356,364 @@
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from 15q11q13 Microduplication Syndrome:
             </p>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <a class="item-name-link" href="Angelman_Syndrome.html">Angelman syndrome</a>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0007113" target="_blank">
                             MONDO:0007113
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Angelman syndrome overlaps because it involves the same imprinted region but typically reflects loss of UBE3A function rather than duplication.
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <a class="item-name-link" href="Autism_Spectrum_Disorder.html">Autism spectrum disorder</a>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0005258" target="_blank">
                             MONDO:0005258
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Autism spectrum disorder is part of the Dup15q phenotype and may dominate the presentation before the chromosomal duplication is recognized.
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
         <div class="card" id="trials">
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
                 <h2 class="card-title">Clinical Trials</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT03694275
-                    
+
                     <span class="tag tag-phase">PHASE_II</span>
-                    
-                    
+
+
                     <span class="tag tag-status">COMPLETED</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">ARCADE was an open-label phase II soticlestat signal-finding study in participants with Dup15q syndrome or CDKL5 deficiency disorder and motor seizures.</div>
-                
-                
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03694275" target="_blank">clinicaltrials:NCT03694275</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The purpose of this study is to investigate the effect of soticlestat on the frequency of motor seizures for participants with Dup15q or CDD during the Maintenance Period."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov documents a completed soticlestat trial targeting motor seizure frequency in Dup15q syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37011526" target="_blank">PMID:37011526</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Soticlestat treatment was associated with an increase in motor seizure frequency in patients with Dup15q syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The published ARCADE results show that this completed trial did not reduce motor seizure frequency in the Dup15q subgroup, preventing the trial entry from overstating treatment benefit.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT05281965
-                    
+
                     <span class="tag tag-phase">PHASE_I</span>
-                    
-                    
+
+
                     <span class="tag tag-status">UNKNOWN</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Early-phase randomized crossover study evaluating retinoic acid in patients with 15q11-q13 duplication syndrome.</div>
-                
-                
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Autistic behavior
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05281965" target="_blank">clinicaltrials:NCT05281965</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Therefore, retinoic acid supplementation in the treatment of dup15q syndrome is a potential therapeutic target."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov documents an early-phase retinoic-acid trial motivated by UBE3A-related Dup15q biology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT07079696
-                    
+
                     <span class="tag tag-phase">PHASE_II</span>
-                    
-                    
+
+
                     <span class="tag tag-status">NOT_RECRUITING</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Phase II single-group all-trans retinoic acid study in children ages 3 to 7 years with Dup15q syndrome-related autism. ClinicalTrials.gov currently lists the trial as not yet recruiting; NOT_RECRUITING is the closest schema status.</div>
-                
-                
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Autistic behavior
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07079696" target="_blank">clinicaltrials:NCT07079696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This study aims to evaluate ATRA treatment in children with Dup15q syndrome-related autism , assessing changes in their ADOS-2 scores , to potentially provide a novel therapeutic approach for autism treatment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov documents a larger phase II all-trans retinoic acid study targeting Dup15q-related autistic behavior.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT05307679
-                    
+
                     <span class="tag tag-phase">PHASE_II</span>
-                    
-                    
+
+
                     <span class="tag tag-status">TERMINATED</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Phase II randomized study of basmisanil, a GABAA receptor negative allosteric modulator, in children and adolescents with Dup15q syndrome.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05307679" target="_blank">clinicaltrials:NCT05307679</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Part 1 will test the hypothesis that negative allosteric modulation of a GABAA receptor subtype can address excessive receptor function and positively impact core neurodevelopmental disease feature in individuals with Dup15q syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov documents a terminated phase II basmisanil trial based on the GABAA receptor mechanism implicated in Dup15q syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6724,957 +7015,957 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">15</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/27308687" target="_blank">PMID:27308687</a>
                             </div>
-                            
+
                             <div class="reference-title">Maternal 15q Duplication Syndrome.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">GeneReviews summarizes the core maternal Dup15q clinical features.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Maternal 15q duplication syndrome (maternal dup15q) is characterized by hypotonia and motor delays, intellectual disability, autism spectrum disorder (ASD), and epilepsy including infantile spasms."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27308687" target="_blank">PMID:27308687</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Maternal 15q duplication syndrome (maternal dup15q) is characterized by hypotonia and motor delays, intellectual disability, autism spectrum disorder (ASD), and epilepsy including infantile spasms."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews baseline review confirms that the YAML covers the core maternal Dup15q clinical characteristics.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://clinicaltrials.gov/study/NCT03694275" target="_blank">clinicaltrials:NCT03694275</a>
                             </div>
-                            
+
                             <div class="reference-title">A Multicenter, Open-label, Pilot Study of TAK-935 (OV935) in Patients With 15Q Duplication Syndrome or CDKL5 Deficiency Disorder (ARCADE Study)</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://clinicaltrials.gov/study/NCT05281965" target="_blank">clinicaltrials:NCT05281965</a>
                             </div>
-                            
+
                             <div class="reference-title">A Clinical Study Evaluating the Efficacy and Safety of Retinoic Acid in Patients With 15q11-q13 Duplication Syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://clinicaltrials.gov/study/NCT05307679" target="_blank">clinicaltrials:NCT05307679</a>
                             </div>
-                            
+
                             <div class="reference-title">A Phase II, Randomized, Double-Blind, Placebo-Controlled, Parallel Group Study to Evaluate the Safety, Efficacy, and Pharmacodynamics of 52 Weeks of Treatment With Basmisanil in Participants Aged 2 to 14 Years Old With Dup15q Syndrome Followed by a 2-Year Optional Open-Label Extension</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://clinicaltrials.gov/study/NCT07079696" target="_blank">clinicaltrials:NCT07079696</a>
                             </div>
-                            
+
                             <div class="reference-title">Investigating the Therapeutic Efficacy of All-trans Retinoic Acid in Autism Spectrum Disorder Patients With 15q11-13 Duplication Syndrome</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">NCT07079696 evaluates all-trans retinoic acid for Dup15q-related autistic behavior.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"This study aims to evaluate ATRA treatment in children with Dup15q syndrome-related autism , assessing changes in their ADOS-2 scores , to potentially provide a novel therapeutic approach for autism treatment."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07079696" target="_blank">clinicaltrials:NCT07079696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This study aims to evaluate ATRA treatment in children with Dup15q syndrome-related autism , assessing changes in their ADOS-2 scores , to potentially provide a novel therapeutic approach for autism treatment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this trial as relevant treatment literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1002/brb3.3437" target="_blank">DOI:10.1002/brb3.3437</a>
                             </div>
-                            
+
                             <div class="reference-title">Expanding deep phenotypic spectrum associated with atypical pathogenic structural variations overlapping 15q11-q13 imprinting region</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.stemcr.2023.02.002" target="_blank">DOI:10.1016/j.stemcr.2023.02.002</a>
                             </div>
-                            
+
                             <div class="reference-title">The role of UBE3A in the autism and epilepsy-related Dup15q syndrome using patient-derived, CRISPR-corrected neurons</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">UBE3A overexpression is necessary for most Dup15q patient-derived neuronal phenotypes.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Dup15q neurons exhibited hyperexcitability compared with control neurons, and this phenotype was generally prevented by normalizing UBE3A levels using antisense oligonucleotides. Overexpression of UBE3A resulted in a profile similar to that of Dup15q neurons except for synaptic phenotypes. These..."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36898382" target="_blank">PMID:36898382</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Dup15q neurons exhibited hyperexcitability compared with control neurons, and this phenotype was generally prevented by normalizing UBE3A levels using antisense oligonucleotides. Overexpression of UBE3A resulted in a profile similar to that of Dup15q neurons except for synaptic phenotypes. These..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01336-6" target="_blank">DOI:10.1038/s41431-023-01336-6</a>
                             </div>
-                            
+
                             <div class="reference-title">Population screening for 15q11-q13 duplications: corroboration of the difference in impact between maternally and paternally inherited alleles</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">2 findings</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Genome-wide NIPS detected 15q11-q13 duplications in 0.0069% of screened pregnant women.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"We detect 23 15q11-q13 duplications in 333,187 pregnant women (0.0069%), with an approximately equal distribution between maternal and paternal duplications."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37029316" target="_blank">PMID:37029316</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We detect 23 15q11-q13 duplications in 333,187 pregnant women (0.0069%), with an approximately equal distribution between maternal and paternal duplications."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Maternal 15q11-q13 duplications have stronger clinical impact than paternal duplications.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Maternally inherited duplications are always associated with a clinical phenotype (ranging from learning difficulties to intellectual impairment, epilepsy and psychiatric disorders), while paternal duplications are normal or associated with milder phenotypes (mild learning difficulties and dyslexia)."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37029316" target="_blank">PMID:37029316</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Maternally inherited duplications are always associated with a clinical phenotype (ranging from learning difficulties to intellectual impairment, epilepsy and psychiatric disorders), while paternal duplications are normal or associated with milder phenotypes (mild learning difficulties and dyslexia)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1177/26330040241254122" target="_blank">DOI:10.1177/26330040241254122</a>
                             </div>
-                            
+
                             <div class="reference-title">Linking Angelman and dup15q data for expanded research (LADDER) database: a model for advancing research, clinical guidance, and therapeutic development for rare conditions</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">LADDER links data for dup15q and Angelman syndrome to support natural history and treatment development.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"LADDER links data on individuals from multiple sources to expand research, increase understanding of natural history, and accelerate the development of treatments for both AS and dup15q syndrome."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38808315" target="_blank">PMID:38808315</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"LADDER links data on individuals from multiple sources to expand research, increase understanding of natural history, and accelerate the development of treatments for both AS and dup15q syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s11689-020-09326-1" target="_blank">DOI:10.1186/s11689-020-09326-1</a>
                             </div>
-                            
+
                             <div class="reference-title">Properties of beta oscillations in Dup15q syndrome</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">2 findings</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Beta oscillations in Dup15q are reproducible and stable EEG biomarkers.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"To this end, the robust beta oscillations evident in Dup15q syndrome are clinically reproducible and stable over time."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32791992" target="_blank">PMID:32791992</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To this end, the robust beta oscillations evident in Dup15q syndrome are clinically reproducible and stable over time."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Beta power and beta peak frequency are stable across visits and reproducible between research and clinical EEG.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Beta power and peak frequency showed high stability across repeated visits (beta power ICC = 0.93, BPF ICC = 0.92). A reproducibility analysis revealed that beta power estimates are comparable between research and clinical EEG (ICC = 0.94)."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32791992" target="_blank">PMID:32791992</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Beta power and peak frequency showed high stability across repeated visits (beta power ICC = 0.93, BPF ICC = 0.92). A reproducibility analysis revealed that beta power estimates are comparable between research and clinical EEG (ICC = 0.94)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this EEG biomarker study as relevant diagnostic and trial-readiness literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s11689-024-09556-7" target="_blank">DOI:10.1186/s11689-024-09556-7</a>
                             </div>
-                            
+
                             <div class="reference-title">Sleep EEG signatures in mouse models of 15q11.2-13.1 duplication (Dup15q) syndrome</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Maternal-duplication mouse models mirror the elevated beta oscillation phenotype seen in clinical Dup15q EEGs.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Our study revealed that across brain states, matDp/ + mice mirrored the elevated beta oscillation phenotype observed in clinical EEGs from individuals with Dup15q syndrome."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39014349" target="_blank">PMID:39014349</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our study revealed that across brain states, matDp/ + mice mirrored the elevated beta oscillation phenotype observed in clinical EEGs from individuals with Dup15q syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s13229-021-00460-8" target="_blank">DOI:10.1186/s13229-021-00460-8</a>
                             </div>
-                            
+
                             <div class="reference-title">Abnormal sleep physiology in children with 15q11.2-13.1 duplication (Dup15q) syndrome</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Children with Dup15q show abnormal sleep physiology on overnight EEG.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Children with Dup15q syndrome showed abnormal sleep physiology with elevated beta power, reduced spindle density, and reduced or absent SWS compared to age-matched neurotypical controls."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34344470" target="_blank">PMID:34344470</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Children with Dup15q syndrome showed abnormal sleep physiology with elevated beta power, reduced spindle density, and reduced or absent SWS compared to age-matched neurotypical controls."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/37011526" target="_blank">PMID:37011526</a>
                             </div>
-                            
+
                             <div class="reference-title">Efficacy, safety, and tolerability of soticlestat as adjunctive therapy for the treatment of seizures in patients with Dup15q syndrome or CDKL5 deficiency disorder in an open-label signal-finding phase II study (ARCADE).</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Published ARCADE results reported increased motor seizure frequency in the Dup15q subgroup.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Soticlestat treatment was associated with an increase in motor seizure frequency in patients with Dup15q syndrome."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37011526" target="_blank">PMID:37011526</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Soticlestat treatment was associated with an increase in motor seizure frequency in patients with Dup15q syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this trial as relevant treatment literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.32345/2664-4738.2.2023.08" target="_blank">DOI:10.32345/2664-4738.2.2023.08</a>
                             </div>
-                            
+
                             <div class="reference-title">INHERITED 15Q DUPLICATION IN THREE NOT RELATED UKRAINIAN FAMILIES</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/genes15101304" target="_blank">DOI:10.3390/genes15101304</a>
                             </div>
-                            
+
                             <div class="reference-title">Chromosome 15q11-q13 Duplication Syndrome: A Review of the Literature and 14 New Cases</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">2 findings</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">15q11.2-q13 duplication syndrome is associated with neurodevelopmental features and variable expressivity/reduced penetrance.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"15q11.2-q13 duplication syndrome has been associated with neurodevelopmental disorders (hypotonia, developmental delay, speech delay and seizures) and ASD but is characterized by variable expressivity and reduced penetrance, features that make genetic counseling a complex procedure especially in..."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39457428" target="_blank">PMID:39457428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"15q11.2-q13 duplication syndrome has been associated with neurodevelopmental disorders (hypotonia, developmental delay, speech delay and seizures) and ASD but is characterized by variable expressivity and reduced penetrance, features that make genetic counseling a complex procedure especially in..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Array-CGH diagnosed 14 pre- and postnatal 15q11.2q13 duplication carriers in the 2024 series.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"In the present study, a total of 14 pre- and postnatal cases were diagnosed as 15q11.2q13 duplication carriers using Affymetrix CytoScan 750 K array-CGH, and our analysis combined these with 120 cases existing in the literature."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39457428" target="_blank">PMID:39457428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In the present study, a total of 14 pre- and postnatal cases were diagnosed as 15q11.2q13 duplication carriers using Affymetrix CytoScan 750 K array-CGH, and our analysis combined these with 120 cases existing in the literature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for 15q11q13 Microduplication Syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of 15q11q13 Microduplication Syndrome. Core disease mechanisms, molecular and...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-15T19:37:56.687914</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of 15q11q13 Microduplication Syndrome. Core disease mechanisms, molecular and...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -8011,29 +8302,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Characteristics Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">32 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-30T02:15:43.587246</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -9143,11 +9434,11 @@ For each section, provide:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
