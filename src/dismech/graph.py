@@ -659,38 +659,90 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
             )
         ]
 
-    # Genes
     gene_labels: list[str] = []
-    gene = item.get("gene")
-    if isinstance(gene, dict):
-        label = gene.get("preferred_term") or (gene.get("term", {}) or {}).get(
-            "label", ""
-        )
+    gene_terms: list[dict[str, str]] = []
+
+    def add_gene_descriptor(descriptor: Any) -> None:
+        if not isinstance(descriptor, dict):
+            return
+        term = descriptor.get("term")
+        term = term if isinstance(term, dict) else {}
+        label = descriptor.get("preferred_term") or term.get("label", "")
+        term_id = term.get("id", "")
+        modifier = descriptor.get("modifier", "")
         if label:
             gene_labels.append(label)
+        entry = {
+            key: value
+            for key, value in {
+                "label": label,
+                "id": term_id,
+                "modifier": modifier,
+            }.items()
+            if value
+        }
+        if entry and entry not in gene_terms:
+            gene_terms.append(entry)
+
+    # Genes
+    add_gene_descriptor(item.get("gene"))
 
     genes = item.get("genes", []) or []
     if genes:
-        gene_labels.extend(
-            label
-            for g in genes
-            if isinstance(g, dict)
-            if (
-                label := g.get("preferred_term")
-                or (g.get("term", {}) or {}).get("label", "")
-            )
-        )
+        for gene_descriptor in genes:
+            add_gene_descriptor(gene_descriptor)
 
-    gene_term = item.get("gene_term")
-    if isinstance(gene_term, dict):
-        label = gene_term.get("preferred_term") or (
-            gene_term.get("term", {}) or {}
-        ).get("label", "")
-        if label:
-            gene_labels.append(label)
+    add_gene_descriptor(item.get("gene_term"))
 
     if gene_labels:
         meta["genes"] = list(dict.fromkeys(gene_labels))
+    if gene_terms:
+        meta["gene_terms"] = gene_terms
+
+    genetic_context = item.get("genetic_context")
+    if isinstance(genetic_context, dict):
+        context_gene_terms: list[dict[str, str]] = []
+
+        def add_context_gene(descriptor: Any) -> None:
+            if not isinstance(descriptor, dict):
+                return
+            term = descriptor.get("term")
+            term = term if isinstance(term, dict) else {}
+            label = descriptor.get("preferred_term") or term.get("label", "")
+            term_id = term.get("id", "")
+            entry = {
+                key: value
+                for key, value in {"label": label, "id": term_id}.items()
+                if value
+            }
+            if entry and entry not in context_gene_terms:
+                context_gene_terms.append(entry)
+
+        add_context_gene(genetic_context.get("gene"))
+        for gene_descriptor in genetic_context.get("genes", []) or []:
+            add_context_gene(gene_descriptor)
+
+        context_meta = {
+            key: genetic_context[key]
+            for key in (
+                "allele_type",
+                "variant_origin",
+                "allelic_hit_role",
+                "zygosity",
+                "functional_impact",
+                "functional_impact_category",
+                "complementation_group",
+                "description",
+            )
+            if genetic_context.get(key)
+        }
+        allelic_events = _coerce_string_list(genetic_context.get("allelic_events"))
+        if allelic_events:
+            context_meta["allelic_events"] = allelic_events
+        if context_gene_terms:
+            context_meta["gene_terms"] = context_gene_terms
+        if context_meta:
+            meta["genetic_context"] = context_meta
 
     # Subtype applicability
     subtype_labels: list[str] = []
@@ -842,6 +894,10 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     # Genetic/variant metadata
     if item.get("association"):
         meta["association"] = item["association"]
+    if item.get("relationship_type"):
+        meta["relationship_type"] = item["relationship_type"]
+    if item.get("variant_origin"):
+        meta["variant_origin"] = item["variant_origin"]
     variants = item.get("variants", []) or []
     if variants:
         meta["variant_count"] = len(variants)
