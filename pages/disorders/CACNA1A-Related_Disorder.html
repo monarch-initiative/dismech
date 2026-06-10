@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>CACNA1A-Related Disorder</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0100254" target="_blank">
                         MONDO:0100254
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Channelopathy</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Cerebellar disorder</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Neurodevelopmental disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,11 +2993,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 CACNA1A-related disorder is a spectrum of neurological conditions caused by pathogenic variants in the CACNA1A gene encoding the alpha-1A subunit of P/Q-type voltage-gated calcium channels (Cav2.1). These channels are predominantly expressed at presynaptic terminals in the cerebellum and other brain regions, where they regulate neurotransmitter release. The phenotypic spectrum includes episodic ataxia type 2 (EA2), familial hemiplegic migraine type 1 (FHM1), spinocerebellar ataxia type 6 (SCA6), and developmental and epileptic encephalopathy type 42 (DEE42). Missense gain-of-function variants typically cause FHM1, loss-of-function variants cause EA2, and polyglutamine expansions in the C-terminus cause SCA6. Over half of CACNA1A-related epilepsies are refractory to current therapies.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2997,34 +3067,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3032,8 +3102,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3041,9 +3111,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3051,10 +3121,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3062,8 +3132,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3071,8 +3141,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3080,8 +3150,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3089,13 +3159,13 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3103,8 +3173,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3112,1379 +3182,1528 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal dominant CACNA1A-related disorder
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">CACNA1A-related FHM1, EA2, SCA6, and overlapping phenotypes generally follow autosomal dominant inheritance, with variable expressivity and incomplete penetrance across families and subtypes.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
+
+
         <span class="tag tag-classification">Penetrance: INCOMPLETE</span>
-        
-        
-        
+
+
+
         <span class="tag tag-classification">Expressivity: VARIABLE</span>
-        
-        
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301562" target="_blank">PMID:20301562</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"FHM and simplex hemiplegic migraine caused by a heterozygous ATP1A2, CACNA1A, PRRT2, or SCN1A pathogenic variant are inherited in an autosomal dominant manner."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports autosomal dominant inheritance for CACNA1A-related FHM.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301319" target="_blank">PMID:20301319</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"SCA6 is inherited in an autosomal dominant manner."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports autosomal dominant inheritance for the SCA6 subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     De novo CACNA1A epileptic encephalopathy in DEE42
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Severe early-onset CACNA1A developmental and epileptic encephalopathy often presents as a simplex case due to a de novo heterozygous pathogenic variant; recurrence risk is usually low for unaffected parents but is not zero because parental mosaicism has been reported in epileptic encephalopathy cohorts.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
+
+
         <span class="tag tag-classification">Penetrance: UNKNOWN</span>
-        
-        
-        
+
+
+
         <span class="tag tag-classification">Expressivity: VARIABLE</span>
-        
-        
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27476654" target="_blank">PMID:27476654</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our results provide definitive evidence that de novo mutations in SLC1A2 and CACNA1A cause specific EEs and expand the compendium of clinically relevant genotypes for GABRB3."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports de novo CACNA1A pathogenic variants as a cause of epileptic encephalopathy.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27476654" target="_blank">PMID:27476654</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"parental mosaicism was identified in two out of 14 cases tested with mutant allelic fractions of 5%-6% in the unaffected parents"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports recurrence counseling that accounts for parental mosaicism despite apparent de novo disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">4</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Episodic Ataxia Type 2
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Caused by loss-of-function variants in CACNA1A. Characterized by recurrent episodes of ataxia lasting hours to days, interictal nystagmus, and progressive cerebellar atrophy. Responsive to acetazolamide.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36592223" target="_blank">PMID:36592223</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The spectrum of paroxysmal manifestations encompasses migraine with hemiplegic aura, episodic ataxia, epilepsy and paroxysmal non-epileptic movement disorders."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms EA2 as part of the CACNA1A phenotypic spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Familial Hemiplegic Migraine Type 1
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Caused by gain-of-function missense variants in CACNA1A. Characterized by migraine attacks with reversible motor weakness (hemiplegia), often with visual aura, sensory symptoms, and aphasia.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36592223" target="_blank">PMID:36592223</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The spectrum of paroxysmal manifestations encompasses migraine with hemiplegic aura, episodic ataxia, epilepsy and paroxysmal non-epileptic movement disorders."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms FHM1 as part of the CACNA1A phenotypic spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Spinocerebellar Ataxia Type 6
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Caused by small CAG trinucleotide repeat expansions (20-33 repeats) in exon 47 of CACNA1A. Presents as a late-onset, slowly progressive cerebellar ataxia with dysarthria and nystagmus.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38286873" target="_blank">PMID:38286873</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Spinocerebellar ataxia type 6 (SCA6) is a neurodegenerative disease that manifests in midlife and progressively worsens with age."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms SCA6 as a progressive neurodegenerative CACNA1A-related disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Developmental and Epileptic Encephalopathy Type 42
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Caused by severe gain-of-function or dominant-negative CACNA1A variants. Presents in infancy with refractory seizures, severe developmental delay, and cerebellar dysfunction.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38681799" target="_blank">PMID:38681799</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The broad spectrum of CACNA1A-related neurological disorders includes developmental and epileptic encephalopathies, familial hemiplegic migraine type 1, episodic ataxia type 2, spinocerebellar ataxia type 6, together with unclassified presentations with developmental delay, ataxia, intellectual..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms DEE as part of the CACNA1A-related disorder spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p-q-type-calcium-channel-dysfunction">
                 <div class="item-name">P/Q-type Calcium Channel Dysfunction</div>
-                
+
                 <div class="item-desc">CACNA1A encodes the pore-forming alpha-1A subunit of P/Q-type voltage-gated calcium channels (Cav2.1). These channels are critical for calcium influx at presynaptic nerve terminals, particularly at cerebellar Purkinje cells and granule cell synapses. Pathogenic variants alter channel gating, trafficking, or expression, leading to disrupted neurotransmitter release and cerebellar dysfunction.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Purkinje cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         cerebellar granule cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0001031" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0001031" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0001031">CL:0001031</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
                 <div class="item-meta">
-                    
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CACNA1A
+
+
+    <a href="https://bioregistry.io/hgnc:1388" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1388">hgnc:1388</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-meta">
+
                     <span class="tag tag-bio">
                         Calcium ion transmembrane transport via voltage-gated calcium channel
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0061577" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0061577" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061577">GO:0061577</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Neurotransmitter release
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007269" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007269" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007269">GO:0007269</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         P/Q-type calcium channel activity
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008331" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008331" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008331">GO:0008331</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         cerebellum
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-location">
                         cerebral cortex
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cortical Spreading Depression in FHM1</span>
-	                            
+
 	                            <span class="crosslink-desc">GOF variants enhance presynaptic Ca2+ influx, promoting excess glutamate release and CSD susceptibility.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Polyglutamine Aggregation in SCA6</span>
-	                            
+
 	                            <span class="crosslink-desc">PolyQ expansion in the Cav2.1 C-terminus causes protein misfolding and Purkinje cell degeneration.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Thalamocortical Circuit Disruption in DEE</span>
-	                            
+
 	                            <span class="crosslink-desc">Both GOF and LOF variants disrupt Cav2.1-dependent synaptic transmission in thalamocortical circuits.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38681799" target="_blank">PMID:38681799</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This gene encodes the α1 subunit of the P/Q-type calcium channel Cav2.1, which is globally expressed in the brain and crucial for fast synaptic neurotransmission."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms CACNA1A encodes the Cav2.1 P/Q-type calcium channel subunit essential for synaptic transmission.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36592223" target="_blank">PMID:36592223</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In the last decade, variants in the Ca2+ channel gene CACNA1A emerged as a frequent aetiology of rare neurological phenotypes sharing a common denominator of variable paroxysmal manifestations and chronic cerebellar dysfunction."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms that CACNA1A variants cause cerebellar dysfunction through calcium channel disruption.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-spreading-depression-in-fhm1">
                 <div class="item-name">Cortical Spreading Depression in FHM1</div>
-                
+
                 <div class="item-desc">Gain-of-function CACNA1A variants in FHM1 increase P/Q-type channel activity, leading to enhanced glutamate release from cortical pyramidal neurons. This creates a susceptibility to cortical spreading depression, the electrophysiological substrate of migraine aura, and may trigger episodes of hemiplegia through prolonged cortical inhibition.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         pyramidal neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000598">CL:0000598</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Glutamate secretion
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0014047" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0014047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014047">GO:0014047</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Synaptic transmission
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36592223" target="_blank">PMID:36592223</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The spectrum of paroxysmal manifestations encompasses migraine with hemiplegic aura, episodic ataxia, epilepsy and paroxysmal non-epileptic movement disorders."</div>
-                
-                
+
+
                 <div class="evidence-explanation">FHM1 with hemiplegic aura is a hallmark paroxysmal feature driven by gain-of-function CACNA1A variants and cortical spreading depression.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polyglutamine-aggregation-in-sca6">
                 <div class="item-name">Polyglutamine Aggregation in SCA6</div>
-                
+
                 <div class="item-desc">SCA6 is caused by expansion of a CAG trinucleotide repeat in CACNA1A exon 47, encoding a polyglutamine tract in the cytoplasmic C-terminal domain of Cav2.1. The expanded polyglutamine tract promotes protein misfolding and aggregation, leading to Purkinje cell degeneration. Unlike other polyglutamine diseases, SCA6 expansions are relatively small (20-33 repeats).</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Purkinje cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Inclusion body assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070841">GO:0070841</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Purkinje cell degeneration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008219">GO:0008219</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Mitochondrial Dysfunction in SCA6 Progression</span>
-	                            
+
 	                            <span class="crosslink-desc">Polyglutamine-mediated Purkinje cell stress leads to mitochondrial damage and impaired mitophagy.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38286873" target="_blank">PMID:38286873</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Spinocerebellar ataxia type 6 (SCA6) is a neurodegenerative disease that manifests in midlife and progressively worsens with age."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms SCA6 as a progressive neurodegenerative process caused by CACNA1A polyglutamine expansion.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-in-sca6-progression">
                 <div class="item-name">Mitochondrial Dysfunction in SCA6 Progression</div>
-                
+
                 <div class="item-desc">In SCA6, transcriptomic analysis reveals early downregulation of mitochondrial gene expression that precedes functional decline. As disease progresses, mitochondrial membrane potential declines, oxidative stress increases, and mitophagy becomes impaired, creating a feed-forward loop of organellar stress that contributes to Purkinje cell degeneration.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Purkinje cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Mitophagy
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000422">GO:0000422</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Oxidative stress response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38286873" target="_blank">PMID:38286873</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We explored mitochondrial function and structure and observed that changes in mitochondrial structure preceded changes in function, and that mitochondrial function was not significantly altered at disease onset but was impaired later during disease progression."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that mitochondrial structural changes precede functional decline in SCA6 mouse model.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38286873" target="_blank">PMID:38286873</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In addition, we observed impairment in mitophagy that exacerbates mitochondrial dysfunction at late disease stages."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms impaired mitophagy as a contributor to disease progression in SCA6.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38286873" target="_blank">PMID:38286873</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In post-mortem SCA6 patient cerebellar tissue, we observed metabolic changes that are consistent with mitochondrial impairments, supporting our results from animal models being translatable to human disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Post-mortem human data supports that mitochondrial dysfunction translates from the animal model to human SCA6.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thalamocortical-circuit-disruption-in-dee">
                 <div class="item-name">Thalamocortical Circuit Disruption in DEE</div>
-                
+
                 <div class="item-desc">In CACNA1A-related epilepsy and DEE, both gain-of-function and loss-of-function variants disrupt Cav2.1-dependent synaptic transmission in thalamocortical circuits. The spectrum of seizures is broad and includes absence seizures, focal seizures, generalized tonic-clonic seizures, status epilepticus, and infantile spasms. Over half of cases are refractory to current antiseizure medications.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         thalamic excitatory neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_4023068" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_4023068" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4023068">CL:4023068</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         inhibitory interneuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000498">CL:0000498</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Synaptic transmission
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38681799" target="_blank">PMID:38681799</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The spectrum of CACNA1A-related seizures is broad across both loss-of-function and gain-of-function variants and includes absence seizures, focal seizures with altered consciousness, generalized tonic-clonic seizures, tonic seizures, status epilepticus, and infantile spasms."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms the broad seizure spectrum across both LOF and GOF variants.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38681799" target="_blank">PMID:38681799</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Furthermore, over half of CACNA1A-related epilepsies are refractory to current therapies."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms the high rate of treatment-refractory epilepsy in CACNA1A-related DEE.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37555011" target="_blank">PMID:37555011</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"About 49 (42.20%) patients had controlled seizures while 67 (57.80%) individuals remained with refractory seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Systematic aggregation confirming 57.8% of CACNA1A epilepsy patients have refractory seizures.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4495,675 +4714,705 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure therapy for CACNA1A-related DEE42\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures in CACNA1A-related DEE require individualized antiseizure therapy and epilepsy-specialist monitoring. More than half of reported CACNA1A epilepsy cases remain refractory, so treatment response should be tracked closely and care should not assume a single CACNA1A-specific regimen.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CACNA1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CACNA1A\"], \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"CAG repeat expansion (SCA6)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Expansion of CAG repeat in exon 47 from normal (4-18) to pathogenic (20-33 repeats). Smallest known pathogenic trinucleotide expansion.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Cortical Spreading Depression in FHM1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function CACNA1A variants in FHM1 increase P/Q-type channel activity, leading to enhanced glutamate release from cortical pyramidal neurons. This creates a susceptibility to cortical spreading depression, the electrophysiological substrate of migraine aura, and may trigger episodes of hemiplegia through prolonged cortical inhibition.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pyramidal neuron\"], \"biological_processes\": [\"Glutamate secretion\", \"Synaptic transmission\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slurred speech due to cerebellar dysfunction, prominent in SCA6 and during EA2 episodes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Spinocerebellar Ataxia Type 6\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Gain-of-function missense variants (FHM1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variants (e.g., R192Q, S218L) that increase channel open probability or shift voltage dependence of activation. GOF variants are linked with severe-profound GDD/ID and status epilepticus.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Loss-of-function variants (EA2)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Truncating, splice-site, and missense variants causing loss of channel function. Over 100 pathogenic variants described. LOF variants are associated with absence seizures and mild-moderate GDD/ID.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Migraine with Aura\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Migraine attacks preceded by visual or sensory aura, characteristic of FHM1. May be accompanied by transient hemiplegia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Familial Hemiplegic Migraine Type 1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002077\"}}, {\"id\": \"Mitochondrial Dysfunction in SCA6 Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In SCA6, transcriptomic analysis reveals early downregulation of mitochondrial gene expression that precedes functional decline. As disease progresses, mitochondrial membrane potential declines, oxidative stress increases, and mitophagy becomes impaired, creating a feed-forward loop of organellar stress that contributes to Purkinje cell degeneration.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"Mitophagy\", \"Oxidative stress response\"]}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involuntary rhythmic eye movements, often downbeat nystagmus, present in EA2 and SCA6. May persist between episodes in EA2.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Episodic Ataxia Type 2\", \"Spinocerebellar Ataxia Type 6\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"P/Q-type Calcium Channel Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CACNA1A encodes the pore-forming alpha-1A subunit of P/Q-type voltage-gated calcium channels (Cav2.1). These channels are critical for calcium influx at presynaptic nerve terminals, particularly at cerebellar Purkinje cells and granule cell synapses. Pathogenic variants alter channel gating, trafficking, or expression, leading to disrupted neurotransmitter release and cerebellar dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"Calcium ion transmembrane transport via voltage-gated calcium channel\", \"Neurotransmitter release\"], \"molecular_functions\": [\"P/Q-type calcium channel activity\"], \"genes\": [\"CACNA1A\"], \"locations\": [\"cerebellum\", \"cerebral cortex\"]}}, {\"id\": \"Polyglutamine Aggregation in SCA6\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SCA6 is caused by expansion of a CAG trinucleotide repeat in CACNA1A exon 47, encoding a polyglutamine tract in the cytoplasmic C-terminal domain of Cav2.1. The expanded polyglutamine tract promotes protein misfolding and aggregation, leading to Purkinje cell degeneration. Unlike other polyglutamine diseases, SCA6 expansions are relatively small (20-33 repeats).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"Inclusion body assembly\", \"Purkinje cell degeneration\"]}}, {\"id\": \"Progressive Cerebellar Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive gait and limb ataxia, predominant in SCA6 and developing in some EA2 patients over time.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Episodic Ataxia Type 2\", \"Spinocerebellar Ataxia Type 6\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002073\"}}, {\"id\": \"SCA6 supportive rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"SCA6 management is supportive and targets gait ataxia, dysarthria, nystagmus, dysphagia, fall risk, nutrition, and communication. Physical therapy, occupational therapy, speech therapy, walking aids, home adaptations, and symptom-directed medications are used because there is no established disease-modifying therapy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures, particularly prominent in DEE42 but also occurring in some EA2 and FHM1 patients. Status epilepticus is the most common epileptic manifestation, correlating with gain-of-function variants located on S4, S5, and S6 domains.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Developmental and Epileptic Encephalopathy Type 42\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Thalamocortical Circuit Disruption in DEE\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In CACNA1A-related epilepsy and DEE, both gain-of-function and loss-of-function variants disrupt Cav2.1-dependent synaptic transmission in thalamocortical circuits. The spectrum of seizures is broad and includes absence seizures, focal seizures, generalized tonic-clonic seizures, status epilepticus, and infantile spasms. Over half of cases are refractory to current antiseizure medications.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"thalamic excitatory neuron\", \"inhibitory interneuron\"], \"biological_processes\": [\"Synaptic transmission\"]}}, {\"id\": \"Vasoconstrictor and cerebral angiography avoidance in FHM1\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individuals with CACNA1A-FHM should avoid vasoconstricting agents and unnecessary cerebral angiography because these exposures can increase stroke risk or precipitate severe attacks.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"P/Q-type Calcium Channel Dysfunction\", \"target\": \"Cortical Spreading Depression in FHM1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GOF variants enhance presynaptic Ca2+ influx, promoting excess glutamate release and CSD susceptibility.\"}, {\"source\": \"P/Q-type Calcium Channel Dysfunction\", \"target\": \"Polyglutamine Aggregation in SCA6\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PolyQ expansion in the Cav2.1 C-terminus causes protein misfolding and Purkinje cell degeneration.\"}, {\"source\": \"P/Q-type Calcium Channel Dysfunction\", \"target\": \"Thalamocortical Circuit Disruption in DEE\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both GOF and LOF variants disrupt Cav2.1-dependent synaptic transmission in thalamocortical circuits.\"}, {\"source\": \"Polyglutamine Aggregation in SCA6\", \"target\": \"Mitochondrial Dysfunction in SCA6 Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polyglutamine-mediated Purkinje cell stress leads to mitochondrial damage and impaired mitophagy.\"}, {\"source\": \"Antiseizure therapy for CACNA1A-related DEE42\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SCA6 supportive rehabilitation\", \"target\": \"Progressive Cerebellar Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SCA6 supportive rehabilitation\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SCA6 supportive rehabilitation\", \"target\": \"Nystagmus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vasoconstrictor and cerebral angiography avoidance in FHM1\", \"target\": \"Migraine with Aura\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CACNA1A\", \"target\": \"P/Q-type Calcium Channel Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Loss-of-function variants (EA2)\", \"target\": \"CACNA1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Gain-of-function missense variants (FHM1)\", \"target\": \"CACNA1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAG repeat expansion (SCA6)\", \"target\": \"CACNA1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure therapy for CACNA1A-related DEE42\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures in CACNA1A-related DEE require individualized antiseizure therapy and epilepsy-specialist monitoring. More than half of reported CACNA1A epilepsy cases remain refractory, so treatment response should be tracked closely and care should not assume a single CACNA1A-specific regimen.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CACNA1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CACNA1A\"], \"gene_terms\": [{\"label\": \"CACNA1A\", \"id\": \"hgnc:1388\"}], \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"CAG repeat expansion (SCA6)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Expansion of CAG repeat in exon 47 from normal (4-18) to pathogenic (20-33 repeats). Smallest known pathogenic trinucleotide expansion.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Cortical Spreading Depression in FHM1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function CACNA1A variants in FHM1 increase P/Q-type channel activity, leading to enhanced glutamate release from cortical pyramidal neurons. This creates a susceptibility to cortical spreading depression, the electrophysiological substrate of migraine aura, and may trigger episodes of hemiplegia through prolonged cortical inhibition.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pyramidal neuron\"], \"biological_processes\": [\"Glutamate secretion\", \"Synaptic transmission\"]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slurred speech due to cerebellar dysfunction, prominent in SCA6 and during EA2 episodes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Spinocerebellar Ataxia Type 6\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Gain-of-function missense variants (FHM1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variants (e.g., R192Q, S218L) that increase channel open probability or shift voltage dependence of activation. GOF variants are linked with severe-profound GDD/ID and status epilepticus.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Loss-of-function variants (EA2)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Truncating, splice-site, and missense variants causing loss of channel function. Over 100 pathogenic variants described. LOF variants are associated with absence seizures and mild-moderate GDD/ID.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Migraine with Aura\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Migraine attacks preceded by visual or sensory aura, characteristic of FHM1. May be accompanied by transient hemiplegia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Familial Hemiplegic Migraine Type 1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002077\"}}, {\"id\": \"Mitochondrial Dysfunction in SCA6 Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In SCA6, transcriptomic analysis reveals early downregulation of mitochondrial gene expression that precedes functional decline. As disease progresses, mitochondrial membrane potential declines, oxidative stress increases, and mitophagy becomes impaired, creating a feed-forward loop of organellar stress that contributes to Purkinje cell degeneration.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"Mitophagy\", \"Oxidative stress response\"]}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involuntary rhythmic eye movements, often downbeat nystagmus, present in EA2 and SCA6. May persist between episodes in EA2.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Episodic Ataxia Type 2\", \"Spinocerebellar Ataxia Type 6\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"P/Q-type Calcium Channel Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CACNA1A encodes the pore-forming alpha-1A subunit of P/Q-type voltage-gated calcium channels (Cav2.1). These channels are critical for calcium influx at presynaptic nerve terminals, particularly at cerebellar Purkinje cells and granule cell synapses. Pathogenic variants alter channel gating, trafficking, or expression, leading to disrupted neurotransmitter release and cerebellar dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"Calcium ion transmembrane transport via voltage-gated calcium channel\", \"Neurotransmitter release\"], \"molecular_functions\": [\"P/Q-type calcium channel activity\"], \"genes\": [\"CACNA1A\"], \"gene_terms\": [{\"label\": \"CACNA1A\", \"id\": \"hgnc:1388\"}], \"locations\": [\"cerebellum\", \"cerebral cortex\"]}}, {\"id\": \"Polyglutamine Aggregation in SCA6\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SCA6 is caused by expansion of a CAG trinucleotide repeat in CACNA1A exon 47, encoding a polyglutamine tract in the cytoplasmic C-terminal domain of Cav2.1. The expanded polyglutamine tract promotes protein misfolding and aggregation, leading to Purkinje cell degeneration. Unlike other polyglutamine diseases, SCA6 expansions are relatively small (20-33 repeats).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"Inclusion body assembly\", \"Purkinje cell degeneration\"]}}, {\"id\": \"Progressive Cerebellar Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive gait and limb ataxia, predominant in SCA6 and developing in some EA2 patients over time.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Episodic Ataxia Type 2\", \"Spinocerebellar Ataxia Type 6\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002073\"}}, {\"id\": \"SCA6 supportive rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"SCA6 management is supportive and targets gait ataxia, dysarthria, nystagmus, dysphagia, fall risk, nutrition, and communication. Physical therapy, occupational therapy, speech therapy, walking aids, home adaptations, and symptom-directed medications are used because there is no established disease-modifying therapy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures, particularly prominent in DEE42 but also occurring in some EA2 and FHM1 patients. Status epilepticus is the most common epileptic manifestation, correlating with gain-of-function variants located on S4, S5, and S6 domains.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Developmental and Epileptic Encephalopathy Type 42\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Thalamocortical Circuit Disruption in DEE\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In CACNA1A-related epilepsy and DEE, both gain-of-function and loss-of-function variants disrupt Cav2.1-dependent synaptic transmission in thalamocortical circuits. The spectrum of seizures is broad and includes absence seizures, focal seizures, generalized tonic-clonic seizures, status epilepticus, and infantile spasms. Over half of cases are refractory to current antiseizure medications.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"thalamic excitatory neuron\", \"inhibitory interneuron\"], \"biological_processes\": [\"Synaptic transmission\"]}}, {\"id\": \"Vasoconstrictor and cerebral angiography avoidance in FHM1\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individuals with CACNA1A-FHM should avoid vasoconstricting agents and unnecessary cerebral angiography because these exposures can increase stroke risk or precipitate severe attacks.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"P/Q-type Calcium Channel Dysfunction\", \"target\": \"Cortical Spreading Depression in FHM1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GOF variants enhance presynaptic Ca2+ influx, promoting excess glutamate release and CSD susceptibility.\"}, {\"source\": \"P/Q-type Calcium Channel Dysfunction\", \"target\": \"Polyglutamine Aggregation in SCA6\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PolyQ expansion in the Cav2.1 C-terminus causes protein misfolding and Purkinje cell degeneration.\"}, {\"source\": \"P/Q-type Calcium Channel Dysfunction\", \"target\": \"Thalamocortical Circuit Disruption in DEE\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both GOF and LOF variants disrupt Cav2.1-dependent synaptic transmission in thalamocortical circuits.\"}, {\"source\": \"Polyglutamine Aggregation in SCA6\", \"target\": \"Mitochondrial Dysfunction in SCA6 Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polyglutamine-mediated Purkinje cell stress leads to mitochondrial damage and impaired mitophagy.\"}, {\"source\": \"Antiseizure therapy for CACNA1A-related DEE42\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SCA6 supportive rehabilitation\", \"target\": \"Progressive Cerebellar Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SCA6 supportive rehabilitation\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SCA6 supportive rehabilitation\", \"target\": \"Nystagmus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vasoconstrictor and cerebral angiography avoidance in FHM1\", \"target\": \"Migraine with Aura\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CACNA1A\", \"target\": \"P/Q-type Calcium Channel Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Loss-of-function variants (EA2)\", \"target\": \"CACNA1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Gain-of-function missense variants (FHM1)\", \"target\": \"CACNA1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAG repeat expansion (SCA6)\", \"target\": \"CACNA1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">10</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(9)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Nystagmus
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank">
-                            Nystagmus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000639)</span>
-                        </span>
-                        
+                        Nystagmus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Chronic neurological signs encompassed a cerebellar syndrome in 35/41 (85%), which showed almost no progression during the observation period"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Nystagmus is a hallmark component of the chronic cerebellar syndrome seen in 85% of non-polyQ CACNA1A patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">9</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Episodic Ataxia
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002131" target="_blank">
-                            Episodic ataxia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002131)</span>
-                        </span>
-                        
+                        Episodic ataxia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002131" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002131">HP:0002131</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Developmental delay and episodic symptoms were the first disease manifestation in 9/41 (22%) and 32/41 (78%) patients respectively."</div>
-                
-                
+
+
                 <div class="evidence-explanation">In the Austrian natural history cohort, episodic symptoms (including ataxia) were the first manifestation in 78% of patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Progressive Cerebellar Ataxia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank">
-                            Progressive cerebellar ataxia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002073)</span>
-                        </span>
-                        
+                        Progressive cerebellar ataxia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002073">HP:0002073</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Chronic neurological signs encompassed a cerebellar syndrome in 35/41 (85%), which showed almost no progression during the observation period"</div>
-                
-                
+
+
                 <div class="evidence-explanation">85% of patients in the Austrian cohort had a chronic cerebellar syndrome, though progression was minimal during follow-up in non-polyQ cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Migraine with Aura
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002077" target="_blank">
-                            Migraine with aura
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002077)</span>
-                        </span>
-                        
+                        Migraine with aura
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002077" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002077">HP:0002077</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Non-polyglutamine CACNA1A variants underlie an extremely variable phenotypic spectrum encompassing developmental delay, hemiplegic migraine, epilepsy, psychiatric symptoms, episodic and chronic cerebellar signs."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hemiplegic migraine is a key component of the non-polyQ CACNA1A phenotypic spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizures
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
-                            Seizure
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001250)</span>
-                        </span>
-                        
+                        Seizure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37555011" target="_blank">PMID:37555011</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The epileptic manifestations included status epilepticus (n = 64), provoked seizures (n = 49), focal seizures (n = 37), EE (n = 29), absence seizures (n = 26), and myoclonic seizures (n = 10)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Systematic review of 130 epileptic patients showing the broad seizure spectrum, with status epilepticus as the most common manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37555011" target="_blank">PMID:37555011</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Status epilepticus correlated with variants located on S4, S5, and S6 (p = 0.000)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Genotype-phenotype correlation showing that variant location within channel transmembrane segments predicts status epilepticus risk.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Dysarthria
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank">
-                            Dysarthria
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001260)</span>
-                        </span>
-                        
+                        Dysarthria
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Chronic neurological signs encompassed a cerebellar syndrome in 35/41 (85%), which showed almost no progression during the observation period"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Dysarthria is a component of the chronic cerebellar syndrome seen in 85% of patients in the Austrian natural history cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cerebellar Atrophy
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank">
-                            Cerebellar atrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001272)</span>
-                        </span>
-                        
+                        Cerebellar atrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001272">HP:0001272</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Chronic neurological signs encompassed a cerebellar syndrome in 35/41 (85%), which showed almost no progression during the observation period"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cerebellar atrophy on MRI is a hallmark finding in CACNA1A disease; the Austrian cohort showed chronic cerebellar signs in 85% of patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intellectual Disability
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
-                            Intellectual disability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001249)</span>
-                        </span>
-                        
+                        Intellectual disability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37555011" target="_blank">PMID:37555011</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"About 187 individuals with GDD/ID harboring 123 variants were found (case series plus data from literature)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large systematic aggregation confirming intellectual disability as a prominent feature across CACNA1A variants.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37555011" target="_blank">PMID:37555011</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"GOF variants were linked with severe-profound GDD/ID while LOF variants were associated with mild-moderate GDD/ID (p = 0.001)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates genotype-phenotype correlation for intellectual disability severity based on variant functional class.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cognitive Deficits
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank">
-                            Cognitive impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100543)</span>
-                        </span>
-                        
+                        Cognitive impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"cognitive deficits in 9/20 (45%, MOCA test score &lt; 26)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">45% of tested patients in the Austrian non-polyQ cohort had cognitive deficits on standardized testing.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Psychiatric and Behavioral Symptoms
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank">
-                            Atypical behavior
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000708)</span>
-                        </span>
-                        
+                        Atypical behavior
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"psychiatric and behavioral symptoms in 11/41(27%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Approximately 27% of patients in the Austrian cohort had psychiatric or behavioral symptoms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -5188,748 +5437,821 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CACNA1A
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CACNA1A
+
+
+    <a href="https://bioregistry.io/hgnc:1388" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1388">hgnc:1388</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38681799" target="_blank">PMID:38681799</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To date, almost 1700 CACNA1A variants have been reported in ClinVar, with over 400 listed as Pathogenic or Likely Pathogenic, but with limited-to-no clinical or functional data."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms the large number of known CACNA1A variants and the challenge of variant interpretation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We recruited 41 subjects with non-polyglutamine CACNA1A disease, of which 38 (93%) familial cases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">High familial rate (93%) supports autosomal dominant inheritance pattern.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Acetazolamide
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">acetazolamide therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Carbonic anhydrase inhibitor that reduces frequency and severity of episodic ataxia attacks in EA2. In a randomized controlled trial, acetazolamide reduced attacks to 52% compared with placebo.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34484942" target="_blank">PMID:34484942</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Compared with placebo, fampridine reduced the number of attacks to 63% (95% CI 54%-74%) and acetazolamide to 52% (95% CI 46%-60%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Phase III RCT demonstrating acetazolamide significantly reduces EA2 attack frequency vs placebo.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"At the last visit, 27/41 patients (66%) required an interval prophylaxis (including acetazolamide, flunarizine, 4-aminopyridine, topiramate), which was efficacious in reducing the frequency and severity of episodic symptoms in all cases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Real-world cohort data confirming efficacy of interval prophylaxis including acetazolamide.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     4-Aminopyridine (Fampridine)
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">4-aminopyridine therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Potassium channel blocker that reduces attack frequency in EA2. In a randomized controlled trial, fampridine reduced attacks to 63% compared with placebo, with fewer side effects than acetazolamide.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34484942" target="_blank">PMID:34484942</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Compared with placebo, fampridine reduced the number of attacks to 63% (95% CI 54%-74%) and acetazolamide to 52% (95% CI 46%-60%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Phase III RCT demonstrating fampridine significantly reduces EA2 attack frequency vs placebo.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34484942" target="_blank">PMID:34484942</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fampridine 10 mg twice daily had fewer side effects than acetazolamide 250 mg 3 times daily."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Fampridine had a more favorable side effect profile than acetazolamide in the RCT.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Migraine Prophylaxis
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">migraine prophylaxis</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Standard migraine preventive medications (e.g., flunarizine, topiramate, valproate) used for FHM1 attack prevention. In one case, the anti-CGRP antibody galcanezumab reduced migraine days from 4 to 1 per month in therapy-resistant hemiplegic migraine.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110218" target="_blank">PMID:39110218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In one patient in his 70ies with progressively therapy resistant hemiplegic migraine, treatment with the anti-CGRP antibody galcanezumab successfully reduced the frequency of migraine days from 4 to 1/month."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case report of galcanezumab efficacy in therapy-resistant CACNA1A-related hemiplegic migraine.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Antiseizure therapy for CACNA1A-related DEE42
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">anticonvulsant agent therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000167" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000167</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000167" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000167">MAXO:0000167</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Seizures in CACNA1A-related DEE require individualized antiseizure therapy and epilepsy-specialist monitoring. More than half of reported CACNA1A epilepsy cases remain refractory, so treatment response should be tracked closely and care should not assume a single CACNA1A-specific regimen.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizures
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38681799" target="_blank">PMID:38681799</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Furthermore, over half of CACNA1A-related epilepsies are refractory to current therapies."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the need for seizure-directed treatment while noting frequent treatment resistance.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37555011" target="_blank">PMID:37555011</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"About 49 (42.20%) patients had controlled seizures while 67 (57.80%) individuals remained with refractory seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Systematic review data quantify refractory seizures in CACNA1A epilepsy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     SCA6 supportive rehabilitation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">SCA6 management is supportive and targets gait ataxia, dysarthria, nystagmus, dysphagia, fall risk, nutrition, and communication. Physical therapy, occupational therapy, speech therapy, walking aids, home adaptations, and symptom-directed medications are used because there is no established disease-modifying therapy.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Progressive cerebellar ataxia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002073">HP:0002073</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dysarthria
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nystagmus
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301319" target="_blank">PMID:20301319</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"physical therapy and exercises enhancing balance and core strength"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports physical therapy as part of SCA6 supportive management.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301319" target="_blank">PMID:20301319</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"speech therapy and communication devices for dysarthria"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports speech and communication interventions for SCA6 dysarthria.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Vasoconstrictor and cerebral angiography avoidance in FHM1
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">medical action avoidance</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001014" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001014</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001014" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001014">MAXO:0001014</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Individuals with CACNA1A-FHM should avoid vasoconstricting agents and unnecessary cerebral angiography because these exposures can increase stroke risk or precipitate severe attacks.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Migraine with aura
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002077" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002077" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002077">HP:0002077</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301562" target="_blank">PMID:20301562</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vasoconstricting agents because of the risk of stroke; cerebral angiography as it may precipitate a severe attack."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies these FHM exposures as agents or circumstances to avoid.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6867,118 +7189,118 @@ datasets: []
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">4</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301562" target="_blank">PMID:20301562</a>
                             </div>
-                            
+
                             <div class="reference-title">Familial Hemiplegic Migraine.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301319" target="_blank">PMID:20301319</a>
                             </div>
-                            
+
                             <div class="reference-title">Spinocerebellar Ataxia Type 6.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/27476654" target="_blank">PMID:27476654</a>
                             </div>
-                            
+
                             <div class="reference-title">De Novo Mutations in SLC1A2 and CACNA1A Are Important Causes of Epileptic Encephalopathies.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/33544220" target="_blank">PMID:33544220</a>
                             </div>
-                            
+
                             <div class="reference-title">The electrophysiological footprint of CACNA1A disorders.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Pathophysiology Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">32 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-03-20T13:27:52.800430</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -7326,11 +7648,11 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

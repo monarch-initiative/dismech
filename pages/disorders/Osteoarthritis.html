@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Osteoarthritis</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Complex</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0005178" target="_blank">
                         MONDO:0005178
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Musculoskeletal Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Degenerative Joint Disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Osteoarthritis is a common, heterogeneous degenerative disorder of mobile joints that is now understood as a whole-joint disease rather than isolated &#34;wear and tear&#34; of cartilage. Pathobiology spans articular cartilage, subchondral bone, synovium, ligaments, periarticular muscle, and pain-processing pathways, producing chronic joint pain, stiffness, reduced mobility, and disability. Age, high BMI, prior major joint injury, and polygenic susceptibility modify risk, while current treatment remains focused on symptom control, function, and late-stage joint replacement.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,35 +3065,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3031,9 +3101,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3041,10 +3111,18 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3052,8 +3130,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3061,8 +3139,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3070,8 +3148,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3079,13 +3157,13 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3093,8 +3171,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3102,828 +3180,1464 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            
+
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Harrison's Chapter</div>
                 <div class="tag-list">
-                    
+
                     <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
-                    
+
                 </div>
             </div>
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
         </div>
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">3</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Primary Osteoarthritis
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Idiopathic osteoarthritis developing without a single defining secondary cause.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Secondary Osteoarthritis
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Osteoarthritis arising after an identifiable precipitant such as major joint injury, dysplasia, or other structural joint disease.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Erosive Hand Osteoarthritis
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Inflammatory hand-predominant osteoarthritis with central erosions and more aggressive interphalangeal joint involvement.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target">
+                <div class="item-name">EGFR signaling exerts opposing, cell-type-specific effects across the osteoarthritic joint, yet the spatiotemporal map of where and when EGFR activation is protective versus pathological remains undefined. Which skeletal cell populations (superficial vs. deep-zone chondrocytes, synovial macrophages and fibroblasts, subchondral osteoblasts and osteoclasts) drive chondroprotective versus catabolic EGFR outputs, and how should this inform allosteric, tissue-targeted EGFR modulation that spares homeostatic signaling?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_oa_egfr_celltype_specificity</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-cartilage-matrix-catabolism">pathophysiology#Cartilage Matrix Catabolism</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-chondrocyte-senescence">pathophysiology#Chondrocyte Senescence</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-synovial-macrophage-fibroblast-crosstalk">pathophysiology#Synovial Macrophage-Fibroblast Crosstalk</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-subchondral-bone-remodeling">pathophysiology#Subchondral Bone Remodeling</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">EGFR has a paradoxical, cell-type-specific role in osteoarthritis. In articular chondrocytes, EGFR signaling is predominantly chondroprotective: genetic or pharmacological reduction of EGFR activity accelerates cartilage destruction by promoting chondrocyte apoptosis and elevating catabolic enzymes (ADAMTS5, MMP13) and HIF2alpha. Conversely, EGFR ligands are upregulated in inflamed synovium and EGFR drives proliferative and inflammatory programs in synovial fibroblasts and macrophages, where the same receptor may be pathological. EGFR activity is also spatially and temporally dynamic within cartilage, declining in the superficial zone with age and resurging in deep-zone cell clusters in late disease. This means a pan-EGFR inhibitor (as used in oncology) could simultaneously worsen chondrocyte survival while dampening synovitis, producing opposing net effects depending on cell type and disease stage. The review by Wang et al. (2026) explicitly flags the cell-type-specific and spatiotemporal mapping of EGFR activation and its allosteric modulation as unresolved questions. Resolving which cell populations carry protective versus pathological EGFR output, and at what disease stage, is prerequisite to designing tissue-targeted or allosteric EGFR modulators for OA.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Cell-type-resolved spatiotemporal mapping of EGFR activation across the osteoarthritic joint</div>
+
+                <div class="item-meta">
+
+
+
+
+    <span class="tag tag-discussion-kind">
+
+        spatial single-cell multi-omics with conditional perturbation
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_oa_egfr_celltype_activation_mapping</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Using paired human OA joint specimens (early vs. late) and a mouse DMM model sampled across a time course, perform single-cell/spatial transcriptomics together with phospho-EGFR immunostaining to quantify EGFR pathway activation (MAPK/ERK, PI3K/Akt, NF-kB readouts) separately in superficial vs. deep-zone chondrocytes, synovial macrophages and fibroblasts, and subchondral osteoblasts/osteoclasts. Couple this with cell-type-conditional EGFR gain- and loss-of-function (and an allosteric vs. ATP-competitive inhibitor comparison) to test whether modulating EGFR in one compartment protects cartilage without aggravating synovitis or subchondral remodeling.</div>
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Chondrocyte EGFR activation and catabolic enzyme output</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-cartilage-matrix-catabolism">pathophysiology#Cartilage Matrix Catabolism</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Quantify phospho-EGFR and downstream MAPK/Akt/NF-kB activity in superficial vs. deep-zone chondrocytes alongside ADAMTS5, MMP13, and HIF2alpha; test whether chondrocyte-restricted EGFR loss increases catabolic enzyme expression and matrix degradation.
+</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        phospho-EGFR immunohistochemistry
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        single-cell RNA sequencing
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Superficial-zone chondrocyte survival and senescence</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-chondrocyte-senescence">pathophysiology#Chondrocyte Senescence</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Measure chondrocyte apoptosis and senescence markers as a function of zonal EGFR activity to test whether reduced EGFR signaling promotes superficial-zone loss and senescence-associated catabolism.
+</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        TUNEL apoptosis assay
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        senescence-associated beta-galactosidase staining
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Synovial macrophage/fibroblast EGFR-driven inflammation</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-synovial-macrophage-fibroblast-crosstalk">pathophysiology#Synovial Macrophage-Fibroblast Crosstalk</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Quantify EGFR-ligand expression and EGFR-dependent inflammatory and proliferative programs in synovial macrophages and fibroblasts to test whether EGFR is pathological (pro-synovitis) in this compartment.
+</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        spatial transcriptomics
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: POSITIVE</div>
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Subchondral remodeling response to EGFR modulation</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-subchondral-bone-remodeling">pathophysiology#Subchondral Bone Remodeling</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Assess osteoblast/osteoclast number and subchondral microarchitecture under cell-type-targeted EGFR perturbation to detect off-target skeletal effects of EGFR modulation.
+</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        micro-computed tomography
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">The cell-type-specific dual-role model is supported if (1) phospho-EGFR mapping shows distinct zonal/temporal activation patterns, (2) chondrocyte-restricted EGFR loss increases catabolic enzymes and apoptosis while (3) synovial EGFR loss reduces inflammatory output, and (4) an allosteric/compartment-selective modulator protects cartilage without worsening synovitis or subchondral remodeling.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-cartilage-matrix-catabolism">pathophysiology#Cartilage Matrix Catabolism</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-chondrocyte-senescence">pathophysiology#Chondrocyte Senescence</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-synovial-macrophage-fibroblast-crosstalk">pathophysiology#Synovial Macrophage-Fibroblast Crosstalk</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26120493" target="_blank">PMID:26120493</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"our findings demonstrate a primarily protective role of EGFR during OA progression by regulating chondrocyte survival and cartilage degradation."</div>
+
+
+                <div class="evidence-explanation">Demonstrates that EGFR signaling is chondroprotective in articular chondrocytes, establishing the protective arm of the cell-type-specific dual-role gap.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35191092" target="_blank">PMID:35191092</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EGFR activity was initially reduced at the superficial layer and then resurged in cell clusters within the middle and deep zone in late OA."</div>
+
+
+                <div class="evidence-explanation">Documents zonal and temporal heterogeneity of EGFR activation within articular cartilage, directly motivating the spatiotemporal mapping gap.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cartilage-matrix-catabolism">
                 <div class="item-name">Cartilage Matrix Catabolism</div>
-                
+
                 <div class="item-desc">Osteoarthritis cartilage shows a maladaptive chondrocyte state with increased matrix-degrading enzymes, especially collagenases and aggrecanases, leading to progressive breakdown of the articular cartilage extracellular matrix.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         collagen catabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030574">GO:0030574</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         proteoglycan catabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030167" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030167" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030167">GO:0030167</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         extracellular matrix
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031012">GO:0031012</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         articular cartilage
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0010996">UBERON:0010996</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26092928" target="_blank">PMID:26092928</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In OA, dysregulated gene expression and phenotypic changes in articular chondrocytes culminate in progressive loss of cartilage from the joint surface."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human osteoarthritic cartilage shows disease-relevant chondrocyte state changes linked to progressive cartilage loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26092928" target="_blank">PMID:26092928</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These findings implicate periostin as a catabolic protein that promotes cartilage degeneration in OA by up-regulating MMP-13 through canonical Wnt signaling."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This mechanistic study directly links OA-associated signaling to MMP-13-mediated cartilage catabolism through canonical Wnt signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chondrocyte-senescence">
                 <div class="item-name">Chondrocyte Senescence</div>
-                
+
                 <div class="item-desc">Aging-associated chondrocyte senescence promotes inflammatory and catabolic signaling within articular cartilage and accelerates osteoarthritis progression.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cellular senescence
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090398">GO:0090398</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         articular cartilage
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0010996">UBERON:0010996</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cartilage Matrix Catabolism</span>
-	                            
+
 	                            <span class="crosslink-desc">Senescent chondrocytes reinforce inflammatory and matrix-degrading programs that accelerate cartilage loss.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36496445" target="_blank">PMID:36496445</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here we show that Sirt6 deficiency exaggerates chondrocyte senescence and osteoarthritis progression, whereas intra-articular injection of adenovirus-Sirt6 markedly attenuates surgical destabilization of medial meniscus-induced osteoarthritis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This primary study supports chondrocyte senescence as a progression-relevant mechanism in osteoarthritis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synovial-macrophage-fibroblast-crosstalk">
                 <div class="item-name">Synovial Macrophage-Fibroblast Crosstalk</div>
-                
+
                 <div class="item-desc">Low-grade synovitis in osteoarthritis is sustained by interactions between recruited macrophages and fibroblast-like synovial cells, amplifying inflammatory signaling, stromal activation, pain, and tissue remodeling.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Macrophage
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         fibroblast-like synovial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002301" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002301" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002301">CL:0002301</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         inflammatory response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         synovial membrane
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002018">UBERON:0002018</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cartilage Matrix Catabolism</span>
-	                            
+
 	                            <span class="crosslink-desc">Synovitis-associated macrophage-fibroblast signaling amplifies inflammatory mediators that promote cartilage matrix breakdown.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40621694" target="_blank">PMID:40621694</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In individuals with OA, single-cell transcriptomics identified a conserved MERTKlow CD48high CCR2+ macrophage subpopulation as a key source of OSM."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This human OA finding supports a disease-relevant synovial macrophage population that can participate in OSM-linked inflammatory crosstalk.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40621694" target="_blank">PMID:40621694</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Specifically, the OSM/OSMR axis represents a pivotal mechanism in recruited macrophage-fibroblast crosstalk, offering potential targets for novel biomarkers and therapies to manage OA-related synovitis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports a mechanistic macrophage-fibroblast signaling network that drives osteoarthritis synovitis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subchondral-bone-remodeling">
                 <div class="item-name">Subchondral Bone Remodeling</div>
-                
+
                 <div class="item-desc">Osteoarthritis involves pathologic remodeling of the subchondral compartment, with early resorption, subsequent increased bone formation, and osteophyte development that alter joint biomechanics and contribute to ongoing tissue damage.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Osteoclast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         Osteoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         bone remodeling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         subchondral bone
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0035878" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0035878" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0035878">UBERON:0035878</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15077302" target="_blank">PMID:15077302</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ALN suppressed subchondral bone resorption, which was markedly increased 2 weeks postsurgery, and prevented the subsequent increase in bone formation 10 weeks postsurgery, in the untreated tibial plateau of ACLT joints."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This ACL transection model shows a sequential osteoarthritis-associated subchondral remodeling pattern with early resorption followed by increased bone formation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15077302" target="_blank">PMID:15077302</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Subchondral bone remodeling plays an important role in the pathogenesis of OA."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Experimental manipulation of bone resorption supports subchondral bone remodeling as a pathogenic contributor to osteoarthritis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3939,220 +4653,229 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">3</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Joint Stiffness
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank">
-                            Joint stiffness
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001387)</span>
-                        </span>
-                        
+                        Joint stiffness
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001387">HP:0001387</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is characterized by pathologic changes in cartilage, bone, synovium, ligament, muscle, and periarticular fat, leading to joint dysfunction, pain, stiffness, functional limitation, and loss of valued activities, such as walking for exercise and dancing."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review identifies stiffness as a principal osteoarthritis symptom. Author wording &#34;characterized by&#34; maps to VERY_FREQUENT under the dismech qualitative frequency mapping.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Limitation of Joint Mobility
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank">
-                            Limitation of joint mobility
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001376)</span>
-                        </span>
-                        
+                        Limitation of joint mobility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001376">HP:0001376</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is characterized by pathologic changes in cartilage, bone, synovium, ligament, muscle, and periarticular fat, leading to joint dysfunction, pain, stiffness, functional limitation, and loss of valued activities, such as walking for exercise and dancing."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional limitation in the review maps well to reduced joint mobility in symptomatic osteoarthritis. Author wording &#34;characterized by&#34; maps to VERY_FREQUENT under the dismech qualitative frequency mapping.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Joint Pain
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank">
-                            Arthralgia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002829)</span>
-                        </span>
-                        
+                        Arthralgia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is characterized by pathologic changes in cartilage, bone, synovium, ligament, muscle, and periarticular fat, leading to joint dysfunction, pain, stiffness, functional limitation, and loss of valued activities, such as walking for exercise and dancing."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This major clinical review identifies pain as a core osteoarthritis manifestation. Author wording &#34;characterized by&#34; maps to VERY_FREQUENT under the dismech qualitative frequency mapping.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4177,696 +4900,727 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     GDF5 susceptibility variant
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17384641" target="_blank">PMID:17384641</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This SNP, located in the GDF5 core promoter, exerts allelic differences on transcriptional activity in chondrogenic cells, with the susceptibility allele showing reduced activity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This identifies a functional osteoarthritis risk allele with a plausible cartilage biology mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17384641" target="_blank">PMID:17384641</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our findings implicate GDF5 as a susceptibility gene for osteoarthritis and suggest that decreased GDF5 expression is involved in the pathogenesis of osteoarthritis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Landmark human genetics study establishing GDF5 as an osteoarthritis susceptibility gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Exercise
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Regular exercise and strengthening are core first-line treatments to improve pain and function.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Strong recommendations were made for exercise, weight loss in patients with knee and/or hip OA who are overweight or obese"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ACR/Arthritis Foundation guideline strongly recommends exercise for osteoarthritis management.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Weight Loss
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">dietary intervention</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000088</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000088">MAXO:0000088</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Weight reduction is recommended for overweight or obese patients with hip or knee osteoarthritis.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Strong recommendations were made for exercise, weight loss in patients with knee and/or hip OA who are overweight or obese"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Guideline-supported nonpharmacologic management for overweight or obese patients with osteoarthritis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     NSAIDs
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">NSAID therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000221" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000221</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000221" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000221">MAXO:0000221</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Topical or oral NSAIDs are standard symptom-directed pharmacologic therapy when not contraindicated.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Strong recommendations were made for exercise, weight loss in patients with knee and/or hip OA who are overweight or obese, self-efficacy and self-management programs, tai chi, cane use, hand orthoses for first carpometacarpal (CMC) joint OA, tibiofemoral bracing for tibiofemoral knee OA,..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Guideline-backed support for both topical and oral NSAIDs in osteoarthritis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Intra-articular Glucocorticoid Injections
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">intraarticular corticosteroid therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Intraarticular Corticosteroid Therapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C121366" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C121366</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121366" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C121366">NCIT:C121366</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         glucocorticoid
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:24261">CHEBI:24261</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Intra-articular corticosteroid injections provide short-term symptom relief, particularly for knee osteoarthritis flares.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Strong recommendations were made for exercise, weight loss in patients with knee and/or hip OA who are overweight or obese, self-efficacy and self-management programs, tai chi, cane use, hand orthoses for first carpometacarpal (CMC) joint OA, tibiofemoral bracing for tibiofemoral knee OA,..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Strong ACR/Arthritis Foundation recommendation supports glucocorticoid injections for knee osteoarthritis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Total Joint Replacement
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Total hip or knee arthroplasty is an effective late-stage option for advanced symptoms with structural damage.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Persons with advanced symptoms and structural damage are candidates for total joint replacement."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review supports arthroplasty as the standard effective intervention for advanced hip or knee osteoarthritis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Age</div>
-                
-                
+
+
                 <div class="item-desc">Osteoarthritis prevalence rises sharply after age 40 years.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37675071" target="_blank">PMID:37675071</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Osteoarthritis most frequently occurs after age 40 years and prevalence increases steeply with age."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large-scale epidemiologic synthesis establishes age as a dominant osteoarthritis risk modifier.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">High BMI</div>
-                
-                
+
+
                 <div class="item-desc">High BMI contributes substantially to osteoarthritis burden through both biomechanical and metabolic mechanisms.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37675071" target="_blank">PMID:37675071</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"High BMI contributed to 20·4% (95% UI -1·7 to 36·6) of osteoarthritis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Global Burden of Disease analysis quantifies high BMI as a major modifiable contributor to osteoarthritis burden.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15354794" target="_blank">PMID:15354794</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Obesity is a risk factor for the development and progression of radiograhic OA and probably works through both mechanical as well as metabolic pathways."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review explicitly supports both mechanical loading and metabolic dysfunction as obesity-linked osteoarthritis mechanisms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Major Joint Injury</div>
-                
-                
+
+
                 <div class="item-desc">Prior major injury is a recognized risk factor for secondary and post-traumatic osteoarthritis.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Risk factors include age (33% of individuals older than 75 years have symptomatic and radiographic knee OA), female sex, obesity, genetics, and major joint injury."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review identifies major joint injury as an established osteoarthritis risk factor.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4919,6 +5673,7 @@ prevalence:
     explanation: Global Burden of Disease 2021 provides the strongest current population-level estimate for osteoarthritis prevalence.
 pathophysiology:
 - name: Cartilage Matrix Catabolism
+  conforms_to: &#34;osteoarthritis_cartilage_degradation#Matrix-Degrading Enzyme Upregulation&#34;
   description: &gt;-
     Osteoarthritis cartilage shows a maladaptive chondrocyte state with increased
     matrix-degrading enzymes, especially collagenases and aggrecanases, leading to
@@ -5285,208 +6040,330 @@ references:
 - reference: PMID:40621694
   title: &#34;Monocyte-Derived Macrophages-Synovial Fibroblasts Crosstalk Unravels Oncostatin Signaling Network as a Driver of Synovitis in Osteoarthritis.&#34;
   findings: []
+discussions:
+- discussion_id: gap_oa_egfr_celltype_specificity
+  prompt: &gt;-
+    EGFR signaling exerts opposing, cell-type-specific effects across the
+    osteoarthritic joint, yet the spatiotemporal map of where and when EGFR
+    activation is protective versus pathological remains undefined. Which
+    skeletal cell populations (superficial vs. deep-zone chondrocytes,
+    synovial macrophages and fibroblasts, subchondral osteoblasts and
+    osteoclasts) drive chondroprotective versus catabolic EGFR outputs, and
+    how should this inform allosteric, tissue-targeted EGFR modulation that
+    spares homeostatic signaling?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Cartilage Matrix Catabolism
+  - pathophysiology#Chondrocyte Senescence
+  - pathophysiology#Synovial Macrophage-Fibroblast Crosstalk
+  - pathophysiology#Subchondral Bone Remodeling
+  rationale: &gt;-
+    EGFR has a paradoxical, cell-type-specific role in osteoarthritis. In
+    articular chondrocytes, EGFR signaling is predominantly chondroprotective:
+    genetic or pharmacological reduction of EGFR activity accelerates cartilage
+    destruction by promoting chondrocyte apoptosis and elevating catabolic
+    enzymes (ADAMTS5, MMP13) and HIF2alpha. Conversely, EGFR ligands are
+    upregulated in inflamed synovium and EGFR drives proliferative and
+    inflammatory programs in synovial fibroblasts and macrophages, where the
+    same receptor may be pathological. EGFR activity is also spatially and
+    temporally dynamic within cartilage, declining in the superficial zone with
+    age and resurging in deep-zone cell clusters in late disease. This means a
+    pan-EGFR inhibitor (as used in oncology) could simultaneously worsen
+    chondrocyte survival while dampening synovitis, producing opposing net
+    effects depending on cell type and disease stage. The review by Wang et al.
+    (2026) explicitly flags the cell-type-specific and spatiotemporal mapping of
+    EGFR activation and its allosteric modulation as unresolved questions.
+    Resolving which cell populations carry protective versus pathological EGFR
+    output, and at what disease stage, is prerequisite to designing
+    tissue-targeted or allosteric EGFR modulators for OA.
+  proposed_experiments:
+  - experiment_id: exp_oa_egfr_celltype_activation_mapping
+    name: Cell-type-resolved spatiotemporal mapping of EGFR activation across the osteoarthritic joint
+    description: &gt;-
+      Using paired human OA joint specimens (early vs. late) and a mouse DMM
+      model sampled across a time course, perform single-cell/spatial
+      transcriptomics together with phospho-EGFR immunostaining to quantify
+      EGFR pathway activation (MAPK/ERK, PI3K/Akt, NF-kB readouts) separately in
+      superficial vs. deep-zone chondrocytes, synovial macrophages and
+      fibroblasts, and subchondral osteoblasts/osteoclasts. Couple this with
+      cell-type-conditional EGFR gain- and loss-of-function (and an allosteric
+      vs. ATP-competitive inhibitor comparison) to test whether modulating EGFR
+      in one compartment protects cartilage without aggravating synovitis or
+      subchondral remodeling.
+    experiment_type:
+      preferred_term: spatial single-cell multi-omics with conditional perturbation
+    readouts:
+    - name: Chondrocyte EGFR activation and catabolic enzyme output
+      target: pathophysiology#Cartilage Matrix Catabolism
+      description: &gt;
+        Quantify phospho-EGFR and downstream MAPK/Akt/NF-kB activity in
+        superficial vs. deep-zone chondrocytes alongside ADAMTS5, MMP13, and
+        HIF2alpha; test whether chondrocyte-restricted EGFR loss increases
+        catabolic enzyme expression and matrix degradation.
+      assays:
+      - preferred_term: phospho-EGFR immunohistochemistry
+      - preferred_term: single-cell RNA sequencing
+      direction: NEGATIVE
+    - name: Superficial-zone chondrocyte survival and senescence
+      target: pathophysiology#Chondrocyte Senescence
+      description: &gt;
+        Measure chondrocyte apoptosis and senescence markers as a function of
+        zonal EGFR activity to test whether reduced EGFR signaling promotes
+        superficial-zone loss and senescence-associated catabolism.
+      assays:
+      - preferred_term: TUNEL apoptosis assay
+      - preferred_term: senescence-associated beta-galactosidase staining
+      direction: NEGATIVE
+    - name: Synovial macrophage/fibroblast EGFR-driven inflammation
+      target: pathophysiology#Synovial Macrophage-Fibroblast Crosstalk
+      description: &gt;
+        Quantify EGFR-ligand expression and EGFR-dependent inflammatory and
+        proliferative programs in synovial macrophages and fibroblasts to test
+        whether EGFR is pathological (pro-synovitis) in this compartment.
+      assays:
+      - preferred_term: spatial transcriptomics
+      direction: POSITIVE
+    - name: Subchondral remodeling response to EGFR modulation
+      target: pathophysiology#Subchondral Bone Remodeling
+      description: &gt;
+        Assess osteoblast/osteoclast number and subchondral microarchitecture
+        under cell-type-targeted EGFR perturbation to detect off-target skeletal
+        effects of EGFR modulation.
+      assays:
+      - preferred_term: micro-computed tomography
+      direction: NEGATIVE
+    decision_criterion: &gt;-
+      The cell-type-specific dual-role model is supported if (1) phospho-EGFR
+      mapping shows distinct zonal/temporal activation patterns, (2)
+      chondrocyte-restricted EGFR loss increases catabolic enzymes and apoptosis
+      while (3) synovial EGFR loss reduces inflammatory output, and (4) an
+      allosteric/compartment-selective modulator protects cartilage without
+      worsening synovitis or subchondral remodeling.
+    would_support:
+    - pathophysiology#Cartilage Matrix Catabolism
+    - pathophysiology#Chondrocyte Senescence
+    - pathophysiology#Synovial Macrophage-Fibroblast Crosstalk
+  evidence:
+  - reference: PMID:26120493
+    reference_title: &#34;Reduced EGFR signaling enhances cartilage destruction in a mouse osteoarthritis model.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;our findings demonstrate a primarily protective role of EGFR during OA progression by regulating chondrocyte survival and cartilage degradation.&#34;
+    explanation: &gt;-
+      Demonstrates that EGFR signaling is chondroprotective in articular
+      chondrocytes, establishing the protective arm of the cell-type-specific
+      dual-role gap.
+  - reference: PMID:35191092
+    reference_title: &#34;EGFR Signaling Is Required for Maintaining Adult Cartilage Homeostasis and Attenuating Osteoarthritis Progression.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;EGFR activity was initially reduced at the superficial layer and then resurged in cell clusters within the middle and deep zone in late OA.&#34;
+    explanation: &gt;-
+      Documents zonal and temporal heterogeneity of EGFR activation within
+      articular cartilage, directly motivating the spatiotemporal mapping gap.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">9</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/37675071" target="_blank">PMID:37675071</a>
                             </div>
-                            
+
                             <div class="reference-title">Global, regional, and national burden of osteoarthritis, 1990-2020 and projections to 2050: a systematic analysis for the Global Burden of Disease Study 2021.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                             </div>
-                            
+
                             <div class="reference-title">Diagnosis and Treatment of Hip and Knee Osteoarthritis: A Review.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                             </div>
-                            
+
                             <div class="reference-title">2019 American College of Rheumatology/Arthritis Foundation Guideline for the Management of Osteoarthritis of the Hand, Hip, and Knee.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/17384641" target="_blank">PMID:17384641</a>
                             </div>
-                            
+
                             <div class="reference-title">A functional polymorphism in the 5&#39; UTR of GDF5 is associated with susceptibility to osteoarthritis.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/15354794" target="_blank">PMID:15354794</a>
                             </div>
-                            
+
                             <div class="reference-title">Obesity as a risk factor for osteoarthritis: mechanical versus metabolic.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/36496445" target="_blank">PMID:36496445</a>
                             </div>
-                            
+
                             <div class="reference-title">Sirt6 attenuates chondrocyte senescence and osteoarthritis progression.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/15077302" target="_blank">PMID:15077302</a>
                             </div>
-                            
+
                             <div class="reference-title">The role of subchondral bone remodeling in osteoarthritis: reduction of cartilage degeneration and prevention of osteophyte formation by alendronate in the rat anterior cruciate ligament transection model.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/26092928" target="_blank">PMID:26092928</a>
                             </div>
-                            
+
                             <div class="reference-title">Elevated expression of periostin in human osteoarthritic cartilage and its potential role in matrix degradation via matrix metalloproteinase-13.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/40621694" target="_blank">PMID:40621694</a>
                             </div>
-                            
+
                             <div class="reference-title">Monocyte-Derived Macrophages-Synovial Fibroblasts Crosstalk Unravels Oncostatin Signaling Network as a Driver of Synovitis in Osteoarthritis.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Osteoarthritis. Core disease mechanisms, molecular and cellular pathways,...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-09T14:33:50.270299</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Osteoarthritis. Core disease mechanisms, molecular and cellular pathways,...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -5835,14 +6712,14 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -5872,29 +6749,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Pathophysiology description</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">22 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2025-12-17T18:46:47.013789</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Pathophysiology description
 Osteoarthritis (OA) is a whole‑joint, multifactorial disease characterized by progressive articular cartilage degeneration, low‑grade synovitis, maladaptive subchondral bone remodeling with aberrant angiogenesis and sensory innervation, and pain driven by peripheral and central sensitization. At the molecular level, biomechanical stress and metabolic inflammation converge on canonical signaling networks (NF‑κB, MAPK, Wnt/β‑catenin, TGF‑β/SMAD, Hippo‑YAP/TAZ, HIF‑1α) to reprogram chondrocytes and synovial cells toward catabolism, hypertrophy, and inflammatory mediator release. Innate immune activation, including NLRP3 inflammasome–dependent pyroptosis, amplifies IL‑1β/IL‑18 signaling. Aging introduces cellular senescence with a SASP that sustains chronic inflammation; regulated cell‑death programs (apoptosis, necroptosis, pyroptosis; “PANoptosis”) further accelerate tissue failure. Mechanotransduction via integrins and mechanosensitive ion channels under fluid shear and compression initiates Ca2+‑dependent signaling that upregulates matrix‑degrading enzymes. Single‑cell atlases reveal OA‑specific macrophage, fibroblast, and chondrocyte states, including P2RX7+ inflammatory “pain” macrophages and MMP13+ detrimental chondrocytes, alongside depletion of regenerative tissue stem cells. These changes interact with subchondral osteoclast‑vascular‑neuronal units to promote type‑H angiogenesis and nociceptor ingrowth that correlate with pain sensitization. Epigenetic regulation (DNA methylation, histone modifications) integrates these inputs to stabilize pathological gene programs in joint cells (chen2024pyroptosisinosteoarthritis pages 12-13, li2024mechanicalsignaltransduction pages 1-3, kacprzak2024kneejointresponse pages 6-8, pandey2024profilingjointtissues pages 1-2, liu2025theinterplayof pages 13-14, mocanu2024obesitymetabolicsyndrome pages 1-2).</p>
@@ -5941,7 +6818,7 @@ Osteoarthritis (OA) is a whole‑joint, multifactorial disease characterized by 
 <p>Phenotypic Manifestations (HP terms)
 - Arthralgia (HP:0002829), Joint stiffness (HP:0001387), Reduced range of motion (HP:0001376), Crepitus (HP:0030831), Joint effusion (HP:0001388), Gait disturbance (HP:0001288), Chronic pain (HP:0012535) with peripheral/central sensitization features (kacprzak2024kneejointresponse pages 6-8).</p>
 <p>Gene/protein annotations with ontology terms
-- NLRP3 (HGNC:16400): GO:0072559 (pyroptosis), GO:0006954 (inflammatory response); Evidence: inflammasome‑mediated IL‑1β/IL‑18 in OA (chen2024pyroptosisinosteoarthritis pages 12-13). 
+- NLRP3 (HGNC:16400): GO:0072559 (pyroptosis), GO:0006954 (inflammatory response); Evidence: inflammasome‑mediated IL‑1β/IL‑18 in OA (chen2024pyroptosisinosteoarthritis pages 12-13).
 - P2RX7 (HGNC:8537): GO:0005216 (ion channel activity), GO:0050900 (leukocyte migration); Evidence: purinergic regulation of inflammasome/pain (chen2024pyroptosisinosteoarthritis pages 12-13).
 - MMP13 (HGNC:7158): GO:0030198 (ECM organization), GO:0006508 (proteolysis); Evidence: catabolic effector in OA (kacprzak2024kneejointresponse pages 6-8).
 - TGFB1 (HGNC:11766): GO:0007179 (TGF‑β signaling); Evidence: chondrocyte phenotype regulation (kacprzak2024kneejointresponse pages 6-8).
@@ -6010,11 +6887,11 @@ Osteoarthritis (OA) is a whole‑joint, multifactorial disease characterized by 
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -6064,7 +6941,7 @@ Osteoarthritis (OA) is a whole‑joint, multifactorial disease characterized by 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Osteoarthritis", "mondoId": "MONDO:0005178", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteoarthritis", "yamlRevision": "ced812a41463"};
+        const OS_CONFIG = {"diseaseName": "Osteoarthritis", "mondoId": "MONDO:0005178", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteoarthritis", "yamlRevision": "11d9cc8f4746"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
