@@ -284,13 +284,44 @@
             letter-spacing: 0.02em;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .item-box {
             padding: 16px;
@@ -836,6 +867,37 @@
         }
 
         function showTooltip(event, n) {
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = NODE_TYPE_ICONS[n.node_type] || "";
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -851,9 +913,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -990,6 +1057,7 @@
 
     
 
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1070,7 +1138,12 @@
                     <span class="tag tag-bio">
                         defense response to virus
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051607">GO:0051607</a>
+    
+    
                         
                     </span>
                     
@@ -1088,7 +1161,12 @@
                     <span class="tag tag-bio">
                         innate immune response
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045087">GO:0045087</a>
+    
+    
                         
                     </span>
                     
@@ -1106,7 +1184,12 @@
                     <span class="tag tag-bio">
                         protein poly-ADP-ribosylation
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070212">GO:0070212</a>
+    
+    
                         
                     </span>
                     
@@ -1124,7 +1207,12 @@
                     <span class="tag tag-bio">
                         negative regulation of viral genome replication
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0045071" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0045071" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045071">GO:0045071</a>
+    
+    
                         
                     </span>
                     
@@ -1142,7 +1230,12 @@
                     <span class="tag tag-bio">
                         protein poly-ADP-ribosylation
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070212">GO:0070212</a>
+    
+    
                         
                     </span>
                     
@@ -1160,7 +1253,12 @@
                     <span class="tag tag-bio">
                         negative regulation of viral genome replication
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0045071" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0045071" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045071">GO:0045071</a>
+    
+    
                         
                     </span>
                     
@@ -1178,7 +1276,12 @@
                     <span class="tag tag-bio">
                         viral genome replication
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019079">GO:0019079</a>
+    
+    
                         
                     </span>
                     
@@ -1196,7 +1299,12 @@
                     <span class="tag tag-bio">
                         viral process
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016032">GO:0016032</a>
+    
+    
                         
                     </span>
                     
@@ -1287,7 +1395,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Enhanced Viral Replication and Pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When viral macrodomains successfully counter antiviral ADP-ribosylation, viruses can improve RNA synthesis, productive infection, tissue replication, or pathogenesis. Conversely, catalytic macrodomain defects attenuate replication or virulence and nominate macrodomains as antiviral targets.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"viral genome replication\", \"viral process\"], \"role\": \"consequence\"}}, {\"id\": \"NAD-Dependent Antiviral ADP-Ribosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PARP enzymes transfer ADP-ribose from NAD onto target proteins as mono- or poly-ADP-ribose marks. In infected cells, noncanonical PARP activity can restrict viral replication, promote interferon output, and alter stress granule biology.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein poly-ADP-ribosylation\", \"negative regulation of viral genome replication\"], \"genes\": [\"PARP12\", \"PARP14\"], \"role\": \"central_effector\"}}, {\"id\": \"PARG and Host De-ADP-Ribosylation Reset\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PARG removes poly-ADP-ribose polymers, while host macrodomains remove selected mono-ADP-ribose marks. This host erasure layer controls the duration and amplitude of ADP-ribosylation signals and is a natural comparison point for viral macrodomain activity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein poly-ADP-ribosylation\"], \"genes\": [\"PARG\"], \"role\": \"amplifier\"}}, {\"id\": \"RNA Virus-Induced Interferon and PARP Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNA virus infection and interferon signaling induce noncanonical PARP enzymes, including PARP7/TIPARP, PARP10, PARP12, and PARP14 in coronavirus contexts. This creates an NAD-consuming antiviral enzyme state upstream of ADP-ribosylation-dependent host restriction.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"defense response to virus\", \"innate immune response\"], \"genes\": [\"PARP10\", \"PARP12\", \"PARP14\", \"PARP7/TIPARP\"], \"role\": \"trigger\"}}, {\"id\": \"Viral Macrodomain De-ADP-Ribosylation Countermeasure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral macrodomains bind and hydrolyze ADP-ribose modifications on host or viral proteins. By erasing PARP-written marks, they can blunt interferon production, disrupt antiviral stress granules, and remove restrictions on viral RNA synthesis or pathogenesis.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein poly-ADP-ribosylation\", \"negative regulation of viral genome replication\"], \"role\": \"adaptive_escape\"}}], \"edges\": [{\"source\": \"RNA Virus-Induced Interferon and PARP Activation\", \"target\": \"NAD-Dependent Antiviral ADP-Ribosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Induced PARP enzymes use NAD to write ADP-ribose marks on target proteins.\", \"hypothesis_groups\": [\"canonical_parp_antiviral_adp_ribosylation_model\"]}, {\"source\": \"NAD-Dependent Antiviral ADP-Ribosylation\", \"target\": \"PARG and Host De-ADP-Ribosylation Reset\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Host hydrolases can reverse ADP-ribose marks and reset the PAR/MAR state.\", \"hypothesis_groups\": [\"par_pool_balance_model\"]}, {\"source\": \"NAD-Dependent Antiviral ADP-Ribosylation\", \"target\": \"Viral Macrodomain De-ADP-Ribosylation Countermeasure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral macrodomains oppose the same PARP-written antiviral marks.\", \"hypothesis_groups\": [\"viral_macrodomain_countermeasure_model\"]}, {\"source\": \"PARG and Host De-ADP-Ribosylation Reset\", \"target\": \"Viral Macrodomain De-ADP-Ribosylation Countermeasure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral macrodomains mimic or compete with host erasure logic to oppose antiviral PARP-written marks.\", \"hypothesis_groups\": [\"par_pool_balance_model\", \"viral_macrodomain_countermeasure_model\"]}, {\"source\": \"Viral Macrodomain De-ADP-Ribosylation Countermeasure\", \"target\": \"Enhanced Viral Replication and Pathogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral de-ADP-ribosylation removes antiviral restrictions and can restore replication fitness or in vivo virulence.\", \"hypothesis_groups\": [\"viral_macrodomain_countermeasure_model\"]}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Enhanced Viral Replication and Pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When viral macrodomains successfully counter antiviral ADP-ribosylation, viruses can improve RNA synthesis, productive infection, tissue replication, or pathogenesis. Conversely, catalytic macrodomain defects attenuate replication or virulence and nominate macrodomains as antiviral targets.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"viral genome replication\", \"viral process\"], \"role\": \"consequence\"}}, {\"id\": \"NAD-Dependent Antiviral ADP-Ribosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PARP enzymes transfer ADP-ribose from NAD onto target proteins as mono- or poly-ADP-ribose marks. In infected cells, noncanonical PARP activity can restrict viral replication, promote interferon output, and alter stress granule biology.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein poly-ADP-ribosylation\", \"negative regulation of viral genome replication\"], \"genes\": [\"PARP12\", \"PARP14\"], \"gene_terms\": [{\"label\": \"PARP12\", \"id\": \"hgnc:21919\"}, {\"label\": \"PARP14\", \"id\": \"hgnc:29232\"}], \"role\": \"central_effector\"}}, {\"id\": \"PARG and Host De-ADP-Ribosylation Reset\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PARG removes poly-ADP-ribose polymers, while host macrodomains remove selected mono-ADP-ribose marks. This host erasure layer controls the duration and amplitude of ADP-ribosylation signals and is a natural comparison point for viral macrodomain activity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein poly-ADP-ribosylation\"], \"genes\": [\"PARG\"], \"gene_terms\": [{\"label\": \"PARG\", \"id\": \"hgnc:8605\"}], \"role\": \"amplifier\"}}, {\"id\": \"RNA Virus-Induced Interferon and PARP Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNA virus infection and interferon signaling induce noncanonical PARP enzymes, including PARP7/TIPARP, PARP10, PARP12, and PARP14 in coronavirus contexts. This creates an NAD-consuming antiviral enzyme state upstream of ADP-ribosylation-dependent host restriction.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"defense response to virus\", \"innate immune response\"], \"genes\": [\"PARP10\", \"PARP12\", \"PARP14\", \"PARP7/TIPARP\"], \"gene_terms\": [{\"label\": \"PARP10\", \"id\": \"hgnc:25895\"}, {\"label\": \"PARP12\", \"id\": \"hgnc:21919\"}, {\"label\": \"PARP14\", \"id\": \"hgnc:29232\"}, {\"label\": \"PARP7/TIPARP\", \"id\": \"hgnc:23696\"}], \"role\": \"trigger\"}}, {\"id\": \"Viral Macrodomain De-ADP-Ribosylation Countermeasure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral macrodomains bind and hydrolyze ADP-ribose modifications on host or viral proteins. By erasing PARP-written marks, they can blunt interferon production, disrupt antiviral stress granules, and remove restrictions on viral RNA synthesis or pathogenesis.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein poly-ADP-ribosylation\", \"negative regulation of viral genome replication\"], \"role\": \"adaptive_escape\"}}], \"edges\": [{\"source\": \"RNA Virus-Induced Interferon and PARP Activation\", \"target\": \"NAD-Dependent Antiviral ADP-Ribosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Induced PARP enzymes use NAD to write ADP-ribose marks on target proteins.\", \"hypothesis_groups\": [\"canonical_parp_antiviral_adp_ribosylation_model\"]}, {\"source\": \"NAD-Dependent Antiviral ADP-Ribosylation\", \"target\": \"PARG and Host De-ADP-Ribosylation Reset\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Host hydrolases can reverse ADP-ribose marks and reset the PAR/MAR state.\", \"hypothesis_groups\": [\"par_pool_balance_model\"]}, {\"source\": \"NAD-Dependent Antiviral ADP-Ribosylation\", \"target\": \"Viral Macrodomain De-ADP-Ribosylation Countermeasure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral macrodomains oppose the same PARP-written antiviral marks.\", \"hypothesis_groups\": [\"viral_macrodomain_countermeasure_model\"]}, {\"source\": \"PARG and Host De-ADP-Ribosylation Reset\", \"target\": \"Viral Macrodomain De-ADP-Ribosylation Countermeasure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral macrodomains mimic or compete with host erasure logic to oppose antiviral PARP-written marks.\", \"hypothesis_groups\": [\"par_pool_balance_model\", \"viral_macrodomain_countermeasure_model\"]}, {\"source\": \"Viral Macrodomain De-ADP-Ribosylation Countermeasure\", \"target\": \"Enhanced Viral Replication and Pathogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral de-ADP-ribosylation removes antiviral restrictions and can restore replication fitness or in vivo virulence.\", \"hypothesis_groups\": [\"viral_macrodomain_countermeasure_model\"]}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -1321,7 +1429,12 @@
                     <span class="tag tag-bio">
                         defense response to virus
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051607">GO:0051607</a>
+    
+    
                         
                     </span>
                     
@@ -1339,7 +1452,12 @@
                     <span class="tag tag-bio">
                         innate immune response
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045087">GO:0045087</a>
+    
+    
                         
                     </span>
                     
@@ -1409,7 +1527,12 @@
                     <span class="tag tag-bio">
                         protein poly-ADP-ribosylation
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070212">GO:0070212</a>
+    
+    
                         
                     </span>
                     
@@ -1427,7 +1550,12 @@
                     <span class="tag tag-bio">
                         negative regulation of viral genome replication
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0045071" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0045071" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045071">GO:0045071</a>
+    
+    
                         
                     </span>
                     
@@ -1506,7 +1634,12 @@
                     <span class="tag tag-bio">
                         protein poly-ADP-ribosylation
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070212">GO:0070212</a>
+    
+    
                         
                     </span>
                     
@@ -1564,7 +1697,12 @@
                     <span class="tag tag-bio">
                         protein poly-ADP-ribosylation
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070212">GO:0070212</a>
+    
+    
                         
                     </span>
                     
@@ -1582,7 +1720,12 @@
                     <span class="tag tag-bio">
                         negative regulation of viral genome replication
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0045071" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0045071" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045071">GO:0045071</a>
+    
+    
                         
                     </span>
                     
@@ -1654,7 +1797,12 @@
                     <span class="tag tag-bio">
                         viral genome replication
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019079">GO:0019079</a>
+    
+    
                         
                     </span>
                     
@@ -1672,7 +1820,12 @@
                     <span class="tag tag-bio">
                         viral process
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="linkout">link</a>
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016032">GO:0016032</a>
+    
+    
                         
                     </span>
                     

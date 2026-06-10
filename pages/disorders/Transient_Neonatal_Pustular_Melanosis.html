@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,16 +2961,16 @@
         <header class="page-header">
             <h1>Transient Neonatal Pustular Melanosis</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Skin Disorder</span>
-                
-                
-                
+
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Neonatal Condition</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2913,7 +2983,7 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2983,35 +3053,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3019,9 +3089,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3029,10 +3099,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3040,8 +3110,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3049,8 +3119,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3058,15 +3128,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3074,860 +3144,958 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-melanocyte-activation">
                 <div class="item-name">Melanocyte Activation</div>
-                
+
                 <div class="item-desc">An unknown trigger, possibly related to the transition from intrauterine to extrauterine life, leads to the activation of melanocytes in the skin.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Melanocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         pigmentation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0043473" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0043473" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043473">GO:0043473</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Melanin Accumulation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
-    
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-melanin-accumulation">
                 <div class="item-name">Melanin Accumulation</div>
-                
+
                 <div class="item-desc">Activated melanocytes produce and release excessive amounts of melanin, which accumulates in the superficial layers of the skin.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         Epidermis
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001003">UBERON:0001003</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Pustule Formation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21146802" target="_blank">PMID:21146802</a>
                     </span>
-                    
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Transient neonatal pustular melanosis is mostly found in full-term black infants. It is a benign and self-limited disease, and the etiology is still unknown."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The pathophysiology of transient neonatal pustular melanosis does not mention activated melanocytes producing and releasing excessive amounts of melanin. The etiology is still unknown.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32092380" target="_blank">PMID:32092380</a>
                     </span>
-                    
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The well-characterized MSH/MC1R-cAMP-MITF pathway regulates UV-induced melanization. Pharmacologic activation of this pathway (‘sunless tanning’) represents a potential strategy for skin cancer prevention, particularly in those with light skin or the ‘red hair’ phenotype who tan poorly after UV..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This reference discusses melanocyte activation and melanin production in the context of skin pigmentation and tanning, not transient neonatal pustular melanosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18633434" target="_blank">PMID:18633434</a>
                     </span>
-                    
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Melanocytes respond to UVR not only by producing melanin, but also by proliferating. This is essentially a protective response. We have studied the melanocyte proliferative response after a single UVR exposure to neonatal mice."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This study focuses on melanocyte response to UV radiation in mice and does not provide information on transient neonatal pustular melanosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 2 more references</div>
-            
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pustule-formation">
                 <div class="item-name">Pustule Formation</div>
-                
+
                 <div class="item-desc">The accumulation of melanin in the epidermis leads to the formation of small, superficial pustules that are characteristically present at birth or develop within the first few days of life. Pustules contain predominantly neutrophils in an intra- or subcorneal location.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neutrophil
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         keratinocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neutrophil chemotaxis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030593">GO:0030593</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         epidermis development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008544">GO:0008544</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         keratinization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031424">GO:0031424</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         Epidermis
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001003">UBERON:0001003</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hyper pigmentation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Desquamation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21146802" target="_blank">PMID:21146802</a>
                     </span>
-                    
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Transient neonatal pustular melanosis is mostly found in full-term black infants. It is a benign and self-limited disease, and the etiology is still unknown."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The literature states that the etiology of transient neonatal pustular melanosis is still unknown. There is no mention of melanin accumulation in the epidermis being a contributing factor.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyper-pigmentation">
                 <div class="item-name">Hyper pigmentation</div>
-                
+
                 <div class="item-desc">As the pustules resolve, they may leave behind areas of hyper pigmentation or dark spots on the skin, representing the sites of melanin accumulation. Commonly affected sites include face, neck, and back.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         Skin
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002097">UBERON:0002097</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-location">
                         skin of face
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_1000021" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_1000021" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:1000021">UBERON:1000021</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-location">
                         neck
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000974" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000974" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000974">UBERON:0000974</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-location">
                         back
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0001137" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001137" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001137">UBERON:0001137</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1271148" target="_blank">PMID:1271148</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The lesions often present as, or evolve into, a pigmented macule and persist from three weeks to three months."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The reference indicates that the vesicopustular lesions associated with Transient Neonatal Pustular Melanosis can evolve into pigmented macules, which aligns with areas of hyper pigmentation or dark spots on the skin, consistent with melanin accumulation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33397568" target="_blank">PMID:33397568</a>
                     </span>
-                    
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Diagnosis of Transient Neonatal Pustular Melanosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Although the reference title confirms the focus on Transient Neonatal Pustular Melanosis, it does not provide a detailed enough snippet to fully confirm details about the resultant hyperpigmentation. However, it does support the occurrence of the condition.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15095913" target="_blank">PMID:15095913</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The pustular disorders constitute a subgroup of the vesiculobullous disorders defined by the presence of eosinophils or neutrophils."</div>
-                
-                
+
+
                 <div class="evidence-explanation">While the reference discusses pustular disorders generally, it does not provide specific details on the resultant hyperpigmentation associated with Transient Neonatal Pustular Melanosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-desquamation">
                 <div class="item-name">Desquamation</div>
-                
+
                 <div class="item-desc">In some cases, the resolution of pustules may be followed by a period of superficial skin peeling or desquamation.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         Skin
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002097">UBERON:0002097</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15095913" target="_blank">PMID:15095913</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The pustular disorders constitute a subgroup of the vesiculobullous disorders defined by the presence of eosinophils or neutrophils with prominent accompanying intercellular edema or a canthelysis involving various levels of the epithelium."</div>
-                
-                
+
+
                 <div class="evidence-explanation">While this reference explains the general characteristics of pustular disorders, it doesn&#39;t clearly support or refute the specific statement regarding desquamation following the resolution of pustules in Transient Neonatal Pustular Melanosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21793881" target="_blank">PMID:21793881</a>
                     </span>
-                    
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"There is paucity of literature on the incidence and clinical associations of transient benign dermatological conditions in twin neonates."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This study mentions several dermatological conditions commonly seen in neonates, including erythema toxicum neonatorum and physiological skin desquamation, but does not provide specific information about desquamation in the context of Transient Neonatal Pustular Melanosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24318488" target="_blank">PMID:24318488</a>
                     </span>
-                    
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinical recognition of this disease can help physicians avoid unnecessary diagnostic testing and treatment for infectious etiologies because no specific therapy is recommended."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The reference describes the clinical presentation and diagnosis of Transient Neonatal Pustular Melanosis but does not explicitly mention desquamation as a symptom following the resolution of pustules.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spontaneous-resolution">
                 <div class="item-name">Spontaneous Resolution</div>
-                
+
                 <div class="item-desc">Transient Neonatal Pustular Melanosis is a self-limited condition that typically resolves spontaneously within a few weeks to months without any sequelae.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21146802" target="_blank">PMID:21146802</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Transient neonatal pustular melanosis is mostly found in full-term black infants. It is a benign and self-limited disease..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The article describes transient neonatal pustular melanosis as a benign and self-limited condition, consistent with the statement&#39;s description of spontaneous resolution without sequelae.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33397568" target="_blank">PMID:33397568</a>
                     </span>
-                    
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Diagnosis of Transient Neonatal Pustular Melanosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Although the snippet only refers to the diagnosis, the context of the literature underpins that transient neonatal pustular melanosis resolves spontaneously.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-benign-course">
                 <div class="item-name">Benign Course</div>
-                
+
                 <div class="item-desc">Despite the presence of pustules and skin changes, Transient Neonatal Pustular Melanosis is a benign condition that does not affect the overall health of the neonate.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Self-Limited Resolution</span>
-	                            
+
 	                            <span class="crosslink-desc">TNPM is a benign, self-limited neonatal pustulosis that resolves spontaneously without requiring treatment.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21146802" target="_blank">PMID:21146802</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Transient neonatal pustular melanosis is mostly found in full-term black infants. It is a benign and self-limited disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract indicates that Transient Neonatal Pustular Melanosis is a benign and self-limited condition.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33386313" target="_blank">PMID:33386313</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This article will discuss normal neonatal skin care and benign and common rashes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Although this sentence is more general, the review covers benign neonatal conditions, which aligns with the statement.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16281619" target="_blank">PMID:16281619</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In the newborn, there exists a wide spectrum of pustular skin diseases. These range from transitory, benign adaptation disorders up to systemic, life threatening illnesses."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The reference mentions a range of conditions including benign pustular diseases, which supports the statement, but does not specifically mention Transient Neonatal Pustular Melanosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="graph-warning">
                 <strong>Referential integrity issues (1):</strong>
                 <ul>
-                    
+
                     <li>Target &#39;Self-Limited Resolution&#39; (from &#39;Benign Course&#39;) not found in named elements</li>
-                    
-                    
+
+
                 </ul>
             </div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3943,361 +4111,370 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">5</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pustules
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank">
-                            Pustule
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0200039)</span>
-                        </span>
-                        
+                        Pustule
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200039">HP:0200039</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7091064" target="_blank">PMID:7091064</a>
                     </span>
-                    
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Transient neonatal pustular melanosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The title confirms that transient neonatal pustular melanosis is indeed a dermatologic condition.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12113648" target="_blank">PMID:12113648</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Generalized pustular eruptions in neonates include erythema toxicum neonatorum and transient neonatal pustular melanosis, both of which are non-infectious."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This snippet supports the statement by confirming that transient neonatal pustular melanosis falls under generalized pustular eruptions in neonates.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27192509" target="_blank">PMID:27192509</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"However, the majority of neonatal skin pustules is not infectious, comprising the benign neonatal pustulosis. ... The most common ones are erythema toxicum neonatorum, the transient neonatal pustular melanosis and the benign cephalic pustulosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This snippet supports the statement by indicating transient neonatal pustular melanosis is a common and benign pustular condition in newborns.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 2 more references</div>
-            
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Scaling Skin
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank">
-                            Skin rash
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000988)</span>
-                        </span>
-                        
+                        Skin rash
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000988">HP:0000988</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Fine peripheral collarette of scale around healed pustule sites</div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hyperpigmented Macules
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank">
-                            Hyperpigmentation of the skin
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000953)</span>
-                        </span>
-                        
+                        Hyperpigmentation of the skin
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000953">HP:0000953</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/511427" target="_blank">PMID:511427</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A Mexican-American boy presented at birth with an extensive eruption consisting of 0.5 to 1.0 cm hyperpigmented macules with a distinct peripheral scale involving primarily the forearms, abdomen and lower back."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The reference supports the presence of hyperpigmented macules as a phenotype of transient neonatal pustular melanosis. However, it does not provide support for the frequency being &#39;High&#39;.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22884507" target="_blank">PMID:22884507</a>
                     </span>
-                    
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Transient neonatal pustular melanosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The title indicates a relation to transient neonatal pustular melanosis, but the document itself does not specify the frequency of occurrence of hyperpigmented macules or confirm that it is a &#39;High&#39; frequency phenotypic characteristic.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Benign Course
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Despite the alarming appearance, TNPM is a benign self-limited condition that does not require treatment.</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37900709" target="_blank">PMID:37900709</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"TNPM is a benign, transient, neonatal pustulosis requiring no active treatment. Diagnosis is clinical, characterized by a vesiculopustular eruption, healing with residual hyperpigmented macules."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The reference supports that TNPM is benign and self-limited, but does not provide evidence about it being a systemic condition or its frequency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         No Systemic Symptoms
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Infants with TNPM are otherwise healthy and do not have any associated fever, irritability, or other systemic symptoms.</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37900709" target="_blank">PMID:37900709</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"TNPM is a benign, transient, neonatal pustulosis requiring no active treatment. Diagnosis is clinical, characterized by a vesiculopustular eruption, healing with residual hyperpigmented macules."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract confirms that TNPM is a benign condition without systemic symptoms, supporting the statement that infants with TNPM are otherwise healthy and do not have any associated fever, irritability, or other systemic symptoms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4322,186 +4499,192 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     No specific genes identified
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(None)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     None Required
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Condition is self-limiting and resolves without treatment.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7091064" target="_blank">PMID:7091064</a>
                     </span>
-                    
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Transient neonatal pustular melanosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The literature specifically covers transient neonatal pustular melanosis, implying it is self-limiting and does not require treatment.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27192509" target="_blank">PMID:27192509</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"However, the majority of neonatal skin pustules is not infectious, comprising the benign neonatal pustulosis. Benign neonatal pustuloses are a group of clinical disease characterized by pustular eruptions in which a contagious agent is not responsible for its etiology. The most common ones are..."</div>
-                
-                
-                
-                
+
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Not Applicable</div>
-                
-                
+
+
                 <div class="item-desc">No known environmental factors are associated with this condition.</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4897,27 +5080,27 @@ disease_term:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -4949,29 +5132,29 @@ disease_term:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Pathophysiology Research Report</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">18 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2025-12-15T10:01:59.106334</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Disease Pathophysiology Research Report</h1>
 <h2>Target Disease</h2>
@@ -5227,11 +5410,11 @@ disease_term:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

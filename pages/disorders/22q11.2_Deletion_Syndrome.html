@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>22q11.2 Deletion Syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Genetic</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0018923" target="_blank">
                         MONDO:0018923
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Chromosomal microdeletion syndrome</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Congenital heart disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Primary immunodeficiency</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,12 +2993,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 22q11.2 deletion syndrome is a chromosomal microdeletion disorder caused by hemizygous deletion of 1.5-3 Mb at chromosome 22q11.2. It is the most common microdeletion syndrome, occurring in approximately 1:4000 live births. The phenotype is highly variable but classically includes conotruncal cardiac defects, thymic hypoplasia with T-cell immunodeficiency, hypocalcemia from parathyroid hypoplasia, and characteristic facial features. The deleted region contains TBX1, haploinsufficiency of which disrupts pharyngeal arch and cardiac neural crest development.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2998,35 +3068,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3034,9 +3104,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3044,10 +3114,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3055,8 +3125,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3064,8 +3134,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3073,11 +3143,11 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#trials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
@@ -3085,10 +3155,10 @@
                 <div class="stat-label">Trials</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3096,8 +3166,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3105,989 +3175,1268 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tbx1-haploinsufficiency-and-pharyngeal-arch-development">
                 <div class="item-name">TBX1 haploinsufficiency and pharyngeal arch development</div>
-                
+
                 <div class="item-desc">The critical gene within the 22q11.2 deletion is TBX1, a T-box transcription factor essential for pharyngeal arch development. TBX1 haploinsufficiency disrupts the proliferation and survival of pharyngeal mesoderm and neural crest cells, leading to defective development of pharyngeal arch derivatives including the thymus (3rd pouch), parathyroid glands (3rd/4th pouches), and cardiac outflow tract.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neural crest cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011012">CL:0011012</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         pharyngeal arch mesenchyme cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000134">CL:0000134</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        TBX1
-                        
-                        <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TBX1
+
+
+    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11592">hgnc:11592</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         pharyngeal system development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0060037" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060037" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060037">GO:0060037</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         pharyngeal arch
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002539">UBERON:0002539</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-location">
                         pharyngeal pouch 3
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0007124" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0007124" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0007124">UBERON:0007124</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242110" target="_blank">PMID:11242110</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"mice heterozygous for the mutation had a high incidence of cardiac outflow tract anomalies, thus modeling one of the major abnormalities of the human syndrome"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Tbx1 heterozygous mice recapitulate the cardiac phenotype of human 22q11.2DS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242110" target="_blank">PMID:11242110</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Tbx1-/- mice displayed a wide range of developmental anomalies encompassing almost all of the common DGS/VCFS features, including hypoplasia of the thymus and parathyroid glands, cardiac outflow tract abnormalities, abnormal facial structures, abnormal vertebrae and cleft palate"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Homozygous Tbx1 knockout recapitulates the full DiGeorge phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multigene-dosage-and-mirna-regulatory-disruption">
                 <div class="item-name">Multigene dosage and miRNA regulatory disruption</div>
-                
+
                 <div class="item-desc">The typical proximal deletion removes dozens of protein-coding genes and non-coding regulatory elements. Beyond TBX1 dosage, haploinsufficiency of genes such as DGCR8 and CRKL alters miRNA biogenesis, epigenetic regulation, and modifier pathways, helping explain marked inter-individual variability.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        DGCR8
-                        
-                        <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                    <span class="tag tag-gene">
-                        CRKL
-                        
-                        <a href="https://bioregistry.io/hgnc:2363" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DGCR8
+
+
+    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2847">hgnc:2847</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CRKL
+
+
+    <a href="https://bioregistry.io/hgnc:2363" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2363">hgnc:2363</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         miRNA processing
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0035196" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0035196" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035196">GO:0035196</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Variable multisystem phenotype</span>
-	                            
+
 	                            <span class="crosslink-desc">Regulatory dosage effects modify the cardiac, immune, endocrine, and neurodevelopmental expressivity of the deletion.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes15030321" target="_blank">DOI:10.3390/genes15030321</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Typical miRNA expression patterns have been identified in 22q11.2DS, due to an alteration in miRNA biogenesis, affecting the expression of several target genes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent review supports miRNA-biogenesis disruption as a genome-wide regulatory contributor to variable 22q11.2DS manifestations.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes15030321" target="_blank">DOI:10.3390/genes15030321</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The review of the literature confirms the hypothesis that the 22q11.2DS phenotype results from a network of interactions between deleted protein-coding genes and altered epigenetic regulation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports modeling the syndrome as a multigene dosage and epigenetic-regulatory network rather than TBX1 alone.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-neural-crest-migration-defect">
                 <div class="item-name">Cardiac neural crest migration defect</div>
-                
+
                 <div class="item-desc">Neural crest cells from the occipital somites migrate through pharyngeal arches 3, 4, and 6 to contribute to aorticopulmonary septation and great vessel remodeling. TBX1 deficiency impairs neural crest cell migration and survival through non-cell-autonomous mechanisms, as TBX1 is expressed in pharyngeal mesoderm rather than neural crest cells themselves.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         migratory cardiac neural crest cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_2000073" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_2000073" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:2000073">CL:2000073</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cardiac neural crest cell migration involved in outflow tract morphogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0003253" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0003253" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003253">GO:0003253</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         outflow tract morphogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0003151" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0003151" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003151">GO:0003151</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         cardiac outflow tract
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0004145" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004145" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004145">UBERON:0004145</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Conotruncal heart defects</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired neural crest migration results in failure of outflow tract septation.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"congenital heart disease, particularly conotruncal malformations (ventricular septal defect, tetralogy of Fallot, interrupted aortic arch, and truncus arteriosus)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews documents the characteristic cardiac malformations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thymic-hypoplasia-and-t-cell-immunodeficiency">
                 <div class="item-name">Thymic hypoplasia and T-cell immunodeficiency</div>
-                
+
                 <div class="item-desc">The thymus derives from the third pharyngeal pouch. Impaired pharyngeal pouch development leads to thymic hypoplasia or aplasia, resulting in reduced T-cell production. The immunodeficiency is typically partial, with low but functional T-cell numbers, though complete thymic aplasia (complete DiGeorge syndrome) occurs in ~1% of cases.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         cortical thymic epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002364" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002364" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002364">CL:0002364</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         medullary thymic epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002365" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002365" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002365">CL:0002365</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         T cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neural crest cell differentiation involved in thymus development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0048538" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048538" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048538">GO:0048538</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         thymus
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002370">UBERON:0002370</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">T-cell immunodeficiency</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced thymic tissue leads to decreased T-cell output and immunodeficiency.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The major clinical manifestations of 22q11.2DS include congenital heart disease, particularly conotruncal malformations (ventricular septal defect, tetralogy of Fallot, interrupted aortic arch, and truncus arteriosus), palatal abnormalities (velopharyngeal incompetence, submucosal cleft palate,..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Immune deficiency is listed as one of the major clinical manifestations of 22q11.2DS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-parathyroid-hypoplasia-and-hypocalcemia">
                 <div class="item-name">Parathyroid hypoplasia and hypocalcemia</div>
-                
+
                 <div class="item-desc">The parathyroid glands derive from the third and fourth pharyngeal pouches. Defective pouch development causes parathyroid hypoplasia, leading to hypoparathyroidism and hypocalcemia. Neonatal hypocalcemia may present with seizures and is often the presenting feature.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neural crest cell differentiation involved in parathyroid gland development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0060017" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060017" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060017">GO:0060017</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         parathyroid gland
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0001132" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001132" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001132">UBERON:0001132</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypocalcemia</span>
-	                            
+
 	                            <span class="crosslink-desc">Parathyroid hypoplasia causes hypoparathyroidism and low serum calcium.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"serum ionized calcium every three to six months in infancy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Longitudinal calcium surveillance supports clinically important hypocalcemia risk from parathyroid hypoplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-circuit-and-neurotransmitter-vulnerability">
                 <div class="item-name">Cortical circuit and neurotransmitter vulnerability</div>
-                
+
                 <div class="item-desc">Neuropsychiatric risk arises from multiple dosage-sensitive mechanisms in the deleted interval. RANBP1 loss disrupts cortical progenitor proliferation and layer 2/3 projection-neuron generation in models, while COMT and PRODH dosage can alter proline-dopamine interactions and prefrontal cortical function in children with the deletion.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neural progenitor cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        RANBP1
-                        
-                        <a href="https://bioregistry.io/hgnc:9847" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                    <span class="tag tag-gene">
-                        COMT
-                        
-                        <a href="https://bioregistry.io/hgnc:2228" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                    <span class="tag tag-gene">
-                        PRODH
-                        
-                        <a href="https://bioregistry.io/hgnc:9453" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RANBP1
+
+
+    <a href="https://bioregistry.io/hgnc:9847" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9847">hgnc:9847</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COMT
+
+
+    <a href="https://bioregistry.io/hgnc:2228" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2228">hgnc:2228</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PRODH
+
+
+    <a href="https://bioregistry.io/hgnc:9453" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9453">hgnc:9453</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neurogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022008">GO:0022008</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         cerebral cortex
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Schizophrenia</span>
-	                            
+
 	                            <span class="crosslink-desc">Altered cortical development and catecholamine/proline metabolism are plausible contributors to the elevated psychosis risk in 22q11.2DS.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25452572" target="_blank">PMID:25452572</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
-                <div class="evidence-snippet">"frequency of layer 2/3, but not layer 5/6 cortical projection neurons."</div>
-                
-                
+
+                <div class="evidence-snippet">"Ranbp1 ... is included within the DiGeorge/22q11.2 Deletion Syndrome (22q11.2 DS) critical region ... Ranbp1(-/-)-dependent proliferative deficits substantially diminish the frequency of layer 2/3, but not layer 5/6 cortical projection neurons."</div>
+
+
                 <div class="evidence-explanation">Mouse model evidence links a deleted-region gene to altered cortical progenitor proliferation and upper-layer cortical neuron generation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18769474" target="_blank">PMID:18769474</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
-                <div class="evidence-snippet">"therefore especially vulnerable to this functional disruption."</div>
-                
-                
+
+                <div class="evidence-snippet">"COMT activity and proline levels may therefore be altered in 22q11DS individuals ... elevated proline negatively affects brain function by an increase in dopamine in the prefrontal cortex. 22q11DS patients with low dopamine catabolic capacity are therefore especially vulnerable to this..."</div>
+
+
                 <div class="evidence-explanation">Human clinical physiology evidence supports a COMT/PRODH-related proline-dopamine mechanism affecting prefrontal function in 22q11.2DS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="graph-warning">
                 <strong>Referential integrity issues (2):</strong>
                 <ul>
-                    
+
                     <li>Target &#39;Variable multisystem phenotype&#39; (from &#39;Multigene dosage and miRNA regulatory disruption&#39;) not found in named elements</li>
-                    
+
                     <li>Target &#39;Conotruncal heart defects&#39; (from &#39;Cardiac neural crest migration defect&#39;) not found in named elements</li>
-                    
-                    
+
+
                 </ul>
             </div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4098,706 +4447,739 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac neural crest migration defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neural crest cells from the occipital somites migrate through pharyngeal arches 3, 4, and 6 to contribute to aorticopulmonary septation and great vessel remodeling. TBX1 deficiency impairs neural crest cell migration and survival through non-cell-autonomous mechanisms, as TBX1 is expressed in pharyngeal mesoderm rather than neural crest cells themselves.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory cardiac neural crest cell\"], \"biological_processes\": [\"cardiac neural crest cell migration involved in outflow tract morphogenesis\", \"outflow tract morphogenesis\"], \"locations\": [\"cardiac outflow tract\"]}}, {\"id\": \"Conotruncal heart defects\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Cortical circuit and neurotransmitter vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuropsychiatric risk arises from multiple dosage-sensitive mechanisms in the deleted interval. RANBP1 loss disrupts cortical progenitor proliferation and layer 2/3 projection-neuron generation in models, while COMT and PRODH dosage can alter proline-dopamine interactions and prefrontal cortical function in children with the deletion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"biological_processes\": [\"neurogenesis\"], \"genes\": [\"RANBP1\", \"COMT\", \"PRODH\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal hypocalcemia due to parathyroid hypoplasia occurs in 50-60% of patients and may cause seizures.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002901\"}}, {\"id\": \"Multigene dosage and miRNA regulatory disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The typical proximal deletion removes dozens of protein-coding genes and non-coding regulatory elements. Beyond TBX1 dosage, haploinsufficiency of genes such as DGCR8 and CRKL alters miRNA biogenesis, epigenetic regulation, and modifier pathways, helping explain marked inter-individual variability.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"miRNA processing\"], \"genes\": [\"DGCR8\", \"CRKL\"]}}, {\"id\": \"Parathyroid hypoplasia and hypocalcemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The parathyroid glands derive from the third and fourth pharyngeal pouches. Defective pouch development causes parathyroid hypoplasia, leading to hypoparathyroidism and hypocalcemia. Neonatal hypocalcemia may present with seizures and is often the presenting feature.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neural crest cell differentiation involved in parathyroid gland development\"], \"locations\": [\"parathyroid gland\"]}}, {\"id\": \"Schizophrenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meta-analysis estimates psychotic disorders in approximately 11.5% of individuals with 22q11.2DS and schizophrenia in approximately 9.7%, with higher prevalence in adult samples.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100753\"}}, {\"id\": \"T-cell immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe T-cell immunodeficiency occurs in complete DiGeorge syndrome; partial immunodeficiency and variable T-cell lymphopenia are more common.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005374\"}}, {\"id\": \"Thymic hypoplasia and T-cell immunodeficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The thymus derives from the third pharyngeal pouch. Impaired pharyngeal pouch development leads to thymic hypoplasia or aplasia, resulting in reduced T-cell production. The immunodeficiency is typically partial, with low but functional T-cell numbers, though complete thymic aplasia (complete DiGeorge syndrome) occurs in ~1% of cases.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical thymic epithelial cell\", \"medullary thymic epithelial cell\", \"T cell\"], \"biological_processes\": [\"neural crest cell differentiation involved in thymus development\"], \"locations\": [\"thymus\"]}}, {\"id\": \"Variable multisystem phenotype\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Multigene dosage and miRNA regulatory disruption\", \"target\": \"Variable multisystem phenotype\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Regulatory dosage effects modify the cardiac, immune, endocrine, and neurodevelopmental expressivity of the deletion.\"}, {\"source\": \"Cardiac neural crest migration defect\", \"target\": \"Conotruncal heart defects\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Impaired neural crest migration results in failure of outflow tract septation.\"}, {\"source\": \"Thymic hypoplasia and T-cell immunodeficiency\", \"target\": \"T-cell immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced thymic tissue leads to decreased T-cell output and immunodeficiency.\"}, {\"source\": \"Parathyroid hypoplasia and hypocalcemia\", \"target\": \"Hypocalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parathyroid hypoplasia causes hypoparathyroidism and low serum calcium.\"}, {\"source\": \"Cortical circuit and neurotransmitter vulnerability\", \"target\": \"Schizophrenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered cortical development and catecholamine/proline metabolism are plausible contributors to the elevated psychosis risk in 22q11.2DS.\"}], \"orphan_targets\": [\"Conotruncal heart defects\", \"Variable multisystem phenotype\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac neural crest migration defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neural crest cells from the occipital somites migrate through pharyngeal arches 3, 4, and 6 to contribute to aorticopulmonary septation and great vessel remodeling. TBX1 deficiency impairs neural crest cell migration and survival through non-cell-autonomous mechanisms, as TBX1 is expressed in pharyngeal mesoderm rather than neural crest cells themselves.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory cardiac neural crest cell\"], \"biological_processes\": [\"cardiac neural crest cell migration involved in outflow tract morphogenesis\", \"outflow tract morphogenesis\"], \"locations\": [\"cardiac outflow tract\"]}}, {\"id\": \"Conotruncal heart defects\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Cortical circuit and neurotransmitter vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuropsychiatric risk arises from multiple dosage-sensitive mechanisms in the deleted interval. RANBP1 loss disrupts cortical progenitor proliferation and layer 2/3 projection-neuron generation in models, while COMT and PRODH dosage can alter proline-dopamine interactions and prefrontal cortical function in children with the deletion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"biological_processes\": [\"neurogenesis\"], \"genes\": [\"RANBP1\", \"COMT\", \"PRODH\"], \"gene_terms\": [{\"label\": \"RANBP1\", \"id\": \"hgnc:9847\"}, {\"label\": \"COMT\", \"id\": \"hgnc:2228\"}, {\"label\": \"PRODH\", \"id\": \"hgnc:9453\"}], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal hypocalcemia due to parathyroid hypoplasia occurs in 50-60% of patients and may cause seizures.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002901\"}}, {\"id\": \"Multigene dosage and miRNA regulatory disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The typical proximal deletion removes dozens of protein-coding genes and non-coding regulatory elements. Beyond TBX1 dosage, haploinsufficiency of genes such as DGCR8 and CRKL alters miRNA biogenesis, epigenetic regulation, and modifier pathways, helping explain marked inter-individual variability.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"miRNA processing\"], \"genes\": [\"DGCR8\", \"CRKL\"], \"gene_terms\": [{\"label\": \"DGCR8\", \"id\": \"hgnc:2847\"}, {\"label\": \"CRKL\", \"id\": \"hgnc:2363\"}]}}, {\"id\": \"Parathyroid hypoplasia and hypocalcemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The parathyroid glands derive from the third and fourth pharyngeal pouches. Defective pouch development causes parathyroid hypoplasia, leading to hypoparathyroidism and hypocalcemia. Neonatal hypocalcemia may present with seizures and is often the presenting feature.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neural crest cell differentiation involved in parathyroid gland development\"], \"locations\": [\"parathyroid gland\"]}}, {\"id\": \"Schizophrenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meta-analysis estimates psychotic disorders in approximately 11.5% of individuals with 22q11.2DS and schizophrenia in approximately 9.7%, with higher prevalence in adult samples.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100753\"}}, {\"id\": \"T-cell immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe T-cell immunodeficiency occurs in complete DiGeorge syndrome; partial immunodeficiency and variable T-cell lymphopenia are more common.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005374\"}}, {\"id\": \"Thymic hypoplasia and T-cell immunodeficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The thymus derives from the third pharyngeal pouch. Impaired pharyngeal pouch development leads to thymic hypoplasia or aplasia, resulting in reduced T-cell production. The immunodeficiency is typically partial, with low but functional T-cell numbers, though complete thymic aplasia (complete DiGeorge syndrome) occurs in ~1% of cases.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical thymic epithelial cell\", \"medullary thymic epithelial cell\", \"T cell\"], \"biological_processes\": [\"neural crest cell differentiation involved in thymus development\"], \"locations\": [\"thymus\"]}}, {\"id\": \"Variable multisystem phenotype\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Multigene dosage and miRNA regulatory disruption\", \"target\": \"Variable multisystem phenotype\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Regulatory dosage effects modify the cardiac, immune, endocrine, and neurodevelopmental expressivity of the deletion.\"}, {\"source\": \"Cardiac neural crest migration defect\", \"target\": \"Conotruncal heart defects\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Impaired neural crest migration results in failure of outflow tract septation.\"}, {\"source\": \"Thymic hypoplasia and T-cell immunodeficiency\", \"target\": \"T-cell immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced thymic tissue leads to decreased T-cell output and immunodeficiency.\"}, {\"source\": \"Parathyroid hypoplasia and hypocalcemia\", \"target\": \"Hypocalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parathyroid hypoplasia causes hypoparathyroidism and low serum calcium.\"}, {\"source\": \"Cortical circuit and neurotransmitter vulnerability\", \"target\": \"Schizophrenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered cortical development and catecholamine/proline metabolism are plausible contributors to the elevated psychosis risk in 22q11.2DS.\"}], \"orphan_targets\": [\"Conotruncal heart defects\", \"Variable multisystem phenotype\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">11</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Conotruncal heart defect
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001710" target="_blank">
-                            Conotruncal defect
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001710)</span>
-                        </span>
-                        
+                        Conotruncal defect
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001710" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001710">HP:0001710</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"congenital heart disease, particularly conotruncal malformations (ventricular septal defect, tetralogy of Fallot, interrupted aortic arch, and truncus arteriosus)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews documents the spectrum of conotruncal defects.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Complete thymic aplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005359" target="_blank">
-                            Aplasia of the thymus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005359)</span>
-                        </span>
-                        
+                        Aplasia of the thymus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005359" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005359">HP:0005359</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01220531" target="_blank">clinicaltrials:NCT01220531</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Complete DiGeorge anomaly (cDGA) is a disorder in which there is no thymus function."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov documents complete DiGeorge anomaly as the absent-thymus-function presentation addressed by thymus transplantation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypoparathyroidism
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008198" target="_blank">
-                            Congenital hypoparathyroidism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008198)</span>
-                        </span>
-                        
+                        Congenital hypoparathyroidism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008198" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008198">HP:0008198</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Velopharyngeal insufficiency
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000220" target="_blank">
-                            Velopharyngeal insufficiency
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000220)</span>
-                        </span>
-                        
+                        Velopharyngeal insufficiency
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000220" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000220">HP:0000220</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"palatal abnormalities (velopharyngeal incompetence, submucosal cleft palate, bifid uvula, and cleft palate)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Palatal abnormalities are a major manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cleft palate
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank">
-                            Cleft palate
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000175)</span>
-                        </span>
-                        
+                        Cleft palate
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242110" target="_blank">PMID:11242110</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"cleft palate"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cleft palate is observed in Tbx1 knockout mice.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Recurrent infections
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank">
-                            Recurrent infections
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002719)</span>
-                        </span>
-                        
+                        Recurrent infections
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002719">HP:0002719</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"immune deficiency requires aggressive treatment of infections"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports recurrent or clinically important infections as a treatment-driving consequence of immune deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypocalcemia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank">
-                            Hypocalcemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002901)</span>
-                        </span>
-                        
+                        Hypocalcemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002901">HP:0002901</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"serum ionized calcium every three to six months in infancy, every five years through childhood, every one to two years thereafter, preoperatively and postoperatively, and regularly during pregnancy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Frequent calcium monitoring is recommended across the lifespan, reflecting the persistent risk of hypocalcemia from parathyroid hypoplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intellectual disability
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
-                            Intellectual disability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001249)</span>
-                        </span>
-                        
+                        Intellectual disability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"learning difficulties"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Learning difficulties are documented as a major manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Schizophrenia
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0100753" target="_blank">
-                            Schizophrenia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100753)</span>
-                        </span>
-                        
+                        Schizophrenia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100753" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100753">HP:0100753</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36786112" target="_blank">PMID:36786112</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"schizophrenia (9.70%, 95%CI:6.50-14.20). Prevalence was significantly higher in"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Meta-analysis provides quantitative support for elevated psychotic-disorder and schizophrenia burden in 22q11.2DS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Thymic hypoplasia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000777" target="_blank">
-                            Abnormal thymus morphology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000777)</span>
-                        </span>
-                        
+                        Abnormal thymus morphology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000777" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000777">HP:0000777</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms24098317" target="_blank">DOI:10.3390/ijms24098317</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"thymic hypoplasia and predominating cellular immune deficiency"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review evidence supports thymic hypoplasia as part of the common multisystem phenotype rather than complete aplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         T-cell immunodeficiency
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank">
-                            Cellular immunodeficiency
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005374)</span>
-                        </span>
-                        
+                        Cellular immunodeficiency
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005374">HP:0005374</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36897497" target="_blank">PMID:36897497</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The clinical presentation of 22q11.2DS is highly variable particularly with"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports recording immune deficiency as variable cellular immunodeficiency rather than only severe complete DiGeorge syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4822,803 +5204,845 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     22q11.2 microdeletion
-                    
+
                 </div>
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"the deletion is de novo in more than 90% of individuals and inherited from a heterozygous parent in about 10% of individuals"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews documents the de novo vs inherited proportion.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TBX1 haploinsufficiency
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242110" target="_blank">PMID:11242110</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we propose that TBX1 in humans is a key gene in the etiology of DGS/VCFS"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse knockout studies established TBX1 as the critical gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cardiac surgery
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Surgical repair of conotruncal defects is often required in infancy. Timing and approach depend on the specific cardiac malformation.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Cardiac anomalies are treated as recommended by cardiologist"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cardiac management is part of standard care.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Calcium and vitamin D supplementation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">dietary intervention</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000088</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000088">MAXO:0000088</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Management of hypocalcemia with calcium and active vitamin D (calcitriol) supplementation.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"calcium supplementation and referral to an endocrinologist"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Calcium supplementation is recommended for hypocalcemia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Thymus transplantation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">organ transplantation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0010039</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0010039">MAXO:0010039</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">For complete DiGeorge syndrome (thymic aplasia), thymus tissue transplantation can reconstitute T-cell immunity.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"rarely, prophylactic antibiotics, IVIG therapy, or thymus tissue implantation are required"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Thymus transplantation is indicated for complete DiGeorge.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Immunoglobulin replacement therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunoglobulin infusion therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001480" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001480</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001480" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001480">MAXO:0001480</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Immunoglobulin therapy is rarely required for patients with clinically significant immune deficiency.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"rarely, prophylactic antibiotics, IVIG therapy, or thymus tissue implantation are required"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews lists IVIG among rare immune-deficiency treatments in 22q11.2DS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Counseling is indicated because 22q11.2 deletion syndrome is autosomal dominant, usually de novo, and can recur through an affected parent.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"22q11.2DS is an autosomal dominant contiguous gene deletion"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports genetic counseling around inheritance and recurrence risk.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Speech therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">speech therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000930</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000930">MAXO:0000930</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Management of velopharyngeal insufficiency and hypernasal speech.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"speech therapy"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Speech therapy is part of the recommended management.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Immunological monitoring
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Regular monitoring of immune function and vaccination responses. Live vaccines may be contraindicated depending on T-cell function.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Infants with lymphocyte abnormalities should not be immunized with live vaccines"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Vaccine precautions based on immune status are recommended.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36648576" target="_blank">PMID:36648576</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Current practices vary widely regarding the immunological work-up and management"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Current clinical practice guidelines specifically address immune assessment, live-vaccine decisions, and follow-up intensity in 22q11.2DS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
         <div class="card" id="trials">
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
                 <h2 class="card-title">Clinical Trials</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT01220531
-                    
+
                     <span class="tag tag-phase">NOT_APPLICABLE</span>
-                    
-                    
+
+
                     <span class="tag tag-status">COMPLETED</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Expanded-access study of cultured thymus tissue implantation for complete DiGeorge anomaly with absent thymus function.</div>
-                
-                
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cellular immunodeficiency
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005374">HP:0005374</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01220531" target="_blank">clinicaltrials:NCT01220531</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This expanded access study continues cultured thymus tissue safety and efficacy research for the treatment of complete DiGeorge anomaly."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov documents a completed expanded-access thymus transplantation study relevant to complete DiGeorge anomaly.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5702,7 +6126,7 @@ progression:
     reference_title: &#34;Chromosome 22q11.2 Deletion (DiGeorge Syndrome): Immunologic Features, Diagnosis, and Management.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;demonstrates successful spontaneous immune reconstitution in&#34;
+    snippet: &#34;variability of presentation and potential severity of T cell lymphopenia in partial DiGeorge syndrome ... demonstrates successful spontaneous immune reconstitution in partial DiGeorge syndrome despite initial severe T cell lymphopenia&#34;
     explanation: This 2023 immunology review supports a variable immune course with possible spontaneous reconstitution in partial DiGeorge syndrome.
 - phase: Adolescent and adult psychiatric risk
   age_range: Adolescence through adulthood
@@ -5714,7 +6138,7 @@ progression:
     reference_title: &#34;Prevalence and incidence of psychotic disorders in 22q11.2 deletion syndrome: a meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Mean age was also significantly positively associated with&#34;
+    snippet: &#34;Prevalence was significantly higher in samples with a mean age over 18 years ... Mean age was also significantly positively associated with prevalence in meta-regressions (p &lt; 0.01)&#34;
     explanation: Meta-analysis supports age-associated increase in observed psychotic-disorder prevalence.
 pathophysiology:
 - name: TBX1 haploinsufficiency and pharyngeal arch development
@@ -5955,13 +6379,13 @@ pathophysiology:
     reference_title: &#34;Ranbp1, Deleted in DiGeorge/22q11.2 Deletion Syndrome, is a Microcephaly Gene That Selectively Disrupts Layer 2/3 Cortical Projection Neuron Generation.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: &#34;frequency of layer 2/3, but not layer 5/6 cortical projection neurons.&#34;
+    snippet: &#34;Ranbp1 ... is included within the DiGeorge/22q11.2 Deletion Syndrome (22q11.2 DS) critical region ... Ranbp1(-/-)-dependent proliferative deficits substantially diminish the frequency of layer 2/3, but not layer 5/6 cortical projection neurons.&#34;
     explanation: Mouse model evidence links a deleted-region gene to altered cortical progenitor proliferation and upper-layer cortical neuron generation.
   - reference: PMID:18769474
     reference_title: &#34;Proline affects brain function in 22q11DS children with the low activity COMT 158 allele.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;therefore especially vulnerable to this functional disruption.&#34;
+    snippet: &#34;COMT activity and proline levels may therefore be altered in 22q11DS individuals ... elevated proline negatively affects brain function by an increase in dopamine in the prefrontal cortex. 22q11DS patients with low dopamine catabolic capacity are therefore especially vulnerable to this functional disruption.&#34;
     explanation: Human clinical physiology evidence supports a COMT/PRODH-related proline-dopamine mechanism affecting prefrontal function in 22q11.2DS.
 phenotypes:
 - name: Conotruncal heart defect
@@ -6484,596 +6908,596 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">33</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
                             </div>
-                            
+
                             <div class="reference-title">22q11.2 Deletion Syndrome.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/36648576" target="_blank">PMID:36648576</a>
                             </div>
-                            
+
                             <div class="reference-title">Clinical Practice Guidelines for the Immunological Management of Chromosome 22q11.2 Deletion Syndrome and Other Defects in Thymic Development.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/36786112" target="_blank">PMID:36786112</a>
                             </div>
-                            
+
                             <div class="reference-title">Prevalence and incidence of psychotic disorders in 22q11.2 deletion syndrome: a meta-analysis.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/36897497" target="_blank">PMID:36897497</a>
                             </div>
-                            
+
                             <div class="reference-title">Chromosome 22q11.2 Deletion (DiGeorge Syndrome): Immunologic Features, Diagnosis, and Management.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/genes15030321" target="_blank">DOI:10.3390/genes15030321</a>
                             </div>
-                            
+
                             <div class="reference-title">Understanding the Variability of 22q11.2 Deletion Syndrome: The Role of Epigenetic Factors</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://clinicaltrials.gov/study/NCT01220531" target="_blank">clinicaltrials:NCT01220531</a>
                             </div>
-                            
+
                             <div class="reference-title">Safety and Efficacy of Thymus Transplantation in Complete DiGeorge Anomaly, IND#9836</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://clinicaltrials.gov/study/NCT00576407" target="_blank">clinicaltrials:NCT00576407</a>
                             </div>
-                            
+
                             <div class="reference-title">Phase II Study of Thymus Transplantation in Complete DiGeorge Syndrome #668</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1002/pd.6566" target="_blank">DOI:10.1002/pd.6566</a>
                             </div>
-                            
+
                             <div class="reference-title">Prenatal cardiac findings and 22q11.2 deletion syndrome: Fetal detection and evaluation</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s10875-022-01418-y" target="_blank">DOI:10.1007/s10875-022-01418-y</a>
                             </div>
-                            
+
                             <div class="reference-title">Clinical Practice Guidelines for the Immunological Management of Chromosome 22q11.2 Deletion Syndrome and Other Defects in Thymic Development</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s11882-023-01071-4" target="_blank">DOI:10.1007/s11882-023-01071-4</a>
                             </div>
-                            
+
                             <div class="reference-title">Chromosome 22q11.2 Deletion (DiGeorge Syndrome): Immunologic Features, Diagnosis, and Management</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.eclinm.2020.100528" target="_blank">DOI:10.1016/j.eclinm.2020.100528</a>
                             </div>
-                            
+
                             <div class="reference-title">22q11.2 microdeletion and increased risk for type 2 diabetes</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/s0022-5347(05)64215-2" target="_blank">DOI:10.1016/s0022-5347(05)64215-2</a>
                             </div>
-                            
+
                             <div class="reference-title">Genitourinary Malformations in Chromosome 22q11.2 Deletion</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41366-024-01685-2" target="_blank">DOI:10.1038/s41366-024-01685-2</a>
                             </div>
-                            
+
                             <div class="reference-title">Obesity and metabolic syndrome in adults with a 22q11.2 microdeletion</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41436-019-0509-y" target="_blank">DOI:10.1038/s41436-019-0509-y</a>
                             </div>
-                            
+
                             <div class="reference-title">All-cause mortality and survival in adults with 22q11.2 deletion syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41598-025-33979-4" target="_blank">DOI:10.1038/s41598-025-33979-4</a>
                             </div>
-                            
+
                             <div class="reference-title">Evaluating the effectiveness of routine noninvasive prenatal screening for CNVs in 22q11.2 region in a cohort of 38,495 pregnancies</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1073/pnas.0905696106" target="_blank">DOI:10.1073/pnas.0905696106</a>
                             </div>
-                            
+
                             <div class="reference-title">Diminished dosage of 22q11 genes disrupts neurogenesis and cortical development in a mouse model of 22q11 deletion/DiGeorge syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1080/09540261.2022.2123273" target="_blank">DOI:10.1080/09540261.2022.2123273</a>
                             </div>
-                            
+
                             <div class="reference-title">Prevalence and incidence of psychotic disorders in 22q11.2 deletion syndrome: a meta-analysis</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1093/humrep/dez286" target="_blank">DOI:10.1093/humrep/dez286</a>
                             </div>
-                            
+
                             <div class="reference-title">A minimum estimate of the prevalence of 22q11 deletion syndrome and other chromosome abnormalities in a combined prenatal and postnatal cohort</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1101/2024.06.23.24309352" target="_blank">DOI:10.1101/2024.06.23.24309352</a>
                             </div>
-                            
+
                             <div class="reference-title">Epigenetic factors in the 22q11.2 deletion syndrome in relation to stress and schizophrenia</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1136/jmg-2025-110624" target="_blank">DOI:10.1136/jmg-2025-110624</a>
                             </div>
-                            
+
                             <div class="reference-title">Congenital heart disease in 22q11.2 deletion syndrome: a meta-analysis and systematic review of the literature</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fendo.2023.1209577" target="_blank">DOI:10.3389/fendo.2023.1209577</a>
                             </div>
-                            
+
                             <div class="reference-title">Risk of thyroid neoplasms in patients with 22q11.2 deletion and DiGeorge-like syndromes: an insight for follow-up</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fgene.2019.01365" target="_blank">DOI:10.3389/fgene.2019.01365</a>
                             </div>
-                            
+
                             <div class="reference-title">The Genetics and Epigenetics of 22q11.2 Deletion Syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fgene.2023.1146669" target="_blank">DOI:10.3389/fgene.2023.1146669</a>
                             </div>
-                            
+
                             <div class="reference-title">Positive cfDNA screening results for 22q11.2 deletion syndrome: Clinical and laboratory considerations</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fgene.2026.1737027" target="_blank">DOI:10.3389/fgene.2026.1737027</a>
                             </div>
-                            
+
                             <div class="reference-title">Delineating the trajectory of adult chronic diseases and healthcare use for 22q11.2 microdeletion in a general population context</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fpsyg.2014.00566" target="_blank">DOI:10.3389/fpsyg.2014.00566</a>
                             </div>
-                            
+
                             <div class="reference-title">The development of cognitive control in children with chromosome 22q11.2 deletion syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/genes13112003" target="_blank">DOI:10.3390/genes13112003</a>
                             </div>
-                            
+
                             <div class="reference-title">Environmental Influences on the Relation between the 22q11.2 Deletion Syndrome and Mental Health: A Literature Review</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/ijms24098317" target="_blank">DOI:10.3390/ijms24098317</a>
                             </div>
-                            
+
                             <div class="reference-title">Chromosome 22q11.2 Deletion Syndrome: A Comprehensive Review of Molecular Genetics in the Context of Multidisciplinary Clinical Approach</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.5937/medi0-58355" target="_blank">DOI:10.5937/medi0-58355</a>
                             </div>
-                            
+
                             <div class="reference-title">Neurodevelopmental disorders in children with 22q11.2 deletion syndrome and recommendations for pediatric follow-up</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/18769474" target="_blank">PMID:18769474</a>
                             </div>
-                            
+
                             <div class="reference-title">Proline affects brain function in 22q11DS children with the low activity COMT 158 allele.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20664180" target="_blank">PMID:20664180</a>
                             </div>
-                            
+
                             <div class="reference-title">Evaluation of parathyroid gland function using sodium bicarbonate infusion test for 22q11.2 deletion syndrome.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/22318985" target="_blank">PMID:22318985</a>
                             </div>
-                            
+
                             <div class="reference-title">Congenital heart defects in a novel recurrent 22q11.2 deletion harboring the genes CRKL and MAPK1.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/25452572" target="_blank">PMID:25452572</a>
                             </div>
-                            
+
                             <div class="reference-title">Ranbp1, Deleted in DiGeorge/22q11.2 Deletion Syndrome, is a Microcephaly Gene That Selectively Disrupts Layer 2/3 Cortical Projection Neuron Generation.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/9708481" target="_blank">PMID:9708481</a>
                             </div>
-                            
+
                             <div class="reference-title">Frequency of 22q11 deletions in patients with conotruncal defects.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -7106,29 +7530,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Characteristics Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">69 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-29T16:48:10.724837</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -8363,29 +8787,29 @@ A highly cited genetics/epigenetics review links pathology to defective remodeli
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Perplexity</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Executive Summary</div>
-                            
-                            
+
+
                             <span class="report-badge">sonar-deep-research</span>
-                            
-                            
+
+
                             <span class="report-badge">54 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-02-03T19:03:06.369871</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>Executive Summary</h2>
 <p>22q11.2 Deletion Syndrome (22q11.2DS), historically recognized as DiGeorge syndrome and velocardiofacial syndrome, represents one of the most common human chromosomal microdeletions, occurring in approximately 1 in 4,000 live births[1][2][3]. The syndrome results from a hemizygous microdeletion spanning 1.5 to 3.0 megabases on chromosome 22, encompassing more than 30 protein-coding genes and multiple non-coding regulatory elements[1][2][3]. This chromosomal lesion disrupts the coordinated development of structures derived from the pharyngeal apparatus and neural crest tissues, leading to a highly heterogeneous constellation of clinical manifestations affecting multiple organ systems including the heart, immune system, endocrine glands, skeleton, and central nervous system[1][2][3]. The pathophysiology of 22q11.2DS reflects not a single gene defect but rather the cumulative haploinsufficiency of multiple genes acting on common cellular mechanisms during critical developmental windows, with primary causality attributed to the TBX1 gene and modifying contributions from genes such as COMT, PRODH, DGCR8, and CLDN5[2][3][4]. Recent molecular research has identified disruptions in brain metabolism, mitochondrial function, microRNA biogenesis, and blood-brain barrier integrity as central mechanisms underlying the neuropsychiatric vulnerability observed in 22q11.2DS patients, particularly the markedly elevated risk for schizophrenia spectrum disorders[5][6][7][8]. This comprehensive report synthesizes current understanding of 22q11.2DS pathophysiology by integrating molecular, cellular, developmental, and systems-level mechanisms that collectively explain the diverse and variable clinical phenotypes characterizing this complex genetic disorder.</p>
@@ -8495,11 +8919,11 @@ A highly cited genetics/epigenetics review links pathology to defective remodeli
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -8549,7 +8973,7 @@ A highly cited genetics/epigenetics review links pathology to defective remodeli
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "22q11.2 Deletion Syndrome", "mondoId": "MONDO:0018923", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "22q11.2_Deletion_Syndrome", "yamlRevision": "4f0f6cd9e86e"};
+        const OS_CONFIG = {"diseaseName": "22q11.2 Deletion Syndrome", "mondoId": "MONDO:0018923", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "22q11.2_Deletion_Syndrome", "yamlRevision": "44d2b410a0b1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
