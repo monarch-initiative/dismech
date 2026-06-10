@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>PKP2_Cardiomyopathy</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Genetic</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0012180" target="_blank">
                         MONDO:0012180
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Cardiovascular Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Genetic Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 PKP2-related arrhythmogenic cardiomyopathy is the most common genetic form of arrhythmogenic right ventricular cardiomyopathy (ARVC), caused by loss-of-function mutations in PKP2 encoding the desmosomal protein plakophilin-2. PKP2 mutations account for approximately 40-50% of ARVC cases and up to 70% of familial ARVC. The disease is characterized by progressive fibrofatty replacement of right ventricular myocardium, ventricular arrhythmias, and risk of sudden cardiac death, particularly in young athletes. Inheritance is autosomal dominant with incomplete penetrance. While PKP2 variants have been reported in association with Brugada syndrome, catecholaminergic polymorphic ventricular tachycardia (CPVT), and dilated cardiomyopathy phenotypes, these associations remain disputed and the definitive gene-disease relationship is with ARVC.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,34 +3065,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3030,8 +3100,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3039,9 +3109,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3049,10 +3119,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3060,8 +3130,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3069,8 +3139,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3078,15 +3148,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3094,842 +3164,960 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal dominant
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Incomplete penetrance is characteristic. In two kindreds with ARVC, disease was incompletely penetrant in most carriers of PKP2 mutations.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
+
+
         <span class="tag tag-classification">Penetrance: INCOMPLETE</span>
-        
-        
-        
-        
+
+
+
+
     </div>
-    
-    
-    
-                
-    
-    
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-desmosomal-disruption">
                 <div class="item-name">Desmosomal Disruption</div>
-                
+
                 <div class="item-desc">Loss-of-function mutations in PKP2 destabilize the cardiac desmosome, the principal cell-cell adhesion structure at cardiomyocyte intercalated discs. Plakophilin-2 normally links desmosomal cadherins to the intermediate filament cytoskeleton. Loss of PKP2 causes failure of mechanical coupling between cardiomyocytes, particularly under conditions of hemodynamic stress.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        PKP2
-                        
-                        <a href="https://bioregistry.io/hgnc:9024" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PKP2
+
+
+    <a href="https://bioregistry.io/hgnc:9024" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9024">hgnc:9024</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cell-cell adhesion
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0098609">GO:0098609</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cadherin binding
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045296" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045296" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045296">GO:0045296</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         heart right ventricle
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002080">UBERON:0002080</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Wnt/Beta-Catenin Signaling Suppression</span>
-	                            
+
 	                            <span class="crosslink-desc">Disrupted desmosomes release plakoglobin to the nucleus where it competitively suppresses canonical Wnt signaling</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Gap Junction Remodeling</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of desmosomal integrity causes secondary loss of connexin43 gap junction plaques</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Fibrofatty Replacement</span>
-	                            
+
 	                            <span class="crosslink-desc">Mechanical uncoupling leads to cardiomyocyte detachment and death</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489853" target="_blank">PMID:15489853</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In 32 of 120 unrelated individuals with ARVC, we identified heterozygous mutations in PKP2, which encodes plakophilin-2, an essential armadillo-repeat protein of the cardiac desmosome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies PKP2 as an essential desmosomal protein whose mutations cause ARVC.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-signaling-suppression">
                 <div class="item-name">Wnt/Beta-Catenin Signaling Suppression</div>
-                
+
                 <div class="item-desc">Desmosomal disruption causes nuclear translocation of plakoglobin, which competitively inhibits beta-catenin-mediated canonical Wnt signaling through Tcf/Lef1 transcription factors. Suppression of Wnt signaling upregulates adipogenic and fibrogenic gene expression programs, driving the characteristic fibrofatty replacement of myocardium.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Wnt signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016055">GO:0016055</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         fat cell differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045444">GO:0045444</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Fibrofatty Replacement</span>
-	                            
+
 	                            <span class="crosslink-desc">Suppressed Wnt signaling activates adipogenic transcription programs</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16823493" target="_blank">PMID:16823493</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"suppression of DP expression leads to nuclear localization of the desmosomal protein plakoglobin and a 2-fold reduction in canonical Wnt/beta-catenin signaling through Tcf/Lef1 transcription factors. The ensuing phenotype is increased expression of adipogenic and fibrogenic genes and..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that desmosomal disruption causes Wnt suppression via nuclear plakoglobin, leading to adipogenesis and fibrosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gap-junction-remodeling">
                 <div class="item-name">Gap Junction Remodeling</div>
-                
+
                 <div class="item-desc">Loss of PKP2 leads to secondary reduction in connexin43 (Cx43) expression and abnormal localization at intercalated discs. Gap junction loss impairs electrical coupling between cardiomyocytes, creating the arrhythmogenic substrate that precedes structural disease.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         gap junction assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016264">GO:0016264</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ventricular Arrhythmias</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired electrical coupling creates slow conduction and re-entrant circuits</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18662195" target="_blank">PMID:18662195</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Reduced connexin43 expression and localization to the intercalated disk occurs in heterozygous human PKP-2 mutations, potentially explaining the delayed conduction and propensity to develop arrhythmias seen in this disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Direct human biopsy evidence of reduced Cx43 expression in PKP2 mutation carriers.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrofatty-replacement">
                 <div class="item-name">Fibrofatty Replacement</div>
-                
+
                 <div class="item-desc">Progressive replacement of right ventricular myocardium with fibroadipocytic tissue is the pathological hallmark of PKP2-related ARVC. This results from cardiomyocyte death due to mechanical uncoupling, combined with Wnt-suppression-driven adipogenic differentiation of cardiac progenitor cells. The right ventricle is preferentially affected due to its thinner wall and greater mechanical stress.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         fibroblast of cardiac tissue
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         adipocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         heart right ventricle
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002080">UBERON:0002080</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-location">
                         myocardium
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002349">UBERON:0002349</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ventricular Arrhythmias</span>
-	                            
+
 	                            <span class="crosslink-desc">Fibrofatty tissue creates substrate for re-entrant arrhythmias</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Right Ventricular Dysfunction</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16823493" target="_blank">PMID:16823493</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Heterozygous DP-deficient mice exhibited excess adipocytes and fibrosis in the myocardium, increased myocyte apoptosis, cardiac dysfunction, and ventricular arrhythmias, thus recapitulating the phenotype of human ARVC."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model demonstrates fibrofatty replacement and arrhythmias recapitulating human ARVC.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-arrhythmias">
                 <div class="item-name">Ventricular Arrhythmias</div>
-                
+
                 <div class="item-desc">Ventricular tachycardia and ventricular fibrillation arise from the combined effects of gap junction remodeling (electrical uncoupling) and fibrofatty replacement creating re-entrant circuits. Arrhythmias may occur in the concealed phase before overt structural disease, driven by electrical remodeling alone.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Sudden Cardiac Death</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489853" target="_blank">PMID:15489853</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Arrhythmogenic right ventricular cardiomyopathy (ARVC) is associated with fibrofatty replacement of cardiac myocytes, ventricular tachyarrhythmias and sudden cardiac death."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes the association of ARVC with ventricular tachyarrhythmias and sudden cardiac death.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-ventricular-dysfunction">
                 <div class="item-name">Right Ventricular Dysfunction</div>
-                
+
                 <div class="item-desc">Progressive fibrofatty replacement of the right ventricular wall leads to right ventricular dilatation, wall motion abnormalities, and eventual right heart failure. Some patients also develop left ventricular involvement, though PKP2 mutation carriers are less likely to develop left ventricular damage than non-PKP2 ARVC.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         heart right ventricle
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002080">UBERON:0002080</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34191271" target="_blank">PMID:34191271</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ARVC patients with PKP2 mutation are less likely to present left ventricular involvement and heart failure symptoms."</div>
-                
-                
+
+
                 <div class="evidence-explanation">PKP2 carriers show predominantly right ventricular phenotype with relative sparing of left ventricle.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sudden-cardiac-death">
                 <div class="item-name">Sudden Cardiac Death</div>
-                
+
                 <div class="item-desc">Sudden cardiac death from ventricular fibrillation is the most feared complication, particularly affecting young athletes. Exercise increases right ventricular wall stress and accelerates disease progression, explaining the strong association between vigorous exercise and sudden death in ARVC.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489853" target="_blank">PMID:15489853</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Arrhythmogenic right ventricular cardiomyopathy (ARVC) is associated with fibrofatty replacement of cardiac myocytes, ventricular tachyarrhythmias and sudden cardiac death."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ARVC is explicitly associated with sudden cardiac death.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3940,777 +4128,847 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Desmosomal Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in PKP2 destabilize the cardiac desmosome, the principal cell-cell adhesion structure at cardiomyocyte intercalated discs. Plakophilin-2 normally links desmosomal cadherins to the intermediate filament cytoskeleton. Loss of PKP2 causes failure of mechanical coupling between cardiomyocytes, particularly under conditions of hemodynamic stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell adhesion\"], \"molecular_functions\": [\"cadherin binding\"], \"genes\": [\"PKP2\"], \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Fibrofatty Replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive replacement of right ventricular myocardium with fibroadipocytic tissue is the pathological hallmark of PKP2-related ARVC. This results from cardiomyocyte death due to mechanical uncoupling, combined with Wnt-suppression-driven adipogenic differentiation of cardiac progenitor cells. The right ventricle is preferentially affected due to its thinner wall and greater mechanical stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast of cardiac tissue\", \"adipocyte\"], \"locations\": [\"heart right ventricle\", \"myocardium\"]}}, {\"id\": \"Gap Junction Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PKP2 leads to secondary reduction in connexin43 (Cx43) expression and abnormal localization at intercalated discs. Gap junction loss impairs electrical coupling between cardiomyocytes, creating the arrhythmogenic substrate that precedes structural disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"gap junction assembly\"]}}, {\"id\": \"PKP2 Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"PKP2\"], \"association\": \"Causative\"}}, {\"id\": \"Right Ventricular Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive fibrofatty replacement of the right ventricular wall leads to right ventricular dilatation, wall motion abnormalities, and eventual right heart failure. Some patients also develop left ventricular involvement, though PKP2 mutation carriers are less likely to develop left ventricular damage than non-PKP2 ARVC.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leading cause of mortality, especially in young athletes during exercise.\", \"meta\": {\"term_id\": \"HP:0001645\"}}, {\"id\": \"Ventricular Arrhythmias\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ventricular tachycardia and ventricular fibrillation arise from the combined effects of gap junction remodeling (electrical uncoupling) and fibrofatty replacement creating re-entrant circuits. Arrhythmias may occur in the concealed phase before overt structural disease, driven by electrical remodeling alone.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Wnt/Beta-Catenin Signaling Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Desmosomal disruption causes nuclear translocation of plakoglobin, which competitively inhibits beta-catenin-mediated canonical Wnt signaling through Tcf/Lef1 transcription factors. Suppression of Wnt signaling upregulates adipogenic and fibrogenic gene expression programs, driving the characteristic fibrofatty replacement of myocardium.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\", \"fat cell differentiation\"]}}], \"edges\": [{\"source\": \"Desmosomal Disruption\", \"target\": \"Wnt/Beta-Catenin Signaling Suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted desmosomes release plakoglobin to the nucleus where it competitively suppresses canonical Wnt signaling\"}, {\"source\": \"Desmosomal Disruption\", \"target\": \"Gap Junction Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of desmosomal integrity causes secondary loss of connexin43 gap junction plaques\"}, {\"source\": \"Desmosomal Disruption\", \"target\": \"Fibrofatty Replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mechanical uncoupling leads to cardiomyocyte detachment and death\"}, {\"source\": \"Wnt/Beta-Catenin Signaling Suppression\", \"target\": \"Fibrofatty Replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppressed Wnt signaling activates adipogenic transcription programs\"}, {\"source\": \"Gap Junction Remodeling\", \"target\": \"Ventricular Arrhythmias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired electrical coupling creates slow conduction and re-entrant circuits\"}, {\"source\": \"Fibrofatty Replacement\", \"target\": \"Ventricular Arrhythmias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrofatty tissue creates substrate for re-entrant arrhythmias\"}, {\"source\": \"Fibrofatty Replacement\", \"target\": \"Right Ventricular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ventricular Arrhythmias\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PKP2 Loss-of-Function Variants\", \"target\": \"Desmosomal Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Desmosomal Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in PKP2 destabilize the cardiac desmosome, the principal cell-cell adhesion structure at cardiomyocyte intercalated discs. Plakophilin-2 normally links desmosomal cadherins to the intermediate filament cytoskeleton. Loss of PKP2 causes failure of mechanical coupling between cardiomyocytes, particularly under conditions of hemodynamic stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell adhesion\"], \"molecular_functions\": [\"cadherin binding\"], \"genes\": [\"PKP2\"], \"gene_terms\": [{\"label\": \"PKP2\", \"id\": \"hgnc:9024\"}], \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Fibrofatty Replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive replacement of right ventricular myocardium with fibroadipocytic tissue is the pathological hallmark of PKP2-related ARVC. This results from cardiomyocyte death due to mechanical uncoupling, combined with Wnt-suppression-driven adipogenic differentiation of cardiac progenitor cells. The right ventricle is preferentially affected due to its thinner wall and greater mechanical stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast of cardiac tissue\", \"adipocyte\"], \"locations\": [\"heart right ventricle\", \"myocardium\"]}}, {\"id\": \"Gap Junction Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PKP2 leads to secondary reduction in connexin43 (Cx43) expression and abnormal localization at intercalated discs. Gap junction loss impairs electrical coupling between cardiomyocytes, creating the arrhythmogenic substrate that precedes structural disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"gap junction assembly\"]}}, {\"id\": \"PKP2 Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"PKP2\"], \"gene_terms\": [{\"label\": \"PKP2\", \"id\": \"hgnc:9024\"}], \"association\": \"Causative\"}}, {\"id\": \"Right Ventricular Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive fibrofatty replacement of the right ventricular wall leads to right ventricular dilatation, wall motion abnormalities, and eventual right heart failure. Some patients also develop left ventricular involvement, though PKP2 mutation carriers are less likely to develop left ventricular damage than non-PKP2 ARVC.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leading cause of mortality, especially in young athletes during exercise.\", \"meta\": {\"term_id\": \"HP:0001645\"}}, {\"id\": \"Ventricular Arrhythmias\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ventricular tachycardia and ventricular fibrillation arise from the combined effects of gap junction remodeling (electrical uncoupling) and fibrofatty replacement creating re-entrant circuits. Arrhythmias may occur in the concealed phase before overt structural disease, driven by electrical remodeling alone.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Wnt/Beta-Catenin Signaling Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Desmosomal disruption causes nuclear translocation of plakoglobin, which competitively inhibits beta-catenin-mediated canonical Wnt signaling through Tcf/Lef1 transcription factors. Suppression of Wnt signaling upregulates adipogenic and fibrogenic gene expression programs, driving the characteristic fibrofatty replacement of myocardium.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\", \"fat cell differentiation\"]}}], \"edges\": [{\"source\": \"Desmosomal Disruption\", \"target\": \"Wnt/Beta-Catenin Signaling Suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted desmosomes release plakoglobin to the nucleus where it competitively suppresses canonical Wnt signaling\"}, {\"source\": \"Desmosomal Disruption\", \"target\": \"Gap Junction Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of desmosomal integrity causes secondary loss of connexin43 gap junction plaques\"}, {\"source\": \"Desmosomal Disruption\", \"target\": \"Fibrofatty Replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mechanical uncoupling leads to cardiomyocyte detachment and death\"}, {\"source\": \"Wnt/Beta-Catenin Signaling Suppression\", \"target\": \"Fibrofatty Replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppressed Wnt signaling activates adipogenic transcription programs\"}, {\"source\": \"Gap Junction Remodeling\", \"target\": \"Ventricular Arrhythmias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired electrical coupling creates slow conduction and re-entrant circuits\"}, {\"source\": \"Fibrofatty Replacement\", \"target\": \"Ventricular Arrhythmias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrofatty tissue creates substrate for re-entrant arrhythmias\"}, {\"source\": \"Fibrofatty Replacement\", \"target\": \"Right Ventricular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ventricular Arrhythmias\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PKP2 Loss-of-Function Variants\", \"target\": \"Desmosomal Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">9</span>
             </div>
-            
-            
-            
+
+
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Ventricular Tachycardia
-                    
-                    
+
+
                     <span class="phenotype-category">Cardiovascular</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank">
-                            HP:0004756
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004756">HP:0004756</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489853" target="_blank">PMID:15489853</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Arrhythmogenic right ventricular cardiomyopathy (ARVC) is associated with fibrofatty replacement of cardiac myocytes, ventricular tachyarrhythmias and sudden cardiac death."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly establishes the association of PKP2-related ARVC with ventricular tachyarrhythmias.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Right Ventricular Dilatation
-                    
-                    
+
+
                     <span class="phenotype-category">Cardiovascular</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005133" target="_blank">
-                            HP:0005133
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005133" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005133">HP:0005133</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
-    
-                
-    
-    
+
+
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Fibrofatty Replacement of RV Myocardium
-                    
-                    
+
+
                     <span class="phenotype-category">Cardiovascular</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0034364" target="_blank">
-                            HP:0034364
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034364" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034364">HP:0034364</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
-    
-                
-    
-    
+
+
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Sudden Cardiac Death
-                    
-                    
+
+
                     <span class="phenotype-category">Cardiovascular</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank">
-                            HP:0001645
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
-    
-                
-    
-    
+
+
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     T-wave Inversion
-                    
-                    
+
+
                     <span class="phenotype-category">Cardiovascular</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0010872" target="_blank">
-                            HP:0010872
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010872" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010872">HP:0010872</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16567567" target="_blank">PMID:16567567</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"negative T waves in V(2) and V(3) occurred more often in PKP2 mutation carriers (P&lt;0.05)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">T-wave inversions in V2-V3 are significantly more common in PKP2 mutation carriers.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Syncope
-                    
-                    
+
+
                     <span class="phenotype-category">Cardiovascular</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank">
-                            HP:0001279
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001279">HP:0001279</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
-    
-                
-    
-    
+
+
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Palpitations
-                    
-                    
+
+
                     <span class="phenotype-category">Cardiovascular</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank">
-                            HP:0001962
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001962">HP:0001962</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
-    
-                
-    
-    
+
+
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Congestive Heart Failure
-                    
-                    
+
+
                     <span class="phenotype-category">Cardiovascular</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank">
-                            HP:0001635
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34191271" target="_blank">PMID:34191271</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients carrying a PKP2 mutation were younger at diagnosis (p = 0.003), more often had negative T waves in V1-V3 (p = 0.01), had higher left ventricular ejection fraction (p = 0.04), and were less likely to present symptoms of heart failure (p = 0.01)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">PKP2 carriers have better preserved LV function and lower heart failure rates.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Right Ventricular Cardiomyopathy
-                    
-                    
+
+
                     <span class="phenotype-category">Cardiovascular</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011663" target="_blank">
-                            HP:0011663
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011663">HP:0011663</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
-    
-                
-    
-    
+
+
+
+
+
+
+
+
+
             </div>
-            
-            
+
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     PKP2 Loss-of-Function Variants
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PKP2
+
+
+    <a href="https://bioregistry.io/hgnc:9024" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9024">hgnc:9024</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489853" target="_blank">PMID:15489853</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In 32 of 120 unrelated individuals with ARVC, we identified heterozygous mutations in PKP2, which encodes plakophilin-2, an essential armadillo-repeat protein of the cardiac desmosome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">First identification of PKP2 mutations as a common cause of ARVC.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16567567" target="_blank">PMID:16567567</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In 24 of these 56 ARVC patients (43%), 14 different (11 novel) PKP2 mutations were identified."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes PKP2 mutations in 43% of ARVC patients fulfilling Task Force Criteria.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34120153" target="_blank">PMID:34120153</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We identify the PKP2 C-terminus as a potential functional domain and find that truncating variants likely cause disease irrespective of transcript position."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large multicohort study demonstrating near-complete specificity of PKP2 truncating variants for ARVC and identifying the C-terminus as a functional domain.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Beta-Blocker Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">beta-blocker pharmacotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Beta-blockers (sotalol, metoprolol) are first-line antiarrhythmic therapy to suppress ventricular arrhythmias and reduce adrenergic stimulation.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Implantable Cardioverter-Defibrillator
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">implantable cardioverter-defibrillator placement</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">ICD implantation is the primary intervention for prevention of sudden cardiac death in high-risk patients with ARVC, including those with sustained ventricular arrhythmias, syncope, or significant RV dysfunction.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Exercise Restriction
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">avoid excessive exercise</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000802" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000802</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000802" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000802">MAXO:0000802</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Avoidance of competitive and high-intensity endurance exercise is recommended as vigorous exercise accelerates disease progression by increasing right ventricular wall stress and promoting desmosomal disruption.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Antiarrhythmic Drug Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">antiarrhythmic pharmacotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Antiarrhythmic agents (amiodarone, flecainide) may be used adjunctively for suppression of ventricular arrhythmias when beta-blockers are insufficient.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Heart Transplantation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">heart transplantation</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: organ transplantation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0010039</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0010039">MAXO:0010039</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Cardiac transplantation is indicated for end-stage biventricular failure refractory to medical therapy. Combined endpoint of death or heart transplant was less frequent in PKP2 carriers than non-PKP2 ARVC patients.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34191271" target="_blank">PMID:34191271</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Combined endpoint of death or heart transplant was more frequent in subgroup without PKP2 mutation (p = 0.03)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">PKP2 carriers have better survival and lower transplant rates.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5220,42 +5478,42 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">PKP2 Cardiomyopathy (PKP2-ACM): Comprehensive Disease Characteristics Report</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">52 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-04T12:37:12.791682</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>PKP2 Cardiomyopathy (PKP2-ACM): Comprehensive Disease Characteristics Report</h1>
 <h2>Executive summary</h2>
@@ -5656,11 +5914,11 @@ notes: &gt;-
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

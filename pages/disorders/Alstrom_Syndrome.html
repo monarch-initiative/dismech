@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Alstrom Syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Genetic</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0008763" target="_blank">
                         MONDO:0008763
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Syndromic Obesity</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Ciliopathy</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Alstrom syndrome is a rare autosomal recessive multisystem ciliopathy caused by biallelic ALMS1 loss-of-function variants. The disease combines early retinal degeneration and progressive sensorineural hearing loss with childhood obesity, insulin resistance, type II diabetes mellitus, cardiomyopathy, and progressive kidney and liver involvement. The central mechanistic theme is ALMS1 dysfunction at centrosomes and ciliary basal bodies, with downstream defects in adipose tissue biology, sensory-cell maintenance, and fibrotic remodeling.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,34 +3065,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3030,8 +3100,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3039,8 +3109,8 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#histopathology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">✶</div>
@@ -3048,8 +3118,8 @@
                 <div class="stat-label">Histopath.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3057,10 +3127,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3068,8 +3138,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3077,8 +3147,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3086,15 +3156,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3102,1259 +3172,1420 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Alstrom syndrome is caused by biallelic germline ALMS1 variants and shows marked age-dependent variability, including transient infantile cardiomyopathy in some patients and later adult cardiomyopathy in others.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
+
+
+
+
         <span class="tag tag-classification">Expressivity: VARIABLE</span>
-        
-        
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11941369" target="_blank">PMID:11941369</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Alström syndrome is a homogeneous autosomal recessive disorder that is characterized by childhood obesity associated with hyperinsulinemia, chronic hyperglycemia and neurosensory deficits."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Landmark discovery paper states the autosomal recessive inheritance pattern.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38806112" target="_blank">PMID:38806112</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"BACKGROUND: &gt;40% of infants with Alström Syndrome (AS) present with a transient, severe cardiomyopathy in the first months of life, with apparent recovery in survivors. One in five individuals then develop a later-onset cardiomyopathy but wide clinical variability is observed, even within the..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Adult cardiovascular cohort demonstrates variable expressivity across the lifespan and even within families.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alms1-basal-body-dysfunction">
                 <div class="item-name">ALMS1 Basal Body Dysfunction</div>
-                
+
                 <div class="item-desc">ALMS1 is a centrosome and ciliary basal body-associated protein. Loss of ALMS1 function disrupts basal-body dependent cellular organization across multiple tissues and acts as the upstream lesion for the sensory, renal, metabolic, and fibrotic components of Alstrom syndrome.</div>
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ALMS1
+
+
+    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:428">hgnc:428</a>
+
+
+
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
                     <span class="tag tag-component">
                         centrosome
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005813" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005813" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005813">GO:0005813</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-component">
                         ciliary basal body
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Relative Adipose Tissue Failure</span>
-	                            
+
 	                            <span class="crosslink-desc">ALMS1 loss compromises adipose tissue buffering capacity and promotes metabolically adverse obesity.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Extracellular Matrix Dysregulation</span>
-	                            
+
 	                            <span class="crosslink-desc">Cilia-linked signaling defects alter matrix remodeling programs and favor multiorgan fibrotic disease.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Kidney Ciliary Dysfunction</span>
-	                            
+
 	                            <span class="crosslink-desc">Renal tubular primary cilia lose normal maintenance and mechanosensory function.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Photoreceptor Degeneration</span>
-	                            
+
 	                            <span class="crosslink-desc">Photoreceptor cells progressively fail when ALMS1-dependent ciliary trafficking is lost.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cochlear Outer Hair Cell Degeneration</span>
-	                            
+
 	                            <span class="crosslink-desc">Hair-cell basal body dysfunction perturbs inner-ear sensory-cell polarity and survival.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15855349" target="_blank">PMID:15855349</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We show that ALMS1 is widely expressed and localizes to centrosomes and to the base of cilia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cell localization experiments place ALMS1 at the centrosome and basal body, supporting a primary ciliary-basal body mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11941370" target="_blank">PMID:11941370</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We have detected six different mutations (two nonsense and four frameshift mutations causing premature stop codons) in seven families, confirming that ALMS1 is the gene underlying Alström syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human genetic evidence links ALMS1 loss to disease and anchors basal body dysfunction as the upstream defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-relative-adipose-tissue-failure">
                 <div class="item-name">Relative Adipose Tissue Failure</div>
-                
+
                 <div class="item-desc">Obesity in Alstrom syndrome is accompanied by inadequate adipose tissue expansion and adipocyte dysfunction, producing a metabolically fragile state in which insulin resistance develops early and progresses rapidly.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         adipocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Insulin resistance</span>
-	                            
+
 	                            <span class="crosslink-desc">Limited adipose buffering capacity accelerates systemic insulin resistance.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Type II diabetes mellitus</span>
-	                            
+
 	                            <span class="crosslink-desc">Progressive insulin resistance drives diabetes as beta-cell compensation fails.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypertriglyceridemia</span>
-	                            
+
 	                            <span class="crosslink-desc">Adipose tissue failure is accompanied by dyslipidemia with elevated triglycerides.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32994277" target="_blank">PMID:32994277</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hence, we show for the first time the relative AT failure in human obese cohorts to be a major determinant of accelerated IR without evidence of lipodystrophy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human metabolic phenotyping identifies relative adipose tissue failure as a proximal mechanism for insulin-resistant obesity in Alstrom syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-matrix-dysregulation">
                 <div class="item-name">Extracellular Matrix Dysregulation</div>
-                
+
                 <div class="item-desc">ALMS1 deficiency alters extracellular matrix regulatory programs, favoring collagen remodeling and fibroproliferative disease in liver and heart.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         fibroblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         collagen fibril organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hepatic steatosis</span>
-	                            
+
 	                            <span class="crosslink-desc">Matrix dysregulation accompanies common steatotic liver involvement in Alstrom syndrome.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cardiac Fibroelastotic Remodeling</span>
-	                            
+
 	                            <span class="crosslink-desc">Abnormal matrix remodeling contributes to infantile fibroelastosis and later adult cardiomyopathy.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38062477" target="_blank">PMID:38062477</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"alterations associated with ALMS1 depletion clustered around the processes of extracellular matrix regulation and lipid metabolism in both the transcriptome and proteome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ALMS1 knockout fibroblast profiling directly links ALMS1 deficiency to extracellular matrix dysregulation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kidney-ciliary-dysfunction">
                 <div class="item-name">Kidney Ciliary Dysfunction</div>
-                
+
                 <div class="item-desc">Renal disease in Alstrom syndrome reflects a primary nephron ciliopathy rather than merely secondary metabolic injury, with progressive tubular ciliary loss and impaired mechanosensory signaling.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         nephron tubule epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_1000494" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000494" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000494">CL:1000494</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cilium organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0044782" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0044782" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044782">GO:0044782</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cellular response to mechanical stimulus
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071260">GO:0071260</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         kidney
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Chronic kidney disease</span>
-	                            
+
 	                            <span class="crosslink-desc">Primary renal involvement progresses with age to chronic kidney disease.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17206865" target="_blank">PMID:17206865</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here, we show that in vitro knockdown of Alms1 in mice causes stunted cilia on kidney epithelial cells and prevents these cells from increasing calcium influx in response to mechanical stimuli."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse kidney epithelial experiments show direct impairment of renal cilia morphology and mechanosensory signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30064963" target="_blank">PMID:30064963</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"After adjusting for age, there were no significant associations of kidney dysfunction with type 2 diabetes mellitus, dyslipidemia, hypertension, cardiomyopathy or portal hypertension suggesting that kidney disease in AS is a primary manifestation of the syndrome due to lack of ALMS1 protein."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human cohort data argue that kidney disease is a primary manifestation of ALMS rather than a secondary metabolic complication.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-degeneration">
                 <div class="item-name">Photoreceptor Degeneration</div>
-                
+
                 <div class="item-desc">ALMS1 deficiency disrupts photoreceptor intracellular trafficking and drives progressive cone and rod degeneration, producing the characteristic retinal dystrophy of Alstrom syndrome.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         retinal rod cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000604">CL:0000604</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         retina
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cone/cone-rod dystrophy</span>
-	                            
+
 	                            <span class="crosslink-desc">Progressive cone and rod loss produces the hallmark retinal dystrophy.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Visual impairment</span>
-	                            
+
 	                            <span class="crosslink-desc">Early photoreceptor loss causes severe lifelong visual disability.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16000322" target="_blank">PMID:16000322</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Diminished cone ERG b-wave response is observed early, followed by the degeneration of photoreceptor cells."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The Alms1 mouse model directly demonstrates progressive photoreceptor degeneration.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"BACKGROUND: Alström syndrome (ALMS) is a rare autosomal recessive multisystem disorder caused by biallelic pathogenic variants in the ALMS1 gene, characterized by progressive cone-rod dystrophy, early-onset obesity, cardiomyopathy, and multiorgan dysfunction."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large human cohort framing confirms progressive cone-rod dystrophy as a core disease manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-outer-hair-cell-degeneration">
                 <div class="item-name">Cochlear Outer Hair Cell Degeneration</div>
-                
+
                 <div class="item-desc">ALMS1 localizes to cochlear hair-cell basal bodies; its loss perturbs planar cell polarity and outer hair cell survival, producing progressive sensory hearing loss.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         cochlear outer hair cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000601">CL:0000601</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         cochlea
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001844">UBERON:0001844</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Sensorineural hearing impairment</span>
-	                            
+
 	                            <span class="crosslink-desc">Progressive predominantly sensory hearing loss reflects outer hair cell dysfunction and loss.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21071598" target="_blank">PMID:21071598</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These results identify previously unrecognized cochlear histopathologies associated with this ciliopathy that (i) implicate ALMS1 in planar cell polarity signaling and (ii) suggest that the loss of outer hair cells causes the majority of the hearing loss in Alström Syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse inner-ear studies support outer hair cell loss as the proximal lesion driving ALMS hearing loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28573831" target="_blank">PMID:28573831</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Absent otoacoustic emissions, intact speech discrimination, and disproportionately normal auditory brainstem responses suggest an outer hair cell site of lesion."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human audiologic phenotyping independently supports an outer hair cell lesion.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-fibroelastotic-remodeling">
                 <div class="item-name">Cardiac Fibroelastotic Remodeling</div>
-                
+
                 <div class="item-desc">Cardiac disease in Alstrom syndrome spans infantile fibroelastotic cardiomyopathy and later adult myocardial remodeling, with both cardiomyocyte and cardiac fibroblast abnormalities implicated.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         fibroblast of cardiac tissue
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         heart
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Dilated cardiomyopathy</span>
-	                            
+
 	                            <span class="crosslink-desc">Infantile and adult myocardial remodeling commonly manifests as cardiomyopathy.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34387706" target="_blank">PMID:34387706</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In this case, the cardiac manifestation in Alstrom syndrome is pEFE."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Pathology-confirmed case shows that infantile ALMS cardiomyopathy can present as primary endocardial fibroelastosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34387706" target="_blank">PMID:34387706</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ALMS1-depleted cardiomyocytes exhibited enhanced proliferation activity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional studies in patient-derived systems implicate direct cardiomyocyte remodeling effects of ALMS1 deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38806112" target="_blank">PMID:38806112</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Cardiomyopathy is common in adults with AS, complicated in a significant proportion by atherosclerotic coronary artery disease and restrictive cardiomyopathy, confirmed on CMR and invasive testing."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Adult cohort data show persistent structural and functional cardiac remodeling beyond infantile disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
         <div class="card" id="histopathology">
             <div class="card-header">
                 <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
                 <h2 class="card-title">Histopathology</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Endocardial fibroelastosis
-                    
+
                     <span class="histopathology-freq">VERY_RARE</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Rare cardiac histopathology in which infantile Alstrom cardiomyopathy is expressed as primary endocardial fibroelastosis with diffuse endocardial thickening.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34387706" target="_blank">PMID:34387706</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In this case, the cardiac manifestation in Alstrom syndrome is pEFE."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Pathology-confirmed case report links infantile Alstrom syndrome to primary endocardial fibroelastosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="graph-warning">
                 <strong>Referential integrity issues (1):</strong>
                 <ul>
-                    
+
                     <li>Target &#39;Hypertriglyceridemia&#39; (from &#39;Relative Adipose Tissue Failure&#39;) not found in named elements</li>
-                    
-                    
+
+
                 </ul>
             </div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4365,668 +4596,695 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALMS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALMS1\"], \"association\": \"Causative\"}}, {\"id\": \"ALMS1 Basal Body Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 is a centrosome and ciliary basal body-associated protein. Loss of ALMS1 function disrupts basal-body dependent cellular organization across multiple tissues and acts as the upstream lesion for the sensory, renal, metabolic, and fibrotic components of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALMS1\"]}}, {\"id\": \"Cardiac Fibroelastotic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac disease in Alstrom syndrome spans infantile fibroelastotic cardiomyopathy and later adult myocardial remodeling, with both cardiomyocyte and cardiac fibroblast abnormalities implicated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"heart\"]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Age-progressive primary kidney involvement with declining kidney function and proteinuria in a subset of adults.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Cochlear Outer Hair Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 localizes to cochlear hair-cell basal bodies; its loss perturbs planar cell polarity and outer hair cell survival, producing progressive sensory hearing loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"locations\": [\"cochlea\"]}}, {\"id\": \"Cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation should be considered for severe or functionally limiting hearing loss not adequately managed with amplification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cone/cone-rod dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early progressive retinal degeneration involving cones and rods, often beginning in infancy and driving lifelong visual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000548\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile or later-onset myocardial disease with ventricular dilation and systolic dysfunction; infantile episodes may partially recover while adult cardiomyopathy can progress.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Extracellular Matrix Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency alters extracellular matrix regulatory programs, favoring collagen remodeling and fibroproliferative disease in liver and heart.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen fibril organization\"]}}, {\"id\": \"GLP-1 Receptor Agonist Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Semaglutide or exenatide can improve weight, glycemia, and lipid parameters in adults with Alstrom syndrome and metabolically significant obesity or diabetes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing aid usage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sound amplification is beneficial for the common progressive sensory hearing loss of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Common metabolic liver involvement that often coexists with early fibrogenic liver stiffness abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early and often severe insulin resistance complicating obesity in Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000855\"}}, {\"id\": \"Kidney Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal disease in Alstrom syndrome reflects a primary nephron ciliopathy rather than merely secondary metabolic injury, with progressive tubular ciliary loss and impaired mechanosensory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nephron tubule epithelial cell\"], \"biological_processes\": [\"cilium organization\", \"cellular response to mechanical stimulus\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset obesity, often beginning in childhood and frequently truncal in distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency disrupts photoreceptor intracellular trafficking and drives progressive cone and rod degeneration, producing the characteristic retinal dystrophy of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Relative Adipose Tissue Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Obesity in Alstrom syndrome is accompanied by inadequate adipose tissue expansion and adipocyte dysfunction, producing a metabolically fragile state in which insulin resistance develops early and progresses rapidly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"]}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive, usually symmetric sensory hearing loss beginning in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Type II diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hyperglycemia emerging as insulin resistance worsens over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005978\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe early-onset visual loss caused by progressive retinal degeneration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Relative Adipose Tissue Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALMS1 loss compromises adipose tissue buffering capacity and promotes metabolically adverse obesity.\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Extracellular Matrix Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cilia-linked signaling defects alter matrix remodeling programs and favor multiorgan fibrotic disease.\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Kidney Ciliary Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal tubular primary cilia lose normal maintenance and mechanosensory function.\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor cells progressively fail when ALMS1-dependent ciliary trafficking is lost.\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Cochlear Outer Hair Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-cell basal body dysfunction perturbs inner-ear sensory-cell polarity and survival.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limited adipose buffering capacity accelerates systemic insulin resistance.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive insulin resistance drives diabetes as beta-cell compensation fails.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Adipose tissue failure is accompanied by dyslipidemia with elevated triglycerides.\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix dysregulation accompanies common steatotic liver involvement in Alstrom syndrome.\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal matrix remodeling contributes to infantile fibroelastosis and later adult cardiomyopathy.\"}, {\"source\": \"Kidney Ciliary Dysfunction\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Primary renal involvement progresses with age to chronic kidney disease.\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Cone/cone-rod dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cone and rod loss produces the hallmark retinal dystrophy.\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early photoreceptor loss causes severe lifelong visual disability.\"}, {\"source\": \"Cochlear Outer Hair Cell Degeneration\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive predominantly sensory hearing loss reflects outer hair cell dysfunction and loss.\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile and adult myocardial remodeling commonly manifests as cardiomyopathy.\"}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aid usage\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ALMS1\", \"target\": \"ALMS1 Basal Body Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Hypertriglyceridemia\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALMS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\"}], \"association\": \"Causative\"}}, {\"id\": \"ALMS1 Basal Body Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 is a centrosome and ciliary basal body-associated protein. Loss of ALMS1 function disrupts basal-body dependent cellular organization across multiple tissues and acts as the upstream lesion for the sensory, renal, metabolic, and fibrotic components of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Cardiac Fibroelastotic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac disease in Alstrom syndrome spans infantile fibroelastotic cardiomyopathy and later adult myocardial remodeling, with both cardiomyocyte and cardiac fibroblast abnormalities implicated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"heart\"]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Age-progressive primary kidney involvement with declining kidney function and proteinuria in a subset of adults.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Cochlear Outer Hair Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 localizes to cochlear hair-cell basal bodies; its loss perturbs planar cell polarity and outer hair cell survival, producing progressive sensory hearing loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"locations\": [\"cochlea\"]}}, {\"id\": \"Cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation should be considered for severe or functionally limiting hearing loss not adequately managed with amplification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cone/cone-rod dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early progressive retinal degeneration involving cones and rods, often beginning in infancy and driving lifelong visual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000548\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile or later-onset myocardial disease with ventricular dilation and systolic dysfunction; infantile episodes may partially recover while adult cardiomyopathy can progress.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Extracellular Matrix Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency alters extracellular matrix regulatory programs, favoring collagen remodeling and fibroproliferative disease in liver and heart.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen fibril organization\"]}}, {\"id\": \"GLP-1 Receptor Agonist Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Semaglutide or exenatide can improve weight, glycemia, and lipid parameters in adults with Alstrom syndrome and metabolically significant obesity or diabetes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing aid usage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sound amplification is beneficial for the common progressive sensory hearing loss of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Common metabolic liver involvement that often coexists with early fibrogenic liver stiffness abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early and often severe insulin resistance complicating obesity in Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000855\"}}, {\"id\": \"Kidney Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal disease in Alstrom syndrome reflects a primary nephron ciliopathy rather than merely secondary metabolic injury, with progressive tubular ciliary loss and impaired mechanosensory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nephron tubule epithelial cell\"], \"biological_processes\": [\"cilium organization\", \"cellular response to mechanical stimulus\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset obesity, often beginning in childhood and frequently truncal in distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency disrupts photoreceptor intracellular trafficking and drives progressive cone and rod degeneration, producing the characteristic retinal dystrophy of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Relative Adipose Tissue Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Obesity in Alstrom syndrome is accompanied by inadequate adipose tissue expansion and adipocyte dysfunction, producing a metabolically fragile state in which insulin resistance develops early and progresses rapidly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"]}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive, usually symmetric sensory hearing loss beginning in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Type II diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hyperglycemia emerging as insulin resistance worsens over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005978\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe early-onset visual loss caused by progressive retinal degeneration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Relative Adipose Tissue Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALMS1 loss compromises adipose tissue buffering capacity and promotes metabolically adverse obesity.\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Extracellular Matrix Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cilia-linked signaling defects alter matrix remodeling programs and favor multiorgan fibrotic disease.\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Kidney Ciliary Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal tubular primary cilia lose normal maintenance and mechanosensory function.\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor cells progressively fail when ALMS1-dependent ciliary trafficking is lost.\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Cochlear Outer Hair Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-cell basal body dysfunction perturbs inner-ear sensory-cell polarity and survival.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limited adipose buffering capacity accelerates systemic insulin resistance.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive insulin resistance drives diabetes as beta-cell compensation fails.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Adipose tissue failure is accompanied by dyslipidemia with elevated triglycerides.\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix dysregulation accompanies common steatotic liver involvement in Alstrom syndrome.\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal matrix remodeling contributes to infantile fibroelastosis and later adult cardiomyopathy.\"}, {\"source\": \"Kidney Ciliary Dysfunction\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Primary renal involvement progresses with age to chronic kidney disease.\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Cone/cone-rod dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cone and rod loss produces the hallmark retinal dystrophy.\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early photoreceptor loss causes severe lifelong visual disability.\"}, {\"source\": \"Cochlear Outer Hair Cell Degeneration\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive predominantly sensory hearing loss reflects outer hair cell dysfunction and loss.\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile and adult myocardial remodeling commonly manifests as cardiomyopathy.\"}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aid usage\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ALMS1\", \"target\": \"ALMS1 Basal Body Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Hypertriglyceridemia\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">9</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Dilated cardiomyopathy
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank">
-                            Dilated cardiomyopathy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001644)</span>
-                        </span>
-                        
+                        Dilated cardiomyopathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17594715" target="_blank">PMID:17594715</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Alström syndrome is a monogenic recessive disorder featuring an array of clinical manifestations, with systemic fibrosis and multiple organ involvement, including retinal degeneration, hearing loss, childhood obesity, diabetes mellitus, dilated cardiomyopathy (DCM), urological dysfunction, and..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large genotype-phenotype study identifies dilated cardiomyopathy as a core multisystem feature of ALMS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38806112" target="_blank">PMID:38806112</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"RESULTS: 47 adults with AS (64% male; mean age 33 years; 66% white British) were studied. Seven (15%) survived infantile cardiomyopathy and 23 (49%) developed adult-onset cardiomyopathy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Adult cardiovascular cohort shows cardiomyopathy is frequent across the lifespan.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hepatic steatosis
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank">
-                            Hepatic steatosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001397)</span>
-                        </span>
-                        
+                        Hepatic steatosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001397">HP:0001397</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinical manifestations included universal visual impairment (100%, 112/112), obesity (84.1%, 96/114), hearing loss (70.8%, 51/72), hepatic steatosis (66.7%, 40/60), and cardiac abnormalities (58.2%, 46/79)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large cohort demonstrates frequent hepatic steatosis in ALMS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sensorineural hearing impairment
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank">
-                            Sensorineural hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000407)</span>
-                        </span>
-                        
+                        Sensorineural hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28573831" target="_blank">PMID:28573831</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our data show that hearing loss associated with AS begins in childhood and is a predominantly symmetric, sensory hearing loss that may progress to a severe degree."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Prospective audiology cohort defines the typical childhood-onset progressive sensory hearing phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Type II diabetes mellitus
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank">
-                            Type II diabetes mellitus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005978)</span>
-                        </span>
-                        
+                        Type II diabetes mellitus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005978">HP:0005978</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33566311" target="_blank">PMID:33566311</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In addition, infantile transient cardiomyopathy, early childhood obesity with hyperphagia, deafness, insulin resistance (IR), type 2 diabetes mellitus (T2DM), systemic fibrosis and progressive renal or liver dysfunction are common findings."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical review supports type II diabetes mellitus as a common downstream metabolic manifestation of ALMS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Visual impairment
-                        
+
                         <span class="phenotype-freq">OBLIGATE</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank">
-                            Visual impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000505)</span>
-                        </span>
-                        
+                        Visual impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinical manifestations included universal visual impairment (100%, 112/112), obesity (84.1%, 96/114), hearing loss (70.8%, 51/72), hepatic steatosis (66.7%, 40/60), and cardiac abnormalities (58.2%, 46/79)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large cohort shows that visual impairment was universal among evaluated patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Chronic kidney disease
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank">
-                            Chronic kidney disease
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012622)</span>
-                        </span>
-                        
+                        Chronic kidney disease
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30064963" target="_blank">PMID:30064963</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Eighteen percent met the definition for chronic kidney disease (eGFR &lt; 60 mL/min/1.73 m2 and proteinuria); all were adults with median age of 32.8 (20.6-37.9) years."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Prospective NIH cohort quantifies age-progressive chronic kidney disease in adults with ALMS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Insulin resistance
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank">
-                            Insulin resistance
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000855)</span>
-                        </span>
-                        
+                        Insulin resistance
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000855">HP:0000855</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32994277" target="_blank">PMID:32994277</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here, we report on a monogenic form of IR-prone obesity, Alström syndrome (ALMS)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human metabolic study explicitly frames ALMS as insulin-resistance-prone obesity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Obesity
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank">
-                            Obesity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001513)</span>
-                        </span>
-                        
+                        Obesity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinical manifestations included universal visual impairment (100%, 112/112), obesity (84.1%, 96/114), hearing loss (70.8%, 51/72), hepatic steatosis (66.7%, 40/60), and cardiac abnormalities (58.2%, 46/79)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large cohort shows obesity in more than 80% of evaluated patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cone/cone-rod dystrophy
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank">
-                            Cone/cone-rod dystrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000548)</span>
-                        </span>
-                        
+                        Cone/cone-rod dystrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000548">HP:0000548</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33566311" target="_blank">PMID:33566311</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The infantile cone-rod dystrophy with nystagmus and severe visual impairment is the earliest and most consistent clinical manifestation of ALMS."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review of ALMS clinical data identifies cone-rod dystrophy as the earliest and most consistent feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -5051,412 +5309,465 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     ALMS1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ALMS1
+
+
+    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:428">hgnc:428</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11941370" target="_blank">PMID:11941370</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We have detected six different mutations (two nonsense and four frameshift mutations causing premature stop codons) in seven families, confirming that ALMS1 is the gene underlying Alström syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Original positional cloning study establishes ALMS1 as the causative gene and shows recurrent truncating alleles.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A total of 132 distinct ALMS1 variants (254 alleles) were identified, including 64 novel variants. Truncating mutations predominated (nonsense: 46.9%, frameshift: 45.3%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large contemporary cohort confirms that truncating ALMS1 variants predominate and substantially expands the pathogenic variant spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     GLP-1 Receptor Agonist Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">targeted therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C93352</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Semaglutide or exenatide can improve weight, glycemia, and lipid parameters in adults with Alstrom syndrome and metabolically significant obesity or diabetes.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Obesity
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Type II diabetes mellitus
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005978">HP:0005978</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38151964" target="_blank">PMID:38151964</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"equating to 6% weight loss (P &lt; .01) and 1.1% absolute reduction in HbA1c (P &lt; .01)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Real-world ALMS cohort demonstrates clinically meaningful metabolic benefit from GLP-1 receptor agonists.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hearing aid usage
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">hearing aid usage</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0009030" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0009030</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0009030" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0009030">MAXO:0009030</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Sound amplification is beneficial for the common progressive sensory hearing loss of Alstrom syndrome.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28573831" target="_blank">PMID:28573831</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These findings indicate that individuals with AS would benefit from sound amplification and if necessary, cochlear implantation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Prospective audiology cohort supports hearing aids as routine symptomatic treatment for ALMS hearing loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cochlear implantation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Cochlear implantation should be considered for severe or functionally limiting hearing loss not adequately managed with amplification.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28573831" target="_blank">PMID:28573831</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These findings indicate that individuals with AS would benefit from sound amplification and if necessary, cochlear implantation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Same cohort specifically identifies cochlear implantation as an option for more severe ALMS hearing loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6074,42 +6385,42 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Manual Pubmed Review</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Alstrom Syndrome (ALMS1): Mechanistic Summary</div>
-                            
-                            
+
+
                             <span class="report-badge">n/a</span>
-                            
-                            
+
+
                             <span class="report-badge">16 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-12T20:45:00Z</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Alstrom Syndrome (ALMS1): Mechanistic Summary</h1>
 <h2>Disease framing and lumping/splitting</h2>
@@ -6219,11 +6530,11 @@ Prospective single-center audiology data specifically conclude that affected ind
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
