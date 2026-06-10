@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,18 +2961,18 @@
         <header class="page-header">
             <h1>Metastatic Melanoma</h1>
             <div class="header-meta">
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0005012" target="_blank">
                         MONDO:0005012
                     </a>
                 </span>
-                
-                
-                
+
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">cutaneous melanoma</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2915,11 +2985,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Metastatic melanoma is advanced melanoma with dissemination to distant skin, lymph node, lung, liver, bone, and brain sites. The metastatic phenotype is strongly shaped by MAPK pathway activation through BRAF, NRAS, and NF1 alterations, transcriptional plasticity, immune escape through PD-1/PD-L1 and related checkpoints, and pronounced brain tropism in advanced disease.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2989,36 +3059,36 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3026,10 +3096,10 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3037,9 +3107,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3047,11 +3117,11 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3059,8 +3129,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3068,14 +3138,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3083,8 +3153,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3092,699 +3162,774 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0005012" target="_blank">MONDO:0005012</a>
-                        
-                        
+
+
                         <span class="mapping-label">cutaneous melanoma</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:closeMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">MONDO</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">Closest MONDO parent term available for metastatic melanoma.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
-            
-            
+
+
+
+
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-driven-metastatic-fitness">
                 <div class="item-name">MAPK-Driven Metastatic Fitness</div>
-                
+
                 <div class="item-desc">Activating BRAF and NRAS mutations, together with NF1 loss, sustain MAPK signaling that promotes proliferation, invasion, therapy resistance, and metastatic competence. These drivers remain central even as melanoma cells transition between proliferative and invasive transcriptional states.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         MAPK cascade
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40023845" target="_blank">PMID:40023845</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hotspot BRAF, hotspot NRAS, and NF1 loss-of-function mutations are found in approximately 50%, 25%, and 15% of cutaneous melanomas, respectively."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the dominant mutational architecture underlying metastatic melanoma biology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-invasive-plasticity-and-migration">
                 <div class="item-name">Invasive Plasticity and Migration</div>
-                
+
                 <div class="item-desc">Melanoma cells toggle between differentiated and invasive states, enabling tissue invasion, vascular entry, and colonization of distant organs. This phenotype is supported by EMT-like programs even in a non-epithelial lineage and is strongly linked to brain and visceral dissemination.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         epithelial to mesenchymal transition
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001837">GO:0001837</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         positive regulation of cell migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030335">GO:0030335</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
-    
+
+
+
+
+
+
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pd-l1-mediated-immune-escape">
                 <div class="item-name">PD-L1-Mediated Immune Escape</div>
-                
+
                 <div class="item-desc">PD-L1 expression and checkpoint signaling permit metastatic melanoma cells to evade cytotoxic T-cell killing. This immune escape program shapes metastatic site behavior and contributes to heterogeneous responses across cerebral and extracerebral lesions.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         negative regulation of immune response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0050777" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050777" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050777">GO:0050777</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25788491" target="_blank">PMID:25788491</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Programmed death ligand-1 (PD-L1) tumor expression represents a mechanism of immune escape for melanoma cells."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports PD-L1-mediated immune evasion in metastatic melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brain-metastatic-colonization">
                 <div class="item-name">Brain Metastatic Colonization</div>
-                
+
                 <div class="item-desc">Melanoma has marked neurotropism, and brain metastases arise through blood-brain barrier traversal, adaptation to the neural microenvironment, and coordination of targeted and immune resistance programs. Brain lesions are a major cause of neurologic morbidity.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cell migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40609368" target="_blank">PMID:40609368</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Melanoma brain metastases (MBM) affect up to 60 % of advanced melanoma cases and are associated with poor prognosis and significant neurologic morbidity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports brain tropism as a defining feature of advanced melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiogenic-support-of-distant-lesions">
                 <div class="item-name">Angiogenic Support of Distant Lesions</div>
-                
+
                 <div class="item-desc">Melanoma metastases require angiogenic remodeling to sustain outgrowth in visceral and cerebral sites, with vascular permeability and local neovascularization supporting both tumor expansion and treatment resistance.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         angiogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
-    
+
+
+
+
+
+
+
+
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">5</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Headache
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank">
-                            Headache
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002315)</span>
-                        </span>
-                        
+                        Headache
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizure
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
-                            Seizure
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001250)</span>
-                        </span>
-                        
+                        Seizure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Bone pain
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank">
-                            Bone pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002653)</span>
-                        </span>
-                        
+                        Bone pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002653">HP:0002653</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Fatigue
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank">
-                            Fatigue
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012378)</span>
-                        </span>
-                        
+                        Fatigue
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Weight loss
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank">
-                            Weight loss
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001824)</span>
-                        </span>
-                        
+                        Weight loss
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -3809,230 +3954,249 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     BRAF
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic activating mutation)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     NRAS
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic activating mutation)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     NF1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic loss of function)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     PTEN
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic loss of function)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Ipilimumab Plus Nivolumab Checkpoint Blockade
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15262</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         nivolumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C68814">NCIT:C68814</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         ipilimumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_231679" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_231679" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:231679">CHEBI:231679</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Combined CTLA-4 and PD-1 checkpoint blockade is used for metastatic melanoma, including patients with asymptomatic brain metastases, to enhance antitumor T-cell priming and effector activity.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16142559" target="_blank">DOI:10.3390/cancers16142559</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Combination immunotherapy using ipilimumab/nivolumab is the golden standard treatment for patients with melanoma and asymptomatic brain metastases (MBM)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The real-world cohort supports ipilimumab plus nivolumab as a standard systemic immunotherapy option in metastatic melanoma with brain metastases.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Ultraviolet radiation exposure</div>
-                
-                
+
+
                 <div class="item-desc">Ultraviolet mutagenesis drives many primary melanomas and establishes the mutational landscape later selected during metastasis.</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4550,1371 +4714,1371 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">21</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s11060-025-04951-z" target="_blank">DOI:10.1007/s11060-025-04951-z</a>
                             </div>
-                            
+
                             <div class="reference-title">Timing of brain metastases in relation to outcome during first-line ipilimumab plus nivolumab therapy for metastatic melanoma in a community oncology practice</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Timing of brain metastases in relation to outcome during first-line ipilimumab plus nivolumab therapy for metastatic melanoma in a community oncology practice</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Timing of brain metastases in relation to outcome during first-line ipilimumab plus nivolumab therapy for metastatic melanoma in a community oncology practice"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1080/14737159.2024.2347484" target="_blank">DOI:10.1080/14737159.2024.2347484</a>
                             </div>
-                            
+
                             <div class="reference-title">Prognostic biomarkers in melanoma: a 2023 update from clinical trials in different therapeutic scenarios</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Prognostic biomarkers in melanoma: a 2023 update from clinical trials in different therapeutic scenarios</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Prognostic biomarkers in melanoma: a 2023 update from clinical trials in different therapeutic scenarios"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1093/noajnl/vdae090.044" target="_blank">DOI:10.1093/noajnl/vdae090.044</a>
                             </div>
-                            
+
                             <div class="reference-title">IMUN-05 PHASE II STUDY OF NIVOLUMAB (NIVO) IN COMBINATION WITH RELATLIMAB (RELA) IN PATIENTS WITH ACTIVE MELANOMA BRAIN METASTASES (MBM)</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">More than half of patients diagnosed with metastatic melanoma (MM) will develop brain metastases.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"More than half of patients diagnosed with metastatic melanoma (MM) will develop brain metastases."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1093/noajnl/vdae090.044" target="_blank">DOI:10.1093/noajnl/vdae090.044</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"More than half of patients diagnosed with metastatic melanoma (MM) will develop brain metastases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1097/cm9.0000000000003416" target="_blank">DOI:10.1097/cm9.0000000000003416</a>
                             </div>
-                            
+
                             <div class="reference-title">Recent global patterns in skin cancer incidence, mortality, and prevalence</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Skin cancer is a common skin disease whose incidence and mortality rates have been showing yearly increases.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Skin cancer is a common skin disease whose incidence and mortality rates have been showing yearly increases."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1097/cm9.0000000000003416" target="_blank">DOI:10.1097/cm9.0000000000003416</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Skin cancer is a common skin disease whose incidence and mortality rates have been showing yearly increases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1097/cmr.0000000000000959" target="_blank">DOI:10.1097/cmr.0000000000000959</a>
                             </div>
-                            
+
                             <div class="reference-title">Global trends in cutaneous malignant melanoma incidence and mortality</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Mortality from cutaneous malignant melanoma (CMM) increased in the past, but trends have been favorable in more recent years in many high-income countries.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Mortality from cutaneous malignant melanoma (CMM) increased in the past, but trends have been favorable in more recent years in many high-income countries."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1097/cmr.0000000000000959" target="_blank">DOI:10.1097/cmr.0000000000000959</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mortality from cutaneous malignant melanoma (CMM) increased in the past, but trends have been favorable in more recent years in many high-income countries."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s12885-024-12426-z" target="_blank">DOI:10.1186/s12885-024-12426-z</a>
                             </div>
-                            
+
                             <div class="reference-title">Patterns and trends in melanoma mortality in the United States, 1999–2020</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Melanoma, a deadly form of skin cancer, has witnessed a notable increase in incidence over the past decades.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Melanoma, a deadly form of skin cancer, has witnessed a notable increase in incidence over the past decades."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12885-024-12426-z" target="_blank">DOI:10.1186/s12885-024-12426-z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Melanoma, a deadly form of skin cancer, has witnessed a notable increase in incidence over the past decades."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1371/journal.pgen.1007589" target="_blank">DOI:10.1371/journal.pgen.1007589</a>
                             </div>
-                            
+
                             <div class="reference-title">Somatic inactivating PTPRJ mutations and dysregulated pathways identified in canine malignant melanoma by integrated comparative genomic analysis</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Somatic inactivating PTPRJ mutations and dysregulated pathways identified in canine malignant melanoma by integrated comparative genomic analysis</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Somatic inactivating PTPRJ mutations and dysregulated pathways identified in canine malignant melanoma by integrated comparative genomic analysis"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.20517/cdr.2023.150" target="_blank">DOI:10.20517/cdr.2023.150</a>
                             </div>
-                            
+
                             <div class="reference-title">Current knowledge about immunotherapy resistance for melanoma and potential predictive and prognostic biomarkers</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Melanoma still reaches thousands of new diagnoses per year, and its aggressiveness makes recovery challenging, especially for those with stage III/IV unresectable melanoma.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Melanoma still reaches thousands of new diagnoses per year, and its aggressiveness makes recovery challenging, especially for those with stage III/IV unresectable melanoma."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.20517/cdr.2023.150" target="_blank">DOI:10.20517/cdr.2023.150</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Melanoma still reaches thousands of new diagnoses per year, and its aggressiveness makes recovery challenging, especially for those with stage III/IV unresectable melanoma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.20517/cdr.2024.54" target="_blank">DOI:10.20517/cdr.2024.54</a>
                             </div>
-                            
+
                             <div class="reference-title">Exploring resistance to immune checkpoint inhibitors and targeted therapies in melanoma</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Melanoma is the most aggressive form of skin cancer, characterized by a poor prognosis, and its incidence has risen rapidly over the past 30 years.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Melanoma is the most aggressive form of skin cancer, characterized by a poor prognosis, and its incidence has risen rapidly over the past 30 years."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.20517/cdr.2024.54" target="_blank">DOI:10.20517/cdr.2024.54</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Melanoma is the most aggressive form of skin cancer, characterized by a poor prognosis, and its incidence has risen rapidly over the past 30 years."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fimmu.2024.1520441" target="_blank">DOI:10.3389/fimmu.2024.1520441</a>
                             </div>
-                            
+
                             <div class="reference-title">The prognostic value of circulating tumor DNA in malignant melanoma patients treated with immune checkpoint inhibitors: a systematic review and meta-analysis</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Circulating tumor DNA (ctDNA) is an emerging biomarker in malignant melanoma(MM), and high levels of ctDNA may reflect a higher tumor load.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Circulating tumor DNA (ctDNA) is an emerging biomarker in malignant melanoma(MM), and high levels of ctDNA may reflect a higher tumor load."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fimmu.2024.1520441" target="_blank">DOI:10.3389/fimmu.2024.1520441</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Circulating tumor DNA (ctDNA) is an emerging biomarker in malignant melanoma(MM), and high levels of ctDNA may reflect a higher tumor load."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1512942" target="_blank">DOI:10.3389/fonc.2024.1512942</a>
                             </div>
-                            
+
                             <div class="reference-title">Global, regional, and national burden of cutaneous malignant melanoma from 1990 to 2021 and prediction to 2045</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Cutaneous Malignant Melanoma (CMM) is a significant global health challenge.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Cutaneous Malignant Melanoma (CMM) is a significant global health challenge."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1512942" target="_blank">DOI:10.3389/fonc.2024.1512942</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Cutaneous Malignant Melanoma (CMM) is a significant global health challenge."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/biom15020269" target="_blank">DOI:10.3390/biom15020269</a>
                             </div>
-                            
+
                             <div class="reference-title">Mechanisms of Resistance to Anti-PD-1 Immunotherapy in Melanoma and Strategies to Overcome It</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Resistance to anti-PD-1 therapy in melanoma remains a major obstacle in achieving effective and durable treatment outcomes, highlighting the need to understand and address the underlying mechanisms.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Resistance to anti-PD-1 therapy in melanoma remains a major obstacle in achieving effective and durable treatment outcomes, highlighting the need to understand and address the underlying mechanisms."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biom15020269" target="_blank">DOI:10.3390/biom15020269</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Resistance to anti-PD-1 therapy in melanoma remains a major obstacle in achieving effective and durable treatment outcomes, highlighting the need to understand and address the underlying mechanisms."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/biomedicines13010225" target="_blank">DOI:10.3390/biomedicines13010225</a>
                             </div>
-                            
+
                             <div class="reference-title">Advances in Immunotherapy and Targeted Therapy of Malignant Melanoma</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Malignant melanoma (MM) is a malignant tumor, resulting from mutations in melanocytes of the skin and mucous membranes.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Malignant melanoma (MM) is a malignant tumor, resulting from mutations in melanocytes of the skin and mucous membranes."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biomedicines13010225" target="_blank">DOI:10.3390/biomedicines13010225</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Malignant melanoma (MM) is a malignant tumor, resulting from mutations in melanocytes of the skin and mucous membranes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cancers15123224" target="_blank">DOI:10.3390/cancers15123224</a>
                             </div>
-                            
+
                             <div class="reference-title">New Approaches to Targeted Therapy in Melanoma</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">It was just slightly more than a decade ago when metastatic melanoma carried a dismal prognosis with few, if any, effective therapies.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"It was just slightly more than a decade ago when metastatic melanoma carried a dismal prognosis with few, if any, effective therapies."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15123224" target="_blank">DOI:10.3390/cancers15123224</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It was just slightly more than a decade ago when metastatic melanoma carried a dismal prognosis with few, if any, effective therapies."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cancers16010101" target="_blank">DOI:10.3390/cancers16010101</a>
                             </div>
-                            
+
                             <div class="reference-title">Predictive Factors in Metastatic Melanoma Treated with Immune Checkpoint Inhibitors: From Clinical Practice to Future Perspective</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">The introduction of immunotherapy revolutionized the treatment landscape in metastatic melanoma.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"The introduction of immunotherapy revolutionized the treatment landscape in metastatic melanoma."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16010101" target="_blank">DOI:10.3390/cancers16010101</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The introduction of immunotherapy revolutionized the treatment landscape in metastatic melanoma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cancers16081571" target="_blank">DOI:10.3390/cancers16081571</a>
                             </div>
-                            
+
                             <div class="reference-title">Current State of Melanoma Therapy and Next Steps: Battling Therapeutic Resistance</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Melanoma is the most aggressive and deadly form of skin cancer due to its high propensity to metastasize to distant organs.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Melanoma is the most aggressive and deadly form of skin cancer due to its high propensity to metastasize to distant organs."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16081571" target="_blank">DOI:10.3390/cancers16081571</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Melanoma is the most aggressive and deadly form of skin cancer due to its high propensity to metastasize to distant organs."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cancers16142559" target="_blank">DOI:10.3390/cancers16142559</a>
                             </div>
-                            
+
                             <div class="reference-title">Efficacy of Ipilimumab and Nivolumab in Patients with Melanoma and Brain Metastases—A Danish Real-World Cohort</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Combination immunotherapy using ipilimumab/nivolumab is the golden standard treatment for patients with melanoma and asymptomatic brain metastases (MBM).</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Combination immunotherapy using ipilimumab/nivolumab is the golden standard treatment for patients with melanoma and asymptomatic brain metastases (MBM)."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16142559" target="_blank">DOI:10.3390/cancers16142559</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Combination immunotherapy using ipilimumab/nivolumab is the golden standard treatment for patients with melanoma and asymptomatic brain metastases (MBM)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cancers18030382" target="_blank">DOI:10.3390/cancers18030382</a>
                             </div>
-                            
+
                             <div class="reference-title">Drug Therapy for Melanoma: Current Updates and Future Prospects</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Melanoma was once considered ‘incurable’; however, drug therapy for the condition has dramatically transformed with the advent of immune checkpoint inhibitors and molecular targeted therapies.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Melanoma was once considered ‘incurable’; however, drug therapy for the condition has dramatically transformed with the advent of immune checkpoint inhibitors and molecular targeted therapies."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers18030382" target="_blank">DOI:10.3390/cancers18030382</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Melanoma was once considered ‘incurable’; however, drug therapy for the condition has dramatically transformed with the advent of immune checkpoint inhibitors and molecular targeted therapies."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cells13161383" target="_blank">DOI:10.3390/cells13161383</a>
                             </div>
-                            
+
                             <div class="reference-title">Molecular Susceptibility and Treatment Challenges in Melanoma</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Melanoma is the most aggressive subtype of cancer, with a higher propensity to spread compared to most solid tumors.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Melanoma is the most aggressive subtype of cancer, with a higher propensity to spread compared to most solid tumors."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cells13161383" target="_blank">DOI:10.3390/cells13161383</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Melanoma is the most aggressive subtype of cancer, with a higher propensity to spread compared to most solid tumors."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/ijms251810120" target="_blank">DOI:10.3390/ijms251810120</a>
                             </div>
-                            
+
                             <div class="reference-title">Immune Checkpoint Inhibitor Therapy for Metastatic Melanoma: What Should We Focus on to Improve the Clinical Outcomes?</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Immune checkpoint inhibitors (ICIs) have transformed cancer treatment by enhancing anti-tumour immune responses, demonstrating significant efficacy in various malignancies, including melanoma.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Immune checkpoint inhibitors (ICIs) have transformed cancer treatment by enhancing anti-tumour immune responses, demonstrating significant efficacy in various malignancies, including melanoma."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms251810120" target="_blank">DOI:10.3390/ijms251810120</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Immune checkpoint inhibitors (ICIs) have transformed cancer treatment by enhancing anti-tumour immune responses, demonstrating significant efficacy in various malignancies, including melanoma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Metastatic Melanoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3892/mi.2024.137" target="_blank">DOI:10.3892/mi.2024.137</a>
                             </div>
-                            
+
                             <div class="reference-title">Immune checkpoint inhibitors in metastatic melanoma therapy (Review)</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Immune checkpoint inhibitors in metastatic melanoma therapy (Review)</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Immune checkpoint inhibitors in metastatic melanoma therapy (Review)"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">1. Disease Information (definition and current understanding)</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">56 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-10T00:56:22.813469</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>1. Disease Information (definition and current understanding)</h2>
 <p><strong>Definition/overview.</strong> Melanoma is a malignant neoplasm arising from melanocytes; metastatic melanoma refers to melanoma that has disseminated beyond the primary site/regional basin to distant organs (stage IV in common staging usage), or clinically “advanced/unresectable” disease requiring systemic therapy (wang2025advancesinimmunotherapy pages 1-2, datzmann2021implementationandeffectiveness pages 2-3). Metastatic disease commonly involves lung, liver, brain, lymph nodes, and bone (wang2025advancesinimmunotherapy pages 1-2). Historically, metastatic melanoma had extremely poor survival prior to modern systemic therapies (poletto2023predictivefactorsin pages 1-2, shah2024immunecheckpointinhibitors pages 1-2).</p>
@@ -6290,11 +6454,11 @@ A 2024 resistance review cites CheckMate‑067 long‑term data: median OS <stro
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

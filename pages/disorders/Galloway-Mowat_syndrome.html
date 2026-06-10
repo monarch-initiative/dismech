@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Galloway-Mowat syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0009627" target="_blank">
                         MONDO:0009627
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Genetic Kidney Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Neurodevelopmental Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Galloway-Mowat syndrome (GAMOS) is a rare genetic neuro-renal syndrome defined by the co-occurrence of early-onset nephrotic syndrome, typically steroid-resistant, with microcephaly and structural or developmental brain abnormalities. The parent syndrome is genetically heterogeneous and spans WDR73-related disease, KEOPS/t6A-biogenesis defects, nucleoporin-related disease, WDR4-related disease, and PRDM15-related cases. Across this spectrum, distinct upstream molecular lesions converge on podocyte injury, proteinuria, and impaired brain growth and neuronal maintenance.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,34 +3065,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3030,8 +3100,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3039,9 +3109,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3049,10 +3119,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3060,9 +3130,9 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3070,8 +3140,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3079,14 +3149,14 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3094,2069 +3164,2268 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Most recognized GAMOS subtypes, including WDR73-, KEOPS-, YRDC-, WDR4-, NUP107-, NUP133-, and PRDM15-related disease, are inherited in an autosomal recessive pattern.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Galloway-Mowat syndrome (GAMOS) is a rare autosomal recessive genetic disorder that is underrecognized."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent review-level synthesis supports autosomal recessive inheritance for the majority of the GAMOS spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     X-linked recessive
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0001419" target="_blank">
                             HP:0001419
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">GAMOS2 is caused by hemizygous or segregating pathogenic variants in LAGE3 and represents an X-linked branch of the broader GAMOS spectrum.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             X-linked recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Seven male members died prematurely, and three of them suffered from nephrotic syndrome, which is consistent with the x-linked gene map of the disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This LAGE3 family establishes an X-linked recessive subtype within the broader GAMOS spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">11</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 1 (WDR73-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0033005" target="_blank">MONDO:0033005</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 WDR73
-                                
-                                <a href="https://bioregistry.io/hgnc:25928" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:25928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25928">hgnc:25928</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Classical WDR73-related subtype with postnatal microcephaly, severe intellectual disability, cerebellar-predominant neurodegeneration, and later or more variable nephrotic disease.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466283" target="_blank">PMID:25466283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Altogether, WDR73 mutations cause Galloway-Mowat syndrome in a particular subset of individuals presenting with late-onset nephrotic syndrome, postnatal microcephaly, severe intellectual disability, and homogenous brain MRI features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines the characteristic WDR73-related clinical subtype within the GAMOS spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 2, X-linked (LAGE3-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0033006" target="_blank">MONDO:0033006</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 LAGE3
-                                
-                                <a href="https://bioregistry.io/hgnc:26058" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:26058" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26058">hgnc:26058</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">X-linked LAGE3-related subtype within the KEOPS pathway, often with a milder renal trajectory than other KEOPS-associated forms.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The overall symptoms of the disease due to the LAGE3 mutation were mild compared to other pathogenic genes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports LAGE3 as an X-linked GAMOS subtype with comparatively milder manifestations in this reported family.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 3 (OSGEP-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0033007" target="_blank">MONDO:0033007</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 OSGEP
-                                
-                                <a href="https://bioregistry.io/hgnc:18028" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:18028" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18028">hgnc:18028</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">OSGEP-related KEOPS subtype that typically presents with very early steroid-resistant nephrotic syndrome, severe neurodevelopmental involvement, and short survival.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These two cases, in conjunction with the findings of a literature review, indicate that OSGEP pathogenic variants are associated with an earlier onset of nephrotic syndrome and shorter life expectancy than WDR73 pathogenic variants."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports a particularly severe OSGEP-related subtype within the GAMOS spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 4 (TP53RK-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0033008" target="_blank">MONDO:0033008</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 TP53RK
-                                
-                                <a href="https://bioregistry.io/hgnc:16197" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:16197" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16197">hgnc:16197</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">TP53RK-related KEOPS subtype contributing to the early neuro-renal GAMOS spectrum through defective t6A-related biology.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We recently identified autosomal recessive mutations in genes encoding four of the five subunits of human KEOPS complex, namely LAGE3, OSGEP, TP53RK, and TPRKB in patients with Galloway-Mowat syndrome (GAMOS, OMIM#251300)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This establishes TP53RK as one of the KEOPS-complex genes defining GAMOS subtypes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 5 (TPRKB-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0033009" target="_blank">MONDO:0033009</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 TPRKB
-                                
-                                <a href="https://bioregistry.io/hgnc:24259" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:24259" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24259">hgnc:24259</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">TPRKB-related KEOPS subtype contributing to the early-onset microcephaly-nephrotic syndrome spectrum.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We recently identified autosomal recessive mutations in genes encoding four of the five subunits of human KEOPS complex, namely LAGE3, OSGEP, TP53RK, and TPRKB in patients with Galloway-Mowat syndrome (GAMOS, OMIM#251300)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This establishes TPRKB as one of the KEOPS-complex genes defining GAMOS subtypes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 6 (WDR4-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0032691" target="_blank">MONDO:0032691</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 WDR4
-                                
-                                <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12756">hgnc:12756</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">WDR4-related subtype linking abnormal cerebellar development and neurodevelopmental failure to the broader GAMOS spectrum.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Although the five subunits that encode the KEOPS complex, OSGEP/TP53RK/TPRKB/LAGE3/GON7, are known to cause Galloway-Mowat syndrome, the mutation of the WDR73, WDR4, NUP107, NUP133, and PRDM15 genes can lead to Galloway-Mowat syndrome, which makes the diagnosis more challenging."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent review evidence explicitly places WDR4-related disease within the parent GAMOS spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 7 (NUP107-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0032692" target="_blank">MONDO:0032692</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 NUP107
-                                
-                                <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29914">hgnc:29914</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">NUP107-related nucleoporin subtype with brain growth failure and steroid-resistant nephrotic syndrome.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28280135" target="_blank">PMID:28280135</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"With the addition of these individuals, we implicate an allele-specific critical role for NUP107 in the regulation of brain growth and a GAMOS-like presentation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports NUP107 as a gene-specific GAMOS subtype with combined renal and neurodevelopmental involvement.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 8 (NUP133-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0032693" target="_blank">MONDO:0032693</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 NUP133
-                                
-                                <a href="https://bioregistry.io/hgnc:18016" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:18016" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18016">hgnc:18016</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">NUP133-related nucleoporin subtype with microcephaly, brain atrophy, and steroid-resistant nephrotic syndrome.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These data indicate that the biallelic NUP133 loss-of-function mutation causes GAMOS."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly establishes NUP133 as a causal gene for a distinct GAMOS subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 9 (GON7-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030471" target="_blank">MONDO:0030471</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 GON7
-                                
-                                <a href="https://bioregistry.io/hgnc:20356" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:20356" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20356">hgnc:20356</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">GON7-related KEOPS/t6A subtype that is generally milder than YRDC-related disease, with later proteinuria and slower renal progression.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here we show that mutations in YRDC cause an extremely severe form of GAMOS whereas mutations in GON7, encoding the fifth KEOPS subunit, lead to a milder form of the disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines GON7-related GAMOS as a milder KEOPS/t6A subtype than YRDC-related disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Galloway-Mowat syndrome 10 (YRDC-related)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030476" target="_blank">MONDO:0030476</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 YRDC
-                                
-                                <a href="https://bioregistry.io/hgnc:28905" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:28905" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28905">hgnc:28905</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">YRDC-related t6A-biogenesis subtype with congenital or infantile steroid-resistant nephrotic syndrome and severe early neurologic disease.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here we show that mutations in YRDC cause an extremely severe form of GAMOS whereas mutations in GON7, encoding the fifth KEOPS subunit, lead to a milder form of the disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines YRDC-related disease as a particularly severe t6A-biogenesis subtype within GAMOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         PRDM15-related GAMOS-type disease
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 PRDM15
-                                
-                                <a href="https://bioregistry.io/hgnc:13999" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:13999" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13999">hgnc:13999</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">PRDM15-related allelic spectrum can produce either isolated nephrotic syndrome or a GAMOS-type syndromic presentation with additional neurodevelopmental and extracranial anomalies.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33593823" target="_blank">PMID:33593823</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Variants in PRDM15 can cause either isolated nephrotic syndrome or a GAMOS-type syndrome on an allelic basis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports PRDM15 as part of the broadened GAMOS allelic spectrum, while also indicating phenotype divergence toward isolated nephrotic syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keops-and-t6a-biogenesis-deficiency">
                 <div class="item-name">KEOPS and t6A Biogenesis Deficiency</div>
-                
+
                 <div class="item-desc">GAMOS2-GAMOS5 and GAMOS9-GAMOS10 are caused by defects in KEOPS complex components or the upstream YRDC enzyme. These lesions reduce t6A tRNA modification, impair protein synthesis and cell survival, and converge on early podocyte injury and impaired brain growth.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         podocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         tRNA modification
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006400" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006400" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006400">GO:0006400</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Podocyte Structural Failure</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Brain Growth and Neurodevelopment</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We recently identified mutations in genes encoding four out of the five KEOPS subunits in children with Galloway-Mowat syndrome (GAMOS), a clinically heterogeneous autosomal recessive disease characterized by early-onset steroid-resistant nephrotic syndrome and microcephaly."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports KEOPS-pathway defects as a major genetically heterogeneous cause of the parent GAMOS syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"mutations which alter t6A biosynthesis in human cells have an impact on cell survival through decreased proliferation and protein synthesis, ultimately leading to apoptosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports defective t6A biogenesis as a mechanism causing reduced cell survival in GAMOS-relevant cellular systems.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wdr73-dependent-cytoskeletal-and-rna-processing-dysfunction">
                 <div class="item-name">WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction</div>
-                
+
                 <div class="item-desc">GAMOS1 is caused by WDR73-linked perturbation of cell architecture, cell survival, focal adhesion biology, Integrator-associated RNA processing, and cell-cycle regulation in podocytes and neurons.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         podocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         focal adhesion assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048041">GO:0048041</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         RNA processing
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006396">GO:0006396</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell cycle G1/S phase transition
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044843">GO:0044843</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Podocyte Structural Failure</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Brain Growth and Neurodevelopment</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466283" target="_blank">PMID:25466283</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These data suggest that WDR73 plays a crucial role in the maintenance of cell architecture and cell survival."</div>
-                
-                
+
+
                 <div class="evidence-explanation">WDR73 loss perturbs core cellular integrity and viability in GAMOS-linked experimental systems.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33686175" target="_blank">PMID:33686175</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We also show that WDR73 suppression leads to altered expression of genes encoding cell cycle regulatory proteins."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports WDR73-linked cell-cycle dysregulation as part of the pathogenic mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36290302" target="_blank">PMID:36290302</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"our study indicated that nephrotic syndrome in GAMOS1 is associated with disruption of FA caused by WDR73 deficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Links WDR73 deficiency directly to impaired focal adhesion biology in the renal arm of GAMOS1.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nuclear-pore-dysfunction">
                 <div class="item-name">Nuclear Pore Dysfunction</div>
-                
+
                 <div class="item-desc">GAMOS7-GAMOS8 are NUP107- and NUP133-related forms that disrupt nucleoporin function and spindle biology, converging on abnormal brain growth, glomerular underdevelopment, and podocyte foot process injury.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         podocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         spindle assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0051225" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051225" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051225">GO:0051225</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         nuclear pore
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005643" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005643" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005643">GO:0005643</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Podocyte Structural Failure</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Brain Growth and Neurodevelopment</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"NUP107 and NUP133 (nucleoporin 133kDa) are interacting subunits of the nuclear pore complex in the nuclear envelope during interphase, and these proteins are also involved in centrosome positioning and spindle assembly during mitosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports nuclear pore and spindle biology as the central mechanism for the nucleoporin-related GAMOS subtypes.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28280135" target="_blank">PMID:28280135</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The founder mutation was associated with concomitant reduction in NUP107 protein and in the obligate binding partner NUP133 protein, as well as density of nuclear pores in patient cells."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Patient-cell evidence supports defective nuclear pore biology in NUP107-related GAMOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A nup133-knockdown zebrafish model exhibited microcephaly, fewer neuronal cells, underdeveloped glomeruli, and fusion of the foot processes of the podocytes, which mimicked human GAMOS features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Model-organism evidence shows how nucleoporin loss converges on both brain and kidney pathology in GAMOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wdr4-cul4-cerebellar-developmental-dysfunction">
                 <div class="item-name">WDR4-CUL4 Cerebellar Developmental Dysfunction</div>
-                
+
                 <div class="item-desc">GAMOS6 is WDR4-related disease linking CUL4 E3-ligase adaptor dysfunction to impaired cerebellar development, granule-neuron progenitor cell-cycle maintenance, gait phenotypes, and the broader GAMOS neurodevelopmental spectrum.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        WDR4
-                        
-                        <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        WDR4
+
+
+    <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12756">hgnc:12756</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cell cycle G1/S phase transition
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044843">GO:0044843</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Brain Growth and Neurodevelopment</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36681682" target="_blank">PMID:36681682</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Wdr4 deficiency in granule neuron progenitors (GNPs) not only reduces foliation and the sizes of external and internal granular layers but also compromises Purkinje neuron organization and the size of the molecular layer, leading to locomotion defects."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Model-organism evidence links WDR4 loss to cerebellar development and locomotor abnormalities relevant to GAMOS6.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36681682" target="_blank">PMID:36681682</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with mutations of WDR4, a substrate adaptor of the CUL4 E3 ligase complex, develop cerebellar atrophy and gait phenotypes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human disease context supports WDR4/CUL4 adaptor dysfunction as a GAMOS6-relevant mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-podocyte-structural-failure">
                 <div class="item-name">Podocyte Structural Failure</div>
-                
+
                 <div class="item-desc">Despite upstream gene heterogeneity, the cross-subtype renal effector phenotype converges on podocyte dysfunction with proteinuria, foot process injury, and steroid-resistant nephrotic syndrome. Histopathology spans minimal change disease, focal segmental glomerulosclerosis, collapsing lesions, and diffuse mesangial sclerosis.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         podocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         focal adhesion assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048041">GO:0048041</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         kidney
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11793093" target="_blank">PMID:11793093</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Synaptopodin, GLEPP1, and nephrin expression was present, although reduced in Galloway-Mowat syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Direct human kidney-tissue evidence of podocyte structural protein disturbance in GAMOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A nup133-knockdown zebrafish model exhibited microcephaly, fewer neuronal cells, underdeveloped glomeruli, and fusion of the foot processes of the podocytes, which mimicked human GAMOS features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Provides direct model support for podocyte foot process injury and underdeveloped glomeruli as convergent renal lesions in GAMOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-growth-and-neurodevelopment">
                 <div class="item-name">Impaired Brain Growth and Neurodevelopment</div>
-                
+
                 <div class="item-desc">Brain growth failure is the shared cross-subtype neurologic effector phenotype across the syndrome and includes microcephaly, brain atrophy, gyral abnormalities, cerebellar involvement, hypotonia, developmental delay, and seizures.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cell cycle G1/S phase transition
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044843">GO:0044843</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         brain
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neurological findings consisted of microcephaly, hypotonia, developmental delay, and seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human case-series evidence supports the core neurodevelopmental syndrome components.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Brain imaging studies all showed pachygyria and hypomyelination."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports consistent structural brain abnormalities in a severe OSGEP-linked GAMOS cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A nup133-knockdown zebrafish model exhibited microcephaly, fewer neuronal cells, underdeveloped glomeruli, and fusion of the foot processes of the podocytes, which mimicked human GAMOS features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Model-organism evidence links impaired neuronal cell number to the shared microcephalic phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -5167,1058 +5436,1109 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized or axial hypotonia is frequent in severe infantile forms and accompanies developmental impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is common across reported gene-defined subtypes and reflects the shared neurodevelopmental burden of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Brain Growth and Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain growth failure is the shared cross-subtype neurologic effector phenotype across the syndrome and includes microcephaly, brain atrophy, gyral abnormalities, cerebellar involvement, hypotonia, developmental delay, and seizures.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cell cycle G1/S phase transition\"], \"locations\": [\"brain\"]}}, {\"id\": \"KEOPS and t6A Biogenesis Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS2-GAMOS5 and GAMOS9-GAMOS10 are caused by defects in KEOPS complex components or the upstream YRDC enzyme. These lesions reduce t6A tRNA modification, impair protein synthesis and cell survival, and converge on early podocyte injury and impaired brain growth.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"tRNA modification\"]}}, {\"id\": \"Neurodevelopmental rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early physical, occupational, and speech/communication supports should be matched to hypotonia, motor impairment, developmental delay, and severe intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nuclear Pore Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS7-GAMOS8 are NUP107- and NUP133-related forms that disrupt nucleoporin function and spindle biology, converging on abnormal brain growth, glomerular underdevelopment, and podocyte foot process injury.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"spindle assembly\"]}}, {\"id\": \"Podocyte Structural Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite upstream gene heterogeneity, the cross-subtype renal effector phenotype converges on podocyte dysfunction with proteinuria, foot process injury, and steroid-resistant nephrotic syndrome. Histopathology spans minimal change disease, focal segmental glomerulosclerosis, collapsing lesions, and diffuse mesangial sclerosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\"], \"biological_processes\": [\"focal adhesion assembly\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria can be present even when nephrotic syndrome timing and severity vary by subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Proteinuria and kidney-function surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular urine protein and kidney-function monitoring is important across the GAMOS spectrum because renal onset and severity vary by gene and subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal failure management and dialysis bridge\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children who progress to end-stage renal disease require nephrology-led renal replacement planning, which may include dialysis as a bridge or alternative to transplant depending on neurologic severity and subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizure-directed pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures should be managed symptomatically by neurology with antiseizure medication individualized to seizure type and comorbid renal status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of severe subtypes and accompany the structural and developmental brain phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Steroid-resistant nephrotic syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset proteinuric kidney disease is the renal hallmark of GAMOS and is commonly steroid-resistant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012588\"}}, {\"id\": \"WDR4-CUL4 Cerebellar Developmental Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS6 is WDR4-related disease linking CUL4 E3-ligase adaptor dysfunction to impaired cerebellar development, granule-neuron progenitor cell-cycle maintenance, gait phenotypes, and the broader GAMOS neurodevelopmental spectrum.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell cycle G1/S phase transition\"], \"genes\": [\"WDR4\"]}}, {\"id\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS1 is caused by WDR73-linked perturbation of cell architecture, cell survival, focal adhesion biology, Integrator-associated RNA processing, and cell-cycle regulation in podocytes and neurons.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"focal adhesion assembly\", \"RNA processing\", \"cell cycle G1/S phase transition\"]}}], \"edges\": [{\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Pore Dysfunction\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Pore Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR4-CUL4 Cerebellar Developmental Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proteinuria and kidney-function surveillance\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Proteinuria and kidney-function surveillance\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal failure management and dialysis bridge\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Seizure-directed pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental rehabilitation\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental rehabilitation\", \"target\": \"Axial hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized or axial hypotonia is frequent in severe infantile forms and accompanies developmental impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is common across reported gene-defined subtypes and reflects the shared neurodevelopmental burden of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Brain Growth and Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain growth failure is the shared cross-subtype neurologic effector phenotype across the syndrome and includes microcephaly, brain atrophy, gyral abnormalities, cerebellar involvement, hypotonia, developmental delay, and seizures.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cell cycle G1/S phase transition\"], \"locations\": [\"brain\"]}}, {\"id\": \"KEOPS and t6A Biogenesis Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS2-GAMOS5 and GAMOS9-GAMOS10 are caused by defects in KEOPS complex components or the upstream YRDC enzyme. These lesions reduce t6A tRNA modification, impair protein synthesis and cell survival, and converge on early podocyte injury and impaired brain growth.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"tRNA modification\"]}}, {\"id\": \"Neurodevelopmental rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early physical, occupational, and speech/communication supports should be matched to hypotonia, motor impairment, developmental delay, and severe intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nuclear Pore Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS7-GAMOS8 are NUP107- and NUP133-related forms that disrupt nucleoporin function and spindle biology, converging on abnormal brain growth, glomerular underdevelopment, and podocyte foot process injury.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"spindle assembly\"]}}, {\"id\": \"Podocyte Structural Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite upstream gene heterogeneity, the cross-subtype renal effector phenotype converges on podocyte dysfunction with proteinuria, foot process injury, and steroid-resistant nephrotic syndrome. Histopathology spans minimal change disease, focal segmental glomerulosclerosis, collapsing lesions, and diffuse mesangial sclerosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\"], \"biological_processes\": [\"focal adhesion assembly\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria can be present even when nephrotic syndrome timing and severity vary by subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Proteinuria and kidney-function surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular urine protein and kidney-function monitoring is important across the GAMOS spectrum because renal onset and severity vary by gene and subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal failure management and dialysis bridge\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children who progress to end-stage renal disease require nephrology-led renal replacement planning, which may include dialysis as a bridge or alternative to transplant depending on neurologic severity and subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizure-directed pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures should be managed symptomatically by neurology with antiseizure medication individualized to seizure type and comorbid renal status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of severe subtypes and accompany the structural and developmental brain phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Steroid-resistant nephrotic syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset proteinuric kidney disease is the renal hallmark of GAMOS and is commonly steroid-resistant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012588\"}}, {\"id\": \"WDR4-CUL4 Cerebellar Developmental Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS6 is WDR4-related disease linking CUL4 E3-ligase adaptor dysfunction to impaired cerebellar development, granule-neuron progenitor cell-cycle maintenance, gait phenotypes, and the broader GAMOS neurodevelopmental spectrum.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell cycle G1/S phase transition\"], \"genes\": [\"WDR4\"], \"gene_terms\": [{\"label\": \"WDR4\", \"id\": \"hgnc:12756\"}]}}, {\"id\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS1 is caused by WDR73-linked perturbation of cell architecture, cell survival, focal adhesion biology, Integrator-associated RNA processing, and cell-cycle regulation in podocytes and neurons.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"focal adhesion assembly\", \"RNA processing\", \"cell cycle G1/S phase transition\"]}}], \"edges\": [{\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Pore Dysfunction\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Pore Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR4-CUL4 Cerebellar Developmental Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proteinuria and kidney-function surveillance\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Proteinuria and kidney-function surveillance\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal failure management and dialysis bridge\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Seizure-directed pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental rehabilitation\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental rehabilitation\", \"target\": \"Axial hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">17</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(10)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Optic atrophy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank">
-                            Optic atrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000648)</span>
-                        </span>
-                        
+                        Optic atrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000648">HP:0000648</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Epilepsy was variable, as was optic atrophy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">WDR73-positive case synthesis supports optic atrophy as a variable subtype feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Proteinuria
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank">
-                            Proteinuria
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000093)</span>
-                        </span>
-                        
+                        Proteinuria
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Due to the heterogeneity of the renal phenotype, regular proteinuria screening is recommended for all patients diagnosed with GAMOS."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The recommendation for cross-subtype proteinuria screening supports proteinuria as an important variable renal manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Microcephaly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank">
-                            Microcephaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000252)</span>
-                        </span>
-                        
+                        Microcephaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The phenotype is heterogeneous, but it is now widely accepted that early-onset nephrotic syndrome (SRNS) and microcephaly with brain malformation are characteristic features of Galloway-Mowat syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent review-level synthesis identifies microcephaly with brain malformation as a characteristic syndrome feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Coarse facial features
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank">
-                            Coarse facial features
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000280)</span>
-                        </span>
-                        
+                        Coarse facial features
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000280">HP:0000280</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Another interesting observation was the presence of coarse facial features in five patients from three families (2027, 2286, and 2889) in our cohort."</div>
-                
-                
+
+
                 <div class="evidence-explanation">WDR73-related cases support coarse facial features as a recurrent subtype manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Global developmental delay
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
-                            Global developmental delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
-                        </span>
-                        
+                        Global developmental delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neurological findings consisted of microcephaly, hypotonia, developmental delay, and seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human case-series evidence supports developmental delay as a core neurologic manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizures
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
-                            Seizure
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001250)</span>
-                        </span>
-                        
+                        Seizure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neurological findings consisted of microcephaly, hypotonia, developmental delay, and seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports seizures as a recurring neurologic feature in severe OSGEP-linked disease and the broader GAMOS spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cerebellar atrophy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank">
-                            Cerebellar atrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001272)</span>
-                        </span>
-                        
+                        Cerebellar atrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001272">HP:0001272</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Cerebellar atrophy seen in MR imaging is also consistent within our series, and correlated with symptoms of truncal ataxia, hypotonia, and dysmetria in some individuals."</div>
-                
-                
+
+
                 <div class="evidence-explanation">WDR73-positive cases support cerebellar atrophy as a subtype-distinguishing MRI feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36681682" target="_blank">PMID:36681682</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with mutations of WDR4, a substrate adaptor of the CUL4 E3 ligase complex, develop cerebellar atrophy and gait phenotypes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">WDR4 literature supports cerebellar atrophy in the GAMOS6-related spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">10</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Steroid-resistant nephrotic syndrome
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank">
-                            Steroid-resistant nephrotic syndrome
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012588)</span>
-                        </span>
-                        
+                        Steroid-resistant nephrotic syndrome
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012588">HP:0012588</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Galloway-Mowat syndrome (GAMOS) is a group of rare hereditary diseases by the combination of early onset steroid-resistant nephrotic syndrome (SRNS) and microcephaly with brain anomalies caused by WDR73, LAGE3, OSGEP, TP53RK, TPRKB, GON7, WDR4 or NUP133 mutations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case-based literature synthesis identifies early steroid-resistant nephrotic syndrome as a defining cross-subtype renal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Axial hypotonia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank">
-                            Axial hypotonia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008936)</span>
-                        </span>
-                        
+                        Axial hypotonia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008936">HP:0008936</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both patients showed a similar clinical presentation, with early-onset nephrotic syndrome, microcephaly, brain atrophy, developmental delay, axial hypotonia, and early fatality."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports axial hypotonia as part of the severe infantile neurologic presentation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pachygyria
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank">
-                            Pachygyria
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001302)</span>
-                        </span>
-                        
+                        Pachygyria
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001302">HP:0001302</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Brain imaging studies all showed pachygyria and hypomyelination."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Provides direct imaging evidence for pachygyria in a severe OSGEP-related cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Brain atrophy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank">
-                            Brain atrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012444)</span>
-                        </span>
-                        
+                        Brain atrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012444">HP:0012444</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both patients showed a similar clinical presentation, with early-onset nephrotic syndrome, microcephaly, brain atrophy, developmental delay, axial hypotonia, and early fatality."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports brain atrophy as part of the severe neuroimaging phenotype in GAMOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Thin corpus callosum
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank">
-                            Thin corpus callosum
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0033725)</span>
-                        </span>
-                        
+                        Thin corpus callosum
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033725">HP:0033725</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other common pathologies observed in cranial MRI were thinning of corpus callosum in half of the patients and brain stem hypoplasia in 80%."</div>
-                
-                
+
+
                 <div class="evidence-explanation">WDR73 case synthesis supports thin corpus callosum as a frequent subtype feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypoplasia of the brainstem
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank">
-                            Hypoplasia of the brainstem
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002365)</span>
-                        </span>
-                        
+                        Hypoplasia of the brainstem
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002365">HP:0002365</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other common pathologies observed in cranial MRI were thinning of corpus callosum in half of the patients and brain stem hypoplasia in 80%."</div>
-                
-                
+
+
                 <div class="evidence-explanation">WDR73 case synthesis supports brainstem hypoplasia as a frequent subtype feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         CNS hypomyelination
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank">
-                            CNS hypomyelination
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003429)</span>
-                        </span>
-                        
+                        CNS hypomyelination
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003429">HP:0003429</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Brain imaging studies all showed pachygyria and hypomyelination."</div>
-                
-                
+
+
                 <div class="evidence-explanation">OSGEP-linked cases support CNS hypomyelination as part of the severe imaging phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hiatus hernia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002036" target="_blank">
-                            Hiatus hernia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002036)</span>
-                        </span>
-                        
+                        Hiatus hernia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002036" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002036">HP:0002036</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Galloway–Mowat syndrome (GMS; OMIM 251300) was first described in 1968 in two siblings presenting with nephrotic syndrome, microcephaly, and hiatal hernia [Galloway and Mowat, 1968]."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports hiatal hernia as a classic historical feature, not a universal finding across molecular subtypes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Focal segmental glomerulosclerosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank">
-                            Focal segmental glomerulosclerosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000097)</span>
-                        </span>
-                        
+                        Focal segmental glomerulosclerosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000097">HP:0000097</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Four of these patients had renal biopsies, two with collapsing type focal segmental glomerulosclerosis (FSGS), one with non-collapsing FSGS, and one diffuse mesangial sclerosis pathology."</div>
-                
-                
+
+
                 <div class="evidence-explanation">WDR73-positive renal biopsies directly document FSGS as a renal histopathology pattern.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Diffuse mesangial sclerosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001967" target="_blank">
-                            Diffuse mesangial sclerosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001967)</span>
-                        </span>
-                        
+                        Diffuse mesangial sclerosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001967" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001967">HP:0001967</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Four of these patients had renal biopsies, two with collapsing type focal segmental glomerulosclerosis (FSGS), one with non-collapsing FSGS, and one diffuse mesangial sclerosis pathology."</div>
-                
-                
+
+
                 <div class="evidence-explanation">WDR73-positive renal biopsies directly document diffuse mesangial sclerosis as a renal histopathology pattern.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -6243,710 +6563,785 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Early molecular diagnosis supports family counseling, recurrence-risk assessment, and prenatal testing or imaging in future pregnancies.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Prenatal ultrasound findings, fetal MRI, genetic counseling, and mutation analysis may be useful for an early prenatal diagnosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports genetic counseling as a practical management step for affected families and future pregnancies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Proteinuria and kidney-function surveillance
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">urine protein measurement</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000851" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000851</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000851" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000851">MAXO:0000851</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Regular urine protein and kidney-function monitoring is important across the GAMOS spectrum because renal onset and severity vary by gene and subtype.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Steroid-resistant nephrotic syndrome
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012588">HP:0012588</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Due to the heterogeneity of the renal phenotype, regular proteinuria screening is recommended for all patients diagnosed with GAMOS."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports ongoing proteinuria screening as a GAMOS management action.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Renal failure management and dialysis bridge
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">renal replacement therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000600" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000600</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000600" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000600">MAXO:0000600</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Children who progress to end-stage renal disease require nephrology-led renal replacement planning, which may include dialysis as a bridge or alternative to transplant depending on neurologic severity and subtype.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Chronic kidney disease
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Steroid-resistant nephrotic syndrome
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012588">HP:0012588</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"SRNS is typically detected in the first months of life and most often rapidly progresses to end-stage renal disease (ESRD) within a few months; however, there are rarer cases with preserved renal function in adulthood."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Natural-history evidence supports planning for renal failure management, while the citation does not test a specific dialysis strategy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Seizure-directed pharmacotherapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000058">MAXO:0000058</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Seizures should be managed symptomatically by neurology with antiseizure medication individualized to seizure type and comorbid renal status.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizures
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"EEG at 4 years documented generalized epileptiform activity, treated with carbamazepine therapy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Case-level WDR73 evidence documents antiseizure pharmacotherapy use, but does not establish a subtype-specific preferred drug.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Nutrition and growth support
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">nutrition assessment</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000624" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000624</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000624" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000624">MAXO:0000624</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Nutrition assessment and growth support are part of supportive care for infants and children with poor feeding, growth restriction, nephrotic syndrome, and severe neurodevelopmental disability.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"She was referred for evaluation at 6 months of age due to weakness and poor feeding."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Poor feeding in a WDR73-related case supports nutrition-focused supportive assessment, although not a treatment trial.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We present the clinical and genetic features of a two-year-old boy with early nephrotic syndrome, microcephaly, growth retardation hypotonia and hypothyroidism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Growth retardation and nephrotic disease support nutrition/growth monitoring as supportive management.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Neurodevelopmental rehabilitation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">occupational therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001351" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001351</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001351" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001351">MAXO:0001351</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Early physical, occupational, and speech/communication supports should be matched to hypotonia, motor impairment, developmental delay, and severe intellectual disability.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Global developmental delay
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Axial hypotonia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008936">HP:0008936</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neurological findings consisted of microcephaly, hypotonia, developmental delay, and seizures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Core neurologic disability supports rehabilitative care, though the citation is natural-history evidence rather than a therapy trial.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Kidney transplantation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">kidney transplantation</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: organ transplantation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0010039</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0010039">MAXO:0010039</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
-                    
+
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
                     <span class="tag tag-bio">kidney</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">UBERON:0002113</a>
-                    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-desc">Selected children who survive to end-stage kidney disease may undergo kidney transplantation, but this treats only the renal component and reported success is subtype-dependent.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"most of the individuals carrying GON7 mutations were alive at last follow-up, with either a functioning graft or with normal renal function despite a mild to heavy proteinuria"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the feasibility of renal transplantation in selected milder GON7-related cases after renal failure, while not implying benefit for the neurologic phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -8433,42 +8828,42 @@ treatments:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Manual Pubmed Review</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Galloway-Mowat Syndrome Manual Deep-Research Note</div>
-                            
-                            
+
+
                             <span class="report-badge">n/a</span>
-                            
-                            
+
+
                             <span class="report-badge">13 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-14T08:01:21Z</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Galloway-Mowat Syndrome Manual Deep-Research Note</h1>
 <h2>Scope</h2>
@@ -8727,11 +9122,11 @@ treatments:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
