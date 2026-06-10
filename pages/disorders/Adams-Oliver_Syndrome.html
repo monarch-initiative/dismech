@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>Adams-Oliver Syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Genetic</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0007034" target="_blank">
                         MONDO:0007034
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Ectodermal dysplasia</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Congenital limb malformation</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Congenital heart disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,12 +2993,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Adams-Oliver syndrome (AOS) is a rare congenital disorder characterized by the combination of aplasia cutis congenita (ACC) of the scalp vertex and terminal transverse limb defects (TTLD) ranging from nail dystrophy to complete digit or limb absence. Additional features include congenital heart defects, cutis marmorata telangiectatica congenita, and pulmonary arterial hypertension. AOS is genetically heterogeneous with both autosomal dominant (NOTCH1, DLL4, RBPJ, ARHGAP31) and autosomal recessive (DOCK6, EOGT) forms. RBPJ mutations act through a dominant-negative mechanism. The pathophysiology converges on disrupted Notch signaling and vascular development, affecting skin, limb, and cardiovascular morphogenesis.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2998,35 +3068,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3034,9 +3104,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3044,10 +3114,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3055,8 +3125,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3064,8 +3134,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3073,8 +3143,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3082,14 +3152,14 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3097,1187 +3167,1277 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">6</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         AOS1 (ARHGAP31, autosomal dominant)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal dominant form caused by gain-of-function mutations in ARHGAP31, encoding a Rho GTPase-activating protein. The mutant protein shows constitutive Cdc42/Rac1 GAP activity, disrupting cytoskeletal dynamics and cell migration.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Candidate-gene- and exome-based sequencing led to the identification of independent premature truncating mutations in the terminal exon of the Rho GTPase-activating protein 31 gene, ARHGAP31, which encodes a Cdc42/Rac1 regulatory protein."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Original identification of ARHGAP31 as causative for autosomal dominant AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         AOS2 (DOCK6, autosomal recessive)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal recessive form caused by loss-of-function mutations in DOCK6, a guanine nucleotide exchange factor for Cdc42 and Rac1. Loss of DOCK6 function impairs cytoskeletal regulation and cell migration.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820096" target="_blank">PMID:21820096</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we combined autozygome analysis with exome sequencing to identify a homozygous truncating mutation in dedicator of cytokinesis 6 gene (DOCK6) which encodes an atypical guanidine exchange factor (GEF) known to activate two members of the Rho GTPase family: Cdc42 and Rac1."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Original identification of DOCK6 as causative for autosomal recessive AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         AOS3 (RBPJ, autosomal dominant)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal dominant form caused by dominant-negative mutations in RBPJ, the central transcriptional mediator of canonical Notch signaling. Mutant RBPJ retains cofactor binding but has impaired DNA binding, sequestering Notch pathway cofactors from target gene promoters.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22883147" target="_blank">PMID:22883147</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we identified two unique mutations in recombination signal binding protein for immunoglobulin kappa J (RBPJ) in two independent families affected by Adams-Oliver syndrome (AOS)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Original identification of RBPJ mutations in AOS families.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         AOS4 (EOGT, autosomal recessive)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal recessive form caused by loss-of-function mutations in EOGT, which encodes an EGF-domain-specific O-linked N-acetylglucosamine transferase that modifies Notch receptors.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23522784" target="_blank">PMID:23522784</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"exome sequencing in one family revealed one missense mutation in EOGT (C3orf64), and subsequent targeted sequencing of this gene revealed a homozygous missense mutation and a homozygous frameshift deletion mutation in the other two families."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Original identification of EOGT mutations in autosomal recessive AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         AOS5 (NOTCH1, autosomal dominant)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal dominant form caused by loss-of-function mutations in NOTCH1. This is the most common genetic subtype. NOTCH1 haploinsufficiency directly impairs Notch signaling in vascular and skeletal development.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This report establishes NOTCH1 mutation as the primary cause of AOS, accounting for 17% of cases in our cohort, and an important genetic factor in AOS with associated cardiovascular complications."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates NOTCH1 as the most common cause of AOS with cardiac associations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         AOS6 (DLL4, autosomal dominant)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal dominant form caused by loss-of-function mutations in DLL4, a Notch ligand critical for angiogenesis and vascular patterning.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26299364" target="_blank">PMID:26299364</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"nine heterozygous mutations in DLL4 were identified, including two nonsense and seven missense variants"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Original identification of DLL4 mutations as a cause of autosomal dominant AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-notch-signaling">
                 <div class="item-name">Disrupted Notch Signaling</div>
-                
+
                 <div class="item-desc">The core pathogenic mechanism in AOS involves disruption of the Notch signaling pathway. NOTCH1 (AOS5), DLL4 (AOS6), RBPJ (AOS3), and EOGT (AOS4) are direct components or modifiers of Notch signaling. NOTCH1 haploinsufficiency reduces Notch pathway activation in endothelial cells, impairing angiogenesis and vascular development. DLL4 is a key Notch ligand in tip cell selection during sprouting angiogenesis. RBPJ is the obligate transcriptional effector of canonical Notch signaling. EOGT O-GlcNAcylates Notch EGF repeats, modulating receptor-ligand interactions.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         endothelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Notch signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007219">GO:0007219</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         angiogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         sprouting angiogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0002040" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002040" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002040">GO:0002040</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Vascular Development</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Defective Skeletal Morphogenesis</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cardiac Outflow Tract Maldevelopment</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"NOTCH1 expression is down-regulated in AOS subjects harboring NOTCH1 mutation in vivo"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that NOTCH1 mutations lead to haploinsufficiency and reduced Notch signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41055965" target="_blank">PMID:41055965</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"expression of the Rbpj AOS allele in endothelial cells is both necessary and sufficient to cause lethality and cardiovascular defects"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model demonstrates that defective Notch signaling specifically in endothelial cells drives AOS pathogenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22883147" target="_blank">PMID:22883147</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These identified mutations link RBPJ, the primary transcriptional regulator for the Notch pathway, with AOS, a human genetic disorder."</div>
-                
-                
+
+
                 <div class="evidence-explanation">RBPJ mutations confirm the central role of Notch signaling in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rho-gtpase-signaling-dysregulation">
                 <div class="item-name">Rho GTPase Signaling Dysregulation</div>
-                
+
                 <div class="item-desc">ARHGAP31 (AOS1) and DOCK6 (AOS2) act through the Rho GTPase pathway. ARHGAP31 gain-of-function mutations produce a constitutively active C-terminal truncation that hyperactivates GAP activity toward Cdc42 and Rac1, reducing their active GTP-bound forms. Conversely, DOCK6 loss-of-function reduces GEF activity toward Cdc42 and Rac1. Both mechanisms converge on reduced Cdc42/Rac1 activity, impairing cytoskeletal dynamics, cell migration, and cell survival during limb and skin development.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         mesenchymal stem cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000134">CL:0000134</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Rho protein signal transduction
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007266" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007266" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007266">GO:0007266</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Vascular Development</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Defective Skeletal Morphogenesis</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Constitutively active ARHGAP31 mutations result in a loss of available active Cdc42 and consequently disrupt actin cytoskeletal structures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates the gain-of-function mechanism of ARHGAP31 mutations disrupting Rho GTPase signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820096" target="_blank">PMID:21820096</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Consistent with the established role of Cdc42 and Rac1 in the organization of the actin cytoskeleton, we demonstrate a cellular phenotype typical of a defective actin cytoskeleton in patient cells."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms DOCK6 loss-of-function disrupts actin cytoskeleton via reduced Cdc42/Rac1 activity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-vascular-development">
                 <div class="item-name">Impaired Vascular Development</div>
-                
+
                 <div class="item-desc">Disrupted Notch and Rho GTPase signaling converge on impaired vascular morphogenesis. Defective angiogenesis leads to vascular insufficiency in the developing scalp, limbs, and potentially other organs. This vascular disruption hypothesis explains the pattern of terminal defects (scalp vertex, distal limbs) as watershed areas vulnerable to ischemic injury during development. Cutis marmorata telangiectatica congenita and pulmonary arterial hypertension reflect ongoing vascular dysfunction.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         blood vessel endothelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000071">CL:0000071</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         vasculogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001570" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001570" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001570">GO:0001570</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         angiogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25132448" target="_blank">PMID:25132448</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We propose that the limb and scalp defects might also be due to a vasculopathy in NOTCH1-related AOS."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Proposes the vascular disruption hypothesis for limb and scalp defects in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41055965" target="_blank">PMID:41055965</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"reduced Notch1 signaling in the vasculature is a key driver of pathogenesis in this AOS mouse model"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Direct evidence from conditional mouse genetics that vascular-specific Notch signaling defects drive AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-skeletal-morphogenesis">
                 <div class="item-name">Defective Skeletal Morphogenesis</div>
-                
+
                 <div class="item-desc">Impaired osteoblast differentiation and skeletal patterning lead to skull ossification defects and terminal limb deficiencies. The calvarial defects reflect disrupted intramembranous ossification of the skull vault, while limb defects represent failure of distal limb patterning and growth.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         osteoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         osteoblast differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001649">GO:0001649</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Arhgap31 expression in the mouse is substantially restricted to the terminal limb buds and craniofacial processes during early development; these locations closely mirror the sites of impaired organogenesis that characterize this syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Expression pattern of ARHGAP31 mirrors the anatomical sites of skeletal defects in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-outflow-tract-maldevelopment">
                 <div class="item-name">Cardiac Outflow Tract Maldevelopment</div>
-                
+
                 <div class="item-desc">DLL4-mediated Notch signaling is required for second heart field (SHF) progenitor cell proliferation. Loss of DLL4 depletes the SHF progenitor pool, leading to underdevelopment of the right ventricle and outflow tract malalignment. This mechanism explains the congenital heart defects observed in approximately 23% of AOS patients.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         second heart field progenitor cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000513" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000513" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000513">CL:0000513</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Notch signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007219">GO:0007219</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33899511" target="_blank">PMID:33899511</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Dll4-mediated Notch signaling is critically required for SHF proliferation such that Dll4 knockout results in a 33% reduction in proliferation and a fourfold increase in apoptosis in SHF cells, leading to a 56% decline in the size of the SHF progenitor pool."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model demonstrates the mechanism by which DLL4 haploinsufficiency causes cardiac defects in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4293,532 +4453,556 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">8</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Congenital Heart Defects
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank">
-                            Abnormal heart morphology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001627)</span>
-                        </span>
-                        
+                        Abnormal heart morphology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"the most commonly associated anomalies included a wide variety of central nervous system (CNS) anomalies and congenital heart defects each seen in 23%."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large literature review establishing 23% frequency of congenital heart defects in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"cardiovascular anomalies were identified in 47% (8/17) of all affected variant carriers, thereby indicating that NOTCH1 variants may represent a distinct subtype of AOS associated with cardiac malformations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">NOTCH1-related AOS shows particularly high frequency of cardiac defects.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pulmonary Arterial Hypertension
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank">
-                            Pulmonary arterial hypertension
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002092)</span>
-                        </span>
-                        
+                        Pulmonary arterial hypertension
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002092">HP:0002092</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38778082" target="_blank">PMID:38778082</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"pulmonary hypertension (2/33)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">NOTCH1 variant carrier cohort documenting pulmonary hypertension in 2 of 33 individuals.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hepatoportal Sclerosis with Portal Hypertension
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank">
-                            Portal hypertension
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001409)</span>
-                        </span>
-                        
+                        Portal hypertension
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001409">HP:0001409</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A relatively large number of non-familial probands were reported to have hepatoportal sclerosis with portal hypertension and esophageal varices."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Literature review documenting hepatoportal sclerosis as a notable feature particularly in non-familial AOS cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">5</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Aplasia Cutis Congenita of the Scalp
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0007385" target="_blank">
-                            Aplasia cutis congenita of scalp
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0007385)</span>
-                        </span>
-                        
+                        Aplasia cutis congenita of scalp
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007385" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007385">HP:0007385</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The Adams-Oliver syndrome (AOS) is defined as aplasia cutis congenita (ACC) with transverse terminal limb defects (TTLD)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ACC is a defining feature of AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Terminal Transverse Limb Defects
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_6000818" target="_blank">
-                            Transverse terminal limb defect
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:6000818)</span>
-                        </span>
-                        
+                        Transverse terminal limb defect
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000818" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000818">HP:6000818</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The Adams-Oliver syndrome (AOS) is defined as aplasia cutis congenita (ACC) with transverse terminal limb defects (TTLD)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">TTLD is a defining feature of AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Calvarial Skull Defect
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001362" target="_blank">
-                            Calvarial skull defect
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001362)</span>
-                        </span>
-                        
+                        Calvarial skull defect
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001362" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001362">HP:0001362</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patient 3-III:1 was born with a large area of scalp ACC with an underlying calvarial defect and shortened distal phalanges of the toes"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical documentation of calvarial skull defects accompanying aplasia cutis in AOS patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cutis Marmorata Telangiectatica Congenita
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0025107" target="_blank">
-                            Cutis marmorata telangiectatica congenita
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0025107)</span>
-                        </span>
-                        
+                        Cutis marmorata telangiectatica congenita
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025107" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025107">HP:0025107</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Cutis marmorata telangiectasia congenita (CMTC) was found in 19% of the study population and other vascular anomalies were seen in 14%."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Literature review establishing 19% frequency of CMTC in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Central Nervous System Anomalies
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002011" target="_blank">
-                            Morphological central nervous system abnormality
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002011)</span>
-                        </span>
-                        
+                        Morphological central nervous system abnormality
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002011" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002011">HP:0002011</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"the most commonly associated anomalies included a wide variety of central nervous system (CNS) anomalies and congenital heart defects each seen in 23%. CNS anomalies included structural anomalies, microcephaly, vascular defects, and vascular sequelae. CNS migration defects were common."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Literature review establishing 23% frequency of CNS anomalies in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4843,707 +5027,830 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     ARHGAP31 (AOS1)
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSAL)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ARHGAP31
+
+
+    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29216">hgnc:29216</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutant transcripts are stable and increase ARHGAP31 activity in vitro through a gain-of-function mechanism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates gain-of-function mechanism of ARHGAP31 mutations.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ARHGAP31 (3%), EOGT (3%), and RBPJ (2%) representing additional causality in this cohort."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large cohort establishing 3% frequency of ARHGAP31 mutations in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     DOCK6 (AOS2)
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSAL)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DOCK6
+
+
+    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19189">hgnc:19189</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820096" target="_blank">PMID:21820096</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we combined autozygome analysis with exome sequencing to identify a homozygous truncating mutation in dedicator of cytokinesis 6 gene (DOCK6)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Original identification of DOCK6 mutations in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"DOCK6 (6%), ARHGAP31 (3%), EOGT (3%), and RBPJ (2%) representing additional causality in this cohort."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large cohort establishing 6% frequency of DOCK6 mutations in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_ea64d74c-583d-4ed1-af91-6a7c6f80a1d3-2022-06-28T160000.000Z" target="_blank">CGGV:assertion_ea64d74c-583d-4ed1-af91-6a7c6f80a1d3-2022-06-28T160000.000Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"DOCK6 | HGNC:19189 | Adams-Oliver syndrome | MONDO:0007034 | AR | Definitive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen classifies the DOCK6-Adams-Oliver syndrome gene-disease relationship as definitive with autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     RBPJ (AOS3)
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSAL)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RBPJ
+
+
+    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5724">hgnc:5724</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22883147" target="_blank">PMID:22883147</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Functional assays confirmed impaired DNA binding of mutated RBPJ, placing it among other notch-pathway proteins altered in human genetic syndromes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates functional impact of RBPJ mutations on DNA binding.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41055965" target="_blank">PMID:41055965</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"AOS-associated RBPJ missense variants compromise DNA binding but not cofactor binding. These findings suggest that AOS-associated RBPJ variants do not function as loss-of-function alleles but instead act as dominant-negative proteins that sequester cofactors from DNA."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates dominant-negative mechanism of RBPJ mutations - they retain cofactor binding while losing DNA binding, titrating cofactors away from DNA.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     EOGT (AOS4)
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSAL)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: EOGT
+
+
+    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28526">hgnc:28526</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23522784" target="_blank">PMID:23522784</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"EOGT encodes EGF-domain-specific O-linked N-acetylglucosamine (O-GlcNAc) transferase, which is involved in the O-GlcNAcylation (attachment of O-GlcNAc to serine and threonine residues) of a subset of extracellular EGF-domain-containing proteins."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies EOGT function and its connection to Notch signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ARHGAP31 (3%), EOGT (3%), and RBPJ (2%) representing additional causality in this cohort."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large cohort establishing 3% frequency of EOGT mutations in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     NOTCH1 (AOS5)
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSAL)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NOTCH1
+
+
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7881">hgnc:7881</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25132448" target="_blank">PMID:25132448</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we report five heterozygous NOTCH1 variants in unrelated individuals with Adams-Oliver syndrome (AOS), a rare disease with major features of aplasia cutis of the scalp and terminal transverse limb defects."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Original identification of NOTCH1 mutations in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"NOTCH1 transcript levels were significantly reduced by comparison to an unaffected control individual, demonstrating approximately 50% expression in all samples tested"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates NOTCH1 haploinsufficiency as the molecular mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"NOTCH1 is the major contributor, underlying 10% of AOS/ACC/TTLD cases"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large cohort confirming NOTCH1 as the most common genetic cause of AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     DLL4 (AOS6)
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSAL)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DLL4
+
+
+    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2910">hgnc:2910</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26299364" target="_blank">PMID:26299364</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our findings demonstrate that DLL4 mutations are an additional cause of autosomal-dominant AOS or isolated ACC and provide further evidence for a key role of NOTCH signaling in the etiology of this disorder."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes DLL4 as a cause of autosomal dominant AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"DLL4 (6%), DOCK6 (6%), ARHGAP31 (3%), EOGT (3%), and RBPJ (2%) representing additional causality in this cohort."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large cohort establishing 6% frequency of DLL4 mutations in AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33899511" target="_blank">PMID:33899511</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Similar to the clinical syndrome, 32% of SHF-specific Dll4 heterozygotes demonstrate foreshortened and misaligned OFT, resulting in a double outlet right ventricle."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model providing molecular mechanism for cardiac defects in DLL4-related AOS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Wound Care for Aplasia Cutis
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">wound care management</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Conservative wound management of scalp defects with moist wound dressings and infection prevention. Most small to moderate aplasia cutis lesions heal spontaneously with conservative care.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Reconstruction
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Surgical intervention for large scalp defects, exposed dura, or significant limb deficiencies. May include skin grafting, tissue expansion, or prosthetic fitting for limb defects.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for families with AOS to discuss inheritance patterns, recurrence risks, and available genetic testing options. Important given the genetic heterogeneity (6 known genes) and variable inheritance patterns (autosomal dominant and recessive forms).
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6275,42 +6582,42 @@ datasets:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Adams-Oliver Syndrome. Core disease mechanisms, molecular and cellular pat...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-22T22:29:15.733952</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Adams-Oliver Syndrome. Core disease mechanisms, molecular and cellular pat...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -6657,11 +6964,11 @@ datasets:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

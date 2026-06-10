@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Rabies</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Infectious Disease</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0019173" target="_blank">
                         MONDO:0019173
                     </a>
                 </span>
-                
-                
-                
+
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Viral Infection</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Neglected tropical disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,11 +2989,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Rabies is an acute, progressive viral encephalitis caused by rabies virus, typically transmitted through animal bites with centrifugal spread to the salivary glands.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2993,35 +3063,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3029,9 +3099,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3039,12 +3109,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3052,14 +3122,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3067,8 +3137,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3076,419 +3146,440 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-viral-encephalitis">
                 <div class="item-name">Viral encephalitis</div>
-                
+
                 <div class="item-desc">Rabies causes acute, progressive viral encephalitis.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12144896" target="_blank">PMID:12144896</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Rabies is an acute, progressive, incurable viral encephalitis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract defines rabies as viral encephalitis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-centripetal-spread-to-the-central-nervous-system">
                 <div class="item-name">Centripetal spread to the central nervous system</div>
-                
+
                 <div class="item-desc">Virus spreads from peripheral wounds toward the CNS.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12144896" target="_blank">PMID:12144896</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"once the virus is deposited in peripheral wounds, centripetal passage occurs towards the central nervous system."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract describes centripetal spread to the CNS.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">1</span>
             </div>
-            
-            
-            
+
+
+
             <div class="item-box phenotype-box">
                 <div class="item-name">
                     Infectious encephalitis
-                    
+
                     <span class="phenotype-freq">VERY_FREQUENT</span>
-                    
-                    
+
+
                     <span class="phenotype-category">Neurologic</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank">
-                            HP:0002383
-                        </a>
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002383">HP:0002383</a>
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12144896" target="_blank">PMID:12144896</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Rabies is an acute, progressive, incurable viral encephalitis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Rabies presents as infectious encephalitis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
-    
-    
+
+
+
+
+
             </div>
-            
-            
+
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Rabies post-exposure vaccination
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">vaccination</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001017" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001017</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001017" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001017">MAXO:0001017</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Post-exposure prophylaxis includes rabies vaccination.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12144896" target="_blank">PMID:12144896</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Prophylaxis encompasses thorough wound treatment, vaccine administration, and inoculation of rabies immunoglobulin."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract describes vaccine administration for prophylaxis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Rabies immunoglobulin administration
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Rabies immune globulin is used in post-exposure prophylaxis.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12144896" target="_blank">PMID:12144896</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Prophylaxis encompasses thorough wound treatment, vaccine administration, and inoculation of rabies immunoglobulin."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract includes rabies immunoglobulin as part of prophylaxis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -3756,824 +3847,824 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">14</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.lansea.2024.100452" target="_blank">DOI:10.1016/j.lansea.2024.100452</a>
                             </div>
-                            
+
                             <div class="reference-title">Rabies control in Bangladesh and prediction of human rabies cases by 2030: a One Health approach</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Rabies control in Bangladesh and prediction of human rabies cases by 2030: a One Health approach</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Rabies control in Bangladesh and prediction of human rabies cases by 2030: a One Health approach"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41541-024-01030-8" target="_blank">DOI:10.1038/s41541-024-01030-8</a>
                             </div>
-                            
+
                             <div class="reference-title">Evaluation of one year immunity following rabies post-exposure prophylaxis in dog bite cases</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Evaluation of one year immunity following rabies post-exposure prophylaxis in dog bite cases</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Evaluation of one year immunity following rabies post-exposure prophylaxis in dog bite cases"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1093/cid/ciad098" target="_blank">DOI:10.1093/cid/ciad098</a>
                             </div>
-                            
+
                             <div class="reference-title">Fatal Human Rabies Infection With Suspected Host-Mediated Failure of Post-Exposure Prophylaxis Following a Recognized Zoonotic Exposure—Minnesota, 2021</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">No human rabies post-exposure prophylaxis (PEP) failure has been documented in the United States using modern cell culture–based vaccines.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"No human rabies post-exposure prophylaxis (PEP) failure has been documented in the United States using modern cell culture–based vaccines."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1093/cid/ciad098" target="_blank">DOI:10.1093/cid/ciad098</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"No human rabies post-exposure prophylaxis (PEP) failure has been documented in the United States using modern cell culture–based vaccines."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Rabies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1101/2024.11.05.24316773" target="_blank">DOI:10.1101/2024.11.05.24316773</a>
                             </div>
-                            
+
                             <div class="reference-title">Rabies Test Accuracy: Comprehensive Systematic Review and Meta-Analysis for Human and Canine Diagnostics</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Rabies is almost invariably fatal once clinical symptoms manifest.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Rabies is almost invariably fatal once clinical symptoms manifest."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1101/2024.11.05.24316773" target="_blank">DOI:10.1101/2024.11.05.24316773</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Rabies is almost invariably fatal once clinical symptoms manifest."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Rabies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s42522-024-00129-1" target="_blank">DOI:10.1186/s42522-024-00129-1</a>
                             </div>
-                            
+
                             <div class="reference-title">Documenting challenges in achieving rabies elimination by 2030 in low-middle income countries; a Kenyan case study from Lamu County, 2020–2022: mixed methods approach</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Documenting challenges in achieving rabies elimination by 2030 in low-middle income countries; a Kenyan case study from Lamu County, 2020–2022: mixed methods approach</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Documenting challenges in achieving rabies elimination by 2030 in low-middle income countries; a Kenyan case study from Lamu County, 2020–2022: mixed methods approach"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.15585/mmwr.mm7118a2" target="_blank">DOI:10.15585/mmwr.mm7118a2</a>
                             </div>
-                            
+
                             <div class="reference-title">Use of a Modified Preexposure Prophylaxis Vaccination Schedule to Prevent Human Rabies: Recommendations of the Advisory Committee on Immunization Practices — United States, 2022</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Use of a Modified Preexposure Prophylaxis Vaccination Schedule to Prevent Human Rabies: Recommendations of the Advisory Committee on Immunization Practices — United States, 2022</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Use of a Modified Preexposure Prophylaxis Vaccination Schedule to Prevent Human Rabies: Recommendations of the Advisory Committee on Immunization Practices — United States, 2022"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.20506/rst.se.3560" target="_blank">DOI:10.20506/rst.se.3560</a>
                             </div>
-                            
+
                             <div class="reference-title">Elimination of dog-mediated human rabies: scientific tools, One Health and partnerships</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Elimination of dog-mediated human rabies: scientific tools, One Health and partnerships</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Elimination of dog-mediated human rabies: scientific tools, One Health and partnerships"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fitd.2025.1662211" target="_blank">DOI:10.3389/fitd.2025.1662211</a>
                             </div>
-                            
+
                             <div class="reference-title">Participatory approach in designing a One Health rabies surveillance form for integrated bite case management in Uganda</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Rabies, a neglected viral zoonotic disease endemic in Uganda, is one of the country’s top seven priority zoonotic diseases.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Rabies, a neglected viral zoonotic disease endemic in Uganda, is one of the country’s top seven priority zoonotic diseases."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fitd.2025.1662211" target="_blank">DOI:10.3389/fitd.2025.1662211</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Rabies, a neglected viral zoonotic disease endemic in Uganda, is one of the country’s top seven priority zoonotic diseases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Rabies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fvets.2023.1147543" target="_blank">DOI:10.3389/fvets.2023.1147543</a>
                             </div>
-                            
+
                             <div class="reference-title">Evaluation of country infrastructure as an indirect measure of dog-mediated human rabies deaths</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Rabies is a neglected disease, primarily due to poor detection stemming from limited surveillance and diagnostic capabilities in most countries.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Rabies is a neglected disease, primarily due to poor detection stemming from limited surveillance and diagnostic capabilities in most countries."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fvets.2023.1147543" target="_blank">DOI:10.3389/fvets.2023.1147543</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Rabies is a neglected disease, primarily due to poor detection stemming from limited surveillance and diagnostic capabilities in most countries."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Rabies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/diagnostics15040412" target="_blank">DOI:10.3390/diagnostics15040412</a>
                             </div>
-                            
+
                             <div class="reference-title">Evaluating Rabies Test Accuracy: A Systematic Review and Meta-Analysis of Human and Canine Diagnostic Methods</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Rabies is almost invariably fatal once clinical symptoms manifest.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Rabies is almost invariably fatal once clinical symptoms manifest."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/diagnostics15040412" target="_blank">DOI:10.3390/diagnostics15040412</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Rabies is almost invariably fatal once clinical symptoms manifest."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Rabies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/pathogens14060586" target="_blank">DOI:10.3390/pathogens14060586</a>
                             </div>
-                            
+
                             <div class="reference-title">The Challenge of Lyssavirus Infections in Domestic and Other Animals: A Mix of Virological Confusion, Consternation, Chagrin, and Curiosity</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Lyssaviruses are RNA viruses in the Family Rhabdoviridae, Genus Lyssavirus.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Lyssaviruses are RNA viruses in the Family Rhabdoviridae, Genus Lyssavirus."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/pathogens14060586" target="_blank">DOI:10.3390/pathogens14060586</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lyssaviruses are RNA viruses in the Family Rhabdoviridae, Genus Lyssavirus."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Rabies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/pathogens14080728" target="_blank">DOI:10.3390/pathogens14080728</a>
                             </div>
-                            
+
                             <div class="reference-title">Global Perspectives on Rabies Control and Elimination: A Scoping Review of Dog Owners’ Knowledge, Attitudes, and Practices</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Rabies is a fatal but entirely vaccine-preventable disease, with the highest risk in areas where free-roaming domestic dogs are prevalent.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Rabies is a fatal but entirely vaccine-preventable disease, with the highest risk in areas where free-roaming domestic dogs are prevalent."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/pathogens14080728" target="_blank">DOI:10.3390/pathogens14080728</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Rabies is a fatal but entirely vaccine-preventable disease, with the highest risk in areas where free-roaming domestic dogs are prevalent."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Rabies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/vaccines13070775" target="_blank">DOI:10.3390/vaccines13070775</a>
                             </div>
-                            
+
                             <div class="reference-title">Circulating Antibody’s Role During Post-Exposure Prophylaxis, and Beyond for Rabies: A Review</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Since the introduction of Pasteur’s rabies vaccine in 1885, rabies prophylaxis and post-exposure prophylaxis (PEP) have been widely administered globally under the recommendation of the World Health Organization (WHO).</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Since the introduction of Pasteur’s rabies vaccine in 1885, rabies prophylaxis and post-exposure prophylaxis (PEP) have been widely administered globally under the recommendation of the World Health Organization (WHO)."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/vaccines13070775" target="_blank">DOI:10.3390/vaccines13070775</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Since the introduction of Pasteur’s rabies vaccine in 1885, rabies prophylaxis and post-exposure prophylaxis (PEP) have been widely administered globally under the recommendation of the World Health Organization (WHO)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Rabies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.7759/cureus.62429" target="_blank">DOI:10.7759/cureus.62429</a>
                             </div>
-                            
+
                             <div class="reference-title">Rabies Vaccine for Prophylaxis and Treatment of Rabies: A Narrative Review</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Rabies Vaccine for Prophylaxis and Treatment of Rabies: A Narrative Review</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Rabies Vaccine for Prophylaxis and Treatment of Rabies: A Narrative Review"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Characteristics Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">51 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-04T16:13:16.365315</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -5495,11 +5586,11 @@ For each section, provide:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
