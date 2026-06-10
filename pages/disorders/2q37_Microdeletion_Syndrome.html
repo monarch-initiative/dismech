@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>2q37 Microdeletion Syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0010886" target="_blank">
                         MONDO:0010886
                     </a>
                 </span>
-                
-                
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
-                
-                
+
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">chromosomal disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 2q37 microdeletion syndrome is a subtelomeric chromosomal disorder caused by terminal or interstitial deletions on 2q37, most often involving HDAC4 and contiguous genes. The syndrome is characterized by developmental delay or intellectual disability, brachydactyly, short stature, obesity, hypotonia, autistic features, and variable congenital anomalies.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,34 +3065,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3030,18 +3100,18 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3049,19 +3119,19 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3069,18 +3139,26 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
+
+
+            <a class="stat-link" href="#subtypes">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◆</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Subtypes</div>
+            </div>
+            </a>
+
+
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
@@ -3088,9 +3166,9 @@
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#trials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
@@ -3098,10 +3176,10 @@
                 <div class="stat-label">Trials</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3109,8 +3187,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3118,642 +3196,883 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal dominant inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Most 2q37 microdeletions are de novo, but the syndrome can also be inherited in an autosomal dominant manner when HDAC4 is transmitted in a family.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             autosomal dominant inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Most individuals with the 2q37 microdeletion syndrome have a de novo chromosome deletion and their parents have normal karyotypes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports predominantly de novo occurrence, with the possibility of familial transmission in a subset of cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box">
+
+                    <div class="item-name">
+                        2q37 Deletion (Chromosomal)
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Classical form with terminal or interstitial chromosomal deletion of 2q37, variable size (1.6–10 Mb), involving HDAC4 and contiguous genes. Larger deletions may include additional dosage-sensitive genes and confer risk of Wilms tumor when 2q37.1 is included.</div>
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box">
+
+                    <div class="item-name">
+                        BDMR (HDAC4 Intragenic Variant)
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Brachydactyly-Mental Retardation syndrome caused by an intragenic pathogenic HDAC4 variant (missense or inactivating) without chromosomal deletion. Produces the same core brachydactyly-intellectual disability phenotype without contiguous gene involvement.</div>
+
+
+
+
+
+
+                </div>
+
+
+        </div>
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-2q37-haploinsufficiency">
                 <div class="item-name">2q37 haploinsufficiency</div>
-                
+
                 <div class="item-desc">Terminal or interstitial deletions of chromosome 2q37 create a contiguous gene haploinsufficiency syndrome, with HDAC4 emerging as the major driver of the core brachydactyly-intellectual disability phenotype.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        HDAC4
-                        
-                        <a href="https://bioregistry.io/hgnc:14063" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        HDAC4
+
+
+    <a href="https://bioregistry.io/hgnc:14063" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14063">hgnc:14063</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Skeletal development dysregulation</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced HDAC4 dosage disrupts skeletal growth and distal phalangeal development.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neurodevelopmental dysregulation</span>
-	                            
+
 	                            <span class="crosslink-desc">Contiguous gene loss perturbs brain development and behavior.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Metabolic and growth regulation abnormalities</span>
-	                            
+
 	                            <span class="crosslink-desc">Deletion of 2q37 genes contributes to short stature and obesity.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutation of HDAC4 has been proposed as causative for most of the features of the 2q37 microdeletion syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports HDAC4 haploinsufficiency as the initiating disease mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37020696" target="_blank">PMID:37020696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Brachydactyly mental retardation syndrome (BDMR) or chromosome 2q37 deletion syndrome is a genetic disorder caused by 2q37 deletion or haploinsufficiency of histone deacetylase 4 (HDAC4)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports HDAC4 dosage loss as a major cause of the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-development-dysregulation">
                 <div class="item-name">Skeletal development dysregulation</div>
-                
+
                 <div class="item-desc">Haploinsufficiency in 2q37 affects bone growth and hand development, producing brachydactyly and short stature.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         chondrocyte differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002062">GO:0002062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         chondrocyte development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0002063" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002063" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002063">GO:0002063</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Brachydactyly</span>
-	                            
+
 	                            <span class="crosslink-desc">Distal skeletal patterning defects produce brachydactyly type E.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Short stature</span>
-	                            
+
 	                            <span class="crosslink-desc">Altered growth regulation contributes to short stature.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23073310" target="_blank">PMID:23073310</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients exhibited facial dysmorphism (13/14) and brachydactyly (10/14), associated with behavioural problems, autism or autism spectrum disorders of varying severity and overweight or obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports a skeletal-development branch that manifests as brachydactyly and associated skeletal dysmorphism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-dysregulation">
                 <div class="item-name">Neurodevelopmental dysregulation</div>
-                
+
                 <div class="item-desc">2q37 deletion causes a neurodevelopmental phenotype with global delay, intellectual disability, autism-spectrum features, seizures, and behavioral abnormalities.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neurodevelopment
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030182">GO:0030182</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Global developmental delay</span>
-	                            
+
 	                            <span class="crosslink-desc">Developmental neurobiologic disruption presents as global delay.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Intellectual disability</span>
-	                            
+
 	                            <span class="crosslink-desc">Persistent neurodevelopmental disruption causes intellectual disability.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Behavioral abnormality</span>
-	                            
+
 	                            <span class="crosslink-desc">Brain developmental differences contribute to autism-spectrum and other behavioral features.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Seizure</span>
-	                            
+
 	                            <span class="crosslink-desc">Neurodevelopmental dysfunction increases seizure susceptibility.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypotonia</span>
-	                            
+
 	                            <span class="crosslink-desc">Central hypotonia contributes to infantile motor delay.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CLINICAL CHARACTERISTICS: 2q37 microdeletion syndrome is characterized by mild-moderate developmental delay/intellectual disability, brachymetaphalangy of digits 3-5 (often digit 4 alone) (&gt;50%), short stature, obesity, hypotonia, characteristic facial appearance, autism or autism spectrum..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports the major neurodevelopmental and behavioral manifestations downstream of 2q37 haploinsufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37020696" target="_blank">PMID:37020696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The symptoms of BDMR include mild-to-moderate intellectual disability, seizures, autism spectrum disorder, short stature, obesity, and facial dysmorphism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the neurodevelopmental spectrum and links HDAC4 to the phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metabolic-and-growth-regulation-abnormalities">
                 <div class="item-name">Metabolic and growth regulation abnormalities</div>
-                
+
                 <div class="item-desc">2q37 deletion is associated with obesity and abnormal growth regulation, likely reflecting loss of dosage-sensitive genes beyond HDAC4.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Obesity</span>
-	                            
+
 	                            <span class="crosslink-desc">Altered growth and metabolic regulation manifests as obesity or overweight.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23073310" target="_blank">PMID:23073310</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients exhibited facial dysmorphism (13/14) and brachydactyly (10/14), associated with behavioural problems, autism or autism spectrum disorders of varying severity and overweight or obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports a metabolic-growth branch of the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-deletion-size-dependent-multigene-haploinsufficiency">
+                <div class="item-name">Deletion-size-dependent multigene haploinsufficiency</div>
+
+                <div class="item-desc">Larger 2q37 deletions extend beyond HDAC4 to encompass additional dosage-sensitive genes, producing a more severe and variable phenotype. Deletions including 2q37.1 carry a risk of Wilms tumor through haploinsufficiency of genes in that interval. Structural chromosome rearrangements (inversions, ring chromosomes, translocations involving 2q37) can produce the same contiguous gene loss at variable breakpoints.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Nephroblastoma</span>
+
+	                            <span class="crosslink-desc">Haploinsufficiency of a tumor-suppressor gene in the 2q37.1 interval may contribute to Wilms tumor predisposition in larger deletions.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In some individuals, 2q37 microdeletion syndrome results from chromosome rearrangements involving 2q37 (e.g., chromosome 2 inversion, ring chromosome 2, or translocation between chromosome 2 and another chromosome)."</div>
+
+
+                <div class="evidence-explanation">Variable rearrangement types confirm that multigene haploinsufficiency can arise from diverse structural events across the 2q37 interval, not only simple deletions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For young children with a deletion that includes 2q37.1, screening for Wilms tumor can be considered."</div>
+
+
+                <div class="evidence-explanation">This directly supports deletion-size-dependent risk: 2q37.1-including deletions confer Wilms tumor predisposition, implicating haploinsufficiency of genes at that interval beyond HDAC4.</div>
+
+
+
+            </div>
+
+
         </div>
-        
+    </details>
+
+
+	            </div>
+
+        </div>
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3764,1310 +4083,1370 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2q37 haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Terminal or interstitial deletions of chromosome 2q37 create a contiguous gene haploinsufficiency syndrome, with HDAC4 emerging as the major driver of the core brachydactyly-intellectual disability phenotype.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"HDAC4\"]}}, {\"id\": \"Behavioral abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral features are a recurring part of the syndrome and may include attention deficit and hyperactivity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brachydactyly type E / brachymetaphalangy is one of the most characteristic skeletal findings.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005863\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay or intellectual disability is the dominant presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile hypotonia is part of the classic phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-moderate intellectual disability is a classic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Metabolic and growth regulation abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"2q37 deletion is associated with obesity and abnormal growth regulation, likely reflecting loss of dosage-sensitive genes beyond HDAC4.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neurodevelopmental dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"2q37 deletion causes a neurodevelopmental phenotype with global delay, intellectual disability, autism-spectrum features, seizures, and behavioral abnormalities.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neurodevelopment\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overweight and obesity are common and can be clinically prominent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a minority of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is common across the syndrome spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal development dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Haploinsufficiency in 2q37 affects bone growth and hand development, producing brachydactyly and short stature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"chondrocyte differentiation\", \"chondrocyte development\"]}}], \"edges\": [{\"source\": \"2q37 haploinsufficiency\", \"target\": \"Skeletal development dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced HDAC4 dosage disrupts skeletal growth and distal phalangeal development.\"}, {\"source\": \"2q37 haploinsufficiency\", \"target\": \"Neurodevelopmental dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contiguous gene loss perturbs brain development and behavior.\"}, {\"source\": \"2q37 haploinsufficiency\", \"target\": \"Metabolic and growth regulation abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deletion of 2q37 genes contributes to short stature and obesity.\"}, {\"source\": \"Skeletal development dysregulation\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal skeletal patterning defects produce brachydactyly type E.\"}, {\"source\": \"Skeletal development dysregulation\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth regulation contributes to short stature.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental neurobiologic disruption presents as global delay.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent neurodevelopmental disruption causes intellectual disability.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Behavioral abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brain developmental differences contribute to autism-spectrum and other behavioral features.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental dysfunction increases seizure susceptibility.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central hypotonia contributes to infantile motor delay.\"}, {\"source\": \"Metabolic and growth regulation abnormalities\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth and metabolic regulation manifests as obesity or overweight.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2q37 haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Terminal or interstitial deletions of chromosome 2q37 create a contiguous gene haploinsufficiency syndrome, with HDAC4 emerging as the major driver of the core brachydactyly-intellectual disability phenotype.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"HDAC4\"], \"gene_terms\": [{\"label\": \"HDAC4\", \"id\": \"hgnc:14063\"}]}}, {\"id\": \"Behavioral abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral features are a recurring part of the syndrome and may include attention deficit and hyperactivity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brachydactyly type E / brachymetaphalangy is one of the most characteristic skeletal findings.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005863\"}}, {\"id\": \"Deletion-size-dependent multigene haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Larger 2q37 deletions extend beyond HDAC4 to encompass additional dosage-sensitive genes, producing a more severe and variable phenotype. Deletions including 2q37.1 carry a risk of Wilms tumor through haploinsufficiency of genes in that interval. Structural chromosome rearrangements (inversions, ring chromosomes, translocations involving 2q37) can produce the same contiguous gene loss at variable breakpoints.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay or intellectual disability is the dominant presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile hypotonia is part of the classic phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-moderate intellectual disability is a classic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Metabolic and growth regulation abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"2q37 deletion is associated with obesity and abnormal growth regulation, likely reflecting loss of dosage-sensitive genes beyond HDAC4.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nephroblastoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wilms tumor has been reported in a small subset of affected individuals and is relevant to surveillance.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002667\"}}, {\"id\": \"Neurodevelopmental dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"2q37 deletion causes a neurodevelopmental phenotype with global delay, intellectual disability, autism-spectrum features, seizures, and behavioral abnormalities.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neurodevelopment\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overweight and obesity are common and can be clinically prominent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a minority of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is common across the syndrome spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal development dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Haploinsufficiency in 2q37 affects bone growth and hand development, producing brachydactyly and short stature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"chondrocyte differentiation\", \"chondrocyte development\"]}}], \"edges\": [{\"source\": \"2q37 haploinsufficiency\", \"target\": \"Skeletal development dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced HDAC4 dosage disrupts skeletal growth and distal phalangeal development.\"}, {\"source\": \"2q37 haploinsufficiency\", \"target\": \"Neurodevelopmental dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contiguous gene loss perturbs brain development and behavior.\"}, {\"source\": \"2q37 haploinsufficiency\", \"target\": \"Metabolic and growth regulation abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deletion of 2q37 genes contributes to short stature and obesity.\"}, {\"source\": \"Skeletal development dysregulation\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal skeletal patterning defects produce brachydactyly type E.\"}, {\"source\": \"Skeletal development dysregulation\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth regulation contributes to short stature.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental neurobiologic disruption presents as global delay.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent neurodevelopmental disruption causes intellectual disability.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Behavioral abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brain developmental differences contribute to autism-spectrum and other behavioral features.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental dysfunction increases seizure susceptibility.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central hypotonia contributes to infantile motor delay.\"}, {\"source\": \"Metabolic and growth regulation abnormalities\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth and metabolic regulation manifests as obesity or overweight.\"}, {\"source\": \"Deletion-size-dependent multigene haploinsufficiency\", \"target\": \"Nephroblastoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Haploinsufficiency of a tumor-suppressor gene in the 2q37.1 interval may contribute to Wilms tumor predisposition in larger deletions.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">20</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(6)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Congenital heart disease
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank">
-                            Abnormal heart morphology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001627)</span>
-                        </span>
-                        
+                        Abnormal heart morphology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other findings include seizures (20%-35%), congenital heart disease, CNS abnormalities (hydrocephalus, dilated ventricles), umbilical/inguinal hernia, tracheomalacia, situs abnormalities, gastrointestinal abnormalities, and renal malformations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports congenital heart disease as an occasional feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Telangiectasia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001009" target="_blank">
-                            Telangiectasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001009)</span>
-                        </span>
-                        
+                        Telangiectasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001009" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001009">HP:0001009</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14020465" target="_blank">DOI:10.3390/genes14020465</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"translucent skin and telangiectasias (6/9)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent cohort data identify telangiectasias and translucent skin as recurrent findings.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Gastrointestinal anomalies
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank">
-                            Abnormality of the gastrointestinal tract
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011024)</span>
-                        </span>
-                        
+                        Abnormality of the gastrointestinal tract
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011024">HP:0011024</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other findings include seizures (20%-35%), congenital heart disease, CNS abnormalities (hydrocephalus, dilated ventricles), umbilical/inguinal hernia, tracheomalacia, situs abnormalities, gastrointestinal abnormalities, and renal malformations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews includes gastrointestinal abnormalities among recognized associated findings.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypothyroidism
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank">
-                            Hypothyroidism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000821)</span>
-                        </span>
-                        
+                        Hypothyroidism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37020696" target="_blank">PMID:37020696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"three of the four affected individuals had short stature and mild cardiac anomalies, and two of the four affected individuals had hypothyroidism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">HDAC4-family evidence supports hypothyroidism as a reported associated feature, but broader frequency remains uncertain.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Renal malformation
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank">
-                            Abnormality of the kidney
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000077)</span>
-                        </span>
-                        
+                        Abnormality of the kidney
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000077">HP:0000077</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.c.30153" target="_blank">DOI:10.1002/ajmg.c.30153</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CNS, ocular, cardiac, gastrointestinal, renal, and other GU anomalies have been noted"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical review supports renal and GU anomalies as part of the variable multisystem phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Nephroblastoma
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002667" target="_blank">
-                            Nephroblastoma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002667)</span>
-                        </span>
-                        
+                        Nephroblastoma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002667" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002667">HP:0002667</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Wilms tumor has been reported in two individuals."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports nephroblastoma as a rare but documented tumor risk.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Craniosynostosis
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank">
-                            Craniosynostosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001363)</span>
-                        </span>
-                        
+                        Craniosynostosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001363">HP:0001363</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14020465" target="_blank">DOI:10.3390/genes14020465</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Two cases had obesity, one case had craniosynostosis, and four had heart defects."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recent cohort data support craniosynostosis as a reported but uncommon feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Facial dysmorphism
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank">
-                            abnormal facial shape
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001999)</span>
-                        </span>
-                        
+                        abnormal facial shape
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001999">HP:0001999</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CLINICAL CHARACTERISTICS: 2q37 microdeletion syndrome is characterized by mild-moderate developmental delay/intellectual disability, brachymetaphalangy of digits 3-5 (often digit 4 alone) (&gt;50%), short stature, obesity, hypotonia, characteristic facial appearance, autism or autism spectrum..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the common facial dysmorphism described in the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypotonia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank">
-                            hypotonia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001252)</span>
-                        </span>
-                        
+                        hypotonia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CLINICAL CHARACTERISTICS: 2q37 microdeletion syndrome is characterized by mild-moderate developmental delay/intellectual disability, brachymetaphalangy of digits 3-5 (often digit 4 alone) (&gt;50%), short stature, obesity, hypotonia, characteristic facial appearance, autism or autism spectrum..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports hypotonia as a core phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Joint hypermobility
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank">
-                            Joint hypermobility
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001382)</span>
-                        </span>
-                        
+                        Joint hypermobility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CLINICAL CHARACTERISTICS: 2q37 microdeletion syndrome is characterized by mild-moderate developmental delay/intellectual disability, brachymetaphalangy of digits 3-5 (often digit 4 alone) (&gt;50%), short stature, obesity, hypotonia, characteristic facial appearance, autism or autism spectrum..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports joint hypermobility as part of the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Scoliosis
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank">
-                            Scoliosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002650)</span>
-                        </span>
-                        
+                        Scoliosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CLINICAL CHARACTERISTICS: 2q37 microdeletion syndrome is characterized by mild-moderate developmental delay/intellectual disability, brachymetaphalangy of digits 3-5 (often digit 4 alone) (&gt;50%), short stature, obesity, hypotonia, characteristic facial appearance, autism or autism spectrum..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports scoliosis as part of the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">6</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Global developmental delay
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
-                            Global developmental delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
-                        </span>
-                        
+                        Global developmental delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CLINICAL CHARACTERISTICS: 2q37 microdeletion syndrome is characterized by mild-moderate developmental delay/intellectual disability, brachymetaphalangy of digits 3-5 (often digit 4 alone) (&gt;50%), short stature, obesity, hypotonia, characteristic facial appearance, autism or autism spectrum..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports developmental delay as a core phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intellectual disability
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
-                            intellectual disability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001249)</span>
-                        </span>
-                        
+                        intellectual disability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CLINICAL CHARACTERISTICS: 2q37 microdeletion syndrome is characterized by mild-moderate developmental delay/intellectual disability, brachymetaphalangy of digits 3-5 (often digit 4 alone) (&gt;50%), short stature, obesity, hypotonia, characteristic facial appearance, autism or autism spectrum..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports intellectual disability as a core phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Autistic behavior
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank">
-                            Autistic behavior
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000729)</span>
-                        </span>
-                        
+                        Autistic behavior
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CLINICAL CHARACTERISTICS: 2q37 microdeletion syndrome is characterized by mild-moderate developmental delay/intellectual disability, brachymetaphalangy of digits 3-5 (often digit 4 alone) (&gt;50%), short stature, obesity, hypotonia, characteristic facial appearance, autism or autism spectrum..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports ASD as a common phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Behavioral abnormality
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank">
-                            atypical behavior
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000708)</span>
-                        </span>
-                        
+                        atypical behavior
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23073310" target="_blank">PMID:23073310</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients exhibited facial dysmorphism (13/14) and brachydactyly (10/14), associated with behavioural problems, autism or autism spectrum disorders of varying severity and overweight or obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports behavioral disturbance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizure
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
-                            seizure
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001250)</span>
-                        </span>
-                        
+                        seizure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other findings include seizures (20%-35%), congenital heart disease, CNS abnormalities (hydrocephalus, dilated ventricles), umbilical/inguinal hernia, tracheomalacia, situs abnormalities, gastrointestinal abnormalities, and renal malformations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports seizures as a recognized but less frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         CNS structural anomalies
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank">
-                            Ventriculomegaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002119)</span>
-                        </span>
-                        
+                        Ventriculomegaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002119">HP:0002119</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other findings include seizures (20%-35%), congenital heart disease, CNS abnormalities (hydrocephalus, dilated ventricles), umbilical/inguinal hernia, tracheomalacia, situs abnormalities, gastrointestinal abnormalities, and renal malformations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews lists CNS structural anomalies including hydrocephalus and dilated ventricles.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short stature
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank">
-                            short stature
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004322)</span>
-                        </span>
-                        
+                        short stature
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CLINICAL CHARACTERISTICS: 2q37 microdeletion syndrome is characterized by mild-moderate developmental delay/intellectual disability, brachymetaphalangy of digits 3-5 (often digit 4 alone) (&gt;50%), short stature, obesity, hypotonia, characteristic facial appearance, autism or autism spectrum..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports short stature as a recurrent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Obesity
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank">
-                            obesity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001513)</span>
-                        </span>
-                        
+                        obesity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23073310" target="_blank">PMID:23073310</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients exhibited facial dysmorphism (13/14) and brachydactyly (10/14), associated with behavioural problems, autism or autism spectrum disorders of varying severity and overweight or obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports obesity as a common phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Brachydactyly
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005863" target="_blank">
-                            Type E brachydactyly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005863)</span>
-                        </span>
-                        
+                        Type E brachydactyly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005863" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005863">HP:0005863</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23073310" target="_blank">PMID:23073310</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients exhibited facial dysmorphism (13/14) and brachydactyly (10/14), associated with behavioural problems, autism or autism spectrum disorders of varying severity and overweight or obesity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports brachydactyly as a common phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14020465" target="_blank">DOI:10.3390/genes14020465</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
-                <div class="evidence-snippet">"brachydactyly type E"</div>
-                
-                
+
+                <div class="evidence-snippet">"2q37 microdeletion/deletion syndrome (2q37DS) ... is characterized by a broad and diverse spectrum of clinical findings: characteristic facial dysmorphism, developmental delay/intellectual disability (ID), brachydactyly type E ... 8/9 skeletal anomalies—especially brachydactyly type E"</div>
+
+
                 <div class="evidence-explanation">Recent cohort data support type E brachydactyly as the characteristic skeletal anomaly.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -5092,425 +5471,952 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     2q37 deletion
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal chromosomal deletion)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Chromosome analysis confirms the diagnosis of 2q37 deletion syndrome in 80%-85% of affected individuals."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports the causal chromosomal deletion and diagnostic cytogenetic confirmation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37020696" target="_blank">PMID:37020696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Brachydactyly mental retardation syndrome (BDMR) or chromosome 2q37 deletion syndrome is a genetic disorder caused by 2q37 deletion or haploinsufficiency of histone deacetylase 4 (HDAC4)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports HDAC4 haploinsufficiency as a key pathogenic mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">10</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Supportive care
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary supportive management is the mainstay and includes developmental services and specialty surveillance.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment of manifestations: Multidisciplinary care by specialists in the following fields is often required: clinical genetics, speech pathology, occupational and physical therapy, child development, neurology, cardiology, gastroenterology, nutrition/feeding, ophthalmology, and audiology."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports a broad supportive-care management approach.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is important for recurrence-risk assessment, especially when a familial deletion or parental rearrangement is possible.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.c.30153" target="_blank">DOI:10.1002/ajmg.c.30153</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Timely diagnosis of this recognizable syndrome provides a basis for genetic counseling"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical review supports genetic counseling as part of diagnosis and care planning.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Speech therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">speech therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000930</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000930">MAXO:0000930</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Speech therapy is often needed for language delay and communication difficulties.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment of manifestations: Multidisciplinary care by specialists in the following fields is often required: clinical genetics, speech pathology, occupational and physical therapy, child development, neurology, cardiology, gastroenterology, nutrition/feeding, ophthalmology, and audiology."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports speech therapy as part of routine care.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Physical therapy can address hypotonia, motor delay, and coordination issues.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment of manifestations: Multidisciplinary care by specialists in the following fields is often required: clinical genetics, speech pathology, occupational and physical therapy, child development, neurology, cardiology, gastroenterology, nutrition/feeding, ophthalmology, and audiology."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports physical therapy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Occupational therapy
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">occupational therapy</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001351" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001351">MAXO:0001351</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Occupational therapy addresses fine-motor delays, adaptive skills, and activities of daily living in the context of intellectual disability and joint hypermobility.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment of manifestations: Multidisciplinary care by specialists in the following fields is often required: clinical genetics, speech pathology, occupational and physical therapy, child development, neurology, cardiology, gastroenterology, nutrition/feeding, ophthalmology, and audiology."</div>
+
+
+                <div class="evidence-explanation">This directly supports occupational therapy as part of routine multidisciplinary care.</div>
+
+
+
+            </div>
+
+
         </div>
-        
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Early intervention and educational support
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">early intervention services</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0009101" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0009101">MAXO:0009101</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Enrollment in early-intervention programs and individualized educational plans (IEPs) is recommended for all affected children to address developmental delay and intellectual disability.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Infants benefit from enrollment in an early-intervention program; most school-age children benefit from an individualized educational program (IEP)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly supports early intervention and IEP enrollment for cognitive and developmental support.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Behavioral and autism-spectrum support
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">cognitive and behavioral intervention</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000010" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000010">MAXO:0000010</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Behavioral interventions and periodic developmental/behavioral pediatric evaluation are recommended for autism-spectrum features and behavioral problems, including attention difficulties and aggression.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"periodic neurodevelopmental and/or developmental/behavioral pediatric evaluation to assist in the management of cognitive and behavioral problems."</div>
+
+
+                <div class="evidence-explanation">GeneReviews recommends ongoing behavioral evaluation and management for the cognitive and behavioral phenotype of the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Dietary and metabolic management for obesity
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000088">MAXO:0000088</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Dietary intervention and nutrition monitoring are indicated for affected individuals because overweight and obesity are common and clinically prominent features of the syndrome.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment of manifestations: Multidisciplinary care by specialists in the following fields is often required: clinical genetics, speech pathology, occupational and physical therapy, child development, neurology, cardiology, gastroenterology, nutrition/feeding, ophthalmology, and audiology."</div>
+
+
+                <div class="evidence-explanation">Nutrition/feeding specialist input supports dietary management as part of routine multidisciplinary care; overweight and obesity are frequent in the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Antiepileptic drug therapy
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">antiepileptic drug therapy</span>
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: anticonvulsant agent therapy</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000167" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000167">MAXO:0000167</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Anticonvulsant treatment is indicated when seizures are present, which occurs in approximately 20–35% of affected individuals.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment of manifestations: Multidisciplinary care by specialists in the following fields is often required: clinical genetics, speech pathology, occupational and physical therapy, child development, neurology, cardiology, gastroenterology, nutrition/feeding, ophthalmology, and audiology."</div>
+
+
+                <div class="evidence-explanation">GeneReviews explicitly lists neurology as a required specialist field, directly supporting anticonvulsant management when seizures are present (noted in 20–35% of patients); standard epilepsy management applies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Tumor and renal surveillance
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">cancer screening</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000126" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000126">MAXO:0000126</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Abdominal ultrasound surveillance for Wilms tumor is recommended in young children when the deletion includes 2q37.1. Renal cyst screening is suggested at age four years and again at puberty for all affected individuals.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Screening for renal cysts at age four years and again at puberty is suggested. For young children with a deletion that includes 2q37.1, screening for Wilms tumor can be considered."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly supports structured renal and Wilms tumor surveillance protocols as part of ongoing care.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
         <div class="card" id="differentials">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
@@ -5520,139 +6426,139 @@
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from 2q37 Microdeletion Syndrome:
             </p>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <a class="item-name-link" href="Pseudohypoparathyroidism.html">Pseudohypoparathyroidism</a>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0019992" target="_blank">
                             MONDO:0019992
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Pseudohypoparathyroidism enters the differential because the syndrome can resemble an Albright hereditary osteodystrophy-like phenotype with brachydactyly and short stature.
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">Pseudohypoparathyroidism type 1A</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0007078" target="_blank" class="missing-ontology-link">
                             MONDO:0007078
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Pseudohypoparathyroidism type 1A may be considered because both disorders can show an Albright hereditary osteodystrophy-like phenotype with brachydactyly and short stature.
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
         <div class="card" id="trials">
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
                 <h2 class="card-title">Clinical Trials</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT01238250
-                    
+
                     <span class="tag tag-phase">NOT_APPLICABLE</span>
-                    
-                    
+
+
                     <span class="tag tag-status">RECRUITING</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Simons Searchlight is an observational, online, international registry for rare genetic neurodevelopmental conditions and includes 2q37 deletion syndrome in the Falcon evidence set.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01238250" target="_blank">clinicaltrials:NCT01238250</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Simons Searchlight is an observational, online, international research program for families with rare genetic variants that cause neurodevelopmental disorders and may be associated with autism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov describes the registry relevant to rare genetic neurodevelopmental disorders such as 2q37 deletion syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5683,6 +6589,19 @@ disease_term:
   term:
     id: MONDO:0010886
     label: 2q37 microdeletion syndrome
+has_subtypes:
+- name: 2q37 Deletion
+  display_name: 2q37 Deletion (Chromosomal)
+  description: &gt;-
+    Classical form with terminal or interstitial chromosomal deletion of 2q37, variable
+    size (1.6–10 Mb), involving HDAC4 and contiguous genes. Larger deletions may include
+    additional dosage-sensitive genes and confer risk of Wilms tumor when 2q37.1 is included.
+- name: BDMR
+  display_name: BDMR (HDAC4 Intragenic Variant)
+  description: &gt;-
+    Brachydactyly-Mental Retardation syndrome caused by an intragenic pathogenic HDAC4
+    variant (missense or inactivating) without chromosomal deletion. Produces the same
+    core brachydactyly-intellectual disability phenotype without contiguous gene involvement.
 inheritance:
 - name: Autosomal dominant inheritance
   description: &gt;-
@@ -5905,6 +6824,45 @@ pathophysiology:
   - target: Obesity
     description: &gt;-
       Altered growth and metabolic regulation manifests as obesity or overweight.
+- name: Deletion-size-dependent multigene haploinsufficiency
+  description: &gt;-
+    Larger 2q37 deletions extend beyond HDAC4 to encompass additional dosage-sensitive
+    genes, producing a more severe and variable phenotype. Deletions including 2q37.1
+    carry a risk of Wilms tumor through haploinsufficiency of genes in that interval.
+    Structural chromosome rearrangements (inversions, ring chromosomes, translocations
+    involving 2q37) can produce the same contiguous gene loss at variable breakpoints.
+  evidence:
+  - reference: PMID:20301337
+    reference_title: &gt;-
+      2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE
+      ONLY.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In some individuals, 2q37 microdeletion syndrome results from chromosome
+      rearrangements involving 2q37 (e.g., chromosome 2 inversion, ring chromosome 2,
+      or translocation between chromosome 2 and another chromosome).
+    explanation: &gt;-
+      Variable rearrangement types confirm that multigene haploinsufficiency can arise
+      from diverse structural events across the 2q37 interval, not only simple deletions.
+  - reference: PMID:20301337
+    reference_title: &gt;-
+      2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE
+      ONLY.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      For young children with a deletion that includes 2q37.1, screening for Wilms tumor
+      can be considered.
+    explanation: &gt;-
+      This directly supports deletion-size-dependent risk: 2q37.1-including deletions
+      confer Wilms tumor predisposition, implicating haploinsufficiency of genes at that
+      interval beyond HDAC4.
+  downstream:
+  - target: Nephroblastoma
+    description: &gt;-
+      Haploinsufficiency of a tumor-suppressor gene in the 2q37.1 interval may contribute
+      to Wilms tumor predisposition in larger deletions.
 phenotypes:
 - name: Global developmental delay
   frequency: FREQUENT
@@ -5981,7 +6939,7 @@ phenotypes:
     reference_title: &#34;Genotype-Phenotype Correlations in 2q37-Deletion Syndrome: An Update of the Clinical Spectrum and Literature Review&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;brachydactyly type E&#34;
+    snippet: &#34;2q37 microdeletion/deletion syndrome (2q37DS) ... is characterized by a broad and diverse spectrum of clinical findings: characteristic facial dysmorphism, developmental delay/intellectual disability (ID), brachydactyly type E ... 8/9 skeletal anomalies—especially brachydactyly type E&#34;
     explanation: Recent cohort data support type E brachydactyly as the characteristic skeletal anomaly.
 - name: Short stature
   frequency: VERY_FREQUENT
@@ -6479,6 +7437,152 @@ treatments:
       audiology.
     explanation: &gt;-
       This directly supports physical therapy.
+- name: Occupational therapy
+  description: &gt;-
+    Occupational therapy addresses fine-motor delays, adaptive skills, and
+    activities of daily living in the context of intellectual disability and
+    joint hypermobility.
+  treatment_term:
+    preferred_term: occupational therapy
+    term:
+      id: MAXO:0001351
+      label: occupational therapy
+  evidence:
+  - reference: PMID:20301337
+    reference_title: &gt;-
+      2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE
+      ONLY.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Treatment of manifestations: Multidisciplinary care by specialists in the
+      following fields is often required: clinical genetics, speech pathology,
+      occupational and physical therapy, child development, neurology,
+      cardiology, gastroenterology, nutrition/feeding, ophthalmology, and
+      audiology.
+    explanation: &gt;-
+      This directly supports occupational therapy as part of routine multidisciplinary care.
+- name: Early intervention and educational support
+  description: &gt;-
+    Enrollment in early-intervention programs and individualized educational plans (IEPs)
+    is recommended for all affected children to address developmental delay and
+    intellectual disability.
+  treatment_term:
+    preferred_term: early intervention services
+    term:
+      id: MAXO:0009101
+      label: early intervention services
+  evidence:
+  - reference: PMID:20301337
+    reference_title: &gt;-
+      2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE
+      ONLY.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Infants benefit from enrollment in an early-intervention program; most school-age
+      children benefit from an individualized educational program (IEP).
+    explanation: &gt;-
+      GeneReviews directly supports early intervention and IEP enrollment for cognitive
+      and developmental support.
+- name: Behavioral and autism-spectrum support
+  description: &gt;-
+    Behavioral interventions and periodic developmental/behavioral pediatric evaluation
+    are recommended for autism-spectrum features and behavioral problems, including
+    attention difficulties and aggression.
+  treatment_term:
+    preferred_term: cognitive and behavioral intervention
+    term:
+      id: MAXO:0000010
+      label: cognitive and behavioral intervention
+  evidence:
+  - reference: PMID:20301337
+    reference_title: &gt;-
+      2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE
+      ONLY.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      periodic neurodevelopmental and/or developmental/behavioral pediatric evaluation to
+      assist in the management of cognitive and behavioral problems.
+    explanation: &gt;-
+      GeneReviews recommends ongoing behavioral evaluation and management for the
+      cognitive and behavioral phenotype of the syndrome.
+- name: Dietary and metabolic management for obesity
+  description: &gt;-
+    Dietary intervention and nutrition monitoring are indicated for affected individuals
+    because overweight and obesity are common and clinically prominent features of
+    the syndrome.
+  treatment_term:
+    preferred_term: dietary intervention
+    term:
+      id: MAXO:0000088
+      label: dietary intervention
+  evidence:
+  - reference: PMID:20301337
+    reference_title: &gt;-
+      2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE
+      ONLY.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Treatment of manifestations: Multidisciplinary care by specialists in the
+      following fields is often required: clinical genetics, speech pathology,
+      occupational and physical therapy, child development, neurology,
+      cardiology, gastroenterology, nutrition/feeding, ophthalmology, and
+      audiology.
+    explanation: &gt;-
+      Nutrition/feeding specialist input supports dietary management as part of routine
+      multidisciplinary care; overweight and obesity are frequent in the syndrome.
+- name: Antiepileptic drug therapy
+  description: &gt;-
+    Anticonvulsant treatment is indicated when seizures are present, which occurs
+    in approximately 20–35% of affected individuals.
+  treatment_term:
+    preferred_term: antiepileptic drug therapy
+    term:
+      id: MAXO:0000167
+      label: anticonvulsant agent therapy
+  evidence:
+  - reference: PMID:20301337
+    reference_title: &gt;-
+      2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE
+      ONLY.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Treatment of manifestations: Multidisciplinary care by specialists in the
+      following fields is often required: clinical genetics, speech pathology,
+      occupational and physical therapy, child development, neurology, cardiology,
+      gastroenterology, nutrition/feeding, ophthalmology, and audiology.
+    explanation: &gt;-
+      GeneReviews explicitly lists neurology as a required specialist field, directly
+      supporting anticonvulsant management when seizures are present (noted in 20–35%
+      of patients); standard epilepsy management applies.
+- name: Tumor and renal surveillance
+  description: &gt;-
+    Abdominal ultrasound surveillance for Wilms tumor is recommended in young children
+    when the deletion includes 2q37.1. Renal cyst screening is suggested at age four
+    years and again at puberty for all affected individuals.
+  treatment_term:
+    preferred_term: cancer screening
+    term:
+      id: MAXO:0000126
+      label: cancer screening
+  evidence:
+  - reference: PMID:20301337
+    reference_title: &gt;-
+      2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE
+      ONLY.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Screening for renal cysts at age four years and again at puberty is suggested.
+      For young children with a deletion that includes 2q37.1, screening for Wilms tumor
+      can be considered.
+    explanation: &gt;-
+      GeneReviews directly supports structured renal and Wilms tumor surveillance
+      protocols as part of ongoing care.
 diagnosis:
 - name: Chromosomal microarray and chromosome analysis
   description: &gt;-
@@ -6684,322 +7788,322 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">16</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301337" target="_blank">PMID:20301337</a>
                             </div>
-                            
+
                             <div class="reference-title">2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/23073310" target="_blank">PMID:23073310</a>
                             </div>
-                            
+
                             <div class="reference-title">The 2q37-deletion syndrome: an update of the clinical spectrum including overweight, brachydactyly and behavioural features in 14 new patients.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/37020696" target="_blank">PMID:37020696</a>
                             </div>
-                            
+
                             <div class="reference-title">A family with brachydactyly mental retardation syndrome with a missense variant in HDAC4.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/genes14020465" target="_blank">DOI:10.3390/genes14020465</a>
                             </div>
-                            
+
                             <div class="reference-title">Genotype-Phenotype Correlations in 2q37-Deletion Syndrome: An Update of the Clinical Spectrum and Literature Review</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.ajhg.2010.07.011" target="_blank">DOI:10.1016/j.ajhg.2010.07.011</a>
                             </div>
-                            
+
                             <div class="reference-title">Haploinsufficiency of HDAC4 Causes Brachydactyly Mental Retardation Syndrome, with Brachydactyly Type E, Developmental Delays, and Behavioral Problems</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/ejhg.2012.230" target="_blank">DOI:10.1038/ejhg.2012.230</a>
                             </div>
-                            
+
                             <div class="reference-title">The 2q37-deletion syndrome: an update of the clinical spectrum including overweight, brachydactyly and behavioural features in 14 new patients</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/ejhg.2012.240" target="_blank">DOI:10.1038/ejhg.2012.240</a>
                             </div>
-                            
+
                             <div class="reference-title">Phenotypic variant of Brachydactyly-mental retardation syndrome in a family with an inherited interstitial 2q37.3 microdeletion including HDAC4</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1297/cpe.2022-0076" target="_blank">DOI:10.1297/cpe.2022-0076</a>
                             </div>
-                            
+
                             <div class="reference-title">A family with brachydactyly mental retardation syndrome with a missense variant in HDAC4</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1002/ajmg.c.30153" target="_blank">DOI:10.1002/ajmg.c.30153</a>
                             </div>
-                            
+
                             <div class="reference-title">Chromosome 2q37 deletion: Clinical and molecular aspects</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.35463" target="_blank">DOI:10.1002/ajmg.a.35463</a>
                             </div>
-                            
+
                             <div class="reference-title">Dose dependent expression of HDAC4 causes variable expressivity in a novel inherited case of brachydactyly mental retardation syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.xhgg.2020.100015" target="_blank">DOI:10.1016/j.xhgg.2020.100015</a>
                             </div>
-                            
+
                             <div class="reference-title">Missense substitutions at a conserved 14-3-3 binding site in HDAC4 cause a novel intellectual disability syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1158/1078-0432.CCR-24-2100" target="_blank">DOI:10.1158/1078-0432.CCR-24-2100</a>
                             </div>
-                            
+
                             <div class="reference-title">Update on Surveillance for Wilms Tumor and Hepatoblastoma in Beckwith-Wiedemann Syndrome and Other Predisposition Syndromes</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s12915-023-01800-1" target="_blank">DOI:10.1186/s12915-023-01800-1</a>
                             </div>
-                            
+
                             <div class="reference-title">Deciphering the roles of subcellular distribution and interactions involving the MEF2 binding region, the ankyrin repeat binding motif and the catalytic site of HDAC4 in Drosophila neuronal morphogenesis</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.15252/embj.201696257" target="_blank">DOI:10.15252/embj.201696257</a>
                             </div>
-                            
+
                             <div class="reference-title">Reorganization of inter-chromosomal interactions in the 2q37-deletion syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.2209/tdcpublication.2025-0022" target="_blank">DOI:10.2209/tdcpublication.2025-0022</a>
                             </div>
-                            
+
                             <div class="reference-title">Long-term Oral Management for 2q37 Deletion Syndrome Patient</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://clinicaltrials.gov/study/NCT01238250" target="_blank">clinicaltrials:NCT01238250</a>
                             </div>
-                            
+
                             <div class="reference-title">Online Study of People Who Have Genetic Changes and Features of Autism: Simons Searchlight</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of 2q37 Microdeletion Syndrome. Core disease mechanisms, molecular and cellul...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">19 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-15T19:38:27.351146</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of 2q37 Microdeletion Syndrome. Core disease mechanisms, molecular and cellul...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -7314,29 +8418,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">1. Disease Information</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">29 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-29T18:08:22.183309</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>1. Disease Information</h2>
 <h3>1.1 Definition / overview</h3>
@@ -7838,11 +8942,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -7892,7 +8996,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "2q37 Microdeletion Syndrome", "mondoId": "MONDO:0010886", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "2q37_Microdeletion_Syndrome", "yamlRevision": "a777ed906394"};
+        const OS_CONFIG = {"diseaseName": "2q37 Microdeletion Syndrome", "mondoId": "MONDO:0010886", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "2q37_Microdeletion_Syndrome", "yamlRevision": "8b9241bb1124"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
