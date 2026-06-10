@@ -1,0 +1,17 @@
+| Identifier system | Code/ID | Label | Notes | URL |
+|---|---|---|---|---|
+| OMIM | MIM:220210 | Ritscher-Schinzel syndrome / 3C syndrome | Retrieved evidence links RSS/3C syndrome to OMIM 220210; classic disease label/synonym supported by 2015 and 2023 literature summaries and a syndrome list noting “3 C-syndrom, cranio-cerebello-cardiale Dysplasie.” (pqac-00000008, pqac-00000009) | https://omim.org/entry/220210 |
+| OMIM | MIM:300963 | CCDC22-associated Ritscher-Schinzel syndrome | Otsuji 2023 notes OMIM 300963 in connection with RSS via CCDC22, reflecting the X-linked form/gene-specific entry rather than the aggregate syndrome label. (pqac-00000009) | https://omim.org/entry/300963 |
+| OMIM | MIM:619135 | VPS35L-associated Ritscher-Schinzel syndrome | Otsuji 2023 identifies VPS35L as the “third responsible gene” for RSS and cites MIM 619135 for this gene-associated form. (pqac-00000009) | https://omim.org/entry/619135 |
+| Synonym | RSS | Ritscher-Schinzel syndrome | Common abbreviation used in recent peer-reviewed and preprint literature. (pqac-00000009, pqac-00000010) | N/A |
+| Synonym | 3C syndrome | Cranio-cerebello-cardiac syndrome / cranio-cerebello-cardiac dysplasia | Widely used alternative name reflecting the core triad of craniofacial, cerebellar, and cardiac abnormalities. (pqac-00000008, pqac-00000009) | N/A |
+| Synonym | 3 C syndrome | Ritscher-Schinzel/3 C syndrome | Variant spacing/formatting appears in the literature, especially in gene-specific CCDC22 reports. (pqac-00000011) | N/A |
+| Disease concept | N/A | Multi-system developmental disorder | Recent sources describe RSS as a congenital multiple-organ malformation syndrome characterized by craniofacial, cerebellar, and cardiac defects; newer mechanistic framing is an “endosomal recyclinopathy.” (pqac-00000001, pqac-00000010) | N/A |
+| Orphanet | Not found in retrieved evidence | To be filled from external database | No ORPHA identifier was present in the retrieved evidence; verify directly in Orphanet before KB ingestion. (pqac-00000008, pqac-00000009) | https://www.orpha.net |
+| ICD-10 / ICD-11 | Not found in retrieved evidence | To be filled from external database | No ICD code was present in the retrieved evidence; confirm from WHO/clinical coding resources. (pqac-00000008, pqac-00000009) | https://icd.who.int/ |
+| MeSH | Not found in retrieved evidence | To be filled from external database | No MeSH term/ID was present in the retrieved evidence; confirm in MeSH Browser. (pqac-00000008, pqac-00000009) | https://meshb.nlm.nih.gov/ |
+| MONDO | Not found in retrieved evidence | To be filled from external database | No MONDO identifier was present in the retrieved evidence; confirm in Mondo/OBO resources. (pqac-00000008, pqac-00000009) | https://monarchinitiative.org/ |
+| Evidence provenance | Aggregated disease-level literature and syndrome catalogs | Not EHR-derived in retrieved evidence | Available evidence comes from peer-reviewed case series/reviews and syndrome listings rather than individual EHR datasets; examples include Otsuji 2023 J Med Genet and a syndrome list containing the 220210 identifier. (pqac-00000008, pqac-00000009) | N/A |
+
+
+*Table: This table summarizes the disease identifiers and naming conventions for Ritscher-Schinzel syndrome based strictly on retrieved evidence. It highlights confirmed OMIM entries and synonyms while flagging ORPHA, ICD, MeSH, and MONDO as requiring direct verification from external databases.*
