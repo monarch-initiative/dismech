@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Atelosteogenesis Type I</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0007167" target="_blank">
                         MONDO:0007167
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Skeletal Dysplasia</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Lethal Skeletal Dysplasia</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,12 +2991,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Atelosteogenesis type I is a severe autosomal dominant FLNB-related skeletal dysplasia that is typically lethal in the perinatal period. It is characterized by marked skeletal maturation defects, hypoplastic long bones, vertebral abnormalities, joint dislocations, and frequent respiratory failure related to thoracic and pulmonary hypoplasia.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2996,34 +3066,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3031,8 +3101,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3040,9 +3110,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3050,10 +3120,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3061,8 +3131,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3070,8 +3140,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3079,14 +3149,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3094,8 +3164,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3103,845 +3173,957 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal Dominant
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Atelosteogenesis type I is inherited in an autosomal dominant pattern and is caused by heterozygous pathogenic FLNB variants.
 </div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16752402" target="_blank">PMID:16752402</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"AOI and AOIII are autosomal dominant lethal skeletal dysplasias characterized by overlapping clinical findings that include vertebral abnormalities, disharmonious skeletal maturation, hypoplastic long bones, and joint dislocations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports dominant inheritance and lethal disease severity in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-flnb-gain-of-function-cytoskeletal-dysregulation">
                 <div class="item-name">FLNB Gain-of-Function Cytoskeletal Dysregulation</div>
-                
+
                 <div class="item-desc">Dominant missense FLNB variants associated with AOI alter full-length filamin B, an actin-binding cytoskeletal scaffold in cartilage. The abnormal protein perturbs actin organization and cell signaling in skeletal lineage cells rather than causing simple FLNB haploinsufficiency.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        FLNB
-                        
-                        <a href="https://bioregistry.io/hgnc:3755" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FLNB
+
+
+    <a href="https://bioregistry.io/hgnc:3755" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3755">hgnc:3755</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Actin filament organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007015" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007015" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007015">GO:0007015</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Cytoskeleton organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007010" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007010" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007010">GO:0007010</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         PI3K-AKT signal transduction
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043491">GO:0043491</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         TGF-beta receptor signaling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         actin filament binding
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0051015" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051015" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051015">GO:0051015</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Disrupted Growth Plate Chondrocyte Maturation</span>
-	                            
+
 	                            <span class="crosslink-desc">Cytoskeletal and signaling disruption in chondrocytes impairs cartilage maturation and endochondral ossification.
 </span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16752402" target="_blank">PMID:16752402</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The filamins are a family of cytoplasmic proteins that bind to and organize actin filaments, link membrane proteins to the cytoskeleton, and provide a scaffold for signaling molecules."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes filamin B as an actin-cytoskeleton scaffold, the molecular context for dominant FLNB gain-of-function skeletal dysplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16752402" target="_blank">PMID:16752402</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The majority of the mutations resided in exon 2 and exon 3, which encode the CH2 domain of the actin-binding region of filamin B."</div>
-                
-                
+
+
                 <div class="evidence-explanation">AOI/AOIII missense variants cluster in domains relevant to filamin B cytoskeletal function rather than representing loss-of-function alleles.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35832491" target="_blank">PMID:35832491</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"And in vitro studies showed that both variants led to a lack of filopodia and accumulation of the mutants in the perinuclear region in HEK293 cells."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional studies of FLNB skeletal-dysplasia variants support disrupted cytoskeletal organization and mutant-protein localization as a mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-growth-plate-chondrocyte-maturation">
                 <div class="item-name">Disrupted Growth Plate Chondrocyte Maturation</div>
-                
+
                 <div class="item-desc">AOI cartilage shows abnormal chondrocyte clustering, giant chondrocytes, and incomplete ossification of cartilage anlagen. This represents impaired growth-plate chondrocyte maturation and endochondral replacement of cartilage by mineralized bone.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Growth plate chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Cartilage development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051216">GO:0051216</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Chondrocyte differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002062">GO:0002062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Endochondral ossification
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Bone mineralization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030282">GO:0030282</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Thoracic Insufficiency and Upper Airway Failure</span>
-	                            
+
 	                            <span class="crosslink-desc">Defective cartilage and ossification in the thorax and airway cartilage produce lethal respiratory compromise.
 </span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16752402" target="_blank">PMID:16752402</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in the gene encoding filamin B (FLNB) cause a spectrum of osteochondrodysplasias, including atelosteogenesis type I (AOI) and atelosteogenesis type III (AOIII)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports FLNB as the causal molecular driver of AOI pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16752402" target="_blank">PMID:16752402</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These results show that clustering of mutations in two regions of FLNB produce AOI/AOIII, and highlight the important role of this cytoskeletal protein in normal skeletogenesis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This links FLNB mutation clustering to abnormal skeletal development.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9779808" target="_blank">PMID:9779808</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Atelosteogenesis type 1 (AO1) is a rare lethal chondrodysplasia characterized by incomplete ossification of cartilage anlagen."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports incomplete endochondral ossification as a defining AOI pathophysiologic feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thoracic-insufficiency-and-upper-airway-failure">
                 <div class="item-name">Thoracic Insufficiency and Upper Airway Failure</div>
-                
+
                 <div class="item-desc">Perinatal lethality reflects combined skeletal thoracic restriction, pulmonary hypoplasia, and primary upper-airway cartilage failure. In reported AOI neonates, severe subglottic hypoplasia and tracheomalacia allowed tracheal collapse and contributed to death independently of pulmonary hypoplasia.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Airway chondrocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         Respiratory tract epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002368">CL:0002368</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Trachea development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0060438" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060438" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060438">GO:0060438</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Lung development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030324" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030324" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030324">GO:0030324</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9779808" target="_blank">PMID:9779808</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Although pulmonary hypoplasia was present, it was moderate and considered unlikely to be the sole cause of death."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes that lethality is not explained by pulmonary hypoplasia alone.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9779808" target="_blank">PMID:9779808</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The marked luminal narrowing, tracheomalacia, and temporal proximity of extubation to demise support tracheal collapse as a major contributor to the death in AO1."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports tracheomalacia and airway collapse as a primary lethal mechanism in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Respiratory insufficiency with tracheal hypoplasia, laryngeal stenosis, and pulmonary hypoplasia have all been described in patients with AO type I and we conclude that compromised pulmonary function is a major contributor to morbidity and mortality in this condition."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms airway and pulmonary abnormalities as major contributors to AOI morbidity and mortality.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3952,1203 +4134,1260 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted Growth Plate Chondrocyte Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AOI cartilage shows abnormal chondrocyte clustering, giant chondrocytes, and incomplete ossification of cartilage anlagen. This represents impaired growth-plate chondrocyte maturation and endochondral replacement of cartilage by mineralized bone.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Cartilage development\", \"Chondrocyte differentiation\", \"Endochondral ossification\", \"Bone mineralization\"]}}, {\"id\": \"FLNB Gain-of-Function Cytoskeletal Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dominant missense FLNB variants associated with AOI alter full-length filamin B, an actin-binding cytoskeletal scaffold in cartilage. The abnormal protein perturbs actin organization and cell signaling in skeletal lineage cells rather than causing simple FLNB haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Actin filament organization\", \"Cytoskeleton organization\", \"PI3K-AKT signal transduction\", \"TGF-beta receptor signaling\"], \"molecular_functions\": [\"actin filament binding\"], \"genes\": [\"FLNB\"]}}, {\"id\": \"FLNB Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLNB\"], \"association\": \"Causative\"}}, {\"id\": \"Thoracic Insufficiency and Upper Airway Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perinatal lethality reflects combined skeletal thoracic restriction, pulmonary hypoplasia, and primary upper-airway cartilage failure. In reported AOI neonates, severe subglottic hypoplasia and tracheomalacia allowed tracheal collapse and contributed to death independently of pulmonary hypoplasia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Airway chondrocyte\", \"Respiratory tract epithelial cell\"], \"biological_processes\": [\"Trachea development\", \"Lung development\"]}}], \"edges\": [{\"source\": \"FLNB Gain-of-Function Cytoskeletal Dysregulation\", \"target\": \"Disrupted Growth Plate Chondrocyte Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoskeletal and signaling disruption in chondrocytes impairs cartilage maturation and endochondral ossification.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Growth Plate Chondrocyte Maturation\", \"target\": \"Thoracic Insufficiency and Upper Airway Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective cartilage and ossification in the thorax and airway cartilage produce lethal respiratory compromise.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FLNB Pathogenic Variants\", \"target\": \"FLNB Gain-of-Function Cytoskeletal Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted Growth Plate Chondrocyte Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AOI cartilage shows abnormal chondrocyte clustering, giant chondrocytes, and incomplete ossification of cartilage anlagen. This represents impaired growth-plate chondrocyte maturation and endochondral replacement of cartilage by mineralized bone.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Cartilage development\", \"Chondrocyte differentiation\", \"Endochondral ossification\", \"Bone mineralization\"]}}, {\"id\": \"FLNB Gain-of-Function Cytoskeletal Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dominant missense FLNB variants associated with AOI alter full-length filamin B, an actin-binding cytoskeletal scaffold in cartilage. The abnormal protein perturbs actin organization and cell signaling in skeletal lineage cells rather than causing simple FLNB haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Actin filament organization\", \"Cytoskeleton organization\", \"PI3K-AKT signal transduction\", \"TGF-beta receptor signaling\"], \"molecular_functions\": [\"actin filament binding\"], \"genes\": [\"FLNB\"], \"gene_terms\": [{\"label\": \"FLNB\", \"id\": \"hgnc:3755\"}]}}, {\"id\": \"FLNB Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLNB\"], \"gene_terms\": [{\"label\": \"FLNB\", \"id\": \"hgnc:3755\"}], \"association\": \"Causative\"}}, {\"id\": \"Thoracic Insufficiency and Upper Airway Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perinatal lethality reflects combined skeletal thoracic restriction, pulmonary hypoplasia, and primary upper-airway cartilage failure. In reported AOI neonates, severe subglottic hypoplasia and tracheomalacia allowed tracheal collapse and contributed to death independently of pulmonary hypoplasia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Airway chondrocyte\", \"Respiratory tract epithelial cell\"], \"biological_processes\": [\"Trachea development\", \"Lung development\"]}}], \"edges\": [{\"source\": \"FLNB Gain-of-Function Cytoskeletal Dysregulation\", \"target\": \"Disrupted Growth Plate Chondrocyte Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoskeletal and signaling disruption in chondrocytes impairs cartilage maturation and endochondral ossification.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Growth Plate Chondrocyte Maturation\", \"target\": \"Thoracic Insufficiency and Upper Airway Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective cartilage and ossification in the thorax and airway cartilage produce lethal respiratory compromise.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FLNB Pathogenic Variants\", \"target\": \"FLNB Gain-of-Function Cytoskeletal Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">19</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(4)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(4)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(5)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypertelorism
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank">
-                            Hypertelorism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000316)</span>
-                        </span>
-                        
+                        Hypertelorism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Facial features included proptosis, hypertelorism, downslanting palpebral fissures, cleft palate, and retromicrognathia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports hypertelorism as part of the AOI craniofacial phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Proptosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank">
-                            Proptosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000520)</span>
-                        </span>
-                        
+                        Proptosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000520">HP:0000520</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Facial features included proptosis, hypertelorism, downslanting palpebral fissures, cleft palate, and retromicrognathia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports proptosis as part of the AOI craniofacial phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">4</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Prominent Forehead
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank">
-                            Prominent forehead
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011220)</span>
-                        </span>
-                        
+                        Prominent forehead
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011220">HP:0011220</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK2534/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK2534/</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"prominent forehead; hypertelorism; and proptosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews includes prominent forehead in the perinatal-lethal FLNB-AOI craniofacial phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Downslanting Palpebral Fissures
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank">
-                            Downslanted palpebral fissures
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000494)</span>
-                        </span>
-                        
+                        Downslanted palpebral fissures
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000494">HP:0000494</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Facial features included proptosis, hypertelorism, downslanting palpebral fissures, cleft palate, and retromicrognathia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports downslanting palpebral fissures as part of the AOI craniofacial phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Micrognathia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank">
-                            Micrognathia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000347)</span>
-                        </span>
-                        
+                        Micrognathia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Facial features included proptosis, hypertelorism, downslanting palpebral fissures, cleft palate, and retromicrognathia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports retromicrognathia/micrognathia in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cleft Palate
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank">
-                            Cleft palate
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000175)</span>
-                        </span>
-                        
+                        Cleft palate
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Facial features included proptosis, hypertelorism, downslanting palpebral fissures, cleft palate, and retromicrognathia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports cleft palate in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
                     <span class="cat-count">4</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Fibular Aplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002990" target="_blank">
-                            Fibular aplasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002990)</span>
-                        </span>
-                        
+                        Fibular aplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002990" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002990">HP:0002990</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12454961" target="_blank">PMID:12454961</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fetal ultrasonography (US) revealed absent or deficient ossification of the posterior neural arches of the thoracic spine, humeri, radii, ulnae, fibulae, and short tubular bones other than the distal phalanges, in addition to extremely short, thick femora."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This prenatal AOI case directly documents absent/deficient fibular ossification.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Talipes Equinovarus
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank">
-                            Talipes equinovarus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001762)</span>
-                        </span>
-                        
+                        Talipes equinovarus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001762">HP:0001762</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both children had typical manifestations of AO type I, with severe rhizomelic shortening of the extremities, limited elbow and knee extension with mild webbing, pectus excavatum, broad thumbs with brachydactyly that was most marked for digits 3-5, dislocated hips and bilateral talipes equinovarus."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports bilateral talipes equinovarus in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Brachydactyly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank">
-                            Brachydactyly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001156)</span>
-                        </span>
-                        
+                        Brachydactyly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001156">HP:0001156</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both children had typical manifestations of AO type I, with severe rhizomelic shortening of the extremities, limited elbow and knee extension with mild webbing, pectus excavatum, broad thumbs with brachydactyly that was most marked for digits 3-5, dislocated hips and bilateral talipes equinovarus."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports brachydactyly as part of the distal limb phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Broad Thumb
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank">
-                            Broad thumb
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011304)</span>
-                        </span>
-                        
+                        Broad thumb
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011304">HP:0011304</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both children had typical manifestations of AO type I, with severe rhizomelic shortening of the extremities, limited elbow and knee extension with mild webbing, pectus excavatum, broad thumbs with brachydactyly that was most marked for digits 3-5, dislocated hips and bilateral talipes equinovarus."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports broad thumbs in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">5</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Joint Dislocation
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank">
-                            Joint dislocation
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001373)</span>
-                        </span>
-                        
+                        Joint dislocation
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001373">HP:0001373</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24624349" target="_blank">PMID:24624349</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Atelosteogenesis type I (AO-I) is a rare lethal skeletal dysplastic disorder characterized by severe short-limbed dwarfism and dislocated hips, knees, and elbows."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports congenital large-joint dislocation in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abnormality of the Vertebral Column
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000925" target="_blank">
-                            Abnormality of the vertebral column
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000925)</span>
-                        </span>
-                        
+                        Abnormality of the vertebral column
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000925" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000925">HP:0000925</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16752402" target="_blank">PMID:16752402</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"AOI and AOIII are autosomal dominant lethal skeletal dysplasias characterized by overlapping clinical findings that include vertebral abnormalities, disharmonious skeletal maturation, hypoplastic long bones, and joint dislocations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This multi-patient FLNB series supports vertebral abnormalities as a core AOI feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12454961" target="_blank">PMID:12454961</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fetal ultrasonography (US) revealed absent or deficient ossification of the posterior neural arches of the thoracic spine, humeri, radii, ulnae, fibulae, and short tubular bones other than the distal phalanges, in addition to extremely short, thick femora."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly documents deficient thoracic vertebral ossification in a prenatally diagnosed AOI fetus.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Platyspondyly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank">
-                            Platyspondyly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000926)</span>
-                        </span>
-                        
+                        Platyspondyly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000926">HP:0000926</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK2534/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK2534/</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Marked platyspondyly"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews lists marked platyspondyly among the clinical and radiographic features that should raise suspicion for FLNB-related AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pectus Excavatum
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank">
-                            Pectus excavatum
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000767)</span>
-                        </span>
-                        
+                        Pectus excavatum
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000767">HP:0000767</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both children had typical manifestations of AO type I, with severe rhizomelic shortening of the extremities, limited elbow and knee extension with mild webbing, pectus excavatum, broad thumbs with brachydactyly that was most marked for digits 3-5, dislocated hips and bilateral talipes equinovarus."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports pectus excavatum in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Thoracic Hypoplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005257" target="_blank">
-                            Thoracic hypoplasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005257)</span>
-                        </span>
-                        
+                        Thoracic hypoplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005257">HP:0005257</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK2534/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK2534/</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"On prenatal ultrasound examination, the findings of &lt;i&gt;FLNB&lt;/i&gt;-AO1 consist of thoracic hypoplasia and limb shortening with delayed or absent ossification of vertebral and appendicular elements."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies thoracic hypoplasia as part of the prenatal AOI pattern.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pulmonary Hypoplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank">
-                            Pulmonary hypoplasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002089)</span>
-                        </span>
-                        
+                        Pulmonary hypoplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002089">HP:0002089</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12454961" target="_blank">PMID:12454961</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fetal magnetic resonance imaging (MRI) using an ultrafast imaging sequence depicted dysmorphic features, pulmonary hypoplasia, and large cisterna magna."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This case provides direct evidence of pulmonary hypoplasia in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9779808" target="_blank">PMID:9779808</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pulmonary hypoplasia is a characteristic finding that has been presumed to be the cause of neonatal lethality."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports pulmonary hypoplasia as a characteristic and clinically important AOI complication.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Tracheomalacia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002779" target="_blank">
-                            Tracheomalacia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002779)</span>
-                        </span>
-                        
+                        Tracheomalacia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002779" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002779">HP:0002779</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9779808" target="_blank">PMID:9779808</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Detailed neonatal and postmortem examination showed severe subglottic hypoplasia and tracheomalacia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports tracheomalacia as part of the lethal airway phenotype in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Disproportionate Short-Limb Short Stature
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008873" target="_blank">
-                            Disproportionate short-limb short stature
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008873)</span>
-                        </span>
-                        
+                        Disproportionate short-limb short stature
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008873">HP:0008873</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24624349" target="_blank">PMID:24624349</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Atelosteogenesis type I (AO-I) is a rare lethal skeletal dysplastic disorder characterized by severe short-limbed dwarfism and dislocated hips, knees, and elbows."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports severe disproportionate short-limb short stature in AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Rhizomelia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank">
-                            Rhizomelia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008905)</span>
-                        </span>
-                        
+                        Rhizomelia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008905">HP:0008905</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both children had typical manifestations of AO type I, with severe rhizomelic shortening of the extremities, limited elbow and knee extension with mild webbing, pectus excavatum, broad thumbs with brachydactyly that was most marked for digits 3-5, dislocated hips and bilateral talipes equinovarus."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports proximal limb shortening as a characteristic AOI skeletal manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -5173,306 +5412,334 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     FLNB Pathogenic Variants
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FLNB
+
+
+    <a href="https://bioregistry.io/hgnc:3755" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3755">hgnc:3755</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16752402" target="_blank">PMID:16752402</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In this study, 14 novel missense mutations in FLNB were found in 15 unrelated patients with AOI and AOIII."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This provides direct human genetic evidence for causative FLNB mutations in AOI-spectrum disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Perinatal Palliative and Respiratory Support Planning
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">palliative care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000021" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000021</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000021" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000021">MAXO:0000021</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">There is no curative treatment for perinatal-lethal AOI. Management should focus on prenatal counseling, delivery planning, neonatal respiratory-support decisions, and comfort-centered care when airway and thoracic insufficiency make sustained ventilation non-beneficial.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9779808" target="_blank">PMID:9779808</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"anticipation of the poor prognosis in AO1 is essential for appropriate genetic counseling of the parents and for determining postnatal treatment options."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports prenatal planning and postnatal treatment decisions around AOI&#39;s poor prognosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The clinical course of one child was influenced by airway instability and bronchopulmonary dysplasia that complicated intubation and prevented separation from ventilator support."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates why neonatal respiratory support decisions in AOI require careful perinatal planning.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling and Parental Mosaicism Assessment
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling should explain dominant inheritance, the usual de novo origin of lethal AOI, and the residual recurrence risk from parental somatic or gonadal mosaicism. Parental FLNB testing is important when a parent has mild limb asymmetry or other subtle FLNB-spectrum findings.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30231296" target="_blank">PMID:30231296</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"parents affected with a mild phenotype, probably with somatic mosaicism, can generate offspring with a much more severe phenotype of AOI."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports counseling families that a mildly affected mosaic parent can have a child with lethal AOI.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30231296" target="_blank">PMID:30231296</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A missense mutation not previously described in the literature was detected in the FLNB gene, affecting ∼ 20% of the evaluated cells and, therefore, confirming the diagnosis of mosaic AOI in the father."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly supports parental molecular testing for suspected mosaicism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6363,169 +6630,169 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">7</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK2534/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK2534/</a>
                             </div>
-                            
+
                             <div class="reference-title">FLNB-Related Disorders - GeneReviews® - NCBI Bookshelf</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/16752402" target="_blank">PMID:16752402</a>
                             </div>
-                            
+
                             <div class="reference-title">Mutations in two regions of FLNB result in atelosteogenesis I and III.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/9779808" target="_blank">PMID:9779808</a>
                             </div>
-                            
+
                             <div class="reference-title">Prenatal ultrasonographic description and postnatal pathological findings in atelosteogenesis type 1.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/23401428" target="_blank">PMID:23401428</a>
                             </div>
-                            
+
                             <div class="reference-title">Clinical report: Two patients with atelosteogenesis type I caused by missense mutations affecting the same FLNB residue.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/24624349" target="_blank">PMID:24624349</a>
                             </div>
-                            
+
                             <div class="reference-title">Identification of a de novo heterozygous missense FLNB mutation in lethal atelosteogenesis type I by exome sequencing.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/35832491" target="_blank">PMID:35832491</a>
                             </div>
-                            
+
                             <div class="reference-title">Cell-Dependent Pathogenic Roles of Filamin B in Different Skeletal Malformations.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/30231296" target="_blank">PMID:30231296</a>
                             </div>
-                            
+
                             <div class="reference-title">Diagnosis of Atelosteogenesis Type I suggested by Fetal Ultrasonography and Atypical Paternal Phenotype with Mosaicism.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>OpenAI</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">**References:**</div>
-                            
-                            
+
+
                             <span class="report-badge">o3-deep-research-2025-06-26</span>
-                            
-                            
+
+
                             <span class="report-badge">69 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-03-03T23:47:13.422381</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p><strong>Overview:</strong> Atelosteogenesis type I (AOI) is a rare, perinatally lethal skeletal dysplasia characterized by incomplete bone formation (the term “atelosteogenesis” literally means “imperfect osteogenesis”) and severe disproportionate short stature (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3948826/#:~:text=achondrogenesis%2C%20osteogenesis%20imperfecta%20type%202%2C,3%20%2C%20%2014">pmc.ncbi.nlm.nih.gov</a>) (<a href="https://medlineplus.gov/genetics/condition/atelosteogenesis-type-1/#:~:text=Frequency">medlineplus.gov</a>). It belongs to a spectrum of filamin B (FLNB)–related osteochondrodysplasias that also includes atelosteogenesis type III, Larsen syndrome, and boomerang dysplasia (<a href="https://pubmed.ncbi.nlm.nih.gov/16752402/#:~:text=The%20filamins%20are%20a%20family,that%20alter%20the%20CH2%20domain">pubmed.ncbi.nlm.nih.gov</a>) (<a href="https://www.ncbi.nlm.nih.gov/books/NBK2534/#:~:text=FLNB%20cause%20a%20spectrum%20of,AO1%20spectrum">www.ncbi.nlm.nih.gov</a>). AOI is caused by heterozygous <strong>gain-of-function mutations in the FLNB gene</strong>, which encodes the cytoskeletal protein filamin B (<a href="https://pubmed.ncbi.nlm.nih.gov/16752402/#:~:text=scaffold%20for%20signaling%20molecules,In%20this%20study%2C%2014%20novel">pubmed.ncbi.nlm.nih.gov</a>) (<a href="https://medlineplus.gov/genetics/condition/atelosteogenesis-type-1/#:~:text=Mutations%20in%20the%20FLNB%20,will%20change%20as%20tissues%20grow">medlineplus.gov</a>). These mutations disrupt normal skeletal development and result in a distinctive set of bone abnormalities. Only a few dozen cases of AOI have been reported worldwide (<a href="https://medlineplus.gov/genetics/condition/atelosteogenesis-type-1/#:~:text=Frequency">medlineplus.gov</a>), underscoring its extreme rarity. </p>
 <p><strong>Pathophysiology:</strong> Filamin B is an actin-binding protein that stabilizes the cytoskeleton and plays a crucial role in endochondral ossification – the process by which cartilage is converted to bone during fetal development (<a href="https://medlineplus.gov/genetics/condition/atelosteogenesis-type-1/#:~:text=Filamin%20B%20is%20especially%20important,differentiation%29%20of">medlineplus.gov</a>). It is highly expressed in chondrocytes (cartilage-forming cells) and is essential for their proliferation, differentiation, and the formation of a normal growth plate (<a href="https://medlineplus.gov/genetics/condition/atelosteogenesis-type-1/#:~:text=Filamin%20B%20is%20especially%20important,differentiation%29%20of">medlineplus.gov</a>). <strong>In AOI, mutant FLNB proteins have an abnormal (gain-of-function) activity</strong> that perturbs cytoskeletal and signaling functions in developing cartilage (<a href="https://medlineplus.gov/genetics/condition/atelosteogenesis-type-1/#:~:text=FLNB%20gene%20mutations%20that%20cause,symptoms%20of%20atelosteogenesis%20type%201">medlineplus.gov</a>). The <strong>abnormal filamin B</strong> appears to acquire a new deleterious function that <strong>interferes with chondrocyte maturation and ossification</strong>, leading to <strong>delayed/incomplete mineralization of cartilage models and profound skeletal dysplasia</strong> (<a href="https://medlineplus.gov/genetics/condition/atelosteogenesis-type-1/#:~:text=FLNB%20gene%20mutations%20that%20cause,symptoms%20of%20atelosteogenesis%20type%201">medlineplus.gov</a>) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9273461/#:~:text=date%2C%20there%20have%20been%20more,Few%20articles%20reported%20the">pmc.ncbi.nlm.nih.gov</a>). Proposed mechanisms include <strong>marked delays in long bone ossification, reduced bone mineral density, and disorganized chondrocyte proliferation and apoptosis,</strong> as well as impaired cell motility in the growth plate (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9273461/#:~:text=date%2C%20there%20have%20been%20more,Few%20articles%20reported%20the">pmc.ncbi.nlm.nih.gov</a>). On a molecular level, different FLNB mutations may perturb cell signaling in variable ways; for example, one recent cell-based study showed distinct FLNB variants differentially affect pathways like AKT and TGF-β/Smad in cartilage cells, which contributes to the heterogeneous skeletal outcomes (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9273461/#:~:text=%28p,skeletal%20malformations%20but%20also%20worsen">pmc.ncbi.nlm.nih.gov</a>) (<a href="https://www.ncbi.nlm.nih.gov/books/NBK2534/#:~:text=,B">www.ncbi.nlm.nih.gov</a>). The end result of FLNB gain-of-function mutations is a severe <strong>failure of normal bone formation</strong>, especially in the spine and long bones, which explains the hallmark features of AOI (short, under-ossified bones with multiple deformities).</p>
@@ -6554,11 +6821,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
