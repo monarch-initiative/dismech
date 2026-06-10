@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>EDN3/EDNRB Waardenburg-Shah</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Genetic</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0019518" target="_blank">
                         MONDO:0019518
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Waardenburg Syndrome</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Hirschsprung Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Neurocristopathy</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,11 +2993,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 EDN3/EDNRB-related Waardenburg-Shah syndrome is a neural crest signaling-axis disorder in which reduced endothelin-3 ligand or endothelin receptor type B signaling impairs melanoblast and enteric neural crest development. Biallelic loss-of-function in EDNRB or EDN3 causes Waardenburg syndrome type 4A or 4B with sensorineural hearing loss, pigmentary abnormalities, and Hirschsprung disease. Heterozygous variants can contribute to incompletely penetrant disease or Hirschsprung/WS2-like susceptibility, especially for EDNRB, so this entry models the ligand-receptor axis with gene-specific inheritance and evidence notes.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2997,34 +3067,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3032,8 +3102,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3041,9 +3111,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3051,10 +3121,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3062,8 +3132,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3071,9 +3141,9 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3081,14 +3151,14 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3096,895 +3166,1040 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Biallelic EDNRB or EDN3 loss is the best-supported mechanism for WS4A/WS4B with Hirschsprung disease and auditory-pigmentary features.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
-    
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal dominant inheritance with incomplete penetrance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Heterozygous EDNRB, and more weakly EDN3, variants can contribute to incompletely penetrant WS/Hirschsprung susceptibility. ClinGen classifies these AD gene-disease assertions as Limited.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
+
+
         <span class="tag tag-classification">Penetrance: INCOMPLETE</span>
-        
-        
-        
-        
+
+
+
+
     </div>
-    
-    
-    
-                
-    
-    
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Semidominant endothelin-axis dosage
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0032113" target="_blank">
                             HP:0032113
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">The ligand-receptor axis is modeled as dosage-sensitive because biallelic defects cause classic WS4, while heterozygous variants can produce incomplete or susceptibility phenotypes.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Semidominant inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
-    
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">2</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Waardenburg Syndrome Type 4A
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010192" target="_blank">MONDO:0010192</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">EDNRB-related Waardenburg-Shah syndrome. The best-supported disease model is autosomal recessive loss of receptor function, with limited evidence for autosomal dominant or incompletely penetrant heterozygous presentations.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Waardenburg Syndrome Type 4B
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013201" target="_blank">MONDO:0013201</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">EDN3-related Waardenburg-Shah syndrome. The best-supported disease model is autosomal recessive ligand deficiency, with limited evidence for heterozygous contribution.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-edn3-ligand-and-ednrb-receptor-signaling-deficiency">
                 <div class="item-name">EDN3 ligand and EDNRB receptor signaling deficiency</div>
-                
+
                 <div class="item-desc">Pathogenic variants reduce endothelin-3 ligand availability, endothelin receptor type B function, or receptor-mediated signaling in neural crest-derived melanoblast and enteric precursor populations.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         melanoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000541" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000541" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000541">CL:0000541</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         enteric neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0007011">CL:0007011</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        EDN3
-                        
-                        <a href="https://bioregistry.io/hgnc:3178" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                    <span class="tag tag-gene">
-                        EDNRB
-                        
-                        <a href="https://bioregistry.io/hgnc:3180" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        EDN3
+
+
+    <a href="https://bioregistry.io/hgnc:3178" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3178">hgnc:3178</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        EDNRB
+
+
+    <a href="https://bioregistry.io/hgnc:3180" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3180">hgnc:3180</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Terminal migration defect of melanoblast and enteric precursors</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of endothelin signaling impairs terminal migration of melanoblast and enteric neural crest precursors.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11434563" target="_blank">PMID:11434563</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in the genes encoding the endothelin type-B receptor (EDNRB) and its physiological ligand endothelin 3 (EDN3) are now known to account for the majority of HSCR II patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes the ligand-receptor gene pair as the endothelin-axis cause of WS4/HSCR II phenotypes.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8630502" target="_blank">PMID:8630502</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"EDN3 thus becomes the third known gene (after RET and EDNRB) predisposing to HSCR, supporting the view that the endothelin-signaling pathways play a major role in the development of neural crests."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Links EDN3 to the same neural crest endothelin pathway as EDNRB.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-terminal-migration-defect-of-melanoblast-and-enteric-precursors">
                 <div class="item-name">Terminal migration defect of melanoblast and enteric precursors</div>
-                
+
                 <div class="item-desc">EDNRB-mediated signaling is required during a critical embryonic window for terminal migration of melanoblast and enteric neuron precursors, rather than for their initial specification from the neural crest.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         melanoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000541" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000541" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000541">CL:0000541</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         enteric neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0007011">CL:0007011</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neural crest cell migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001755">GO:0001755</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Stria vascularis and cutaneous melanocyte deficiency</span>
-	                            
+
 	                            <span class="crosslink-desc">Failed melanoblast migration reduces melanocytes in pigmentary and auditory tissues.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Enteric ganglion cell deficiency</span>
-	                            
+
 	                            <span class="crosslink-desc">Failed enteric precursor migration produces aganglionosis.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12812796" target="_blank">PMID:12812796</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"EDNRB signaling is exclusively required between E10.5 and E12.5 during the migratory phase of melanoblast and enteric neuroblast development."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mechanistically localizes EDNRB signaling to the migration phase of the affected neural crest-derived precursors.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stria-vascularis-and-cutaneous-melanocyte-deficiency">
                 <div class="item-name">Stria vascularis and cutaneous melanocyte deficiency</div>
-                
+
                 <div class="item-desc">Melanocyte deficiency in the epidermis, hair, iris, and cochlear stria vascularis produces the pigmentary and sensorineural hearing components of Waardenburg-Shah syndrome.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         melanocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         pigmentation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0043473" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0043473" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043473">GO:0043473</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         stria vascularis
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002282" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002282" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002282">UBERON:0002282</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16650841" target="_blank">PMID:16650841</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"double mutants present with a severe increase in white spotting, absence of melanocytes within the inner ear, and in the stria vascularis in particular, and more severe ENS defects."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports combined SOX10/endothelin-axis effects on pigmentation, cochlear melanocytes, and ENS development.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enteric-ganglion-cell-deficiency">
                 <div class="item-name">Enteric ganglion cell deficiency</div>
-                
+
                 <div class="item-desc">Reduced enteric neural crest colonization leaves distal bowel regions aganglionic, producing Hirschsprung disease.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         enteric neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0007011">CL:0007011</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ∅ ABSENT
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         enteric nervous system development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0048484" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048484" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048484">GO:0048484</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8001158" target="_blank">PMID:8001158</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hirschsprung&#39;s disease (HSCR) is characterized by an absence of enteric ganglia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines the enteric ganglion deficiency phenotype connected to EDNRB in the same report.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8630503" target="_blank">PMID:8630503</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here, we describe a mutation of the human gene for endothelin 3 (EDN3), homozygously present in a patient with a combined Waardenburg syndrome type 2 (WS2) and HSCR phenotype (Shah-Waardenburg syndrome)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes EDN3 mutation in combined Waardenburg and Hirschsprung disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-ednrb-susceptibility">
                 <div class="item-name">Heterozygous EDNRB susceptibility</div>
-                
+
                 <div class="item-desc">Heterozygous EDNRB variants can cause or contribute to WS2-like or WS4-like phenotypes with incomplete penetrance. This arm is modeled as a limited, dosage-sensitive susceptibility mechanism rather than the canonical AR WS4A mechanism.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        EDNRB
-                        
-                        <a href="https://bioregistry.io/hgnc:3180" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        EDNRB
+
+
+    <a href="https://bioregistry.io/hgnc:3180" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3180">hgnc:3180</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28236341" target="_blank">PMID:28236341</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"molecular segregation investigations unraveled a dominant mode of inheritance with incomplete penetrance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports incompletely penetrant heterozygous EDNRB disease contribution.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28236341" target="_blank">PMID:28236341</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We now estimate EDNRB mutations to be responsible for 5%-6% of WS2."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Quantifies the reported contribution of heterozygous EDNRB variants to WS2 in this cohort study.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3995,218 +4210,224 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"EDN3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EDN3\"], \"subtypes\": [\"Waardenburg Syndrome Type 4B\"], \"association\": \"Causative\"}}, {\"id\": \"EDN3 ligand and EDNRB receptor signaling deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants reduce endothelin-3 ligand availability, endothelin receptor type B function, or receptor-mediated signaling in neural crest-derived melanoblast and enteric precursor populations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"melanoblast\", \"enteric neuron\"], \"genes\": [\"EDN3\", \"EDNRB\"]}}, {\"id\": \"EDNRB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EDNRB\"], \"subtypes\": [\"Waardenburg Syndrome Type 4A\"], \"association\": \"Causative and incompletely penetrant susceptibility\"}}, {\"id\": \"Enteric ganglion cell deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced enteric neural crest colonization leaves distal bowel regions aganglionic, producing Hirschsprung disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"enteric neuron\"], \"biological_processes\": [\"enteric nervous system development\"]}}, {\"id\": \"Heterozygous EDNRB susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous EDNRB variants can cause or contribute to WS2-like or WS4-like phenotypes with incomplete penetrance. This arm is modeled as a limited, dosage-sensitive susceptibility mechanism rather than the canonical AR WS4A mechanism.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"EDNRB\"]}}, {\"id\": \"Stria vascularis and cutaneous melanocyte deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Melanocyte deficiency in the epidermis, hair, iris, and cochlear stria vascularis produces the pigmentary and sensorineural hearing components of Waardenburg-Shah syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"pigmentation\"], \"locations\": [\"stria vascularis\"]}}, {\"id\": \"Terminal migration defect of melanoblast and enteric precursors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EDNRB-mediated signaling is required during a critical embryonic window for terminal migration of melanoblast and enteric neuron precursors, rather than for their initial specification from the neural crest.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanoblast\", \"enteric neuron\"], \"biological_processes\": [\"neural crest cell migration\"]}}], \"edges\": [{\"source\": \"EDN3 ligand and EDNRB receptor signaling deficiency\", \"target\": \"Terminal migration defect of melanoblast and enteric precursors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of endothelin signaling impairs terminal migration of melanoblast and enteric neural crest precursors.\"}, {\"source\": \"Terminal migration defect of melanoblast and enteric precursors\", \"target\": \"Stria vascularis and cutaneous melanocyte deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed melanoblast migration reduces melanocytes in pigmentary and auditory tissues.\"}, {\"source\": \"Terminal migration defect of melanoblast and enteric precursors\", \"target\": \"Enteric ganglion cell deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed enteric precursor migration produces aganglionosis.\"}, {\"source\": \"EDNRB\", \"target\": \"EDN3 ligand and EDNRB receptor signaling deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EDNRB\", \"target\": \"Heterozygous EDNRB susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EDN3\", \"target\": \"EDN3 ligand and EDNRB receptor signaling deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"EDN3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EDN3\"], \"gene_terms\": [{\"label\": \"EDN3\", \"id\": \"hgnc:3178\"}], \"subtypes\": [\"Waardenburg Syndrome Type 4B\"], \"association\": \"Causative\"}}, {\"id\": \"EDN3 ligand and EDNRB receptor signaling deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants reduce endothelin-3 ligand availability, endothelin receptor type B function, or receptor-mediated signaling in neural crest-derived melanoblast and enteric precursor populations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"melanoblast\", \"enteric neuron\"], \"genes\": [\"EDN3\", \"EDNRB\"], \"gene_terms\": [{\"label\": \"EDN3\", \"id\": \"hgnc:3178\"}, {\"label\": \"EDNRB\", \"id\": \"hgnc:3180\"}]}}, {\"id\": \"EDNRB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EDNRB\"], \"gene_terms\": [{\"label\": \"EDNRB\", \"id\": \"hgnc:3180\"}], \"subtypes\": [\"Waardenburg Syndrome Type 4A\"], \"association\": \"Causative and incompletely penetrant susceptibility\"}}, {\"id\": \"Enteric ganglion cell deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced enteric neural crest colonization leaves distal bowel regions aganglionic, producing Hirschsprung disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"enteric neuron\"], \"biological_processes\": [\"enteric nervous system development\"]}}, {\"id\": \"Heterozygous EDNRB susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous EDNRB variants can cause or contribute to WS2-like or WS4-like phenotypes with incomplete penetrance. This arm is modeled as a limited, dosage-sensitive susceptibility mechanism rather than the canonical AR WS4A mechanism.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"EDNRB\"], \"gene_terms\": [{\"label\": \"EDNRB\", \"id\": \"hgnc:3180\"}]}}, {\"id\": \"Stria vascularis and cutaneous melanocyte deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Melanocyte deficiency in the epidermis, hair, iris, and cochlear stria vascularis produces the pigmentary and sensorineural hearing components of Waardenburg-Shah syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"pigmentation\"], \"locations\": [\"stria vascularis\"]}}, {\"id\": \"Terminal migration defect of melanoblast and enteric precursors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EDNRB-mediated signaling is required during a critical embryonic window for terminal migration of melanoblast and enteric neuron precursors, rather than for their initial specification from the neural crest.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanoblast\", \"enteric neuron\"], \"biological_processes\": [\"neural crest cell migration\"]}}], \"edges\": [{\"source\": \"EDN3 ligand and EDNRB receptor signaling deficiency\", \"target\": \"Terminal migration defect of melanoblast and enteric precursors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of endothelin signaling impairs terminal migration of melanoblast and enteric neural crest precursors.\"}, {\"source\": \"Terminal migration defect of melanoblast and enteric precursors\", \"target\": \"Stria vascularis and cutaneous melanocyte deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed melanoblast migration reduces melanocytes in pigmentary and auditory tissues.\"}, {\"source\": \"Terminal migration defect of melanoblast and enteric precursors\", \"target\": \"Enteric ganglion cell deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed enteric precursor migration produces aganglionosis.\"}, {\"source\": \"EDNRB\", \"target\": \"EDN3 ligand and EDNRB receptor signaling deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EDNRB\", \"target\": \"Heterozygous EDNRB susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EDN3\", \"target\": \"EDN3 ligand and EDNRB receptor signaling deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">3</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sensorineural hearing impairment
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank">
-                            Sensorineural hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000407)</span>
-                        </span>
-                        
+                        Sensorineural hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_d7abbd45-7915-437b-849b-dea876bfc2f5-2023-06-27T160000.000Z" target="_blank">CGGV:assertion_d7abbd45-7915-437b-849b-dea876bfc2f5-2023-06-27T160000.000Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This condition is associated with sensorineural hearing loss; atypical pigmentation of the hair, skin, and eyes; and Hirschsprung’s disease (aganglionic megacolon)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen summarizes sensorineural hearing loss as part of the EDNRB WS4A phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Aganglionic megacolon
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank">
-                            Aganglionic megacolon
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002251)</span>
-                        </span>
-                        
+                        Aganglionic megacolon
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002251">HP:0002251</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11434563" target="_blank">PMID:11434563</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"WS type 4 (WS4), or Shah-Waardenburg syndrome, is also known as Hirschsprung disease Type II (HSCR II) and is characterized by an absence of epidermal melanocytes and enteric ganglia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines WS4 as combined melanocyte and enteric ganglion deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pigmentary abnormality
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11434563" target="_blank">PMID:11434563</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"characterized by an absence of epidermal melanocytes and enteric ganglia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Links EDN3/EDNRB-associated WS4 to epidermal melanocyte deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4231,138 +4452,174 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     EDNRB
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative and incompletely penetrant susceptibility)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: EDNRB
+
+
+    <a href="https://bioregistry.io/hgnc:3180" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3180">hgnc:3180</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8001158" target="_blank">PMID:8001158</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We recently mapped a recessive susceptibility locus (HSCR2) to human chromosome 13q22, which we now demonstrate to be the endothelin-B receptor gene (EDNRB)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Original EDNRB human disease mapping in Hirschsprung disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     EDN3
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: EDN3
+
+
+    <a href="https://bioregistry.io/hgnc:3178" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3178">hgnc:3178</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8630502" target="_blank">PMID:8630502</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here, we report a homozygous substitution/deletion mutation of the EDN3 gene in a WS-HSCR patient."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes homozygous EDN3 mutation in Waardenburg-Hirschsprung disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4806,40 +5063,40 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Characteristics Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
-                            
+
+
+
                             <span class="report-meta-text">2026-05-28T12:28:40.461410</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -5402,11 +5659,11 @@ For each section, provide:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

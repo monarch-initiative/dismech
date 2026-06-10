@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,20 +2961,20 @@
         <header class="page-header">
             <h1>IRX5-related craniofacial dysostosis with osteopenia, intellectual disability, and dental anomalies</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0012634" target="_blank">
                         MONDO:0012634
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
-                
-                
+
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2917,11 +2987,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 IRX5-related craniofacial dysostosis with osteopenia, intellectual disability, and dental anomalies is a very rare autosomal recessive developmental disorder in the Hamamy syndrome spectrum caused by biallelic deleterious variants in IRX5, which encodes the homeobox transcription factor IRX5. The syndrome combines distinctive craniofacial dysmorphism with dental enamel or dentin defects, osteopenia with bone fragility, severe myopia, and variable developmental delay or intellectual disability. Current mechanistic evidence supports impaired craniofacial progenitor migration via dysregulated SDF1/CXCL12 signaling together with defective osteogenic differentiation and cranial mineralization.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2991,36 +3061,36 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3028,8 +3098,8 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#definitions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📘</div>
@@ -3037,8 +3107,8 @@
                 <div class="stat-label">Definitions</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3046,8 +3116,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3055,9 +3125,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3065,10 +3135,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3076,8 +3146,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3085,8 +3155,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3094,15 +3164,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3110,743 +3180,813 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0012634" target="_blank">MONDO:0012634</a>
-                        
-                        
+
+
                         <span class="mapping-label">craniofacial dysplasia - osteopenia syndrome</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">MONDO</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">The current public MONDO anchor remains MONDO:0012634 with the older label craniofacial dysplasia - osteopenia syndrome; the preferred term in this entry follows the more explicit IRX5-related phrasing used in recent gene-disease curation and the cited MONDO NTR context.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
-            
-            
+
+
+
+
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
         <div class="card" id="definitions">
             <div class="card-header">
                 <div class="card-icon" style="background: #cffafe; color: #0e7490;">📘</div>
                 <h2 class="card-title">Definitions</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">Clinical disease framing for IRX5-related craniofacial dysostosis</div>
-                
+
                 <div class="item-desc">IRX5-related craniofacial dysostosis is a recessive multisystem developmental syndrome characterized by severe hypertelorism or telecanthus, dental anomalies, osteopenia with fractures, severe myopia, and variable neurodevelopmental impairment.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">CASE_DEFINITION</span>
-                    
-                    
+
+
                     <span class="tag tag-parent">Disease-level clinical framing for the Hamamy syndrome / IRX5 deficiency spectrum</span>
-                    
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on two brothers, born to double first cousin Jordanian Arab parents, with a syndrome comprising severe hypertelorism with upslanted palpebral fissures, brachycephaly, abnormal ears, sloping shoulders, enamel hypoplasia, and osteopenia with repeated fractures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The original clinical report defines the recognizable craniofacial, dental, and skeletal syndrome later molecularly linked to IRX5.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34899143" target="_blank">PMID:34899143</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on 2 cousins, a girl and a boy, born to first-cousin Lebanese parents with Hamamy syndrome, exhibiting developmental delay, intellectual disability, severe telecanthus, abnormal ears, dentinogenesis imperfecta, and bone fragility."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This later family report confirms the same syndrome core and broadens the clinical spectrum to include explicit intellectual disability and dentinogenesis imperfecta.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">Molecular definition for IRX5-related craniofacial dysostosis</div>
-                
+
                 <div class="item-desc">Molecularly, this entry captures biallelic deleterious IRX5 variants that impair homeodomain transcription-factor function and disrupt embryonic craniofacial and skeletal developmental programs.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">DIAGNOSTIC_CRITERIA</span>
-                    
-                    
+
+
                     <span class="tag tag-parent">Molecular anchoring of the IRX5 developmental disorder branch</span>
-                    
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22581230" target="_blank">PMID:22581230</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using homozygosity mapping and locus resequencing, we found that alterations in the homeodomain of the IRX5 transcription factor cause a recessive congenital disorder affecting face, brain, blood, heart, bone and gonad development."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This discovery paper directly establishes IRX5 homeodomain dysfunction as the molecular lesion underlying the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Reported affected individuals come from consanguineous families and carry homozygous missense IRX5 variants, supporting autosomal recessive inheritance.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22581230" target="_blank">PMID:22581230</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using homozygosity mapping and locus resequencing, we found that alterations in the homeodomain of the IRX5 transcription factor cause a recessive congenital disorder affecting face, brain, blood, heart, bone and gonad development."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The discovery paper explicitly characterizes the disorder as recessive and links it to homozygous IRX5 variants.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-irx5-homeodomain-dysfunction">
                 <div class="item-name">Biallelic IRX5 homeodomain dysfunction</div>
-                
+
                 <div class="item-desc">Homozygous deleterious variants impair IRX5, a developmental homeobox transcription factor that coordinates embryonic patterning across cranial, skeletal, and other organ systems.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        IRX5
+
+
+    <a href="https://bioregistry.io/hgnc:14361" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14361">hgnc:14361</a>
+
+
+
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired cranial neural crest and branchial arch progenitor migration</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of IRX5-mediated repression of SDF1/CXCL12 perturbs migratory developmental programs needed for normal craniofacial morphogenesis.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired osteoblast maturation and cranial mineralization</span>
-	                            
+
 	                            <span class="crosslink-desc">IRX5 deficiency disrupts osteogenic maturation programs and the mineralization of specific cranial bones.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cardiac Nav1.5 and Connexin 40 misregulation</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of IRX5 impairs ventricular conduction programs by disrupting regulation of Nav1.5, Connexin 40, and SCN5A expression in cardiomyocytes.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22581230" target="_blank">PMID:22581230</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using homozygosity mapping and locus resequencing, we found that alterations in the homeodomain of the IRX5 transcription factor cause a recessive congenital disorder affecting face, brain, blood, heart, bone and gonad development."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This provides the proximal causal lesion for the disease mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34899143" target="_blank">PMID:34899143</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Whole-exome sequencing studies performed on the 2 affected individuals and one obligate carrier revealed the presence of a homozygous c.503G&gt;A (p.Arg168His) missense mutation in IRX5 in both sibs, not reported in any other family."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Independent familial confirmation supports recurrent biallelic IRX5 involvement in the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cranial-neural-crest-and-branchial-arch-progenitor-migration">
                 <div class="item-name">Impaired cranial neural crest and branchial arch progenitor migration</div>
-                
+
                 <div class="item-desc">Aberrant embryonic migration in craniofacial progenitor populations disrupts facial patterning and contributes to the distinctive craniofacial anomaly spectrum.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neural crest cell migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001755">GO:0001755</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Craniofacial developmental defect</span>
-	                            
+
 	                            <span class="crosslink-desc">Disturbed craniofacial patterning manifests as severe hypertelorism or telecanthus, brachycephaly, midface prominence, and related facial anomalies.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22581230" target="_blank">PMID:22581230</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We found through in vivo modeling in Xenopus laevis embryos that Irx5 modulates the migration of progenitor cell populations in branchial arches and gonads by repressing Sdf1."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This provides the mechanistic bridge from IRX5 loss to abnormal craniofacial progenitor migration.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-osteoblast-maturation-and-cranial-mineralization">
                 <div class="item-name">Impaired osteoblast maturation and cranial mineralization</div>
-                
+
                 <div class="item-desc">IRX5 loss impairs osteogenic differentiation and later mineralization programs, especially in cranial bones, producing a low-mineralization / bone-fragility phenotype.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         osteoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         osteoblast differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001649">GO:0001649</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         ossification
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001503">GO:0001503</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Osteopenia and bone fragility</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced mineralization lowers bone density and predisposes to repeated fractures and long-bone fragility.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32662900" target="_blank">PMID:32662900</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Irx3 and Irx5 null mutants display severe bone deficiency in newborn and adult stages."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse skeletal data support a direct requirement for IRX5 in normal bone formation and maintenance.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27453922" target="_blank">PMID:27453922</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our findings indicate that IRX3 and IRX5 can work together to regulate mineralization of specific cranial bones."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports a specific cranial mineralization defect downstream of IRX5 dysfunction.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="graph-warning">
                 <strong>Referential integrity issues (3):</strong>
                 <ul>
-                    
+
                     <li>Target &#39;Cardiac Nav1.5 and Connexin 40 misregulation&#39; (from &#39;Biallelic IRX5 homeodomain dysfunction&#39;) not found in named elements</li>
-                    
+
                     <li>Target &#39;Craniofacial developmental defect&#39; (from &#39;Impaired cranial neural crest and branchial arch progenitor migration&#39;) not found in named elements</li>
-                    
+
                     <li>Target &#39;Osteopenia and bone fragility&#39; (from &#39;Impaired osteoblast maturation and cranial mineralization&#39;) not found in named elements</li>
-                    
-                    
+
+
                 </ul>
             </div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3857,655 +3997,685 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic IRX5 homeodomain dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous deleterious variants impair IRX5, a developmental homeobox transcription factor that coordinates embryonic patterning across cranial, skeletal, and other organ systems.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"IRX5\"]}}, {\"id\": \"Cardiac Nav1.5 and Connexin 40 misregulation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Craniofacial developmental defect\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"IRX5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IRX5\"], \"association\": \"Causal biallelic deleterious variant\"}}, {\"id\": \"Impaired cranial neural crest and branchial arch progenitor migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant embryonic migration in craniofacial progenitor populations disrupts facial patterning and contributes to the distinctive craniofacial anomaly spectrum.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neural crest cell migration\"]}}, {\"id\": \"Impaired osteoblast maturation and cranial mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IRX5 loss impairs osteogenic differentiation and later mineralization programs, especially in cranial bones, producing a low-mineralization / bone-fragility phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\", \"ossification\"]}}, {\"id\": \"Osteopenia and bone fragility\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Biallelic IRX5 homeodomain dysfunction\", \"target\": \"Impaired cranial neural crest and branchial arch progenitor migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IRX5-mediated repression of SDF1/CXCL12 perturbs migratory developmental programs needed for normal craniofacial morphogenesis.\"}, {\"source\": \"Biallelic IRX5 homeodomain dysfunction\", \"target\": \"Impaired osteoblast maturation and cranial mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IRX5 deficiency disrupts osteogenic maturation programs and the mineralization of specific cranial bones.\"}, {\"source\": \"Biallelic IRX5 homeodomain dysfunction\", \"target\": \"Cardiac Nav1.5 and Connexin 40 misregulation\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Loss of IRX5 impairs ventricular conduction programs by disrupting regulation of Nav1.5, Connexin 40, and SCN5A expression in cardiomyocytes.\"}, {\"source\": \"Impaired cranial neural crest and branchial arch progenitor migration\", \"target\": \"Craniofacial developmental defect\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Disturbed craniofacial patterning manifests as severe hypertelorism or telecanthus, brachycephaly, midface prominence, and related facial anomalies.\"}, {\"source\": \"Impaired osteoblast maturation and cranial mineralization\", \"target\": \"Osteopenia and bone fragility\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Reduced mineralization lowers bone density and predisposes to repeated fractures and long-bone fragility.\"}, {\"source\": \"IRX5\", \"target\": \"Biallelic IRX5 homeodomain dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Cardiac Nav1.5 and Connexin 40 misregulation\", \"Craniofacial developmental defect\", \"Osteopenia and bone fragility\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic IRX5 homeodomain dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous deleterious variants impair IRX5, a developmental homeobox transcription factor that coordinates embryonic patterning across cranial, skeletal, and other organ systems.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"IRX5\"], \"gene_terms\": [{\"label\": \"IRX5\", \"id\": \"hgnc:14361\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Cardiac Nav1.5 and Connexin 40 misregulation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Craniofacial developmental defect\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"IRX5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IRX5\"], \"gene_terms\": [{\"label\": \"IRX5\", \"id\": \"hgnc:14361\"}], \"association\": \"Causal biallelic deleterious variant\"}}, {\"id\": \"Impaired cranial neural crest and branchial arch progenitor migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant embryonic migration in craniofacial progenitor populations disrupts facial patterning and contributes to the distinctive craniofacial anomaly spectrum.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neural crest cell migration\"]}}, {\"id\": \"Impaired osteoblast maturation and cranial mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IRX5 loss impairs osteogenic differentiation and later mineralization programs, especially in cranial bones, producing a low-mineralization / bone-fragility phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\", \"ossification\"]}}, {\"id\": \"Osteopenia and bone fragility\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Biallelic IRX5 homeodomain dysfunction\", \"target\": \"Impaired cranial neural crest and branchial arch progenitor migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IRX5-mediated repression of SDF1/CXCL12 perturbs migratory developmental programs needed for normal craniofacial morphogenesis.\"}, {\"source\": \"Biallelic IRX5 homeodomain dysfunction\", \"target\": \"Impaired osteoblast maturation and cranial mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IRX5 deficiency disrupts osteogenic maturation programs and the mineralization of specific cranial bones.\"}, {\"source\": \"Biallelic IRX5 homeodomain dysfunction\", \"target\": \"Cardiac Nav1.5 and Connexin 40 misregulation\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Loss of IRX5 impairs ventricular conduction programs by disrupting regulation of Nav1.5, Connexin 40, and SCN5A expression in cardiomyocytes.\"}, {\"source\": \"Impaired cranial neural crest and branchial arch progenitor migration\", \"target\": \"Craniofacial developmental defect\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Disturbed craniofacial patterning manifests as severe hypertelorism or telecanthus, brachycephaly, midface prominence, and related facial anomalies.\"}, {\"source\": \"Impaired osteoblast maturation and cranial mineralization\", \"target\": \"Osteopenia and bone fragility\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Reduced mineralization lowers bone density and predisposes to repeated fractures and long-bone fragility.\"}, {\"source\": \"IRX5\", \"target\": \"Biallelic IRX5 homeodomain dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Cardiac Nav1.5 and Connexin 40 misregulation\", \"Craniofacial developmental defect\", \"Osteopenia and bone fragility\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">10</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sensorineural hearing impairment
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank">
-                            Sensorineural hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000407)</span>
-                        </span>
-                        
+                        Sensorineural hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both have severe myopia, mild to moderate sensori-neural hearing loss and borderline intelligence."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The original family report directly supports sensorineural hearing impairment in affected individuals.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypertelorism
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank">
-                            Hypertelorism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000316)</span>
-                        </span>
-                        
+                        Hypertelorism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on two brothers, born to double first cousin Jordanian Arab parents, with a syndrome comprising severe hypertelorism with upslanted palpebral fissures, brachycephaly, abnormal ears, sloping shoulders, enamel hypoplasia, and osteopenia with repeated fractures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The original report directly identifies severe hypertelorism as a core craniofacial phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         High myopia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank">
-                            High myopia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011003)</span>
-                        </span>
-                        
+                        High myopia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011003">HP:0011003</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both have severe myopia, mild to moderate sensori-neural hearing loss and borderline intelligence."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports high myopia as part of the syndrome phenotype set.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Brachycephaly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank">
-                            Brachycephaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000248)</span>
-                        </span>
-                        
+                        Brachycephaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000248">HP:0000248</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on two brothers, born to double first cousin Jordanian Arab parents, with a syndrome comprising severe hypertelorism with upslanted palpebral fissures, brachycephaly, abnormal ears, sloping shoulders, enamel hypoplasia, and osteopenia with repeated fractures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The original Hamamy syndrome report directly includes brachycephaly among the defining craniofacial findings.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Enamel hypoplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank">
-                            Enamel hypoplasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006297)</span>
-                        </span>
-                        
+                        Enamel hypoplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006297">HP:0006297</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on two brothers, born to double first cousin Jordanian Arab parents, with a syndrome comprising severe hypertelorism with upslanted palpebral fissures, brachycephaly, abnormal ears, sloping shoulders, enamel hypoplasia, and osteopenia with repeated fractures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The original Hamamy syndrome report directly identifies enamel hypoplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Dentinogenesis imperfecta
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000703" target="_blank">
-                            Dentinogenesis imperfecta
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000703)</span>
-                        </span>
-                        
+                        Dentinogenesis imperfecta
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000703" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000703">HP:0000703</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34899143" target="_blank">PMID:34899143</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on 2 cousins, a girl and a boy, born to first-cousin Lebanese parents with Hamamy syndrome, exhibiting developmental delay, intellectual disability, severe telecanthus, abnormal ears, dentinogenesis imperfecta, and bone fragility."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This follow-up family report adds direct human evidence for dentinogenesis imperfecta as part of the dental phenotype spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Osteopenia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank">
-                            Osteopenia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000938)</span>
-                        </span>
-                        
+                        Osteopenia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000938">HP:0000938</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on two brothers, born to double first cousin Jordanian Arab parents, with a syndrome comprising severe hypertelorism with upslanted palpebral fissures, brachycephaly, abnormal ears, sloping shoulders, enamel hypoplasia, and osteopenia with repeated fractures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This is direct human evidence for generalized osteopenia in the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intellectual disability
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
-                            Intellectual disability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001249)</span>
-                        </span>
-                        
+                        Intellectual disability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34899143" target="_blank">PMID:34899143</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on 2 cousins, a girl and a boy, born to first-cousin Lebanese parents with Hamamy syndrome, exhibiting developmental delay, intellectual disability, severe telecanthus, abnormal ears, dentinogenesis imperfecta, and bone fragility."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This later family report explicitly supports intellectual disability as part of the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Attention deficit hyperactivity disorder
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank">
-                            Attention deficit hyperactivity disorder
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0007018)</span>
-                        </span>
-                        
+                        Attention deficit hyperactivity disorder
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007018">HP:0007018</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30729910" target="_blank">PMID:30729910</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The patient was diagnosed with a DSM-V Language Disorder, Speech Sound Disorder, and Attention Deficit/Hyperactivity Disorder, combined presentation, in the context of low-average intelligence."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This case-level evidence supports ADHD as an additional neurodevelopmental feature to consider without generalizing frequency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Prolonged QRS complex
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006677" target="_blank">
-                            Prolonged QRS complex
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006677)</span>
-                        </span>
-                        
+                        Prolonged QRS complex
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006677">HP:0006677</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32898233" target="_blank">PMID:32898233</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In accordance with the prolonged QRS interval observed in Hamamy syndrome patients, a slower ventricular action potential depolarization due to sodium current reduction was observed on electrophysiological analyses performed on patient-derived cardiomyocytes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports prolonged QRS as a documented, clinically actionable cardiac phenotype in IRX5-related Hamamy syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4530,677 +4700,730 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     IRX5
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal biallelic deleterious variant)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IRX5
+
+
+    <a href="https://bioregistry.io/hgnc:14361" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14361">hgnc:14361</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22581230" target="_blank">PMID:22581230</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using homozygosity mapping and locus resequencing, we found that alterations in the homeodomain of the IRX5 transcription factor cause a recessive congenital disorder affecting face, brain, blood, heart, bone and gonad development."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This establishes biallelic IRX5 homeodomain variants as causal for the recessive disorder.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Dental restorative and preventive care
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Dental surveillance, preventive enamel protection, restorative treatment, and orthodontic or craniofacial dental referral address enamel hypoplasia, dentinogenesis imperfecta, and related eruption or occlusion problems.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34899143" target="_blank">PMID:34899143</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on 2 cousins, a girl and a boy, born to first-cousin Lebanese parents with Hamamy syndrome, exhibiting developmental delay, intellectual disability, severe telecanthus, abnormal ears, dentinogenesis imperfecta, and bone fragility."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports dental-focused management by documenting dentinogenesis imperfecta as part of the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Bone health management
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">vitamin D supplementation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000110" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000110</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000110" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000110">MAXO:0000110</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Monitor fracture history and bone density, optimize calcium and vitamin D, implement fall and fracture prevention, and consider pediatric bone specialist input or bisphosphonate therapy for recurrent clinically significant fractures.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on two brothers, born to double first cousin Jordanian Arab parents, with a syndrome comprising severe hypertelorism with upslanted palpebral fissures, brachycephaly, abnormal ears, sloping shoulders, enamel hypoplasia, and osteopenia with repeated fractures."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports bone-directed management because osteopenia and repeated fractures are defining manifestations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Vision correction and ophthalmology follow-up
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">glasses usage</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0025004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0025004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0025004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0025004">MAXO:0025004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Corrective lenses, ophthalmology follow-up, and low-vision supports when needed address severe myopia and its complications.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both have severe myopia, mild to moderate sensori-neural hearing loss and borderline intelligence."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports vision-directed care because severe myopia is documented in affected individuals.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hearing support
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">hearing aid usage</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0009030" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0009030</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0009030" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0009030">MAXO:0009030</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Audiology follow-up, hearing aids when indicated, and speech or language support address sensorineural hearing impairment.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17230486" target="_blank">PMID:17230486</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both have severe myopia, mild to moderate sensori-neural hearing loss and borderline intelligence."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports hearing-directed care because sensorineural hearing loss is part of the reported phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Neurodevelopmental and educational supports
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">speech therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000930</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000930">MAXO:0000930</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Early intervention, speech therapy, school-based supports, cognitive testing, and behavioral assessment address developmental delay, intellectual disability, language needs, and attention or learning concerns.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34899143" target="_blank">PMID:34899143</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report on 2 cousins, a girl and a boy, born to first-cousin Lebanese parents with Hamamy syndrome, exhibiting developmental delay, intellectual disability, severe telecanthus, abnormal ears, dentinogenesis imperfecta, and bone fragility."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports neurodevelopmental support planning by documenting developmental delay and intellectual disability.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30729910" target="_blank">PMID:30729910</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We make recommendations for early identification of cognitive strengths and weaknesses, and interventions to address them."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports individualized educational and developmental interventions after neuropsychological assessment.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cardiac conduction monitoring
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">electrocardiography</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000900" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000900</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000900" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000900">MAXO:0000900</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">ECG surveillance and cardiology review are appropriate when QRS prolongation or other conduction abnormalities are detected; medication review should consider ventricular conduction risk.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32898233" target="_blank">PMID:32898233</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In accordance with the prolonged QRS interval observed in Hamamy syndrome patients, a slower ventricular action potential depolarization due to sodium current reduction was observed on electrophysiological analyses performed on patient-derived cardiomyocytes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports ongoing cardiac conduction monitoring after a conduction abnormality is recognized.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Counsel families about autosomal recessive inheritance, consanguinity, carrier testing, recurrence risk, and reproductive options.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22581230" target="_blank">PMID:22581230</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using homozygosity mapping and locus resequencing, we found that alterations in the homeodomain of the IRX5 transcription factor cause a recessive congenital disorder affecting face, brain, blood, heart, bone and gonad development."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports recessive-inheritance counseling for affected families.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6166,27 +6389,27 @@ treatments:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>IRX5-related craniofacial dysostosis with osteopenia, intellectual disability, and dental anomalies</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h1>IRX5-related craniofacial dysostosis with osteopenia, intellectual disability, and dental anomalies</h1>
 <p>Date: 2026-04-16</p>
@@ -6330,11 +6553,11 @@ IRX5-associated Hamamy syndrome spectrum with emphasis on:</p>
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
